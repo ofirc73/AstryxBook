@@ -1,9 +1,16 @@
 import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("jacoco")
+}
+
+configure<JacocoPluginExtension> {
+    toolVersion = "0.8.12"
 }
 
 kotlin {
@@ -36,7 +43,11 @@ extensions.configure<ApplicationExtension> {
             )
             signingConfig = signingConfigs.getByName("debug")
         }
-        debug { applicationIdSuffix = ".test" }
+        debug {
+            applicationIdSuffix = ".test"
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -85,4 +96,41 @@ tasks.withType<Test>().configureEach {
     filter {
         excludeTestsMatching("com.eepiemi.materialbook.AdblockTest")
     }
+}
+
+// Combines unit-test + instrumented-test coverage into one report. Both test
+// types run as separate CI jobs on separate runners (see ci.yml), so this
+// task only *depends on* testDebugUnitTest (regenerates its own .exec fresh,
+// cheap, ~30s) — the instrumented .ec file can't be regenerated without a
+// device, so ci.yml downloads it as an artifact into place before this runs.
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    group = "Reporting"
+    description = "Generates a combined Jacoco coverage report (unit + instrumented tests)."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    val fileFilter = listOf(
+        "**/R.class", "**/R\$*.class", "**/BuildConfig.*", "**/Manifest*.*",
+        "**/*Test*.*", "android/**/*.*",
+        "**/*\$Lambda\$*.*", "**/*\$inlined\$*.*"
+    )
+
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+            exclude(fileFilter)
+        }
+    )
+    sourceDirectories.setFrom(files("$projectDir/src/main/java"))
+    executionData.setFrom(
+        fileTree(layout.buildDirectory.get().asFile) {
+            include(
+                "jacoco/testDebugUnitTest.exec",
+                "outputs/code_coverage/debugAndroidTest/connected/**/*.ec"
+            )
+        }
+    )
 }
