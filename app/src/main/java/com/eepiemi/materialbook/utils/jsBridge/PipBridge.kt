@@ -3,14 +3,17 @@ package com.eepiemi.materialbook.utils.jsBridge
 import android.webkit.JavascriptInterface
 
 /**
- * Reports whether any <video> element on the page is currently playing, so
- * MainActivity can decide whether to enter Picture-in-Picture when the user
- * leaves the app. See Activity-PiP-for-video-currently-playing.md for the
- * design this implements.
+ * Reports the currently active video state so the activity can decide when to
+ * enter PiP and how to size the floating window.
  */
-class PipBridge(private val onVideoPlayingChanged: (Boolean) -> Unit) {
+class PipBridge(private val onVideoStateChanged: (Boolean, Int, Int) -> Unit) {
     @JavascriptInterface
     fun setVideoPlaying(isPlaying: Boolean) {
-        onVideoPlayingChanged(isPlaying)
+        onVideoStateChanged(isPlaying, 0, 0)
+    }
+
+    @JavascriptInterface
+    fun setVideoState(isPlaying: Boolean, videoWidth: Int, videoHeight: Int) {
+        onVideoStateChanged(isPlaying, videoWidth, videoHeight)
     }
 }

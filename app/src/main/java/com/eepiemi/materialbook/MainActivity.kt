@@ -26,6 +26,9 @@ class MainActivity : ComponentActivity() {
     @Volatile
     private var isVideoPlaying = false
 
+    @Volatile
+    private var currentAspectRatio = Rational(16, 9)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enableEdgeToEdge()
@@ -38,9 +41,34 @@ class MainActivity : ComponentActivity() {
                     url = intentUrl
                         ?: "https://facebook.com/",
                     settingsVM = settingsVM,
-                    onVideoPlayingChanged = { isVideoPlaying = it }
+                    onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
+                        updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
+                    }
                 )
             }
+        }
+    }
+
+    private fun updateVideoPlaybackState(
+        isPlaying: Boolean,
+        videoWidth: Int,
+        videoHeight: Int
+    ) {
+        isVideoPlaying = isPlaying
+        if (videoWidth > 0 && videoHeight > 0) {
+            currentAspectRatio = if (videoHeight > videoWidth) {
+                Rational(9, 16)
+            } else {
+                Rational(16, 9)
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val pipParams = PictureInPictureParams.Builder()
+                .setAspectRatio(currentAspectRatio)
+                .setAutoEnterEnabled(isVideoPlaying && settingsVM.pipEnabled.value)
+                .build()
+            setPictureInPictureParams(pipParams)
         }
     }
 
@@ -50,12 +78,13 @@ class MainActivity : ComponentActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
             isVideoPlaying &&
             settingsVM.pipEnabled.value
         ) {
             enterPictureInPictureMode(
                 PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(16, 9))
+                    .setAspectRatio(currentAspectRatio)
                     .build()
             )
         }

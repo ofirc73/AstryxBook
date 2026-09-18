@@ -57,7 +57,7 @@ import kotlinx.coroutines.delay
 fun MaterialbookWebView(
     url: String,
     settingsVM: SettingsViewModel = viewModel(),
-    onVideoPlayingChanged: (Boolean) -> Unit = {}
+    onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current

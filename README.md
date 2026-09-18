@@ -47,7 +47,29 @@ If enabled, the app:
     *  People you may know
 *  Keeps the navigation bar at the top
 *  Downloads media or copies it to the clipboard
+*  Supports Picture-in-Picture playback for visible, audible Facebook videos
 *  And more!
+
+<h2 align="middle">
+    🖼️ Picture-in-Picture
+</h2>
+
+To use Picture-in-Picture:
+
+1. Enable **Picture-in-Picture** in the app's Settings.
+2. If needed, also allow it in Android under **Settings > Apps > Astryxbook > Picture-in-picture**.
+3. Open a Facebook video or Reel and start playback.
+4. Keep the video visible and audible, then use the Home gesture or Home button.
+
+On Android 12 and newer, PiP is configured for a smooth automatic transition as you leave
+the app. On older supported Android versions, PiP is entered when Android notifies the app
+that it is being left.
+
+The app ignores muted feed autoplay and selects the largest visible audible video when
+multiple videos are present. Landscape videos use a landscape PiP window, while vertical
+Reels use a portrait window. If PiP does not appear, confirm that the video is actively
+playing with volume above zero and that both the app and Android system PiP permissions
+are enabled.
 
 <h2 align="middle">
     🛠️ Setup
