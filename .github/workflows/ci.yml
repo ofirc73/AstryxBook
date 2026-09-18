@@ -12,6 +12,12 @@ name: CI
 on:
   pull_request:
   workflow_call:
+    inputs:
+      version_name:
+        description: 'Version to bake into the APK (e.g. 1.1.1, no "v" prefix). Empty on plain PR runs, which keep build.gradle.kts local dev default.'
+        type: string
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -28,9 +34,15 @@ jobs:
           cache: 'gradle'
 
       - name: Run Unit Tests and Build APK
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
         run: |
           chmod +x gradlew
-          ./gradlew test assembleRelease --stacktrace
+          if [ -n "$VERSION_NAME" ]; then
+            ./gradlew test assembleRelease -PversionNameOverride="$VERSION_NAME" --stacktrace
+          else
+            ./gradlew test assembleRelease --stacktrace
+          fi
           ls -R app/build/outputs/apk || echo "No APK directory found"
 
       - name: Upload APK Artifact

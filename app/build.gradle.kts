@@ -27,8 +27,28 @@ extensions.configure<ApplicationExtension> {
         applicationId = "com.astryx.book"
         minSdk = 23
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.0.0"
+
+        // CI passes -PversionNameOverride=<tag-without-v> from the resolved
+        // release tag (see resolve-version job in create-release.yml) so the
+        // APK's actual version metadata matches what's on GitHub Releases,
+        // instead of a value that never changes. Falls back to a fixed local
+        // dev default when building without that property (plain PR runs,
+        // local `./gradlew assembleDebug`, etc).
+        val overrideVersion = (project.findProperty("versionNameOverride") as String?)
+            ?.takeIf { it.isNotBlank() }
+        if (overrideVersion != null) {
+            versionName = overrideVersion
+            val parts = overrideVersion.split(".").map { it.toIntOrNull() ?: 0 }
+            val major = parts.getOrElse(0) { 0 }
+            val minor = parts.getOrElse(1) { 0 }
+            val patch = parts.getOrElse(2) { 0 }
+            // 3-digit budget each for minor/patch before any collision risk
+            // (e.g. v1.0.100 and v1.1.0 must never produce the same code).
+            versionCode = major * 1_000_000 + minor * 1_000 + patch
+        } else {
+            versionName = "1.0.0"
+            versionCode = 13
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

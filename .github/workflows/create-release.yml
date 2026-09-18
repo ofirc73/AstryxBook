@@ -57,11 +57,33 @@ jobs:
           default_bump: patch
           release_branches: main
 
+  # Computes the single tag used everywhere downstream, regardless of which
+  # of the 3 trigger paths fired: compute-version's output (auto-bump path),
+  # else the workflow_dispatch input, else the pushed tag itself. needs:
+  # compute-version works even when that job is skipped (skipped counts as
+  # satisfied for a needs: gate, and its outputs resolve to empty string).
+  resolve-version:
+    needs: compute-version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve effective tag
+        id: resolve
+        run: |
+          TAG_NAME="${{ needs.compute-version.outputs.new_tag || github.event.inputs.release_tag || github.ref_name }}"
+          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG_NAME#v}" >> "$GITHUB_OUTPUT"
+
   ci:
+    needs: resolve-version
     uses: ./.github/workflows/ci.yml
+    with:
+      version_name: ${{ needs.resolve-version.outputs.version }}
 
   release:
-    needs: [ci, compute-version]
+    needs: [ci, resolve-version]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -82,15 +104,14 @@ jobs:
           git tag ${{ github.event.inputs.release_tag }}
           git push origin ${{ github.event.inputs.release_tag }}
 
-      # Unifies the tag name across all three trigger paths (auto-computed,
-      # manually tagged, or workflow_dispatch input) into one place, and
-      # derives the bare version number (no "v" prefix) for the APK filename.
+      # Tag was already resolved once, identically, by resolve-version —
+      # reused here (not recomputed) so ci.yml's build and this job can never
+      # disagree on which version they're each working with.
       - name: Determine release tag
         id: vars
         run: |
-          TAG_NAME="${{ needs.compute-version.outputs.new_tag || github.event.inputs.release_tag || github.ref_name }}"
-          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ needs.resolve-version.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          echo "version=${{ needs.resolve-version.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Download APK Artifact
         uses: actions/download-artifact@v7
