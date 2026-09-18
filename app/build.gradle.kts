@@ -104,7 +104,7 @@ tasks.withType<Test>().configureEach {
 // cheap, ~30s) — the instrumented .ec file can't be regenerated without a
 // device, so ci.yml downloads it as an artifact into place before this runs.
 tasks.register<JacocoReport>("jacocoTestReport") {
-    dependsOn("testDebugUnitTest")
+    dependsOn("testDebugUnitTest", "bundleDebugClassesToRuntimeJar")
     group = "Reporting"
     description = "Generates a combined Jacoco coverage report (unit + instrumented tests)."
 
@@ -119,8 +119,16 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/*\$Lambda\$*.*", "**/*\$inlined\$*.*"
     )
 
+    // Kotlin 2.2's Gradle plugin no longer outputs loose .class files under
+    // tmp/kotlin-classes/debug (that path is gone entirely as of this AGP
+    // 9.1/Kotlin 2.2/Gradle 9.3.1 combo) — compiled classes are packaged
+    // straight into a JAR now. Verified empirically against a local build,
+    // not guessed: app/build/intermediates/runtime_app_classes_jar/debug/
+    // bundleDebugClassesToRuntimeJar/classes.jar. Re-verify this path if a
+    // future toolchain bump breaks the report again — AGP has moved this
+    // more than once before.
     classDirectories.setFrom(
-        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        zipTree(layout.buildDirectory.file("intermediates/runtime_app_classes_jar/debug/bundleDebugClassesToRuntimeJar/classes.jar")).matching {
             exclude(fileFilter)
         }
     )
@@ -128,8 +136,11 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     executionData.setFrom(
         fileTree(layout.buildDirectory.get().asFile) {
             include(
+                "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec",
+                "outputs/unit_test_code_coverage/**/*.exec",
                 "jacoco/testDebugUnitTest.exec",
-                "outputs/code_coverage/debugAndroidTest/connected/**/*.ec"
+                "outputs/code_coverage/debugAndroidTest/connected/**/*.ec",
+                "outputs/code_coverage/**/*.ec"
             )
         }
     )

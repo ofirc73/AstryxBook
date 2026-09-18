@@ -20,3 +20,4 @@ local.properties
 PR_BODY.md
 astryxbook-release.b64
 astryxbook-release.jks
+jacoco-debug.log
