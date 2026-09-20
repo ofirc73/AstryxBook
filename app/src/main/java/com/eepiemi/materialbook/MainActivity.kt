@@ -1,17 +1,31 @@
 package com.eepiemi.materialbook
 
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import com.eepiemi.materialbook.ui.screens.MaterialbookWebView
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
+
+private const val TAG = "AstryxbookPiP"
+private const val ACTION_PIP_TOGGLE = "com.astryx.book.PIP_TOGGLE_PLAYBACK"
 
 class MainActivity : ComponentActivity() {
 
@@ -29,10 +43,37 @@ class MainActivity : ComponentActivity() {
     @Volatile
     private var currentAspectRatio = Rational(16, 9)
 
+    // Bumped by pipActionReceiver on each Play/Pause tap from the PiP
+    // overlay; observed by the composable to trigger a one-off JS call back
+    // into the WebView (the reverse direction of PipBridge, which only goes
+    // JS -> native).
+    private var pipToggleTrigger by mutableStateOf(0)
+
+    // Drives the CSS-injection focus mode (hide page chrome, make the video
+    // fill the viewport) on PiP enter/exit.
+    private var isInPipMode by mutableStateOf(false)
+
+    private val pipActionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_PIP_TOGGLE) {
+                Log.d(TAG, "pipActionReceiver: toggle requested")
+                pipToggleTrigger++
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        val filter = IntentFilter(ACTION_PIP_TOGGLE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(pipActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(pipActionReceiver, filter)
+        }
 
         setContent {
             val intentUrl = intent?.data?.toString()
@@ -41,12 +82,37 @@ class MainActivity : ComponentActivity() {
                     url = intentUrl
                         ?: "https://facebook.com/",
                     settingsVM = settingsVM,
+                    pipToggleTrigger = pipToggleTrigger,
+                    isInPipMode = isInPipMode,
                     onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
                         updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
                     }
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(pipActionReceiver)
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        Log.d(TAG, "onPictureInPictureModeChanged: $isInPictureInPictureMode")
+        isInPipMode = isInPictureInPictureMode
+    }
+
+    private fun buildPlayPauseAction(isPlaying: Boolean): RemoteAction {
+        val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val icon = Icon.createWithResource(this, iconRes)
+        val intent = Intent(ACTION_PIP_TOGGLE).setPackage(packageName)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val label = if (isPlaying) "Pause" else "Play"
+        return RemoteAction(icon, label, label, pendingIntent)
     }
 
     private fun updateVideoPlaybackState(
@@ -56,37 +122,60 @@ class MainActivity : ComponentActivity() {
     ) {
         isVideoPlaying = isPlaying
         if (videoWidth > 0 && videoHeight > 0) {
+            // A true 9:16 portrait ratio produces a genuinely oversized PiP
+            // window on some devices (confirmed: AOSP derives PiP height from
+            // a width-percent config * aspect ratio, so 9:16 means height =
+            // width * 1.78 — far taller than what that width-percent was
+            // tuned for). Capped to 3:4 instead — still visibly "portrait",
+            // nowhere near as extreme. Same reason YouTube itself doesn't use
+            // true 9:16 for Shorts in PiP.
             currentAspectRatio = if (videoHeight > videoWidth) {
-                Rational(9, 16)
+                Rational(3, 4)
             } else {
                 Rational(16, 9)
             }
         }
+        Log.d(TAG, "updateVideoPlaybackState: isPlaying=$isPlaying, ${videoWidth}x$videoHeight, pipEnabled=${settingsVM.pipEnabled.value}, aspectRatio=$currentAspectRatio")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
+            Log.d(TAG, "setPictureInPictureParams: autoEnter=$autoEnter")
             val pipParams = PictureInPictureParams.Builder()
                 .setAspectRatio(currentAspectRatio)
-                .setAutoEnterEnabled(isVideoPlaying && settingsVM.pipEnabled.value)
+                .setAutoEnterEnabled(autoEnter)
+                .setActions(listOf(buildPlayPauseAction(isPlaying)))
                 .build()
             setPictureInPictureParams(pipParams)
         }
     }
 
-    // Called right before the user leaves via Home or the recents switcher —
-    // the standard Android hook for triggering Picture-in-Picture (same point
-    // YouTube and other video apps use it from).
+    // Called right before the user leaves via Home or the recents switcher.
+    // Kept as a universal fallback across ALL API levels — not just pre-S —
+    // rather than relying solely on setAutoEnterEnabled above. That API is
+    // primarily documented/tested for gesture-navigation swipe transitions;
+    // its behavior on a plain Home-button press, on a specific OEM skin, on a
+    // specific nav mode, isn't something we can verify without a real device
+    // (and OEM skins like Samsung's OneUI layer their own windowing
+    // customizations on top of AOSP). A redundant explicit call here when
+    // auto-enter already handled it is harmless.
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
+        val eligible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             isVideoPlaying &&
             settingsVM.pipEnabled.value
-        ) {
-            enterPictureInPictureMode(
-                PictureInPictureParams.Builder()
-                    .setAspectRatio(currentAspectRatio)
-                    .build()
-            )
+        Log.d(TAG, "onUserLeaveHint: sdkInt=${Build.VERSION.SDK_INT}, isVideoPlaying=$isVideoPlaying, pipEnabled=${settingsVM.pipEnabled.value}, eligible=$eligible")
+        if (eligible) {
+            try {
+                enterPictureInPictureMode(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(currentAspectRatio)
+                        .setActions(listOf(buildPlayPauseAction(isVideoPlaying)))
+                        .build()
+                )
+                Log.d(TAG, "enterPictureInPictureMode called successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "enterPictureInPictureMode failed", e)
+            }
         }
     }
 }

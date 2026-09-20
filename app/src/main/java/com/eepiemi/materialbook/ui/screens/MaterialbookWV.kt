@@ -53,10 +53,79 @@ import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
 import kotlinx.coroutines.delay
 
+private const val PIP_TOGGLE_JS = """
+(function() {
+  var videos = document.querySelectorAll('video');
+  var best = null, bestArea = 0;
+  for (var i = 0; i < videos.length; i++) {
+    var r = videos[i].getBoundingClientRect();
+    var area = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) *
+               Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
+    if (area > bestArea) { bestArea = area; best = videos[i]; }
+  }
+  if (best) {
+    if (best.paused) { best.play(); } else { best.pause(); }
+  }
+})();
+"""
+
+// Hides everything on the page except the currently-playing video and its
+// ancestor chain, forcing the video to fill the viewport — makes PiP show
+// just the video, like a native player, instead of the whole shrunk page.
+// Fragile by nature: fights Facebook's own page structure. Known risk: if
+// any ancestor of the video uses CSS transform/filter/contain, it creates a
+// new containing block and position:fixed on the video won't actually reach
+// the real viewport edges — not something fixable from our side if so.
+private const val PIP_FOCUS_MODE_JS = """
+(function() {
+  var videos = document.querySelectorAll('video');
+  var best = null, bestArea = 0;
+  for (var i = 0; i < videos.length; i++) {
+    var r = videos[i].getBoundingClientRect();
+    var area = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) *
+               Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
+    if (area > bestArea) { bestArea = area; best = videos[i]; }
+  }
+  if (!best) return;
+
+  var el = best;
+  while (el && el !== document.body) {
+    el.setAttribute('data-astryx-pip-keep', 'true');
+    el = el.parentElement;
+  }
+  best.setAttribute('data-astryx-pip-video', 'true');
+  document.body.setAttribute('data-astryx-pip-active', 'true');
+
+  if (!document.getElementById('astryx-pip-style')) {
+    var style = document.createElement('style');
+    style.id = 'astryx-pip-style';
+    style.textContent =
+      'body[data-astryx-pip-active] > *:not([data-astryx-pip-keep]) { display:none !important; }' +
+      'body[data-astryx-pip-active] [data-astryx-pip-keep]:not([data-astryx-pip-video]) { all:unset !important; display:contents !important; }' +
+      'video[data-astryx-pip-video] { position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; z-index:2147483647 !important; background:#000 !important; }';
+    document.head.appendChild(style);
+  }
+})();
+"""
+
+private const val PIP_RESTORE_MODE_JS = """
+(function() {
+  var style = document.getElementById('astryx-pip-style');
+  if (style) style.remove();
+  document.body.removeAttribute('data-astryx-pip-active');
+  var kept = document.querySelectorAll('[data-astryx-pip-keep]');
+  for (var i = 0; i < kept.length; i++) { kept[i].removeAttribute('data-astryx-pip-keep'); }
+  var vids = document.querySelectorAll('[data-astryx-pip-video]');
+  for (var j = 0; j < vids.length; j++) { vids[j].removeAttribute('data-astryx-pip-video'); }
+})();
+"""
+
 @Composable
 fun MaterialbookWebView(
     url: String,
     settingsVM: SettingsViewModel = viewModel(),
+    pipToggleTrigger: Int = 0,
+    isInPipMode: Boolean = false,
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -83,6 +152,23 @@ fun MaterialbookWebView(
         val bundle = state.viewState
         if (bundle == null) {
             navigator.loadUrl(url)
+        }
+    }
+
+    // Fired from the PiP overlay's native Play/Pause button (see MainActivity's
+    // pipActionReceiver) — the only reverse (native -> JS) channel we have,
+    // vs PipBridge which only goes JS -> native.
+    LaunchedEffect(pipToggleTrigger) {
+        if (pipToggleTrigger > 0) {
+            navigator.evaluateJavaScript(PIP_TOGGLE_JS) {}
+        }
+    }
+
+    LaunchedEffect(isInPipMode, state.loadingState) {
+        if (state.loadingState is LoadingState.Finished) {
+            navigator.evaluateJavaScript(
+                if (isInPipMode) PIP_FOCUS_MODE_JS else PIP_RESTORE_MODE_JS
+            ) {}
         }
     }
 

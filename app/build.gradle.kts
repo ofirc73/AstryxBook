@@ -67,6 +67,9 @@ extensions.configure<ApplicationExtension> {
             applicationIdSuffix = ".test"
             enableUnitTestCoverage = true
             enableAndroidTestCoverage = true
+
+            // Fix: Tells Gradle to skip stripping native symbols for local debug builds
+            packaging.jniLibs.keepDebugSymbols.add("**/*.so")
         }
     }
     compileOptions {
@@ -152,7 +155,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             exclude(fileFilter)
         }
     )
-    sourceDirectories.setFrom(files("$projectDir/src/main/java"))
+    sourceDirectories.setFrom(files("\$projectDir/src/main/java"))
     executionData.setFrom(
         fileTree(layout.buildDirectory.get().asFile) {
             include(

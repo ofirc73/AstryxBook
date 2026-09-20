@@ -16,6 +16,7 @@ If enabled in the app's settings, the app:
     <li>Allows pinch-to-zoom anywhere</li>
     <li>Downloads media or copies it to the clipboard</li>
     <li>Lets the user access Messenger (Desktop layout only)</li>
+    <li>Supports Picture-in-Picture for playing Facebook videos and Reels, with a native resume button</li>
     <li>Uses Material You colors instead of Facebook's blues</li>
     <li>Makes Facebook AMOLED Black</li>
 </ul>

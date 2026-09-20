@@ -30,6 +30,7 @@
 *  Restyles it to match **Facebook's own original Android look** — Material You theming and AMOLED Black now ship **off by default**, using Facebook's native blue instead of your wallpaper colors out of the box
 *  Both settings remain available as opt-in toggles for anyone who preferred the upstream [Materialbook](https://github.com/eepiemi/Materialbook) look
 *  Everything below still applies whenever those toggles are switched on
+*  See [FORK_CHANGES.md](./FORK_CHANGES.md) for the full list of changes in this fork
 
 <h2 align="middle">
     ⚙️ Features
@@ -66,10 +67,18 @@ the app. On older supported Android versions, PiP is entered when Android notifi
 that it is being left.
 
 The app ignores muted feed autoplay and selects the largest visible audible video when
-multiple videos are present. Landscape videos use a landscape PiP window, while vertical
-Reels use a portrait window. If PiP does not appear, confirm that the video is actively
-playing with volume above zero and that both the app and Android system PiP permissions
-are enabled.
+multiple videos are present. Landscape videos use a landscape PiP window; vertical Reels
+use a portrait-ish window capped at 3:4 (not the video's true 9:16) — some devices size a
+true 9:16 PiP window oversized/clipped off-screen, so this trades exact video shape for a
+reliably-sized window, at the cost of some letterboxing on true vertical video.
+
+The page itself is hidden while in PiP so only the video shows, filling the window.
+
+Android/Chromium auto-pauses the video the moment PiP starts (a platform limitation, not
+something an app can override) — tap the Play button on the PiP overlay to resume it.
+
+If PiP does not appear, confirm that the video is actively playing with volume above zero
+and that both the app and Android system PiP permissions are enabled.
 
 <h2 align="middle">
     🛠️ Setup
