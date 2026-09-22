@@ -101,6 +101,24 @@ class MainActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         Log.d(TAG, "onPictureInPictureModeChanged: $isInPictureInPictureMode")
         isInPipMode = isInPictureInPictureMode
+
+        // Chromium pauses the video the instant PiP starts, but our JS
+        // detector only reports state on its own schedule — without this,
+        // the Play/Pause button can briefly show the wrong icon (still
+        // "Pause" right when it should already say "Play"). Flip + rebuild
+        // the action immediately rather than waiting for the next JS report.
+        if (isInPictureInPictureMode && isVideoPlaying) {
+            isVideoPlaying = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Log.d(TAG, "onPictureInPictureModeChanged: immediate icon flip to Play")
+                setPictureInPictureParams(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(currentAspectRatio)
+                        .setActions(listOf(buildPlayPauseAction(false)))
+                        .build()
+                )
+            }
+        }
     }
 
     private fun buildPlayPauseAction(isPlaying: Boolean): RemoteAction {

@@ -39,16 +39,18 @@
     return bestVideo;
   }
 
-  // Polling rather than per-video event listeners: Facebook's feed constantly
-  // adds new <video> elements as the user scrolls (infinite scroll, reels),
-  // so a one-time querySelectorAll + listener attachment would miss anything
-  // loaded after the initial scan. A 1s poll is simple, catches everything,
-  // and only fires the bridge when the currently active video state changes.
+  // Event-driven rather than a tight poll: real play/pause/volumechange/
+  // loadedmetadata listeners respond instantly instead of waiting up to a
+  // full poll interval. MutationObserver catches new <video> elements added
+  // by infinite scroll (reels), which a one-time querySelectorAll would
+  // miss. A slow 3s interval remains only as a backstop for edge cases
+  // (e.g. a video removed+re-added without a fresh DOM node), not the
+  // primary mechanism anymore.
   var lastState = null;
   var lastWidth = 0;
   var lastHeight = 0;
 
-  setInterval(function () {
+  function reportState() {
     var v = getActiveVideo();
     var playing = !!v;
     var videoWidth = v ? v.videoWidth : 0;
@@ -66,5 +68,34 @@
         window.PipBridge.setVideoPlaying(playing);
       }
     }
-  }, 1000);
+  }
+
+  var trackedVideos = new WeakSet();
+  var EVENTS = ['play', 'pause', 'ended', 'volumechange', 'loadedmetadata', 'emptied'];
+
+  function trackVideo(v) {
+    if (trackedVideos.has(v)) return;
+    trackedVideos.add(v);
+    for (var i = 0; i < EVENTS.length; i++) {
+      v.addEventListener(EVENTS[i], reportState);
+    }
+  }
+
+  function scanForVideos() {
+    var videos = document.querySelectorAll('video');
+    for (var i = 0; i < videos.length; i++) {
+      trackVideo(videos[i]);
+    }
+  }
+
+  scanForVideos();
+  reportState();
+
+  var observer = new MutationObserver(function () {
+    scanForVideos();
+    reportState();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  setInterval(reportState, 3000);
 })();
