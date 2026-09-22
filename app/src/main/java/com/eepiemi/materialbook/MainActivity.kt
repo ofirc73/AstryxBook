@@ -140,15 +140,13 @@ class MainActivity : ComponentActivity() {
     ) {
         isVideoPlaying = isPlaying
         if (videoWidth > 0 && videoHeight > 0) {
-            // A true 9:16 portrait ratio produces a genuinely oversized PiP
-            // window on some devices (confirmed: AOSP derives PiP height from
-            // a width-percent config * aspect ratio, so 9:16 means height =
-            // width * 1.78 — far taller than what that width-percent was
-            // tuned for). Capped to 3:4 instead — still visibly "portrait",
-            // nowhere near as extreme. Same reason YouTube itself doesn't use
-            // true 9:16 for Shorts in PiP.
+			// 3:4 capped for the same reason as before (avoids the confirmed
+			// oversized/off-screen window bug from a true 9:16 request) — now
+			// eased to 4:7, closer to the video's real 9:16 shape, drastically
+			// reducing the height crop-to-fill amount from 25% down to ~1.5%.
+			// If this reproduces any sizing/clipping issues, revert to 3:4.
             currentAspectRatio = if (videoHeight > videoWidth) {
-                Rational(3, 4)
+                Rational(4, 7)
             } else {
                 Rational(16, 9)
             }
