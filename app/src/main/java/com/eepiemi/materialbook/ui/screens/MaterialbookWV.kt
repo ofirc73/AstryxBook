@@ -102,7 +102,7 @@ private const val PIP_FOCUS_MODE_JS = """
     style.textContent =
       'body[data-astryx-pip-active] > *:not([data-astryx-pip-keep]) { display:none !important; }' +
       'body[data-astryx-pip-active] [data-astryx-pip-keep]:not([data-astryx-pip-video]) { all:unset !important; display:contents !important; }' +
-      'video[data-astryx-pip-video] { position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; z-index:2147483647 !important; background:#000 !important; }';
+      'video[data-astryx-pip-video] { position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; object-fit:cover !important; z-index:2147483647 !important; background:#000 !important; }';
     document.head.appendChild(style);
   }
 })();
