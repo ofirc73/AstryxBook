@@ -18,13 +18,13 @@ import java.util.Locale
 class LocaleAppNameTest {
 
     private val translatedLocales = listOf(
-        Locale("ar"),
-        Locale("bn"),
-        Locale("de"),
-        Locale("es"),
-        Locale("fr"),
-        Locale("pt"),
-        Locale("zh", "TW"),
+        Locale.forLanguageTag("ar"),
+        Locale.forLanguageTag("bn"),
+        Locale.forLanguageTag("de"),
+        Locale.forLanguageTag("es"),
+        Locale.forLanguageTag("fr"),
+        Locale.forLanguageTag("pt"),
+        Locale.Builder().setLanguage("zh").setRegion("TW").build(),
     )
 
     private fun contextFor(locale: Locale): Context {
@@ -48,7 +48,7 @@ class LocaleAppNameTest {
     @Test
     fun appNameIsAstryxbookInDefaultFallback() {
         // A locale we have no translation for falls back to the default values/strings.xml.
-        val name = contextFor(Locale("it")).getString(R.string.app_name)
+        val name = contextFor(Locale.forLanguageTag("it")).getString(R.string.app_name)
         assertTrue(
             "app_name should start with \"Astryxbook\" but was \"$name\"",
             name.startsWith("Astryxbook")
