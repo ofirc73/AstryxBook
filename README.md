@@ -68,7 +68,7 @@ that it is being left.
 
 The app ignores muted feed autoplay and selects the largest visible audible video when
 multiple videos are present. Landscape videos use a landscape PiP window; vertical Reels
-use a portrait-ish window capped at 3:4 (not the video's true 9:16) — some devices size a
+use a portrait-ish window capped at 2:3 (not the video's true 9:16) — some devices size a
 true 9:16 PiP window oversized/clipped off-screen, so this trades exact video shape for a
 reliably-sized window, at the cost of cropping the top/bottom of the video slightly to fill
 the window with no black bars (the same crop-to-fill approach YouTube/TikTok/Instagram use
