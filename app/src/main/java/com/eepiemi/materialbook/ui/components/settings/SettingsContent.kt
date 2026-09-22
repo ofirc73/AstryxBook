@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.ui.components.settings
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.Diversity1
 import androidx.compose.material.icons.filled.EmojiPeople
 import androidx.compose.material.icons.filled.Padding
 import androidx.compose.material.icons.filled.Try
+import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DesktopWindows
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.outlined.Pinch
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,6 +57,7 @@ fun SettingsContent(
     viewModel: SettingsViewModel = viewModel()
 ) {
     var isOpenDialog by rememberSaveable { mutableStateOf(false) }
+    var isPipRatioDialog by rememberSaveable { mutableStateOf(false) }
 
     val removeAds = viewModel.removeAds.collectAsState()
     val enableDownloadContent = viewModel.enableDownloadContent.collectAsState()
@@ -65,6 +69,7 @@ fun SettingsContent(
     val materialYou = viewModel.materialYou.collectAsState()
     val amoledBlack = viewModel.amoledBlack.collectAsState()
     val pipEnabled = viewModel.pipEnabled.collectAsState()
+    val pipPortraitRatio = viewModel.pipPortraitRatio.collectAsState()
 
     val isAutoDesktop = rememberAutoDesktop()
 
@@ -159,14 +164,50 @@ fun SettingsContent(
             )
         )
 
+        // PiP ratio row — only shown while PiP is enabled so it doesn't clutter
+        // the settings for users who never use PiP.
+        if (pipEnabled.value) {
+            val deviceLabel = run {
+                val mfr = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                val model = Build.MODEL
+                if (model.startsWith(mfr, ignoreCase = true)) model else "$mfr $model"
+            }
+            SettingsGroup(
+                items = listOf(
+                    SettingsItem(
+                        icon = Icons.Outlined.AspectRatio,
+                        title = stringResource(R.string.pip_ratio_title),
+                        supportingText = "$deviceLabel · ${pipPortraitRatio.value}",
+                        isActive = null,
+                        onClick = { isPipRatioDialog = true }
+                    )
+                )
+            )
+        }
+
     }
 
-    if(isOpenDialog) {
+    if (isOpenDialog) {
         HideOptionsDialog(
             viewModel = viewModel,
             onDismiss = {
                 @Suppress("AssignedValueIsNeverRead")
                 isOpenDialog = false
+            }
+        )
+    }
+
+    if (isPipRatioDialog) {
+        PipRatioDialog(
+            currentRatio = viewModel.pipPortraitRatio.collectAsState().value,
+            onSelect = { ratio ->
+                viewModel.setPipPortraitRatio(ratio)
+                @Suppress("AssignedValueIsNeverRead")
+                isPipRatioDialog = false
+            },
+            onDismiss = {
+                @Suppress("AssignedValueIsNeverRead")
+                isPipRatioDialog = false
             }
         )
     }
@@ -281,6 +322,66 @@ private fun HideDialogItem(item: SettingsItem) {
                 onCheckedChange = { item.onClick() },
                 modifier = Modifier
             )
+        }
+    }
+}
+
+private val PIP_RATIO_PRESETS = listOf(
+    "4:7",
+    "2:3",
+    "3:4",
+    "9:16",
+)
+
+@Composable
+private fun PipRatioDialog(
+    currentRatio: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.pip_ratio_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+
+            PIP_RATIO_PRESETS.forEach { ratio ->
+                val label = when (ratio) {
+                    "4:7"  -> stringResource(R.string.pip_ratio_4_7)
+                    "2:3"  -> stringResource(R.string.pip_ratio_2_3)
+                    "3:4"  -> stringResource(R.string.pip_ratio_3_4)
+                    "9:16" -> stringResource(R.string.pip_ratio_9_16)
+                    else   -> ratio
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.large)
+                        .clickable { onSelect(ratio) }
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RadioButton(
+                        selected = ratio == currentRatio,
+                        onClick = { onSelect(ratio) }
+                    )
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
     }
 }

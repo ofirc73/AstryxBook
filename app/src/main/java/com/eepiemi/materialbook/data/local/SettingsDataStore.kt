@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.map
 
@@ -27,6 +28,7 @@ class SettingsDataStore(private val context: Context) {
         val HIDE_PEOPLE_YOU_MAY_KNOW = booleanPreferencesKey("hide_people_you_may_know")
         val HIDE_GROUPS = booleanPreferencesKey("hide_groups")
         val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
+        val PIP_PORTRAIT_RATIO = stringPreferencesKey("pip_portrait_ratio")
         val isRevertDesktop = booleanPreferencesKey("is_revert_desktop")
     }
 
@@ -112,5 +114,12 @@ class SettingsDataStore(private val context: Context) {
     val pipEnabled = context.dataStore.data.map { it[PIP_ENABLED] ?: false }
     suspend fun setPipEnabled(pipEnabled: Boolean) {
         context.dataStore.edit { it[PIP_ENABLED] = pipEnabled }
+    }
+
+    // Default "4:7" is the empirically safe portrait ratio on Samsung A56 (and similar OEMs)
+    // where requesting true 9:16 causes the PiP window to overflow past the screen edge.
+    val pipPortraitRatio = context.dataStore.data.map { it[PIP_PORTRAIT_RATIO] ?: "4:7" }
+    suspend fun setPipPortraitRatio(ratio: String) {
+        context.dataStore.edit { it[PIP_PORTRAIT_RATIO] = ratio }
     }
 }

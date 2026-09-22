@@ -20,9 +20,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.eepiemi.materialbook.ui.screens.MaterialbookWebView
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
+import kotlinx.coroutines.launch
 
 private const val TAG = "AstryxbookPiP"
 private const val ACTION_PIP_TOGGLE = "com.astryx.book.PIP_TOGGLE_PLAYBACK"
@@ -42,6 +44,14 @@ class MainActivity : ComponentActivity() {
 
     @Volatile
     private var currentAspectRatio = Rational(16, 9)
+
+    // Last known video dimensions — persisted so reapplyPipParams() can
+    // recompute the correct portrait ratio when the user changes the setting
+    // while a video is already playing (no new JS bridge event fires in that case).
+    @Volatile
+    private var lastVideoWidth = 0
+    @Volatile
+    private var lastVideoHeight = 0
 
     // Bumped by pipActionReceiver on each Play/Pause tap from the PiP
     // overlay; observed by the composable to trigger a one-off JS call back
@@ -90,6 +100,15 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+
+        // Re-push PictureInPictureParams whenever the user toggles PiP or
+        // changes the portrait ratio — no app restart required.
+        lifecycleScope.launch {
+            settingsVM.pipEnabled.collect { reapplyPipParams() }
+        }
+        lifecycleScope.launch {
+            settingsVM.pipPortraitRatio.collect { reapplyPipParams() }
+        }
     }
 
     override fun onDestroy() {
@@ -133,20 +152,43 @@ class MainActivity : ComponentActivity() {
         return RemoteAction(icon, label, label, pendingIntent)
     }
 
+    /**
+     * Re-pushes [PictureInPictureParams] to the system using the current settings
+     * and the last known video dimensions. Called whenever [SettingsViewModel.pipEnabled]
+     * or [SettingsViewModel.pipPortraitRatio] changes so the new values take effect
+     * immediately — without waiting for the next JS bridge event or an app restart.
+     */
+    private fun reapplyPipParams() {
+        // Recompute portrait ratio from stored dimensions + current user setting
+        if (lastVideoWidth > 0 && lastVideoHeight > lastVideoWidth) {
+            currentAspectRatio = settingsVM.parsedPipRational()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
+            Log.d(TAG, "reapplyPipParams: autoEnter=$autoEnter, ratio=$currentAspectRatio")
+            setPictureInPictureParams(
+                PictureInPictureParams.Builder()
+                    .setAspectRatio(currentAspectRatio)
+                    .setAutoEnterEnabled(autoEnter)
+                    .setActions(listOf(buildPlayPauseAction(isVideoPlaying)))
+                    .build()
+            )
+        }
+    }
+
     private fun updateVideoPlaybackState(
         isPlaying: Boolean,
         videoWidth: Int,
         videoHeight: Int
     ) {
         isVideoPlaying = isPlaying
+        lastVideoWidth = videoWidth
+        lastVideoHeight = videoHeight
         if (videoWidth > 0 && videoHeight > 0) {
-			// 3:4 capped for the same reason as before (avoids the confirmed
-			// oversized/off-screen window bug from a true 9:16 request) — now
-			// eased to 4:7, closer to the video's real 9:16 shape, drastically
-			// reducing the height crop-to-fill amount from 25% down to ~1.5%.
-			// If this reproduces any sizing/clipping issues, revert to 3:4.
+            // Use the user-configured portrait ratio (default "4:7", empirically safe on Samsung A56).
+            // Falls back to Rational(4,7) on parse error. Landscape videos keep 16:9.
             currentAspectRatio = if (videoHeight > videoWidth) {
-                Rational(4, 7)
+                settingsVM.parsedPipRational()
             } else {
                 Rational(16, 9)
             }
