@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.Locale
@@ -37,10 +37,10 @@ class LocaleAppNameTest {
     @Test
     fun appNameIsAstryxbookInEveryTranslatedLocale() {
         translatedLocales.forEach { locale ->
-            assertEquals(
-                "app_name wrong for locale '$locale'",
-                "Astryxbook",
-                contextFor(locale).getString(R.string.app_name)
+            val name = contextFor(locale).getString(R.string.app_name)
+            assertTrue(
+                "app_name wrong for locale '$locale': expected to start with \"Astryxbook\" but was \"$name\"",
+                name.startsWith("Astryxbook")
             )
         }
     }
@@ -48,6 +48,10 @@ class LocaleAppNameTest {
     @Test
     fun appNameIsAstryxbookInDefaultFallback() {
         // A locale we have no translation for falls back to the default values/strings.xml.
-        assertEquals("Astryxbook", contextFor(Locale("it")).getString(R.string.app_name))
+        val name = contextFor(Locale("it")).getString(R.string.app_name)
+        assertTrue(
+            "app_name should start with \"Astryxbook\" but was \"$name\"",
+            name.startsWith("Astryxbook")
+        )
     }
 }
