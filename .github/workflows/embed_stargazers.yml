@@ -15,8 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          # Fixed: Fully clean expression syntax so GitHub can read your token secret
-          token: ${{ secrets.OWNER_PAT }}
+          token: \${{ secrets.OWNER_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,14 +24,12 @@ jobs:
 
       - name: Fetch Stargazers and Inject into README
         env:
-          GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
+          GITHUB_TOKEN: \${{ secrets.OWNER_PAT }}
         run: |
-          # 1. Write the inline script out to a clean JavaScript file
-          cat << 'EOF' > update_stars.js
+          cat << 'INNER_EOF' > update_stars.js
           const fs = require('fs');
           const https = require('https');
 
-          // Use string char codes to construct 'api.github.com' to guarantee safe endpoint parsing
           const host = String.fromCharCode(97,112,105,46,103,105,116,104,117,98,46,99,111,109); 
           
           const options = {
@@ -59,12 +56,13 @@ jobs:
                 }
                 
                 if (!Array.isArray(parsed)) {
-                  console.error('❌ Unexpected response format:', data);
+                  console.error('❌ Unexpected response format');
                   process.exit(1);
                 }
 
+                // Explicitly concatenate clean markdown syntax string segments
                 const grid = parsed.map(user => {
-                  return `[![${user.login}](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](${user.html_url})`;
+                  return '[![' + user.login + '](https://weserv.nl' + user.avatar_url + '&w=50&h=50&fit=cover&mask=circle)](' + user.html_url + ')';
                 }).join(' ');
 
                 console.log('DEBUG: Generated grid payload is ->', grid);
@@ -81,13 +79,13 @@ jobs:
                   process.exit(1);
                 }
 
-                const newReadmeSection = `${startMarker}\n### ✨ Our Awesome Stargazers\n${grid}\n${endMarker}`;
+                const newReadmeSection = startMarker + '\n### ✨ Our Awesome Stargazers\n\n' + grid + '\n\n' + endMarker;
                 const updatedReadme = readmeContent.substring(0, startIndex) + newReadmeSection + readmeContent.substring(endIndex + endMarker.length);
                 
                 fs.writeFileSync('README.md', updatedReadme, 'utf8');
                 console.log('✅ README.md updated successfully!');
               } catch (e) {
-                console.error('❌ Error parsing JSON payload:', e.message);
+                console.error('❌ Error parsing payload:', e.message);
                 process.exit(1);
               }
             });
@@ -98,9 +96,8 @@ jobs:
             process.exit(1);
           });
           req.end();
-          EOF
+          INNER_EOF
 
-          # 2. Run the generated script with Node
           node update_stars.js
 
       - name: Commit and Push Changes
@@ -108,10 +105,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          echo "=== SHOWING LOCAL GIT DIFF ==="
-          git diff README.md
-          echo "=============================="
-
           if ! git diff --exit-code README.md; then
             git add README.md
             git commit -m "docs: update stargazers list in README [skip ci]"
