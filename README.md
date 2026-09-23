@@ -124,14 +124,16 @@ Covers the rebrand and default-behavior changes in this fork — defaults (Mater
 
 GitHub Actions runs all three checks. Android lint reports are uploaded as a workflow artifact for every run. The lint gate treats dependency-update notices as advisory while still failing on actionable Android findings.
 
-<!-- STARGAZERS_START -->
-### ✨ Our Awesome Stargazers
-[![haloule13](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](https://github.com/haloule13) [![jeank93](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](https://github.com/jeank93)
-<!-- STARGAZERS_END -->
-
 <h2 align="middle">
     💗 Acknowledgement:
 </h2>
 
 *  This is a fork of [Materialbook](https://github.com/eepiemi/Materialbook) by eepiemi, itself a fork of [Nobook](https://github.com/ycngmn/Nobook) by ycngmn
 *  [@KevinnZou/compose-webview-multiplatform](https://github.com/KevinnZou/compose-webview-multiplatform)  
+
+<!-- STARGAZERS_START -->
+<h2 align="middle">
+### ✨ Our Awesome Stargazers
+[![haloule13](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](https://github.com/haloule13) [![jeank93](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](https://github.com/jeank93)
+<!-- STARGAZERS_END -->
+</h2>
