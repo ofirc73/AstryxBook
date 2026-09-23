@@ -41,15 +41,16 @@ jobs:
             exit 1
           fi
 
-          # 2. Extract and format avatars cleanly using proper jq argument parameters
+          # 2. Extract and format avatars cleanly using proper jq parameters
           GRID=$(echo "$RESPONSE" | jq -r --arg proxy "$IMAGE_PROXY" '.[] | "[![" + .login + "](" + $proxy + .avatar_url + "&w=50&h=50&fit=cover&mask=circle)](" + .html_url + ")"' | tr '\n' ' ')
           
           echo "DEBUG: Generated grid payload is -> $GRID"
 
-          # 3. Flexible regex mapping to handle spacing/newlines inside the tags
+          # 3. Create the block text to embed
           NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
           
-          perl -0777 -pi -e "s/<!--\s*STARGAZERS_START\s*-->.*?<!--\s*STARGAZERS_END\s*-->/$NEW_CONTENT/sg" README.md
+          # Use '#' instead of '/' as the delimiter to prevent URL slashes from breaking perl
+          perl -0777 -pi -e "s#<!--\s*STARGAZERS_START\s*-->.*?<!--\s*STARGAZERS_END\s*-->#$NEW_CONTENT#sg" README.md
 
       - name: Commit and Push Changes
         run: |
@@ -65,5 +66,5 @@ jobs:
             git commit -m "docs: update stargazers list in README [skip ci]"
             git push origin main
           else
-            echo "ℹ️ No changes detected in README.md by Git. The placeholder text might not match perfectly."
+            echo "ℹ️ No changes detected in README.md by Git."
           fi
