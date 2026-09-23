@@ -134,6 +134,8 @@ GitHub Actions runs all three checks. Android lint reports are uploaded as a wor
 <h2 align="middle">
 <!-- STARGAZERS_START -->
 ### ✨ Our Awesome Stargazers
-[![haloule13](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](https://github.com/haloule13) [![jeank93](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](https://github.com/jeank93)
+
+[![haloule13](https://weserv.nlhttps://avatars.githubusercontent.com/u/109693593?v=4&w=50&h=50&fit=cover&mask=circle)](https://github.com/haloule13) [![jeank93](https://weserv.nlhttps://avatars.githubusercontent.com/u/9328382?v=4&w=50&h=50&fit=cover&mask=circle)](https://github.com/jeank93)
+
 <!-- STARGAZERS_END -->
 </h2>
