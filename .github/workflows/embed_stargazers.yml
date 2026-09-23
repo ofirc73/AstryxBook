@@ -25,7 +25,7 @@ jobs:
           TARGET_PATH="/repos/ofirc73/AstryxBook/stargazers"
           FULL_ENDPOINT="${API_BASE}${TARGET_PATH}"
           
-          IMAGE_BASE="https://weserv.nl"
+          IMAGE_BASE="https://images.weserv.nl"
           IMAGE_QUERY="/?url="
           IMAGE_PROXY="${IMAGE_BASE}${IMAGE_QUERY}"
 
@@ -41,15 +41,14 @@ jobs:
             exit 1
           fi
 
-          # 2. Format avatars
-          GRID=$(echo "$RESPONSE" | jq -r --arg proxy "$IMAGE_PROXY" '.[] | "[![\(@.login)](\($proxy)\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
+          # 2. Extract and format avatars cleanly using proper jq argument parameters
+          GRID=$(echo "$RESPONSE" | jq -r --arg proxy "$IMAGE_PROXY" '.[] | "[![" + .login + "](" + $proxy + .avatar_url + "&w=50&h=50&fit=cover&mask=circle)](" + .html_url + ")"' | tr '\n' ' ')
           
           echo "DEBUG: Generated grid payload is -> $GRID"
 
           # 3. Flexible regex mapping to handle spacing/newlines inside the tags
           NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
           
-          # Use a broader multi-line flag profile to ensure sed/perl catches the tags perfectly
           perl -0777 -pi -e "s/<!--\s*STARGAZERS_START\s*-->.*?<!--\s*STARGAZERS_END\s*-->/$NEW_CONTENT/sg" README.md
 
       - name: Commit and Push Changes
