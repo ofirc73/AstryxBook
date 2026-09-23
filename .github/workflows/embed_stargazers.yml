@@ -21,46 +21,50 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          # Piece together the secure endpoint string dynamically to outsmart the parser
           API_BASE="https://api.github.com"
           TARGET_PATH="/repos/ofirc73/AstryxBook/stargazers"
           FULL_ENDPOINT="${API_BASE}${TARGET_PATH}"
           
-          IMAGE_BASE="https://images.weserv.nl"
+          IMAGE_BASE="https://weserv.nl"
           IMAGE_QUERY="/?url="
           IMAGE_PROXY="${IMAGE_BASE}${IMAGE_QUERY}"
 
-          echo "Targeting API endpoint dynamically..."
-
-          # 1. Query the hidden API endpoint string
+          # 1. Query API
           RESPONSE=$(curl -s -L \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "$FULL_ENDPOINT")
           
-          # 2. Check for empty or invalid array objects
           if echo "$RESPONSE" | jq -e '.message' >/dev/null 2>&1; then
             echo "❌ GitHub API Error: $(echo "$RESPONSE" | jq -r '.message')"
             exit 1
-          elif [ "$RESPONSE" = "[]" ] || [ -z "$RESPONSE" ]; then
-            echo "❌ Error: Received an empty stargazer array."
-            exit 1
           fi
 
-          # 3. Format avatars cleanly using our dynamic image configuration string
+          # 2. Format avatars
           GRID=$(echo "$RESPONSE" | jq -r --arg proxy "$IMAGE_PROXY" '.[] | "[![\(@.login)](\($proxy)\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
           
-          # 4. Inject structural layouts
+          echo "DEBUG: Generated grid payload is -> $GRID"
+
+          # 3. Flexible regex mapping to handle spacing/newlines inside the tags
           NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
-          perl -0777 -pi -e "s/<!-- STARGAZERS_START -->.*?<!-- STARGAZERS_END -->/$NEW_CONTENT/s" README.md
+          
+          # Use a broader multi-line flag profile to ensure sed/perl catches the tags perfectly
+          perl -0777 -pi -e "s/<!--\s*STARGAZERS_START\s*-->.*?<!--\s*STARGAZERS_END\s*-->/$NEW_CONTENT/sg" README.md
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          echo "=== SHOWING LOCAL GIT DIFF ==="
+          git diff README.md
+          echo "=============================="
+
           if ! git diff --exit-code README.md; then
             git add README.md
             git commit -m "docs: update stargazers list in README [skip ci]"
-            git push
+            git push origin main
+          else
+            echo "ℹ️ No changes detected in README.md by Git. The placeholder text might not match perfectly."
           fi
