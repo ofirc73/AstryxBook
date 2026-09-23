@@ -25,7 +25,7 @@ extensions.configure<ApplicationExtension> {
 
     defaultConfig {
         applicationId = "com.astryx.book"
-        minSdk = 23
+        minSdk = 26
         targetSdk = 36
 
         // CI passes -PversionNameOverride=<tag-without-v> from the resolved
@@ -81,6 +81,13 @@ extensions.configure<ApplicationExtension> {
         compose = true
         buildConfig = true
     }
+
+    lint {
+        // Existing upstream locale files intentionally use Android's English
+        // fallback for older, not-yet-translated keys. Keep the CI lint gate
+        // focused on actionable Android issues instead of legacy translation debt.
+        disable += "MissingTranslation"
+    }
 }
 
 dependencies {
@@ -101,13 +108,13 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.playwright)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    testImplementation("org.robolectric:robolectric:4.14.1")
 }
 
 // AdblockTest drives real browsers against live facebook.com and needs a

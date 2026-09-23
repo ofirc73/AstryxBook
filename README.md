@@ -95,6 +95,8 @@ and that both the app and Android system PiP permissions are enabled.
     🛠️ Setup
 </h2>
 
+Astryxbook requires Android 8.0 (API level 26) or newer.
+
 1.  **Clone the repository**
     * In Android Studio:
       * File > New > Project from Version Control
@@ -116,7 +118,10 @@ and that both the app and Android system PiP permissions are enabled.
 Covers the rebrand and default-behavior changes in this fork — defaults (Material You/AMOLED off), theme colors, app identity/strings, launcher icon, applicationId, and the pinned scripts source.
 
 *  **Unit tests** (no device/emulator needed): `./gradlew test`
+*  **Android lint** (no device/emulator needed): `./gradlew :app:lintDebug`
 *  **Instrumented tests** (needs a connected device or running emulator): `./gradlew connectedAndroidTest`
+
+GitHub Actions runs all three checks. Android lint reports are uploaded as a workflow artifact for every run. The lint gate treats dependency-update notices as advisory while still failing on actionable Android findings.
 
 <h2 align="middle">
     💗 Acknowledgement:

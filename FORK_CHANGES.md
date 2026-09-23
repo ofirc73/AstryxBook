@@ -35,10 +35,21 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 - Updated every existing translated locale with the new PiP aspect-ratio
   title and options.
 
+## Android compatibility
+
+- Raised the minimum supported Android version to 8.0 (API level 26).
+- Removed the obsolete pre-API 26 launcher-icon fallback; supported installs
+  now resolve the adaptive icon from the base `mipmap-anydpi` resources.
+
 ## CI/CD
 
-- `./gradlew test` and `connectedAndroidTest` now gate every build —
-  previously nothing ran tests before signing/releasing.
+- `./gradlew test`, `:app:lintDebug`, and `connectedAndroidTest` now gate
+  every build — previously nothing ran tests or static Android checks before
+  signing/releasing.
+- Android lint runs as its own CI job and uploads HTML, XML, and text reports
+  as a workflow artifact, including on failure. Dependency-update notices are
+  advisory because the current pinned libraries target `compileSdk 36`; the
+  latest available versions require the newer compile SDK.
 - Split into `ci.yml` (PR validation) and `create-release.yml` (tag/dispatch
   only, calls `ci.yml` as a reusable workflow) — signing secrets no longer
   touch PR runs, and PR checks show correctly instead of "Create Release".
@@ -76,10 +87,10 @@ leaving the app while a Facebook video or Reel is playing.
   landscape videos remain 16:9.
 - The 4:7 default trades a small top/bottom crop for reliable sizing on
   devices that render a true 9:16 window oversized or clipped off-screen.
+- On Android 12 and newer, the WebView bounds are supplied as the PiP source
+  rectangle to preserve smooth system transitions.
 
 ## Known limitations
 
 - Store listing screenshots (`fastlane/metadata/.../phoneScreenshots/`)
   removed as stale; not replaced yet (need real device captures).
-- Pre-API26 devices get a non-adaptive launcher icon fallback
-  (`mipmap-anydpi/ic_launcher.xml`) — functional, untested on real hardware.

@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -17,6 +18,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
@@ -57,7 +59,7 @@ class MainActivity : ComponentActivity() {
     // overlay; observed by the composable to trigger a one-off JS call back
     // into the WebView (the reverse direction of PipBridge, which only goes
     // JS -> native).
-    private var pipToggleTrigger by mutableStateOf(0)
+    private var pipToggleTrigger by mutableIntStateOf(0)
 
     // Drives the CSS-injection focus mode (hide page chrome, make the video
     // fill the viewport) on PiP enter/exit.
@@ -128,15 +130,13 @@ class MainActivity : ComponentActivity() {
         // the action immediately rather than waiting for the next JS report.
         if (isInPictureInPictureMode && isVideoPlaying) {
             isVideoPlaying = false
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Log.d(TAG, "onPictureInPictureModeChanged: immediate icon flip to Play")
-                setPictureInPictureParams(
-                    PictureInPictureParams.Builder()
-                        .setAspectRatio(currentAspectRatio)
-                        .setActions(listOf(buildPlayPauseAction(false)))
-                        .build()
-                )
-            }
+            Log.d(TAG, "onPictureInPictureModeChanged: immediate icon flip to Play")
+            setPictureInPictureParams(
+                pipParamsBuilder()
+                    .setAspectRatio(currentAspectRatio)
+                    .setActions(listOf(buildPlayPauseAction(false)))
+                    .build()
+            )
         }
     }
 
@@ -150,6 +150,24 @@ class MainActivity : ComponentActivity() {
         )
         val label = if (isPlaying) "Pause" else "Play"
         return RemoteAction(icon, label, label, pendingIntent)
+    }
+
+    private fun pipParamsBuilder(): PictureInPictureParams.Builder {
+        return PictureInPictureParams.Builder().apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // The WebView fills the activity, so its visible bounds are the
+                // appropriate source rectangle for Android 12+ PiP transitions.
+                val decorView = window.decorView
+                setSourceRectHint(
+                    Rect(
+                        0,
+                        0,
+                        decorView.width.coerceAtLeast(1),
+                        decorView.height.coerceAtLeast(1)
+                    )
+                )
+            }
+        }
     }
 
     /**
@@ -167,7 +185,7 @@ class MainActivity : ComponentActivity() {
             val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
             Log.d(TAG, "reapplyPipParams: autoEnter=$autoEnter, ratio=$currentAspectRatio")
             setPictureInPictureParams(
-                PictureInPictureParams.Builder()
+                pipParamsBuilder()
                     .setAspectRatio(currentAspectRatio)
                     .setAutoEnterEnabled(autoEnter)
                     .setActions(listOf(buildPlayPauseAction(isVideoPlaying)))
@@ -198,7 +216,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
             Log.d(TAG, "setPictureInPictureParams: autoEnter=$autoEnter")
-            val pipParams = PictureInPictureParams.Builder()
+            val pipParams = pipParamsBuilder()
                 .setAspectRatio(currentAspectRatio)
                 .setAutoEnterEnabled(autoEnter)
                 .setActions(listOf(buildPlayPauseAction(isPlaying)))
@@ -218,14 +236,13 @@ class MainActivity : ComponentActivity() {
     // auto-enter already handled it is harmless.
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        val eligible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            isVideoPlaying &&
+        val eligible = isVideoPlaying &&
             settingsVM.pipEnabled.value
         Log.d(TAG, "onUserLeaveHint: sdkInt=${Build.VERSION.SDK_INT}, isVideoPlaying=$isVideoPlaying, pipEnabled=${settingsVM.pipEnabled.value}, eligible=$eligible")
         if (eligible) {
             try {
                 enterPictureInPictureMode(
-                    PictureInPictureParams.Builder()
+                    pipParamsBuilder()
                         .setAspectRatio(currentAspectRatio)
                         .setActions(listOf(buildPlayPauseAction(isVideoPlaying)))
                         .build()

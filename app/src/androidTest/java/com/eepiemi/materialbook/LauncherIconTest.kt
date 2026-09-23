@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
-import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -32,8 +31,8 @@ import org.junit.runner.RunWith
  * that's tied to the real running OS version, not spoofable via
  * Configuration) — so on a 31+ test device this exercises values-v31 and
  * values-night-v31 but never plain values/values-night, and vice versa on
- * a pre-31 device. Can't force-load the mipmap-anydpi (pre-API26) adaptive
- * icon fallback either, for the same reason — see mipmap-anydpi/ic_launcher.xml.
+ * a pre-31 device. With minSdk 26, the test always exercises the adaptive
+ * icon in mipmap-anydpi/ic_launcher.xml.
  */
 @RunWith(AndroidJUnit4::class)
 class LauncherIconTest {
@@ -96,10 +95,9 @@ class LauncherIconTest {
     }
 
     @Test
-    fun adaptiveIconResolvesOnApi26Plus() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    fun adaptiveIconResolves() {
         val drawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
-        assertNotNull("adaptive icon failed to resolve on API 26+", drawable)
+        assertNotNull("adaptive icon failed to resolve", drawable)
         assertTrue(drawable is AdaptiveIconDrawable)
     }
 

@@ -21,7 +21,6 @@
     <string name="copy_failed_invalid_data">ההעתקה נכשלה: נתונים שגויים</string>
     <string name="copy_failed_invalid_image">ההעתקה נכשלה: תמונה שגויה</string>
     <string name="failed_to_copy_image">העתקת התמונה נכשלה</string>
-    <string name="clipboard_not_supported">הלוח אינו נתמך בגרסה זו</string>
     <string name="suggested_posts">פוסטים מומלצים</string>
     <string name="reels">Reels</string>
     <string name="stories">סטוריז</string>

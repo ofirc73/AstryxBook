@@ -15,6 +15,7 @@ composeBom = "2026.03.00"
 material3 = "1.5.0-alpha15"
 materialIconsCore = "1.7.8"
 playwright = "1.58.0"
+robolectric = "4.14.1"
 
 [libraries]
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsCore" }
@@ -39,6 +40,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorClientCore" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktorClientOkhttp" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

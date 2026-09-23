@@ -19,7 +19,6 @@
     <string name="copy_failed_invalid_data">فشل النسخ: بيانات غير صالحة</string>
     <string name="copy_failed_invalid_image">فشل النسخ: صورة غير صالحة</string>
     <string name="failed_to_copy_image">فشل نسخ الصورة</string>
-    <string name="clipboard_not_supported">الحافظة غير مدعومة في هذا الإصدار</string>
     <string name="suggested_posts">المنشورات المقترحة</string>
     <string name="reels">مقاطع ريلز</string>
     <string name="stories">القصص</string>

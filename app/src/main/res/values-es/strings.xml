@@ -18,7 +18,6 @@
     <string name="copy_failed_invalid_data">Copia fallida: datos inválidos</string>
     <string name="copy_failed_invalid_image">Copia fallida: imagen inválida</string>
     <string name="failed_to_copy_image">Error al copiar la imagen</string>
-    <string name="clipboard_not_supported">Portapapeles no compatible en esta versión</string>
     <string name="suggested_posts">Publicaciones sugeridas</string>
     <string name="reels">Reels</string>
     <string name="stories">Stories</string>

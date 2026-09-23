@@ -2,7 +2,7 @@ package com.eepiemi.materialbook
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.eepiemi.materialbook.ui.theme.FacebookBlue
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import org.junit.Assert.assertEquals
