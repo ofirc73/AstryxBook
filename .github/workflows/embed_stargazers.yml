@@ -25,15 +25,17 @@ jobs:
       - name: Fetch Stargazers and Inject into README
         env:
           GITHUB_TOKEN: \${{ secrets.OWNER_PAT }}
-        using: node
         run: |
+          # 1. Create a clean inline Node script file
+          cat << 'EOF' > update_stars.js
           const fs = require('fs');
           const https = require('https');
 
-          // Build host string using char codes to completely bypass any keyword rewrites
-          const apiHost = String.fromCharCode(97,112,105,46,103,105,116,104,117,98,46,99,111,109); // api.github.com
+          // Hardcode host utilizing Character IDs to outsmart platform rewriters
+          const host = String.fromCharCode(97,112,105,46,103,105,116,104,117,98,46,99,111,109); 
+          
           const options = {
-            hostname: apiHost,
+            hostname: host,
             path: '/repos/ofirc73/AstryxBook/stargazers',
             method: 'GET',
             headers: {
@@ -47,7 +49,6 @@ jobs:
           const req = https.request(options, (res) => {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
-            
             res.on('end', () => {
               try {
                 const parsed = JSON.parse(data);
@@ -61,14 +62,12 @@ jobs:
                   process.exit(1);
                 }
 
-                // Format the user profile grid
                 const grid = parsed.map(user => {
                   return `[![${user.login}](https://weserv.nl{user.avatar_url}&w=50&h=50&fit=cover&mask=circle)](${user.html_url})`;
                 }).join(' ');
 
                 console.log('DEBUG: Generated grid payload is ->', grid);
 
-                // Update README.md file
                 let readmeContent = fs.readFileSync('README.md', 'utf8');
                 const startMarker = '<!-- STARGAZERS_START -->';
                 const endMarker = '<!-- STARGAZERS_END -->';
@@ -85,25 +84,28 @@ jobs:
                 const updatedReadme = readmeContent.substring(0, startIndex) + newReadmeSection + readmeContent.substring(endIndex + endMarker.length);
                 
                 fs.writeFileSync('README.md', updatedReadme, 'utf8');
-                console.log('✅ README.md successfully updated locally!');
-
+                console.log('✅ README.md updated successfully!');
               } catch (e) {
-                console.error('❌ JSON Parse Error. Response received was:', data);
+                console.error('❌ Error parsing JSON payload:', e.message);
                 process.exit(1);
               }
             });
           });
 
           req.on('error', (e) => {
-            console.error('❌ Request error:', e);
+            console.error('❌ Network request error:', e);
             process.exit(1);
           });
           req.end();
+          EOF
+
+          # 2. Run the newly generated script file using Node
+          node update_stars.js
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
           
           echo "=== SHOWING LOCAL GIT DIFF ==="
           git diff README.md
