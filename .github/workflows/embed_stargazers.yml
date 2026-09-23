@@ -26,23 +26,23 @@ jobs:
           REPO_NAME: "AstryxBook"
           GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          # 1. Fetch stargazers using the modern Bearer auth standard and exact REST API headers
+          # 1. Fetch stargazers directly using the dedicated, absolute GitHub API string route
           RESPONSE=$(curl -s -L \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://github.com")
           
-          # 2. Check if the response returned an error message or empty array due to token permissions
+          # 2. Check if the response returned an error message or empty payload array
           if echo "$RESPONSE" | jq -e '.message' >/dev/null 2>&1; then
             echo "❌ GitHub API Error: $(echo "$RESPONSE" | jq -r '.message')"
             exit 1
           elif [ "$RESPONSE" = "[]" ] || [ -z "$RESPONSE" ]; then
-            echo "❌ Error: Received an empty stargazer array. Check if OWNER_PAT has classic 'repo' scopes enabled."
+            echo "❌ Error: Received an empty stargazer array. Check endpoint tracking."
             exit 1
           fi
 
-          # 3. Extract profile details and format into clickable markdown image badges
+          # 3. Extract profile details and format into clickable markdown image badges with clean proxy parameters
           GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(@.login)](https://weserv.nl\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
           
           # 4. Create the block text to embed
