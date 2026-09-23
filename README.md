@@ -124,6 +124,9 @@ Covers the rebrand and default-behavior changes in this fork — defaults (Mater
 
 GitHub Actions runs all three checks. Android lint reports are uploaded as a workflow artifact for every run. The lint gate treats dependency-update notices as advisory while still failing on actionable Android findings.
 
+<!-- STARGAZERS_START -->
+<!-- STARGAZERS_END -->
+
 <h2 align="middle">
     💗 Acknowledgement:
 </h2>

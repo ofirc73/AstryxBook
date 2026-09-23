@@ -1,0 +1,47 @@
+name: Update Stargazers Wall
+
+on:
+  schedule:
+    # Runs automatically every day at midnight UTC
+    - cron: '0 0 * * *'
+  # Allows you to manually trigger it anytime from the Actions tab
+  workflow_dispatch: 
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Crucial: Gives the bot permission to push changes
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Fetch Stargazers and Inject Into README
+        env:
+          REPO_OWNER: "ofirc73"
+          REPO_NAME: "AstryxBook"
+        run: |
+          # 1. Fetch stargazers JSON data from the API
+          RESPONSE=$(curl -s "https://github.com")
+          
+          # 2. Extract profile details and format into clickable markdown image badges
+          GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(@.login)](https://weserv.nl\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
+          
+          # 3. Create the block text to embed
+          NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
+          
+          # 4. Use perl to safely replace everything between the placeholders in README.md
+          perl -0777 -pi -e "s/<!-- STARGAZERS_START -->.*?<!-- STARGAZERS_END -->/$NEW_CONTENT/s" README.md
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          
+          # Only commit if README.md was actually modified
+          if ! git diff --exit-code README.md; then
+            git add README.md
+            git commit -m "docs: update stargazers list in README [skip ci]"
+            git push
+          fi
