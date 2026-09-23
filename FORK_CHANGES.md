@@ -32,6 +32,8 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 ## Localization
 
 - Added a complete Hebrew (`עברית`) locale, including Astryxbook branding.
+- Ported the upstream Italian translation into a fork-safe locale with Astryxbook
+  branding and current PiP ratio strings.
 - Updated every existing translated locale with the new PiP aspect-ratio
   title and options.
 

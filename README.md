@@ -49,7 +49,7 @@ If enabled, the app:
 *  Keeps the navigation bar at the top
 *  Downloads media or copies it to the clipboard
 *  Supports Picture-in-Picture playback with selectable portrait-window ratios
-*  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Spanish, French, Portuguese, and Traditional Chinese
+*  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Italian, Spanish, French, Portuguese, and Traditional Chinese
 *  And more!
 
 <h2 align="middle">

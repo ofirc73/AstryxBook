@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 import java.util.Locale
 
 /**
- * app_name is hand-edited across 9 locale strings.xml files on every rebrand.
+ * app_name is hand-edited across 10 locale strings.xml files on every rebrand.
  * Sweeps all of them so a missed locale fails loudly here instead of shipping
  * half-branded ("Materialbook") in one language.
  */
@@ -23,6 +23,7 @@ class LocaleAppNameTest {
         Locale.forLanguageTag("de"),
         Locale.forLanguageTag("es"),
         Locale.forLanguageTag("fr"),
+        Locale.forLanguageTag("it"),
         Locale.forLanguageTag("iw"),
         Locale.forLanguageTag("pt"),
         Locale.Builder().setLanguage("zh").setRegion("TW").build(),
@@ -49,7 +50,7 @@ class LocaleAppNameTest {
     @Test
     fun appNameIsAstryxbookInDefaultFallback() {
         // A locale we have no translation for falls back to the default values/strings.xml.
-        val name = contextFor(Locale.forLanguageTag("it")).getString(R.string.app_name)
+        val name = contextFor(Locale.forLanguageTag("ja")).getString(R.string.app_name)
         assertTrue(
             "app_name should start with \"Astryxbook\" but was \"$name\"",
             name.startsWith("Astryxbook")
