@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           # Fixed: Fully clean expression syntax so GitHub can read your token secret
-          token: \${{ secrets.OWNER_PAT }}
+          token: ${{ secrets.OWNER_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,7 +25,7 @@ jobs:
 
       - name: Fetch Stargazers and Inject into README
         env:
-          GITHUB_TOKEN: \${{ secrets.OWNER_PAT }}
+          GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
           # 1. Write the inline script out to a clean JavaScript file
           cat << 'EOF' > update_stars.js
