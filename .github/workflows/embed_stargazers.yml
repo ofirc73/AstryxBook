@@ -26,20 +26,29 @@ jobs:
           REPO_NAME: "AstryxBook"
           GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          # 1. Fetch stargazers using authorization and the correct media headers to unpack user details
-          AUTH_TOKEN="${GITHUB_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
-          RESPONSE=$(curl -s \
-            -H "Authorization: token $AUTH_TOKEN" \
-            -H "Accept: application/vnd.github.v3.star+json" \
+          # 1. Fetch stargazers using the modern Bearer auth standard and exact REST API headers
+          RESPONSE=$(curl -s -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://github.com")
           
-          # 2. Extract profile details and format into clickable markdown image badges using the correct image proxy URL
-          GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(.user.login)](https://weserv.nl\(.user.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(.user.html_url))"' | tr '\n' ' ')
+          # 2. Check if the response returned an error message or empty array due to token permissions
+          if echo "$RESPONSE" | jq -e '.message' >/dev/null 2>&1; then
+            echo "❌ GitHub API Error: $(echo "$RESPONSE" | jq -r '.message')"
+            exit 1
+          elif [ "$RESPONSE" = "[]" ] || [ -z "$RESPONSE" ]; then
+            echo "❌ Error: Received an empty stargazer array. Check if OWNER_PAT has classic 'repo' scopes enabled."
+            exit 1
+          fi
+
+          # 3. Extract profile details and format into clickable markdown image badges
+          GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(@.login)](https://weserv.nl\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
           
-          # 3. Create the block text to embed
+          # 4. Create the block text to embed
           NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
           
-          # 4. Use perl to safely replace everything between the placeholders in README.md
+          # 5. Use perl to safely replace everything between the placeholders in README.md
           perl -0777 -pi -e "s/<!-- STARGAZERS_START -->.*?<!-- STARGAZERS_END -->/$NEW_CONTENT/s" README.md
 
       - name: Commit and Push Changes
