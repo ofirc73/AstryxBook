@@ -11,7 +11,7 @@ jobs:
   update-readme:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Crucial: Gives the bot permission to push changes
+      contents: write  # Gives the bot permission to push changes
     
     steps:
       - name: Checkout Repository
@@ -24,9 +24,11 @@ jobs:
         env:
           REPO_OWNER: "ofirc73"
           REPO_NAME: "AstryxBook"
+          GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          # 1. Fetch stargazers JSON data from the correct GitHub API endpoint
-          RESPONSE=$(curl -s "https://github.com")
+          # 1. Fetch stargazers using authorization to prevent empty rate-limited responses
+          AUTH_TOKEN="${GITHUB_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
+          RESPONSE=$(curl -s -H "Authorization: token $AUTH_TOKEN" "https://github.com")
           
           # 2. Extract profile details and format into clickable markdown image badges
           GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(@.login)](https://weserv.nl\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
