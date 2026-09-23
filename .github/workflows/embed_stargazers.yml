@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          token: \${{ secrets.OWNER_PAT }}
+          token: ${{ secrets.OWNER_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,7 +24,7 @@ jobs:
 
       - name: Fetch Stargazers and Inject into README
         env:
-          GITHUB_TOKEN: \${{ secrets.OWNER_PAT }}
+          GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
           cat << 'INNER_EOF' > update_stars.js
           const fs = require('fs');
