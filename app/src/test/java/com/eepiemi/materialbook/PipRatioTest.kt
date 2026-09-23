@@ -44,6 +44,38 @@ class PipRatioTest {
     }
 
     @Test
+    fun landscapeVideoUsesDetectedSourceRatio() {
+        assertEquals(
+            Rational(4, 3),
+            SettingsViewModel.calculatePipRational(1920, 1440, Rational(4, 7))
+        )
+    }
+
+    @Test
+    fun extremeLandscapeRatioIsClampedToAndroidLimit() {
+        assertEquals(
+            Rational(239, 100),
+            SettingsViewModel.calculatePipRational(1000, 100, Rational(4, 7))
+        )
+    }
+
+    @Test
+    fun unknownVideoDimensionsFallBackTo16By9() {
+        assertEquals(
+            Rational(16, 9),
+            SettingsViewModel.calculatePipRational(0, 0, Rational(4, 7))
+        )
+    }
+
+    @Test
+    fun portraitVideoStillUsesSelectedRatio() {
+        assertEquals(
+            Rational(2, 3),
+            SettingsViewModel.calculatePipRational(1080, 1920, Rational(2, 3))
+        )
+    }
+
+    @Test
     fun corruptValue_fallsBackTo_4_7() {
         assertEquals(Rational(4, 7), parse("garbage"))
     }

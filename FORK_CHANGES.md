@@ -85,8 +85,10 @@ leaving the app while a Facebook video or Reel is playing.
 - Page chrome hidden while in PiP so only the video shows, filling the
   window — not just a shrunk copy of the whole page.
 - Portrait-video window ratio is selectable from Settings: 4:7 (the
-  recommended default), 2:3, 3:4, or 9:16. Changes are applied immediately;
-  landscape videos remain 16:9.
+  recommended default), 2:3, 3:4, or 9:16. Changes are applied immediately.
+- Landscape videos auto-match their detected source ratio (including 7:4, 4:3,
+  and 16:9), clamped to Android's supported PiP range, with 16:9 fallback
+  when dimensions are unavailable.
 - The 4:7 default trades a small top/bottom crop for reliable sizing on
   devices that render a true 9:16 window oversized or clipped off-screen.
 - On Android 12 and newer, the WebView bounds are supplied as the PiP source

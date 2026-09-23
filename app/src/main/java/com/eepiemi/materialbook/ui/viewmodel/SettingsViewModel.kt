@@ -225,7 +225,13 @@ class SettingsViewModel(
 
     fun parsedPipRational(): Rational = parsedPipRational(pipPortraitRatio.value)
 
+    fun pipRationalForVideo(videoWidth: Int, videoHeight: Int): Rational =
+        calculatePipRational(videoWidth, videoHeight, parsedPipRational())
+
     companion object {
+        private val MIN_PIP_ASPECT_RATIO = 100f / 239f
+        private val MAX_PIP_ASPECT_RATIO = 239f / 100f
+
         /**
          * Converts a stored "W:H" string to a [Rational] suitable for
          * [android.app.PictureInPictureParams.Builder.setAspectRatio].
@@ -239,6 +245,42 @@ class SettingsViewModel(
             } catch (_: Exception) {
                 Rational(4, 7)
             }
+        }
+
+        /**
+         * Uses the selected ratio for portrait video and the detected source
+         * ratio for landscape video. Extreme landscape ratios are clamped to
+         * Android's documented PiP range; unknown dimensions use 16:9.
+         */
+        fun calculatePipRational(
+            videoWidth: Int,
+            videoHeight: Int,
+            portraitRatio: Rational,
+        ): Rational {
+            if (videoWidth <= 0 || videoHeight <= 0) {
+                return Rational(16, 9)
+            }
+            if (videoHeight > videoWidth) {
+                return portraitRatio
+            }
+
+            val sourceRatio = videoWidth.toFloat() / videoHeight.toFloat()
+            return when {
+                sourceRatio < MIN_PIP_ASPECT_RATIO -> Rational(100, 239)
+                sourceRatio > MAX_PIP_ASPECT_RATIO -> Rational(239, 100)
+                else -> reducedRational(videoWidth, videoHeight)
+            }
+        }
+
+        private fun reducedRational(numerator: Int, denominator: Int): Rational {
+            var a = numerator
+            var b = denominator
+            while (b != 0) {
+                val remainder = a % b
+                a = b
+                b = remainder
+            }
+            return Rational(numerator / a, denominator / a)
         }
     }
 }

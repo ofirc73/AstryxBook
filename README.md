@@ -73,15 +73,16 @@ the app. On older supported Android versions, PiP is entered when Android notifi
 that it is being left.
 
 The app ignores muted feed autoplay and selects the largest visible audible video when
-multiple videos are present. Landscape videos use a 16:9 PiP window. Portrait videos use the
-ratio selected in Settings, and a changed selection is applied immediately to the active
-video without restarting the app.
+multiple videos are present. Landscape videos use their detected source ratio when available,
+including ratios such as 7:4, 4:3, and 16:9, with 16:9 fallback when dimensions are unavailable.
+Portrait videos use the ratio selected in Settings, and a changed selection is applied immediately
+to the active video without restarting the app.
 
 The default 4:7 ratio is a reliable compromise: it stays close to the video's true 9:16
 shape while avoiding the oversized or off-screen window seen on some devices. The wider
 4:7, 2:3, and 3:4 windows crop the top and bottom as needed to fill the PiP window without
 black bars. Selecting 9:16 preserves the exact video shape, but the window may overflow on
-some devices.
+some devices. Extreme detected landscape ratios are clamped to Android's supported PiP range.
 
 The page itself is hidden while in PiP so only the video shows, filling the window.
 

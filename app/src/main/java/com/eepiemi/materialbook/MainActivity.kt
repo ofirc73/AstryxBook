@@ -177,9 +177,12 @@ class MainActivity : ComponentActivity() {
      * immediately — without waiting for the next JS bridge event or an app restart.
      */
     private fun reapplyPipParams() {
-        // Recompute portrait ratio from stored dimensions + current user setting
-        if (lastVideoWidth > 0 && lastVideoHeight > lastVideoWidth) {
-            currentAspectRatio = settingsVM.parsedPipRational()
+        // Recompute ratio from stored dimensions + current portrait setting
+        if (lastVideoWidth > 0 && lastVideoHeight > 0) {
+            currentAspectRatio = settingsVM.pipRationalForVideo(
+                lastVideoWidth,
+                lastVideoHeight
+            )
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
@@ -203,13 +206,7 @@ class MainActivity : ComponentActivity() {
         lastVideoWidth = videoWidth
         lastVideoHeight = videoHeight
         if (videoWidth > 0 && videoHeight > 0) {
-            // Use the user-configured portrait ratio (default "4:7", empirically safe on Samsung A56).
-            // Falls back to Rational(4,7) on parse error. Landscape videos keep 16:9.
-            currentAspectRatio = if (videoHeight > videoWidth) {
-                settingsVM.parsedPipRational()
-            } else {
-                Rational(16, 9)
-            }
+            currentAspectRatio = settingsVM.pipRationalForVideo(videoWidth, videoHeight)
         }
         Log.d(TAG, "updateVideoPlaybackState: isPlaying=$isPlaying, ${videoWidth}x$videoHeight, pipEnabled=${settingsVM.pipEnabled.value}, aspectRatio=$currentAspectRatio")
 
