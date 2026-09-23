@@ -26,15 +26,15 @@ jobs:
           REPO_NAME: "AstryxBook"
           GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          # 1. Fetch stargazers using explicit API versions and media headers from the correct API endpoint
+          # 1. Fetch stargazers using authorization and the correct media headers to unpack user details
           AUTH_TOKEN="${GITHUB_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
           RESPONSE=$(curl -s \
             -H "Authorization: token $AUTH_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
+            -H "Accept: application/vnd.github.v3.star+json" \
             "https://github.com")
           
           # 2. Extract profile details and format into clickable markdown image badges using the correct image proxy URL
-          GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(@.login)](https://weserv.nl\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
+          GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(.user.login)](https://weserv.nl\(.user.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(.user.html_url))"' | tr '\n' ' ')
           
           # 3. Create the block text to embed
           NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
@@ -45,7 +45,7 @@ jobs:
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
           # Only commit if README.md was actually modified
           if ! git diff --exit-code README.md; then
