@@ -26,4 +26,9 @@
     <string name="customize_feed">Elemente anzeigen oder ausblenden</string>
     <string name="hide_sponsored_ads_from_your_feed">Gesponserte Werbung im Feed ausblenden</string>
     <string name="enable_download_button_on_media_view">Download-Button in Medienansicht aktivieren</string>
+    <string name="pip_ratio_title">PiP-Seitenverhältnis (Hochformat-Videos)</string>
+    <string name="pip_ratio_4_7">4:7 (empfohlen)</string>
+    <string name="pip_ratio_2_3">2:3</string>
+    <string name="pip_ratio_3_4">3:4</string>
+    <string name="pip_ratio_9_16">9:16 (kann auf einigen Geräten überstehen)</string>
 </resources>

@@ -48,7 +48,8 @@ If enabled, the app:
     *  People you may know
 *  Keeps the navigation bar at the top
 *  Downloads media or copies it to the clipboard
-*  Supports Picture-in-Picture playback for visible, audible Facebook videos
+*  Supports Picture-in-Picture playback with selectable portrait-window ratios
+*  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Spanish, French, Portuguese, and Traditional Chinese
 *  And more!
 
 <h2 align="middle">
@@ -58,21 +59,29 @@ If enabled, the app:
 To use Picture-in-Picture:
 
 1. Enable **Picture-in-Picture** in the app's Settings.
-2. If needed, also allow it in Android under **Settings > Apps > Astryxbook > Picture-in-picture**.
-3. Open a Facebook video or Reel and start playback.
-4. Keep the video visible and audible, then use the Home gesture or Home button.
+2. Tap **PiP aspect ratio** (shown when PiP is enabled) and choose the window ratio for portrait videos:
+   * **4:7** (recommended; default)
+   * **2:3**
+   * **3:4**
+   * **9:16** (may overflow on some devices)
+3. If needed, also allow PiP in Android under **Settings > Apps > Astryxbook > Picture-in-picture**.
+4. Open a Facebook video or Reel and start playback.
+5. Keep the video visible and audible, then use the Home gesture or Home button.
 
 On Android 12 and newer, PiP is configured for a smooth automatic transition as you leave
 the app. On older supported Android versions, PiP is entered when Android notifies the app
 that it is being left.
 
 The app ignores muted feed autoplay and selects the largest visible audible video when
-multiple videos are present. Landscape videos use a landscape PiP window; vertical Reels
-use a portrait-ish window capped at 4:7 (not the video's true 9:16) — some devices size a
-true 9:16 PiP window oversized/clipped off-screen, so this trades exact video shape for a
-reliably-sized window, at the cost of cropping the top/bottom of the video slightly to fill
-the window with no black bars (the same crop-to-fill approach YouTube/TikTok/Instagram use
-when their own players are forced into a non-matching window shape).
+multiple videos are present. Landscape videos use a 16:9 PiP window. Portrait videos use the
+ratio selected in Settings, and a changed selection is applied immediately to the active
+video without restarting the app.
+
+The default 4:7 ratio is a reliable compromise: it stays close to the video's true 9:16
+shape while avoiding the oversized or off-screen window seen on some devices. The wider
+4:7, 2:3, and 3:4 windows crop the top and bottom as needed to fill the PiP window without
+black bars. Selecting 9:16 preserves the exact video shape, but the window may overflow on
+some devices.
 
 The page itself is hidden while in PiP so only the video shows, filling the window.
 

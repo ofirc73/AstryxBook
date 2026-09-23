@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 import java.util.Locale
 
 /**
- * app_name is hand-edited across 8 locale strings.xml files on every rebrand.
+ * app_name is hand-edited across 9 locale strings.xml files on every rebrand.
  * Sweeps all of them so a missed locale fails loudly here instead of shipping
  * half-branded ("Materialbook") in one language.
  */
@@ -23,6 +23,7 @@ class LocaleAppNameTest {
         Locale.forLanguageTag("de"),
         Locale.forLanguageTag("es"),
         Locale.forLanguageTag("fr"),
+        Locale.forLanguageTag("iw"),
         Locale.forLanguageTag("pt"),
         Locale.Builder().setLanguage("zh").setRegion("TW").build(),
     )

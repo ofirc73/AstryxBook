@@ -33,4 +33,9 @@
     <string name="hide_sponsored_ads_from_your_feed">Ocultar anuncios patrocinados en el feed</string>
     <string name="enable_download_button_on_media_view">Activar botón de descarga en vista de medios</string>
     <string name="enable_copy_to_clipboard_button_on_media_view">Activar botón de copiar al portapapeles en vista de medios</string>
+    <string name="pip_ratio_title">Relación de aspecto de PiP (videos verticales)</string>
+    <string name="pip_ratio_4_7">4:7 (recomendado)</string>
+    <string name="pip_ratio_2_3">2:3</string>
+    <string name="pip_ratio_3_4">3:4</string>
+    <string name="pip_ratio_9_16">9:16 (puede sobresalir en algunos dispositivos)</string>
 </resources>

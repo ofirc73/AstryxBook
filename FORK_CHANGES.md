@@ -29,6 +29,12 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   listing icon/banner recolored to match; downloads badge swapped from an
   opaque third-party worker to a themed, GitHub-API-backed shields.io badge.
 
+## Localization
+
+- Added a complete Hebrew (`עברית`) locale, including Astryxbook branding.
+- Updated every existing translated locale with the new PiP aspect-ratio
+  title and options.
+
 ## CI/CD
 
 - `./gradlew test` and `connectedAndroidTest` now gate every build —
@@ -65,9 +71,11 @@ leaving the app while a Facebook video or Reel is playing.
   public API to override that.
 - Page chrome hidden while in PiP so only the video shows, filling the
   window — not just a shrunk copy of the whole page.
-- Portrait video capped to a 3:4 PiP window rather than true 9:16 — some
-  devices size a true-9:16 window oversized/clipped off-screen; trades
-  exact video shape for a reliably-sized window.
+- Portrait-video window ratio is selectable from Settings: 4:7 (the
+  recommended default), 2:3, 3:4, or 9:16. Changes are applied immediately;
+  landscape videos remain 16:9.
+- The 4:7 default trades a small top/bottom crop for reliable sizing on
+  devices that render a true 9:16 window oversized or clipped off-screen.
 
 ## Known limitations
 

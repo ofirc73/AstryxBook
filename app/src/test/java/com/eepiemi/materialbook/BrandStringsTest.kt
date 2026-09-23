@@ -39,6 +39,7 @@ class BrandStringsTest {
         "-de",        // German
         "-es",        // Spanish
         "-fr",        // French
+        "-iw",        // Hebrew
         "-pt",        // Portuguese
         "-zh-rTW"     // Traditional Chinese
     )

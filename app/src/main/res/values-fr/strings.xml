@@ -26,4 +26,9 @@
     <string name="customize_feed">Afficher ou masquer les éléments</string>
     <string name="hide_sponsored_ads_from_your_feed">Masquer les publicités sponsorisées dans le flux</string>
     <string name="enable_download_button_on_media_view">Activer le bouton de téléchargement sur la vue média</string>
+    <string name="pip_ratio_title">Rapport d\'aspect PiP (vidéos verticales)</string>
+    <string name="pip_ratio_4_7">4:7 (recommandé)</string>
+    <string name="pip_ratio_2_3">2:3</string>
+    <string name="pip_ratio_3_4">3:4</string>
+    <string name="pip_ratio_9_16">9:16 (peut dépasser sur certains appareils)</string>
 </resources>

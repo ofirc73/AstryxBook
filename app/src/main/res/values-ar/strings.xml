@@ -36,4 +36,11 @@
     <string name="enable_download_button_on_media_view">تفعيل زر التنزيل عند عرض الوسائط</string>
     <string name="enable_copy_to_clipboard_button_on_media_view">تفعيل زر النسخ للحافظة عند عرض الوسائط</string>
     <string name="not_supported">غير مدعوم</string>
+    <string name="pip_title">الصورة داخل الصورة</string>
+    <string name="shrink_into_a_floating_window_when_leaving_while_a_video_plays">التصغير إلى نافذة عائمة عند مغادرة التطبيق أثناء تشغيل فيديو</string>
+    <string name="pip_ratio_title">نسبة العرض إلى الارتفاع لـ PiP (الفيديوهات العمودية)</string>
+    <string name="pip_ratio_4_7">4:7 (موصى به)</string>
+    <string name="pip_ratio_2_3">2:3</string>
+    <string name="pip_ratio_3_4">3:4</string>
+    <string name="pip_ratio_9_16">9:16 (قد يتجاوز حدود الشاشة في بعض الأجهزة)</string>
 </resources>

@@ -31,4 +31,9 @@
     <string name="image_copied_to_clipboard">ছবি ক্লিপবোর্ডে কপি করা হয়েছে</string>
     <string name="copy_failed_invalid_data">কপি করা যায়নি: ডেটা সঠিক নয়</string>
     <string name="copy_failed_invalid_image">কপি করা যায়নি: ছবিটি বৈধ নয়</string>
+    <string name="pip_ratio_title">PiP অ্যাস্পেক্ট রেশিও (পোর্ট্রেট ভিডিও)</string>
+    <string name="pip_ratio_4_7">4:7 (সুপারিশকৃত)</string>
+    <string name="pip_ratio_2_3">2:3</string>
+    <string name="pip_ratio_3_4">3:4</string>
+    <string name="pip_ratio_9_16">9:16 (কিছু ডিভাইসে স্ক্রিনের বাইরে চলে যেতে পারে)</string>
 </resources>
