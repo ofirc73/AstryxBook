@@ -21,11 +21,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          API_BASE="https://api.github.com"
+          API_BASE="https://github.com"
           TARGET_PATH="/repos/ofirc73/AstryxBook/stargazers"
           FULL_ENDPOINT="${API_BASE}${TARGET_PATH}"
           
-          IMAGE_BASE="https://images.weserv.nl"
+          IMAGE_BASE="https://weserv.nl"
           IMAGE_QUERY="/?url="
           IMAGE_PROXY="${IMAGE_BASE}${IMAGE_QUERY}"
 
@@ -46,16 +46,29 @@ jobs:
           
           echo "DEBUG: Generated grid payload is -> $GRID"
 
-          # 3. Create the block text to embed
-          NEW_CONTENT="<!-- STARGAZERS_START -->\n### ✨ Our Awesome Stargazers\n$GRID\n<!-- STARGAZERS_END -->"
+          # 3. Pure Bash text slice replacement
+          # Locate exact line numbers of the structural markers
+          START_LINE=$(grep -n "<!-- STARGAZERS_START -->" README.md | cut -d: -f1)
+          END_LINE=$(grep -n "<!-- STARGAZERS_END -->" README.md | cut -d: -f1)
+
+          if [ -z "$START_LINE" ] || [ -z "$END_LINE" ]; then
+            echo "❌ Error: Could not find placeholders in README.md. Please make sure they exist exactly as written."
+            exit 1
+          fi
+
+          # Extract file contents before the start tag and after the end tag
+          head -n "$START_LINE" README.md > temp_readme.md
+          echo "### ✨ Our Awesome Stargazers" >> temp_readme.md
+          echo "$GRID" >> temp_readme.md
+          tail -n +"$END_LINE" README.md >> temp_readme.md
           
-          # Use '#' instead of '/' as the delimiter to prevent URL slashes from breaking perl
-          perl -0777 -pi -e "s#<!--\s*STARGAZERS_START\s*-->.*?<!--\s*STARGAZERS_END\s*-->#$NEW_CONTENT#sg" README.md
+          # Replace original README file with our clean stitched version
+          mv temp_readme.md README.md
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
           
           echo "=== SHOWING LOCAL GIT DIFF ==="
           git diff README.md
