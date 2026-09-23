@@ -26,11 +26,14 @@ jobs:
           REPO_NAME: "AstryxBook"
           GITHUB_TOKEN: ${{ secrets.OWNER_PAT }}
         run: |
-          # 1. Fetch stargazers using authorization to prevent empty rate-limited responses
+          # 1. Fetch stargazers using explicit API versions and media headers from the correct API endpoint
           AUTH_TOKEN="${GITHUB_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
-          RESPONSE=$(curl -s -H "Authorization: token $AUTH_TOKEN" "https://github.com")
+          RESPONSE=$(curl -s \
+            -H "Authorization: token $AUTH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://github.com")
           
-          # 2. Extract profile details and format into clickable markdown image badges
+          # 2. Extract profile details and format into clickable markdown image badges using the correct image proxy URL
           GRID=$(echo "$RESPONSE" | jq -r '.[] | "[![\(@.login)](https://weserv.nl\(@.avatar_url)&w=50&h=50&fit=cover&mask=circle)](\(@.html_url))"' | tr '\n' ' ')
           
           # 3. Create the block text to embed
