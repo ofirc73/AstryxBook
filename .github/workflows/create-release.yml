@@ -13,6 +13,8 @@ name: Create Release
 #  2. push of a v*.*.* tag directly — manual escape hatch, bypasses
 #     auto-versioning (e.g. re-releasing an old commit).
 #  3. workflow_dispatch — manual override with an explicit tag.
+#
+# Use Ubuntu 26.04 across release jobs for current GitHub-hosted tooling.
 
 on:
   push:
@@ -32,7 +34,7 @@ jobs:
     # Only the main-push path auto-computes a version — a direct tag push or
     # workflow_dispatch already carries an explicit one.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     outputs:
@@ -51,7 +53,7 @@ jobs:
       # we already continue in this same run via the outputs below instead.
       - name: Bump version and push tag
         id: tag
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: patch
@@ -64,7 +66,7 @@ jobs:
   # satisfied for a needs: gate, and its outputs resolve to empty string).
   resolve-version:
     needs: compute-version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
       version: ${{ steps.resolve.outputs.version }}
@@ -84,7 +86,7 @@ jobs:
 
   release:
     needs: [ci, resolve-version]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:

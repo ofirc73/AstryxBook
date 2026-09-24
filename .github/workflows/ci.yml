@@ -8,6 +8,8 @@ name: CI
 # Deliberately has no access to signing secrets: only create-release.yml's
 # own job (not this reusable workflow) handles the keystore, so a PR run
 # never touches release-signing credentials.
+#
+# Use Ubuntu 26.04 across CI jobs for current GitHub-hosted tooling.
 
 on:
   pull_request:
@@ -22,7 +24,7 @@ on:
 jobs:
   android-lint:
     name: Android Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -52,7 +54,7 @@ jobs:
           retention-days: 14
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -84,7 +86,7 @@ jobs:
           compression-level: 5
 
   instrumented-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -154,7 +156,7 @@ jobs:
 
   coverage-report:
     needs: [build, instrumented-tests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
