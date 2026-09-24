@@ -2,6 +2,11 @@
   if (window.__astryxPipObserverInstalled) return;
   window.__astryxPipObserverInstalled = true;
 
+  // Keep the last real active video after Android pauses it during PiP entry.
+  // PiP focus mode runs after that pause; without this reference it can select
+  // another visible, paused reel by viewport area.
+  window.__astryxLastActiveVideo = null;
+
   function getActiveVideo() {
     var bestVideo = null;
     var bestScore = -1;
@@ -34,6 +39,10 @@
         bestVideo = v;
         bestScore = score;
       }
+    }
+
+    if (bestVideo) {
+      window.__astryxLastActiveVideo = bestVideo;
     }
 
     return bestVideo;

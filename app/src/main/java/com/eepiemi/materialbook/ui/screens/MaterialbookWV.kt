@@ -78,13 +78,19 @@ private const val PIP_TOGGLE_JS = """
 // the real viewport edges — not something fixable from our side if so.
 private const val PIP_FOCUS_MODE_JS = """
 (function() {
-  var videos = document.querySelectorAll('video');
-  var best = null, bestArea = 0;
-  for (var i = 0; i < videos.length; i++) {
-    var r = videos[i].getBoundingClientRect();
-    var area = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) *
-               Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
-    if (area > bestArea) { bestArea = area; best = videos[i]; }
+  // Android may pause the active video before PiP focus mode runs. Prefer the
+  // detector's last real active video so a paused, larger reel cannot replace it.
+  var best = window.__astryxLastActiveVideo;
+  if (!best || !document.documentElement.contains(best)) {
+    var videos = document.querySelectorAll('video');
+    var bestArea = 0;
+    best = null;
+    for (var i = 0; i < videos.length; i++) {
+      var r = videos[i].getBoundingClientRect();
+      var area = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) *
+                 Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
+      if (area > bestArea) { bestArea = area; best = videos[i]; }
+    }
   }
   if (!best) return;
 
@@ -102,6 +108,7 @@ private const val PIP_FOCUS_MODE_JS = """
     style.textContent =
       'body[data-astryx-pip-active] > *:not([data-astryx-pip-keep]) { display:none !important; }' +
       'body[data-astryx-pip-active] [data-astryx-pip-keep]:not([data-astryx-pip-video]) { all:unset !important; display:contents !important; }' +
+      'video:not([data-astryx-pip-video]) { display:none !important; }' +
       'video[data-astryx-pip-video] { position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; object-fit:cover !important; z-index:2147483647 !important; background:#000 !important; }';
     document.head.appendChild(style);
   }
