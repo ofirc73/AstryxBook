@@ -65,6 +65,16 @@ class MainActivity : ComponentActivity() {
     // fill the viewport) on PiP enter/exit.
     private var isInPipMode by mutableStateOf(false)
 
+    // Bumped in onUserLeaveHint, the earliest moment we know PiP is about to
+    // engage — observed by the composable to freeze the detector's "last
+    // active video" tracking immediately. Without this, Facebook's own
+    // controller can pause reel A and autoplay a different reel B in the gap
+    // (up to ~3.5s observed) between onUserLeaveHint and
+    // onPictureInPictureModeChanged, and PIP_FOCUS_MODE_JS would then lock
+    // onto whichever video is "last active" *at focus-mode-run time* — by
+    // then already B, not the A the aspect ratio was computed from.
+    private var pipEnteringTrigger by mutableIntStateOf(0)
+
     private val pipActionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_PIP_TOGGLE) {
@@ -95,6 +105,7 @@ class MainActivity : ComponentActivity() {
                         ?: "https://facebook.com/",
                     settingsVM = settingsVM,
                     pipToggleTrigger = pipToggleTrigger,
+                    pipEnteringTrigger = pipEnteringTrigger,
                     isInPipMode = isInPipMode,
                     onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
                         updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
@@ -237,6 +248,7 @@ class MainActivity : ComponentActivity() {
             settingsVM.pipEnabled.value
         Log.d(TAG, "onUserLeaveHint: sdkInt=${Build.VERSION.SDK_INT}, isVideoPlaying=$isVideoPlaying, pipEnabled=${settingsVM.pipEnabled.value}, eligible=$eligible")
         if (eligible) {
+            pipEnteringTrigger++
             try {
                 enterPictureInPictureMode(
                     pipParamsBuilder()

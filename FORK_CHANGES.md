@@ -96,5 +96,10 @@ leaving the app while a Facebook video or Reel is playing.
 
 ## Known limitations
 
+- On Reels specifically, Facebook's own web player can re-pause a video
+  shortly after it's resumed from the PiP overlay's Play button. Facebook's
+  player enforces which single video is allowed to play at a time on its own
+  side, independent of anything this app does, so this isn't something we
+  can override from here.
 - Store listing screenshots (`fastlane/metadata/.../phoneScreenshots/`)
   removed as stale; not replaced yet (need real device captures).

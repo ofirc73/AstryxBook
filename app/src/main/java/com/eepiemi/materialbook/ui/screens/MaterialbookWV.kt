@@ -55,17 +55,39 @@ import kotlinx.coroutines.delay
 
 private const val PIP_TOGGLE_JS = """
 (function() {
-  var videos = document.querySelectorAll('video');
-  var best = null, bestArea = 0;
-  for (var i = 0; i < videos.length; i++) {
-    var r = videos[i].getBoundingClientRect();
-    var area = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) *
-               Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
-    if (area > bestArea) { bestArea = area; best = videos[i]; }
+  // Reuse whatever focus mode already locked in as THE pip video, instead of
+  // re-deriving "the active video" independently. Re-deriving it here is what
+  // caused the toggle to sometimes resume a different reel than the one
+  // actually shown in the PiP window (e.g. when focus mode's hide-everything
+  // -else CSS didn't fully collapse some other video's layout box).
+  var best = document.querySelector('[data-astryx-pip-video]');
+  if (!best) {
+    best = window.__astryxLastActiveVideo;
+    if (best && !document.documentElement.contains(best)) best = null;
   }
-  if (best) {
-    if (best.paused) { best.play(); } else { best.pause(); }
+  if (!best) {
+    // Last resort: focus mode never ran (e.g. page wasn't Finished loading
+    // yet) - fall back to the old by-area heuristic.
+    var videos = document.querySelectorAll('video');
+    var bestArea = 0;
+    for (var i = 0; i < videos.length; i++) {
+      var r = videos[i].getBoundingClientRect();
+      var area = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) *
+                 Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
+      if (area > bestArea) { bestArea = area; best = videos[i]; }
+    }
   }
+  if (!best) return;
+
+  // Reverted: dispatching a synthetic pointer/click sequence was tried here to
+  // get Facebook's own handler to toggle playback in sync with its internal
+  // state (see history), but it did nothing at all - Facebook's player almost
+  // certainly checks event.isTrusted and ignores non-trusted synthetic events,
+  // so no play()/pause() ever fired. Back to calling the media element
+  // directly, which does work (mediaPlaybackRequiresUserGesture is disabled),
+  // even though Facebook's own logic re-pauses it shortly after - see
+  // PIP_FOCUS_MODE_JS's debug hook / logDebug output for that separate issue.
+  if (best.paused) { best.play(); } else { best.pause(); }
 })();
 """
 
@@ -105,9 +127,23 @@ private const val PIP_FOCUS_MODE_JS = """
   if (!document.getElementById('astryx-pip-style')) {
     var style = document.createElement('style');
     style.id = 'astryx-pip-style';
+    // Root cause found via live DevTools breakpoint: Facebook's reels feed has
+    // a controller that owns "which single reel is active" and force-pauses
+    // any other playing video with reason "controller_pause_requested" -
+    // unrelated to CSS visibility, Page Visibility, or event trust (all ruled
+    // out). The controller most likely tracks "active reel" via scroll
+    // position/intersection against each reel-item's own wrapper element.
+    // The previous version of this stylesheet collapsed our video's own
+    // ancestor chain with display:contents, which removes an element's box
+    // entirely - if the controller watches that wrapper's geometry, this
+    // would make it think our reel scrolled out of view. So: leave the
+    // video's ancestors completely untouched (no display/style changes at
+    // all) - our video still visually dominates the screen via position:fixed
+    // + max z-index regardless of what its ancestors look like, so nothing is
+    // lost visually by not neutralizing them.
     style.textContent =
-      'body[data-astryx-pip-active] > *:not([data-astryx-pip-keep]) { display:none !important; }' +
-      'body[data-astryx-pip-active] [data-astryx-pip-keep]:not([data-astryx-pip-video]) { all:unset !important; display:contents !important; }' +
+      'body[data-astryx-pip-active] > *:not([data-astryx-pip-keep]), ' +
+      'body[data-astryx-pip-active] [data-astryx-pip-keep] > *:not([data-astryx-pip-keep]) { display:none !important; }' +
       'video:not([data-astryx-pip-video]) { display:none !important; }' +
       'video[data-astryx-pip-video] { position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; object-fit:cover !important; z-index:2147483647 !important; background:#000 !important; }';
     document.head.appendChild(style);
@@ -124,6 +160,34 @@ private const val PIP_RESTORE_MODE_JS = """
   for (var i = 0; i < kept.length; i++) { kept[i].removeAttribute('data-astryx-pip-keep'); }
   var vids = document.querySelectorAll('[data-astryx-pip-video]');
   for (var j = 0; j < vids.length; j++) { vids[j].removeAttribute('data-astryx-pip-video'); }
+  // Resume normal live tracking now that we're back in the foreground.
+  if (window.__astryxSetPipFreeze) window.__astryxSetPipFreeze(false);
+})();
+"""
+
+// Freezes the detector's window.__astryxLastActiveVideo the instant Android
+// decides PiP is eligible (onUserLeaveHint), well before PIP_FOCUS_MODE_JS
+// actually runs. Installs a getter/setter guard the first time it's called
+// (idempotent), capturing whatever value is already tracked so nothing is
+// lost, then freezes writes. Facebook's own reels controller can pause the
+// current reel and autoplay a different one in the gap between
+// onUserLeaveHint and onPictureInPictureModeChanged (up to ~3.5s observed) -
+// without this, that later write silently wins and PIP_FOCUS_MODE_JS locks
+// onto the wrong reel, one the native side never computed an aspect ratio for.
+private const val PIP_FREEZE_ACTIVE_VIDEO_JS = """
+(function() {
+  if (!window.__astryxPipFreezeInstalled) {
+    window.__astryxPipFreezeInstalled = true;
+    var real = window.__astryxLastActiveVideo || null;
+    var frozen = false;
+    Object.defineProperty(window, '__astryxLastActiveVideo', {
+      configurable: true,
+      get: function() { return real; },
+      set: function(v) { if (!frozen) { real = v; } }
+    });
+    window.__astryxSetPipFreeze = function(v) { frozen = !!v; };
+  }
+  window.__astryxSetPipFreeze(true);
 })();
 """
 
@@ -132,6 +196,7 @@ fun MaterialbookWebView(
     url: String,
     settingsVM: SettingsViewModel = viewModel(),
     pipToggleTrigger: Int = 0,
+    pipEnteringTrigger: Int = 0,
     isInPipMode: Boolean = false,
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> }
 ) {
@@ -168,6 +233,18 @@ fun MaterialbookWebView(
     LaunchedEffect(pipToggleTrigger) {
         if (pipToggleTrigger > 0) {
             navigator.evaluateJavaScript(PIP_TOGGLE_JS) {}
+        }
+    }
+
+    // Fired from onUserLeaveHint, the earliest moment PiP is known to be
+    // eligible — freezes the detector's "last active video" before
+    // Facebook's own reels controller gets a chance to pause it and autoplay
+    // a different one first. Deliberately separate from the isInPipMode
+    // effect below, which only fires once PiP has visually engaged (up to
+    // ~3.5s later) — too late to close this race.
+    LaunchedEffect(pipEnteringTrigger) {
+        if (pipEnteringTrigger > 0) {
+            navigator.evaluateJavaScript(PIP_FREEZE_ACTIVE_VIDEO_JS) {}
         }
     }
 
