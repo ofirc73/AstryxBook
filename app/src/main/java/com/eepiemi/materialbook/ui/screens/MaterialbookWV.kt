@@ -53,7 +53,7 @@ import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
 import kotlinx.coroutines.delay
 
-private const val PIP_TOGGLE_JS = """
+internal const val PIP_TOGGLE_JS = """
 (function() {
   // Reuse whatever focus mode already locked in as THE pip video, instead of
   // re-deriving "the active video" independently. Re-deriving it here is what
@@ -98,7 +98,7 @@ private const val PIP_TOGGLE_JS = """
 // any ancestor of the video uses CSS transform/filter/contain, it creates a
 // new containing block and position:fixed on the video won't actually reach
 // the real viewport edges — not something fixable from our side if so.
-private const val PIP_FOCUS_MODE_JS = """
+internal const val PIP_FOCUS_MODE_JS = """
 (function() {
   // Android may pause the active video before PiP focus mode runs. Prefer the
   // detector's last real active video so a paused, larger reel cannot replace it.
@@ -123,6 +123,19 @@ private const val PIP_FOCUS_MODE_JS = """
   }
   best.setAttribute('data-astryx-pip-video', 'true');
   document.body.setAttribute('data-astryx-pip-active', 'true');
+
+  // download_content.js's own download button (#materialbook-global-downloader)
+  // is a direct child of <body>, so our "hide everything not kept" stylesheet
+  // rule below does target it - but its own stylesheet uses an ID+class
+  // selector (#materialbook-global-downloader.visible { display:flex
+  // !important }), which beats our tag+attribute selector on specificity
+  // regardless of !important or insertion order. Skip the specificity fight:
+  // set an inline override directly, which always wins over any stylesheet
+  // rule. Only relevant in PiP - it's a legitimate, wanted control in the
+  // normal in-app view, just useless/obstructive squeezed into a small PiP
+  // window.
+  var dlBtn = document.getElementById('materialbook-global-downloader');
+  if (dlBtn) dlBtn.style.setProperty('display', 'none', 'important');
 
   if (!document.getElementById('astryx-pip-style')) {
     var style = document.createElement('style');
@@ -151,7 +164,7 @@ private const val PIP_FOCUS_MODE_JS = """
 })();
 """
 
-private const val PIP_RESTORE_MODE_JS = """
+internal const val PIP_RESTORE_MODE_JS = """
 (function() {
   var style = document.getElementById('astryx-pip-style');
   if (style) style.remove();
@@ -160,6 +173,10 @@ private const val PIP_RESTORE_MODE_JS = """
   for (var i = 0; i < kept.length; i++) { kept[i].removeAttribute('data-astryx-pip-keep'); }
   var vids = document.querySelectorAll('[data-astryx-pip-video]');
   for (var j = 0; j < vids.length; j++) { vids[j].removeAttribute('data-astryx-pip-video'); }
+  // Let download_content.js's own .visible class control this again, now
+  // that we're back in the normal view where it's a wanted control.
+  var dlBtn = document.getElementById('materialbook-global-downloader');
+  if (dlBtn) dlBtn.style.removeProperty('display');
   // Resume normal live tracking now that we're back in the foreground.
   if (window.__astryxSetPipFreeze) window.__astryxSetPipFreeze(false);
 })();
@@ -174,7 +191,7 @@ private const val PIP_RESTORE_MODE_JS = """
 // onUserLeaveHint and onPictureInPictureModeChanged (up to ~3.5s observed) -
 // without this, that later write silently wins and PIP_FOCUS_MODE_JS locks
 // onto the wrong reel, one the native side never computed an aspect ratio for.
-private const val PIP_FREEZE_ACTIVE_VIDEO_JS = """
+internal const val PIP_FREEZE_ACTIVE_VIDEO_JS = """
 (function() {
   if (!window.__astryxPipFreezeInstalled) {
     window.__astryxPipFreezeInstalled = true;

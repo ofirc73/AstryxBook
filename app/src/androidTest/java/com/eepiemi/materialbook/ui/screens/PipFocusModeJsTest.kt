@@ -1,0 +1,368 @@
+package com.eepiemi.materialbook.ui.screens
+
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+/**
+ * Regression tests for the PiP JS scripts (PIP_TOGGLE_JS, PIP_FOCUS_MODE_JS,
+ * PIP_RESTORE_MODE_JS, PIP_FREEZE_ACTIVE_VIDEO_JS), driven against a real
+ * android.webkit.WebView loaded with small synthetic HTML fixtures rather
+ * than live Facebook — these scripts' job is "given this DOM shape, pick/
+ * hide/mark the right elements", which is exactly what's testable and
+ * exactly what broke each time; Facebook's own player behavior (e.g. its
+ * reels controller re-pausing a resumed video) is external, unfixable from
+ * here, and deliberately NOT covered — see FORK_CHANGES.md's Known
+ * limitations.
+ */
+@RunWith(AndroidJUnit4::class)
+class PipFocusModeJsTest {
+
+    private fun String.unquoted() = removeSurrounding("\"")
+
+    /** Drives a fresh WebView synchronously from the test thread. */
+    private class Harness {
+        lateinit var webView: WebView
+            private set
+
+        fun loadHtml(html: String) {
+            val latch = CountDownLatch(1)
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val context = InstrumentationRegistry.getInstrumentation().targetContext
+                webView = WebView(context).apply {
+                    settings.javaScriptEnabled = true
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView, url: String) {
+                            latch.countDown()
+                        }
+                    }
+                    loadDataWithBaseURL(
+                        "https://example.com/",
+                        html,
+                        "text/html",
+                        "UTF-8",
+                        null
+                    )
+                }
+            }
+            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+        }
+
+        fun eval(js: String): String {
+            var result: String? = null
+            val latch = CountDownLatch(1)
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                webView.evaluateJavascript(js) { value ->
+                    result = value
+                    latch.countDown()
+                }
+            }
+            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
+            return result ?: "null"
+        }
+    }
+
+    // ── Nested-DOM chrome leak (yesterday's "toolbar visible in PiP" bug) ────
+    // The toolbar sits inside a wrapper that's on the video's ancestor path,
+    // not as a direct child of <body> — the old selector only ever checked
+    // body's direct children and missed exactly this shape.
+
+    @Test
+    fun focusMode_hidesNonKeptSiblings_atEveryAncestorLevel_notJustBody() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="wrapper">
+                <div id="toolbar">TOOLBAR</div>
+                <div id="reelContainer">
+                  <video id="myVideo" muted></video>
+                </div>
+              </div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertEquals(
+            "none",
+            h.eval("getComputedStyle(document.getElementById('toolbar')).display").unquoted()
+        )
+        assertEquals(
+            "fixed",
+            h.eval("getComputedStyle(document.getElementById('myVideo')).position").unquoted()
+        )
+    }
+
+    @Test
+    fun focusMode_leavesVideosOwnAncestors_unhidden() {
+        // The video's own ancestor chain (wrapper, reelContainer) must stay
+        // visible/untouched — a past attempt at display:contents on these
+        // broke Facebook's own reel-visibility tracking (see MaterialbookWV.kt
+        // history). Regression guard against reintroducing that.
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="wrapper">
+                <div id="reelContainer">
+                  <video id="myVideo" muted></video>
+                </div>
+              </div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertFalse(
+            h.eval("getComputedStyle(document.getElementById('wrapper')).display").unquoted() == "none"
+        )
+        assertFalse(
+            h.eval("getComputedStyle(document.getElementById('reelContainer')).display").unquoted() == "none"
+        )
+    }
+
+    // ── download_content.js's button must hide only in PiP ──────────────────
+
+    @Test
+    fun focusMode_hidesDownloadButton_viaInlineOverride() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="myVideo" muted></video>
+              <button id="materialbook-global-downloader" class="visible"></button>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertEquals(
+            "none",
+            h.eval(
+                "document.getElementById('materialbook-global-downloader').style.display"
+            ).unquoted()
+        )
+    }
+
+    @Test
+    fun focusMode_downloadButtonOverride_beatsItsOwnVisibleClass() {
+        // The button's own stylesheet uses #id.visible { display:flex
+        // !important }, higher CSS specificity than our tag/attribute
+        // selectors - this is why an inline override (not another stylesheet
+        // rule) is required. Regression guard against reverting to a plain
+        // CSS-only approach that would silently lose this specificity fight.
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><head><style>
+              #materialbook-global-downloader { display: none; }
+              #materialbook-global-downloader.visible { display: flex !important; }
+            </style></head><body>
+              <video id="myVideo" muted></video>
+              <button id="materialbook-global-downloader" class="visible"></button>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertEquals(
+            "none",
+            h.eval(
+                "getComputedStyle(document.getElementById('materialbook-global-downloader')).display"
+            ).unquoted()
+        )
+    }
+
+    @Test
+    fun restoreMode_clearsDownloadButtonOverride() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="myVideo" muted></video>
+              <button id="materialbook-global-downloader" class="visible"></button>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        h.eval(PIP_RESTORE_MODE_JS)
+
+        assertEquals(
+            "",
+            h.eval(
+                "document.getElementById('materialbook-global-downloader').style.display"
+            ).unquoted()
+        )
+    }
+
+    @Test
+    fun focusMode_doesNotErrorWhenDownloadButtonAbsent() {
+        // download_content.js may not have run/injected the button yet -
+        // focus mode must not throw and must still handle the video normally.
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="myVideo" muted></video>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertEquals(
+            "fixed",
+            h.eval("getComputedStyle(document.getElementById('myVideo')).position").unquoted()
+        )
+    }
+
+    // ── Toggle reuses the locked-in video (yesterday's "wrong reel resumed" bug) ─
+
+    @Test
+    fun toggle_targetsLockedInVideo_notTheLargerOne() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="small" muted data-astryx-pip-video="true"
+                     style="width:10px;height:10px;"></video>
+              <video id="big" muted style="width:500px;height:500px;"></video>
+            </body></html>
+            """.trimIndent()
+        )
+        // Spy on play()/pause() instead of asserting real playback state —
+        // WebView's media stack needs a valid source to actually transition
+        // out of paused, which isn't the point of this test; what matters is
+        // which element our selection logic targets.
+        h.eval(
+            """
+            window.__played = null;
+            var origPlay = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function() {
+              window.__played = this.id;
+              try { return origPlay.apply(this, arguments); } catch (e) { return undefined; }
+            };
+            """.trimIndent()
+        )
+
+        h.eval(PIP_TOGGLE_JS)
+
+        assertEquals("small", h.eval("window.__played").unquoted())
+    }
+
+    @Test
+    fun toggle_fallsBackToLastActiveVideo_whenNoneMarked() {
+        // Focus mode never ran (e.g. page wasn't Finished loading yet) - the
+        // detector's last-known video should still be used over the by-area
+        // heuristic when available.
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="tracked" muted style="width:10px;height:10px;"></video>
+              <video id="bigger" muted style="width:500px;height:500px;"></video>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('tracked');")
+        h.eval(
+            """
+            window.__played = null;
+            var origPlay = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function() {
+              window.__played = this.id;
+              try { return origPlay.apply(this, arguments); } catch (e) { return undefined; }
+            };
+            """.trimIndent()
+        )
+
+        h.eval(PIP_TOGGLE_JS)
+
+        assertEquals("tracked", h.eval("window.__played").unquoted())
+    }
+
+    // ── Freeze mechanism (yesterday's "landscape reel swapped for portrait" bug) ─
+
+    @Test
+    fun freeze_blocksWritesToLastActiveVideo_untilUnfrozen() {
+        val h = Harness()
+        h.loadHtml("<html><body></body></html>")
+        h.eval("window.__astryxLastActiveVideo = 'A';")
+
+        h.eval(PIP_FREEZE_ACTIVE_VIDEO_JS)
+        h.eval("window.__astryxLastActiveVideo = 'B';") // simulates FB's controller autoplaying a different reel
+
+        assertEquals("A", h.eval("window.__astryxLastActiveVideo").unquoted())
+
+        h.eval(PIP_RESTORE_MODE_JS) // unfreezes as a side effect, same as real exit-PiP flow
+        h.eval("window.__astryxLastActiveVideo = 'C';")
+
+        assertEquals("C", h.eval("window.__astryxLastActiveVideo").unquoted())
+    }
+
+    @Test
+    fun freeze_preservesValueAlreadyTracked_atInstallTime() {
+        // The guard must capture whatever's already there before it starts
+        // intercepting writes - not silently reset to null/undefined.
+        val h = Harness()
+        h.loadHtml("<html><body></body></html>")
+        h.eval("window.__astryxLastActiveVideo = 'preExisting';")
+
+        h.eval(PIP_FREEZE_ACTIVE_VIDEO_JS)
+
+        assertEquals("preExisting", h.eval("window.__astryxLastActiveVideo").unquoted())
+    }
+
+    // ── Restore cleanup ───────────────────────────────────────────────────
+
+    @Test
+    fun restoreMode_removesAllFocusModeState() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="wrapper"><video id="myVideo" muted></video></div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        h.eval(PIP_RESTORE_MODE_JS)
+
+        assertNull(h.eval("document.getElementById('astryx-pip-style')").takeIf { it != "null" })
+        assertEquals(
+            "false",
+            h.eval("document.body.hasAttribute('data-astryx-pip-active')")
+        )
+        assertEquals(
+            "false",
+            h.eval("document.getElementById('myVideo').hasAttribute('data-astryx-pip-video')")
+        )
+        assertEquals(
+            "false",
+            h.eval("document.getElementById('wrapper').hasAttribute('data-astryx-pip-keep')")
+        )
+    }
+}
