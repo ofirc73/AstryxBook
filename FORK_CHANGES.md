@@ -114,3 +114,20 @@ leaving the app while a Facebook video or Reel is playing.
   can override from here.
 - Store listing screenshots (`fastlane/metadata/.../phoneScreenshots/`)
   removed as stale; not replaced yet (need real device captures).
+
+## Round 2 – 15 tests and fixes
+
+- **15 tests** now cover the full PiP focus‑mode behaviour:
+  - Nested‑DOM chrome hiding at every ancestor level (not just `body`'s direct children).
+  - Download‑button hide/restore, including the specificity‑beating case.
+  - Clipboard‑copy button hide/restore – same root cause and fix as the download button (`copy_to_clipboard.js`), with regression coverage.
+  - Toggle target selection – ensures the locked‑in video is focused, not re‑derived by area.
+  - Freeze mechanism – writes are blocked until unfrozen on PiP exit.
+  - Restore cleanup – all temporary attributes and styles are cleared on PiP exit.
+  - Anomaly scan (clean case) – reports any unexpectedly‑visible element via the existing `AstryxbookPiP` logcat channel.
+  - Anomaly scan (“something slipped through”) – a dedicated test that a deliberately‑inserted hidden element is caught by the scan.
+
+### Summary of changes beyond the tests
+
+- **Fixed:** clipboard‑copy button leaking into PiP – same root cause and same fix as the download button (`copy_to_clipboard.js`), identified by reading the source rather than live DevTools.
+- **Added:** a permanent, silent‑unless‑triggered anomaly scan in `PIP_FOCUS_MODE_JS` that reports any unexpectedly‑visible element via the existing `AstryxbookPiP` logcat channel – so the next leak (from the navbar script, Facebook's own DOM, or anything else) shows up in an ordinary `adb logcat` capture without needing a reproducible live DevTools session.
