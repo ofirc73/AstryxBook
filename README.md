@@ -1,152 +1,132 @@
-# Astryxbook
+<p align="middle">
+    <img src='./fastlane/metadata/android/en-US/images/featureGraphic.png' alt="Astryxbook banner" width="100%">
+</p>
 
-[![GitHub stars][shields-stars]][github-repos]
-[![GitHub license][shield-license]][github-repos]
-[![GitHub downloads][shield-download]][github-repos]
-[![Android SDK][shield-sdk]][github-repos]
+<h1 align="middle">
+    📱 Download
+</h1>
 
-## Overview
+<p align="middle">
+    <a href='https://github.com/ofirc73/AstryxBook/releases/latest'><img alt='Download' height='40' src='./assets/download.svg'/></a>
+</p>
 
-**Astryxbook** is an ad‑free, privacy‑focused Android client for Facebook (Lite) that adopts the Astryx visual language. It offers full‑featured Picture‑in‑PiP support for reels, selective portrait‑ratio windows, and a long list of customization options while keeping the original Facebook look and feel.
+<p align="middle">
+    <a href='https://grev.shehryar.ae/?owner=ofirc73&repo=AstryxBook'><img alt='Downloads count' height='40' src='https://img.shields.io/github/downloads/ofirc73/AstryxBook/total?style=for-the-badge&logo=github&label=Downloads&color=1877F2&labelColor=24292F'/></a>
+</p>
 
-> 📱 **Download:** latest release – [GitHub Releases][github-repos/releases]
-> 🛠️ **Source:** <https://github.com/ofirc73/AstryxBook>
-> 🐛 **Issues / Feature requests:** <https://github.com/ofirc73/AstryxBook/issues>
+<h2 align="middle">
+    🙋 Have issues?
+</h2>
 
----
+<p align="middle">
+    <a href='https://github.com/ofirc73/AstryxBook/issues/new/choose'><img alt='Open issue' height='40' src='./assets/open_issue.svg'/></a>
+</p>
 
-## Features
+<h2 align="middle">
+    ✏️ This fork:
+</h2>
 
-- **Ad‑free** – blocks sponsored posts and video ads
-- **Material You theming** – optional palette derived from your wallpaper
-- **AMOLED Black** – optional dark mode that saves battery
-- **Sponsored‑ad & distraction blocking** – hide suggested posts, reels, stories, groups, “People you may know”, etc.
-- **Navigation‑bar keep‑at‑top** – optional persistent top bar
-- **Media download & clipboard copy** – long‑press any video or image to save or copy
-- **Picture‑in‑PiP playback** – floating window with selectable portrait ratios (4:7, 2:3, 3:4, 9:16) and auto‑matching landscape ratios
-- **Multi‑language** – Arabic, Bengali, German, Hebrew (`עברית`), Italian, Spanish, French, Portuguese, Traditional Chinese, and more
-- **Open‑source & fully fork‑able** – built on Materialbook, fully rebranded
+*  Renames the app to **Astryxbook**, with an original "A" monogram launcher icon (Facebook blue, but not Facebook's own trademarked logo — avoids impersonation/trademark issues)
+*  Restyles it to match **Facebook's own original Android look** — Material You theming and AMOLED Black now ship **off by default**, using Facebook's native blue instead of your wallpaper colors out of the box
+*  Both settings remain available as opt-in toggles for anyone who preferred the upstream [Materialbook](https://github.com/eepiemi/Materialbook) look
+*  Everything below still applies whenever those toggles are switched on
+*  See [FORK_CHANGES.md](./FORK_CHANGES.md) for the full list of changes in this fork
 
----
+<h2 align="middle">
+    ⚙️ Features
+</h2>
 
-## Picture‑in‑PiP
+If enabled, the app:
+*  Uses Material You colors instead of Facebook's blues
+*  Makes Facebook AMOLED Black
+*  Blocks sponsored ads
+*  Hides distractions like:
+    *  Suggested posts
+    *  Reels
+    *  Stories
+    *  Groups
+    *  People you may know
+*  Keeps the navigation bar at the top
+*  Downloads media or copies it to the clipboard
+*  Supports Picture-in-Picture playback with selectable portrait-window ratios
+*  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Italian, Spanish, French, Portuguese, and Traditional Chinese
+*  And more!
 
-1. **Enable PiP** in the app’s Settings.
-2. **Choose a portrait‑window ratio** (shown when PiP is enabled):
-   * **4:7** – recommended default; close to 9:16 but crops top/bottom to fit most devices
+<h2 align="middle">
+    🖼️ Picture-in-Picture
+</h2>
+
+To use Picture-in-Picture:
+
+1. Enable **Picture-in-Picture** in the app's Settings.
+2. Tap **PiP aspect ratio** (shown when PiP is enabled) and choose the window ratio for portrait videos:
+   * **4:7** (recommended; default)
    * **2:3**
    * **3:4**
-   * **9:16** – exact video shape; may overflow on some screens
-3. **Allow PiP** in Android: **Settings → Apps → Astryxbook → Picture‑in‑picture**.
-4. **Open a Facebook video or Reel** and start playback.
-5. **Leave the app** (Home gesture or Home button) – the video will shrink into the PiP overlay.
-6. **Resume / Pause** using the PiP overlay controls.
-   *On Android 12+ the transition is smooth; older versions rely on the Android notification‑based entry.*
+   * **9:16** (may overflow on some devices)
+3. If needed, also allow PiP in Android under **Settings > Apps > Astryxbook > Picture-in-picture**.
+4. Open a Facebook video or Reel and start playback.
+5. Keep the video visible and audible, then use the Home gesture or Home button.
 
-### Landscape video handling
+On Android 12 and newer, PiP is configured for a smooth automatic transition as you leave
+the app. On older supported Android versions, PiP is entered when Android notifies the app
+that it is being left.
 
-- Detected source ratios (7:4, 4:3, 16:9, etc.) are auto‑matched.
-- Extreme landscape ratios are clamped to Android‑supported PiP ranges.
-- Fallback to 16:9 when dimensions are unavailable.
-- The 4:7 default ratio provides a reliable compromise between true 9:16 shape and device‑safe sizing.
+The app ignores muted feed autoplay and selects the largest visible audible video when
+multiple videos are present. Landscape videos use their detected source ratio when available,
+including ratios such as 7:4, 4:3, and 16:9, with 16:9 fallback when dimensions are unavailable.
+Portrait videos use the ratio selected in Settings, and a changed selection is applied immediately
+to the active video without restarting the app.
 
-### Landscape‑ratio auto‑matching details
+The default 4:7 ratio is a reliable compromise: it stays close to the video's true 9:16
+shape while avoiding the oversized or off-screen window seen on some devices. The wider
+4:7, 2:3, and 3:4 windows crop the top and bottom as needed to fill the PiP window without
+black bars. Selecting 9:16 preserves the exact video shape, but the window may overflow on
+some devices. Extreme detected landscape ratios are clamped to Android's supported PiP range.
 
-- `MIN_PIP_ASPECT_RATIO = 100/239` and `MAX_PIP_ASPECT_RATIO = 239/100` bound the valid PiP range.
-- Detected source ratio is clamped to these bounds; if unavailable, 16:9 is used.
+The page itself is hidden while in PiP so only the video shows, filling the window.
 
-### Page chrome while in PiP
+Android/Chromium auto-pauses the video the moment PiP starts (a platform limitation, not
+something an app can override) — tap the Play button on the PiP overlay to resume it.
 
-- The entire page is hidden; only the video fills the PiP window, giving a clean native‑player feel.
+If PiP does not appear, confirm that the video is actively playing with volume above zero
+and that both the app and Android system PiP permissions are enabled.
 
-### Pause/resume note
+<h2 align="middle">
+    🛠️ Setup
+</h2>
 
-- Android/Chromium auto‑pauses the WebView video when PiP starts – a platform limitation. Tap **Play** on the PiP overlay to resume.
+Astryxbook requires Android 8.0 (API level 26) or newer.
 
----
+1.  **Clone the repository**
+    * In Android Studio:
+      * File > New > Project from Version Control
+      * Paste `https://github.com/ofirc73/AstryxBook.git` and clone.
+    * Or via terminal:
+    ```
+    git clone https://github.com/ofirc73/AstryxBook.git
+    cd AstryxBook
+    ```
+2.  **Open in Android Studio.** (only if cloned via terminal)
+    * Select Open an Existing Project and choose the cloned folder.
+3.  **Sync the project** to download dependencies.
+4.  **Run the app** in a device or emulator.
 
-## Localization
+<h2 align="middle">
+    ✅ Testing
+</h2>
 
-All translated locales include Astryxbook branding and the latest PiP ratio strings:
+Covers the rebrand and default-behavior changes in this fork — defaults (Material You/AMOLED off), theme colors, app identity/strings, launcher icon, applicationId, and the pinned scripts source.
 
-| Language | Code |
-|----------|------|
-| Arabic     | `ar` |
-| Bengali    | `bn` |
-| German     | `de` |
-| Hebrew     | `iw` |
-| Italian    | `it` |
-| Spanish    | `es` |
-| French     | `fr` |
-| Portuguese | `pt` (Brazil) |
-| Traditional Chinese | `zh` |
+*  **Unit tests** (no device/emulator needed): `./gradlew test`
+*  **Android lint** (no device/emulator needed): `./gradlew :app:lintDebug`
+*  **Instrumented tests** (needs a connected device or running emulator): `./gradlew connectedAndroidTest`
 
----
+GitHub Actions runs all three checks. Android lint reports are uploaded as a workflow artifact for every run. The lint gate treats dependency-update notices as advisory while still failing on actionable Android findings.
 
-## Setup / Building
+<h2 align="middle">
+    💗 Acknowledgement:
+</h2>
 
-| Step | Description |
-|------|-------------|
-| **1. Clone** | ```bash git clone https://github.com/ofirc73/AstryxBook.git``` |
-| **2. Open** | Android Studio → **Open an Existing Project** → select the cloned folder |
-| **3. Sync** | Let Gradle download dependencies |
-| **4. Run** | Connect a device or launch an emulator and press **Run > App** |
-
-**Minimum SDK:** Android 8.0 (API 26)
-**Target SDK:** API 36 (compile‑SDK 36)
-
----
-
-## Testing
-
-| Check | Command |
-|-------|---------|
-| **Unit tests** (no device) | `./gradlew test` |
-| **Android lint** (no device) | `./gradlew :app:lintDebug` |
-| **Instrumented tests** (device/emulator) | `./gradlew connectedAndroidTest` |
-| **All checks via GitHub Actions** – lint reports uploaded as artifacts; CI gates every PR.
-
----
-
-## Acknowledgement
-
-- This fork builds on **[Materialbook](https://github.com/eepiemi/Materialbook)** by *eepiemi*.
-- Original idea & some code from **[Nobook](https://github.com/ycngmn/Nobook)** by *ycngmn*.
-- UI‑multiplatform foundation by **[KevinnZou/compose-webview-multiplatform](https://github.com/KevinnZou/compose-webview-multiplatform)**.
-- Icons and branding assets released under the **MIT** license.
-
----
-
-## License
-
-```
-MIT License
-
-Copyright (c) 2026 Astryxbook contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-...
-```
-(The full MIT license text is included in the repository’s `LICENSE` file.)
-
----
-
-**[↩ Return to top**](#astrixbook)
-
----
-**Shield URLs** (for markdown rendering)
-
-```markdown
-[shield-stars]: https://img.shields.io/github/stars/ofirc73/AstryxBook?style=for-the-badge&label=Stars&color=1877F2&labelColor=24292F
-[shield-license]: https://img.shields.io/github/license/ofirc73/AstryxBook?style=for-the-badge&label=License&color=1877F2&labelColor=24292F
-[shield-download]: https://img.shields.io/github/downloaders/ofirc73/AstryxBook/total?style=for-the-badge&label=Downloads&color=1877F2&labelColor=24292F
-[shield-sdk]: https://img.shields.io/badge/SDK-Android%208.0%20%28API%2026%29-brightgreen?style=for-the-badge
-[github-repos]: https://github.com/ofirc73/AstryxBook
-[github-repos/releases]: https://github.com/ofirc73/AstryxBook/releases/latest
-```
+*  This is a fork of [Materialbook](https://github.com/eepiemi/Materialbook) by eepiemi, itself a fork of [Nobook](https://github.com/ycngmn/Nobook) by ycngmn
+*  [@KevinnZou/compose-webview-multiplatform](https://github.com/KevinnZou/compose-webview-multiplatform)
