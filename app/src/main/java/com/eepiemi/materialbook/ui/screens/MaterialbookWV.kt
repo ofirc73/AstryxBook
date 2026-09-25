@@ -137,6 +137,18 @@ internal const val PIP_FOCUS_MODE_JS = """
   var dlBtn = document.getElementById('materialbook-global-downloader');
   if (dlBtn) dlBtn.style.setProperty('display', 'none', 'important');
 
+  // copy_to_clipboard.js's own copy-to-clipboard button
+  // (#materialbook-clipboard-copier) - same specificity-beating problem, same
+  // fix. This one's meant for photos/stories, not video reels, but its own
+  // detection heuristics can false-positive inside a reel (seen intermittently
+  // on landscape reels) - possibly triggered by our own focus-mode DOM churn
+  // itself, since its MutationObserver reacts to the same attribute/class
+  // changes we're making. Hiding it here doesn't depend on understanding why
+  // it misfires, just makes sure it's never visible in the PiP window
+  // regardless of what its own visibility logic decides.
+  var cpBtn = document.getElementById('materialbook-clipboard-copier');
+  if (cpBtn) cpBtn.style.setProperty('display', 'none', 'important');
+
   if (!document.getElementById('astryx-pip-style')) {
     var style = document.createElement('style');
     style.id = 'astryx-pip-style';
@@ -161,6 +173,34 @@ internal const val PIP_FOCUS_MODE_JS = """
       'video[data-astryx-pip-video] { position:fixed !important; top:0 !important; left:0 !important; width:100vw !important; height:100vh !important; object-fit:cover !important; z-index:2147483647 !important; background:#000 !important; }';
     document.head.appendChild(style);
   }
+
+  // Permanent sanity check, not a one-off debug hook: this class of bug (an
+  // element leaking into the PiP window that our known hiding rules don't
+  // reach) has happened three times now - the toolbar, the download button,
+  // the clipboard-copy button - each only found by either live DevTools or
+  // reading the injected script's own source. Catch the NEXT one from an
+  // ordinary field logcat capture instead: after hiding runs, scan for
+  // anything still visibly on-screen that isn't the video itself or one of
+  // its known ancestors, and report exactly what it is. Silent when nothing
+  // is found, so this costs nothing in the normal case.
+  var leaked = [];
+  var all = document.body.querySelectorAll('*');
+  for (var k = 0; k < all.length; k++) {
+    var el = all[k];
+    if (el === best) continue;
+    if (el.hasAttribute('data-astryx-pip-keep') || el.hasAttribute('data-astryx-pip-video')) continue;
+    if (getComputedStyle(el).display === 'none') continue;
+    var er = el.getBoundingClientRect();
+    if (er.width === 0 || er.height === 0) continue;
+    var desc = el.tagName +
+      (el.id ? '#' + el.id : '') +
+      (el.className && typeof el.className === 'string' ? '.' + el.className.replace(/\s+/g, '.') : '');
+    leaked.push(desc);
+    if (leaked.length >= 8) break;
+  }
+  if (leaked.length && window.PipBridge && window.PipBridge.logPipAnomaly) {
+    window.PipBridge.logPipAnomaly(leaked.join(' | '));
+  }
 })();
 """
 
@@ -177,6 +217,8 @@ internal const val PIP_RESTORE_MODE_JS = """
   // that we're back in the normal view where it's a wanted control.
   var dlBtn = document.getElementById('materialbook-global-downloader');
   if (dlBtn) dlBtn.style.removeProperty('display');
+  var cpBtn = document.getElementById('materialbook-clipboard-copier');
+  if (cpBtn) cpBtn.style.removeProperty('display');
   // Resume normal live tracking now that we're back in the foreground.
   if (window.__astryxSetPipFreeze) window.__astryxSetPipFreeze(false);
 })();

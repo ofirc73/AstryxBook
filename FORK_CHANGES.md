@@ -73,6 +73,17 @@ Added test coverage for the rebrand and default-behavior changes: settings
 defaults, theme colors, app identity/strings, launcher icon, applicationId,
 and the pinned external script source — none of which existed upstream.
 
+Also covers the PiP focus-mode/toggle/freeze JS (`PipFocusModeJsTest`, driven
+against a real `WebView` with synthetic DOM fixtures rather than live
+Facebook): non-kept siblings hidden at every ancestor level (not just
+`body`'s direct children), the video's own ancestor chain staying untouched,
+the download button hidden via inline override (beating its own
+higher-specificity stylesheet rule) and restored on exit, toggle targeting
+the locked-in video instead of re-deriving "the active video" by area, and
+the active-video freeze installed at PiP-entry blocking writes until
+unfrozen. Facebook's own player behavior (the re-pause limitation above) is
+deliberately out of scope — external, unfixable from here.
+
 ## Picture-in-Picture
 
 New feature, opt-in (off by default): shrinks into a floating window when

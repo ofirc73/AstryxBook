@@ -21,4 +21,17 @@ class PipBridge(private val onVideoStateChanged: (Boolean, Int, Int) -> Unit) {
         Log.d(TAG, "PipBridge.setVideoState: isPlaying=$isPlaying, ${videoWidth}x$videoHeight")
         onVideoStateChanged(isPlaying, videoWidth, videoHeight)
     }
+
+    // Permanent diagnostic, not debug-only scaffolding: PIP_FOCUS_MODE_JS's
+    // own after-the-fact sanity check calls this only when it finds an
+    // element still visibly on-screen after hiding everything it knows to
+    // hide. Silent/free in the normal case; when it does fire, it gives the
+    // exact tag/id/class of the leaking element from an ordinary field
+    // logcat capture, no live DevTools session required - useful for
+    // intermittent, hard-to-reproduce leaks (page chrome, a stray control)
+    // that vary by which video/page layout Facebook happens to render.
+    @JavascriptInterface
+    fun logPipAnomaly(message: String) {
+        Log.w(TAG, "PiP focus mode: unexpected visible element(s): $message")
+    }
 }

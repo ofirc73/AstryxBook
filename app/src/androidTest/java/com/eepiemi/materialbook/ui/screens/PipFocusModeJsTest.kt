@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.ui.screens
 
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -34,12 +35,26 @@ class PipFocusModeJsTest {
         lateinit var webView: WebView
             private set
 
+        // Mirrors PipBridge.logPipAnomaly's shape so PIP_FOCUS_MODE_JS's real
+        // sanity-check scan can be exercised end-to-end without needing the
+        // production PipBridge/Log.w wiring in this test.
+        @Volatile
+        var lastAnomaly: String? = null
+
+        inner class FakePipBridge {
+            @JavascriptInterface
+            fun logPipAnomaly(message: String) {
+                lastAnomaly = message
+            }
+        }
+
         fun loadHtml(html: String) {
             val latch = CountDownLatch(1)
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 val context = InstrumentationRegistry.getInstrumentation().targetContext
                 webView = WebView(context).apply {
                     settings.javaScriptEnabled = true
+                    addJavascriptInterface(FakePipBridge(), "PipBridge")
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView, url: String) {
                             latch.countDown()
@@ -234,6 +249,105 @@ class PipFocusModeJsTest {
         assertEquals(
             "fixed",
             h.eval("getComputedStyle(document.getElementById('myVideo')).position").unquoted()
+        )
+    }
+
+    // ── copy_to_clipboard.js's button must also hide only in PiP ────────────
+    // Same leak, same fix, found by reading the script's own source (a
+    // #id.visible !important rule) rather than live DevTools - it can false-
+    // positive inside a reel even though it's meant for photos/stories.
+
+    @Test
+    fun focusMode_hidesClipboardCopyButton_viaInlineOverride() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="myVideo" muted></video>
+              <button id="materialbook-clipboard-copier" class="visible"></button>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertEquals(
+            "none",
+            h.eval(
+                "document.getElementById('materialbook-clipboard-copier').style.display"
+            ).unquoted()
+        )
+    }
+
+    @Test
+    fun restoreMode_clearsClipboardCopyButtonOverride() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <video id="myVideo" muted></video>
+              <button id="materialbook-clipboard-copier" class="visible"></button>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        h.eval(PIP_RESTORE_MODE_JS)
+
+        assertEquals(
+            "",
+            h.eval(
+                "document.getElementById('materialbook-clipboard-copier').style.display"
+            ).unquoted()
+        )
+    }
+
+    // ── Anomaly scan: catches the NEXT leak from an ordinary field logcat ───
+
+    @Test
+    fun focusMode_reportsNoAnomaly_whenPageIsFullyHidden() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="wrapper"><video id="myVideo" muted></video></div>
+              <div id="otherStuff">not on the video's ancestor path</div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertNull("expected no anomaly to be reported", h.lastAnomaly)
+    }
+
+    @Test
+    fun focusMode_reportsAnomaly_whenSomethingSlipsThroughKnownHiding() {
+        // Simulates the exact failure mode this scan exists for: an element
+        // that ends up visible despite our known hiding rules (here, forced
+        // via an inline style the page itself set with !important, the same
+        // trick that caused the download/clipboard button leaks).
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="wrapper"><video id="myVideo" muted></video></div>
+              <div id="stray" style="display:block !important; width:50px; height:50px;">
+                mystery element
+              </div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+
+        h.eval(PIP_FOCUS_MODE_JS)
+
+        assertTrue(
+            "expected the leaked element to be named in the anomaly report, got: ${h.lastAnomaly}",
+            h.lastAnomaly?.contains("stray") == true
         )
     }
 
