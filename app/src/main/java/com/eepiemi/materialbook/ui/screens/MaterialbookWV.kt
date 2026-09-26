@@ -466,7 +466,12 @@ fun MaterialbookWebView(
 
 
     LaunchedEffect(isDesktop) {
-        val userAgent = if (isDesktop) DESKTOP_USER_AGENT else ""
+        val defaultUserAgent = android.webkit.WebSettings.getDefaultUserAgent(context)
+        val mobileUserAgent = defaultUserAgent
+            .replace("; wv", "")
+            .replace("Version/4.0 ", "")
+
+        val userAgent = if (isDesktop) DESKTOP_USER_AGENT else mobileUserAgent
         state.nativeWebView.settings.userAgentString = userAgent
     }
 
