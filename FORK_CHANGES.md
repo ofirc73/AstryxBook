@@ -73,15 +73,29 @@ Added test coverage for the rebrand and default-behavior changes: settings
 defaults, theme colors, app identity/strings, launcher icon, applicationId,
 and the pinned external script source — none of which existed upstream.
 
-Also covers the PiP focus-mode/toggle/freeze JS (`PipFocusModeJsTest`, driven
-against a real `WebView` with synthetic DOM fixtures rather than live
-Facebook): non-kept siblings hidden at every ancestor level (not just
-`body`'s direct children), the video's own ancestor chain staying untouched,
-the download button hidden via inline override (beating its own
-higher-specificity stylesheet rule) and restored on exit, toggle targeting
-the locked-in video instead of re-deriving "the active video" by area, and
-the active-video freeze installed at PiP-entry blocking writes until
-unfrozen. Facebook's own player behavior (the re-pause limitation above) is
+Also covers the PiP focus-mode/toggle/freeze JS (`PipFocusModeJsTest`, 15
+tests driven against a real `WebView` with synthetic DOM fixtures rather
+than live Facebook):
+
+- Non-kept siblings hidden at every ancestor level, not just `body`'s direct
+  children; the video's own ancestor chain staying untouched.
+- The download button (`download_content.js`) hidden via inline override
+  in PiP and restored on exit, including the case where its own
+  higher-specificity `#id.visible` stylesheet rule would otherwise win.
+- The clipboard-copy button (`copy_to_clipboard.js`) hidden/restored the
+  same way — same root cause, same fix, found by reading its source rather
+  than live DevTools.
+- Toggle targeting the locked-in video instead of re-deriving "the active
+  video" by area, with both a marked-video case and a fallback case.
+- The active-video freeze installed at PiP-entry: blocks writes while
+  frozen, preserves whatever was already tracked at install time, resumes
+  on unfreeze.
+- Restore cleanup — all PiP-mode DOM markers actually removed on exit.
+- The anomaly scan (below): a clean-page case reporting nothing, and a case
+  where a deliberately-unhideable element (inline `!important`, the same
+  trick that caused the two button leaks) is correctly caught and named.
+
+Facebook's own player behavior (the re-pause limitation below) is
 deliberately out of scope — external, unfixable from here.
 
 ## Picture-in-Picture
@@ -104,6 +118,19 @@ leaving the app while a Facebook video or Reel is playing.
   devices that render a true 9:16 window oversized or clipped off-screen.
 - On Android 12 and newer, the WebView bounds are supplied as the PiP source
   rectangle to preserve smooth system transitions.
+- Two other injected UI elements (the download button, the clipboard-copy
+  button — see Testing above) are force-hidden while in PiP and restored on
+  exit, since they're wanted controls in the normal view but obstructive in
+  a small floating window.
+- A permanent, silent-unless-triggered sanity check runs after PiP's page
+  chrome is hidden: if anything is still unexpectedly visible, it's reported
+  by tag/id/class through the existing `AstryxbookPiP` logcat channel. This
+  class of bug (an element leaking into the PiP window past known hiding
+  rules) has come up three times — the page toolbar, the download button,
+  the clipboard-copy button — each only found by live DevTools or reading
+  the offending script's source. This lets the *next* one be diagnosed from
+  an ordinary field `adb logcat` capture instead of needing a reproducible
+  live session.
 
 ## Known limitations
 
@@ -114,20 +141,3 @@ leaving the app while a Facebook video or Reel is playing.
   can override from here.
 - Store listing screenshots (`fastlane/metadata/.../phoneScreenshots/`)
   removed as stale; not replaced yet (need real device captures).
-
-## PiP - tests and fixes
-
-- **15 tests** now cover the full PiP focus‑mode behaviour:
-  - Nested‑DOM chrome hiding at every ancestor level (not just `body`'s direct children).
-  - Download‑button hide/restore, including the specificity‑beating case.
-  - Clipboard‑copy button hide/restore – same root cause and fix as the download button (`copy_to_clipboard.js`), with regression coverage.
-  - Toggle target selection – ensures the locked‑in video is focused, not re‑derived by area.
-  - Freeze mechanism – writes are blocked until unfrozen on PiP exit.
-  - Restore cleanup – all temporary attributes and styles are cleared on PiP exit.
-  - Anomaly scan (clean case) – reports any unexpectedly‑visible element via the existing `AstryxbookPiP` logcat channel.
-  - Anomaly scan (“something slipped through”) – a dedicated test that a deliberately‑inserted hidden element is caught by the scan.
-
-### Summary of changes beyond the tests
-
-- **Fixed:** clipboard‑copy button leaking into PiP – same root cause and same fix as the download button (`copy_to_clipboard.js`), identified by reading the source rather than live DevTools.
-- **Added:** a permanent, silent‑unless‑triggered anomaly scan in `PIP_FOCUS_MODE_JS` that reports any unexpectedly‑visible element via the existing `AstryxbookPiP` logcat channel – so the next leak (from the navbar script, Facebook's own DOM, or anything else) shows up in an ordinary `adb logcat` capture without needing a reproducible live DevTools session.
