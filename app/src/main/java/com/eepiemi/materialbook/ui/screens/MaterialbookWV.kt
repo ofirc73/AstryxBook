@@ -1,6 +1,7 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.content.Intent
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.widget.Toast
@@ -403,6 +404,14 @@ fun MaterialbookWebView(
             userScripts?.let { scripts ->
                 navigator.evaluateJavaScript(scripts) {
                     isLoading = false
+                    // Correlates against PipBridge/PiP logcat timestamps to confirm
+                    // or rule out a cold-start race: userScripts (including
+                    // pip_video_detector.js, fetched over the network - see
+                    // fetchScripts.kt) may not finish loading/evaluating before the
+                    // user tries PiP, especially right after an app cache clear
+                    // forces every script fetch back onto the network instead of a
+                    // cached response.
+                    Log.d("AstryxbookPiP", "userScripts finished evaluating")
                 }
             }
         }

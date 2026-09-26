@@ -39,6 +39,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorClientCore" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktorClientOkhttp" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktorClientCore" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 
