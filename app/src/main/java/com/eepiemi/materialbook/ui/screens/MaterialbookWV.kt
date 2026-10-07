@@ -62,6 +62,7 @@ import com.eepiemi.materialbook.utils.jsBridge.PipBridge
 import com.eepiemi.materialbook.audio.PipHandback
 import com.eepiemi.materialbook.utils.effectiveDesktop
 import com.eepiemi.materialbook.utils.fbRedirectSanitizer
+import com.eepiemi.materialbook.utils.intentFallbackUrl
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
 import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
@@ -687,9 +688,15 @@ fun MaterialbookWebView(
     val isEffectiveDesktop = effectiveDesktop(isDesktop, isAutoDesktop)
 
     val openExternalUrl: (String) -> Unit = { externalUrl ->
-        val intent = Intent(Intent.ACTION_VIEW, externalUrl.toUri())
+        // intent:// links are never used to launch the app they name (Facebook uses them to
+        // push its own apps); if one carries a web fallback, that page is opened instead.
+        val target = if (externalUrl.startsWith("intent:", ignoreCase = true)) {
+            intentFallbackUrl(externalUrl)
+        } else {
+            externalUrl
+        }
         runCatching {
-            context.startActivity(intent)
+            context.startActivity(Intent(Intent.ACTION_VIEW, requireNotNull(target).toUri()))
         }.onFailure {
             Toast.makeText(
                 context,
@@ -825,7 +832,9 @@ fun MaterialbookWebView(
     // unlikely to stick.
     LaunchedEffect(isInPipMode) {
         delay(150)
-        val webView = state.nativeWebView
+        // Also runs at startup, when the WebView may not exist yet (it's created during
+        // layout, which doesn't happen while the screen is off); nothing to rebuild then.
+        val webView = runCatching { state.nativeWebView }.getOrNull() ?: return@LaunchedEffect
         webView.setLayerType(View.LAYER_TYPE_NONE, null)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         webView.invalidate()
@@ -1200,10 +1209,6 @@ fun MaterialbookWebView(
                 primaryColor = primaryColor,
                 onPrimaryColor = onPrimaryColor,
                 onClose = { messagesLayerUrl = null },
-                onOpenInMain = { pageUrl ->
-                    messagesLayerUrl = null
-                    navigator.loadUrl(pageUrl)
-                },
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
         }

@@ -102,6 +102,17 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   the app, because chat windows aren't marked as dialogs. Back now closes the
   chat window (the right-most visible button of its header, "Close chat" in
   any language). Covered by `BackHandlerJsTest`.
+- Profile links opened as a full page (from another page or a link) failed with "Not
+  supported": `m.facebook.com` answers them with a redirect to an `intent://` link for the
+  Facebook app. The app now opens that link's web fallback (`S.browser_fallback_url`)
+  itself when it's a Facebook page, so the profile shows in the app. `intent://` links are
+  never used to launch the app they name; one with a non-Facebook web fallback opens that
+  page externally. The "is this Facebook" check now matches only facebook.com /
+  messenger.com hosts and their subdomains (the old pattern also accepted look-alike
+  hosts and URLs that merely contained a Facebook address).
+- Two cold-start crashes ("WebView is not initialized"): the user-agent effect and the PiP
+  layer refresh touched the WebView before it existed, which happens when the app starts
+  with the screen off. Both now wait for it.
 - Desktop layout: Back on the feed closed the app right away instead of
   scrolling to the top first. The check expected one dialog element on the
   feed at rest, which Facebook's desktop feed no longer has. Back now scrolls
@@ -200,26 +211,26 @@ separate layer was added on top.
 - **Messages layer** (`MessagesLayer.kt`): a second WebView with the desktop user agent,
   drawn over the main one. The main view keeps its mobile page and scroll position
   underneath, and its videos are paused while the layer is open. Back steps through the
-  layer's own history (a conversation back to the chat list), then closes the layer and
-  you're back exactly where you were in the feed. The layer's WebView is destroyed when it
-  closes.
+  layer's own history (a reel back to the chat, a conversation back to the chat list),
+  then closes the layer and you're back exactly where you were in the feed. The layer's
+  WebView is destroyed when it closes.
 - Every Messages/Messenger entry point (the Messages tab, `facebook.com/messages`,
   `m.me`, `messenger.com`, `fb-messenger://`, `intent://`) opens the layer. Links that
   point at a conversation keep it (`/messages/t/<id>`, `m.me/<name>`,
   `messenger.com/t/<id>`, `fb-messenger://user/<id>`); anything else opens the inbox.
-- Leaving Messages from inside the layer (a profile, the home page) closes the layer and
-  opens that page in the main, mobile view: page loads go through the layer's request
-  interceptor (`messagesLayerRoute`), in-page navigations of the desktop single-page app
-  are reported by `messages_layer.js` through `MessagesBridge`. Non-Facebook links go to
-  the system as in the main view.
-- The layer gets the same page scripts as the main view (download hook, theme and so on),
-  plus `messages_layer.js` from the bundled resource.
+- Facebook pages opened from a chat (a shared reel, a profile) open in the layer too, on
+  the desktop site, which plays shared reels and opens profiles without pushing the
+  Facebook app; Back returns to the chat. Handing them to the mobile view instead lost the
+  feed position and broke on Facebook's mobile redirects (shared reels landed on the home
+  feed, profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
+  non-Facebook links go to the system as in the main view.
+- The layer gets the same page scripts as the main view (download hook, theme and so on).
 - `messages_tab.js` hooks the Messages tab so it opens the layer directly; it recognises
   the tab by its English label or its icon glyph. There is no position check on purpose:
   if Facebook changed both, matching by position could hijack another tab, and a miss
   still ends in the layer through the tab's intercepted `fb-messenger://threads` link.
 - Setting **Messages in desktop mode** (off by default, opt-in). Off keeps the previous
-  behavior, including `fb-messenger://` and `intent://` links reaching the Messenger app.
+  behavior, including `fb-messenger://` links reaching the Messenger app.
   Not used when the whole app is already on the desktop site (Desktop layout, large
   screens), which shows Messages by itself.
 - `MessagesDesktopTest` covers the URL helpers and the layer's routing.

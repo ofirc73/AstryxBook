@@ -16,9 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.zIndex
-import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.MessagesLayerRoute
@@ -26,7 +24,6 @@ import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.jsBridge.ClipboardBridge
 import com.eepiemi.materialbook.utils.jsBridge.DownloadBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
-import com.eepiemi.materialbook.utils.jsBridge.MessagesBridge
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import com.multiplatform.webview.request.RequestInterceptor
 import com.multiplatform.webview.request.WebRequest
@@ -42,10 +39,9 @@ import com.multiplatform.webview.web.rememberWebViewState
  * main one. The main view keeps its mobile page (and scroll position) underneath, so
  * closing the layer goes straight back to where the user was.
  *
- * - Back steps through the layer's own history (a conversation back to the inbox), then
- *   closes the layer.
- * - A regular Facebook page opened from here (a profile, the home page) closes the layer
- *   and opens in the main view instead: [onOpenInMain].
+ * - Facebook pages opened from a chat (a shared reel, a profile) open in the layer too.
+ * - Back steps through the layer's own history (a reel back to the chat, a conversation back
+ *   to the chat list), then closes the layer.
  * - Non-Facebook links go to [onExternalUrl], as in the main view.
  */
 @Composable
@@ -59,12 +55,9 @@ fun MessagesLayer(
     primaryColor: Int,
     onPrimaryColor: Int,
     onClose: () -> Unit,
-    onOpenInMain: (String) -> Unit,
     onExternalUrl: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val resources = LocalResources.current
-    val currentOnOpenInMain by rememberUpdatedState(onOpenInMain)
     val currentOnExternalUrl by rememberUpdatedState(onExternalUrl)
 
     // The user agent is applied by the library when it creates the WebView, before the
@@ -84,10 +77,6 @@ fun MessagesLayer(
                         navigator.loadUrl(route.url)
                         WebRequestInterceptResult.Reject
                     }
-                    is MessagesLayerRoute.OpenInMain -> {
-                        currentOnOpenInMain(route.url)
-                        WebRequestInterceptResult.Reject
-                    }
                     is MessagesLayerRoute.External -> {
                         currentOnExternalUrl(route.url)
                         WebRequestInterceptResult.Reject
@@ -105,14 +94,11 @@ fun MessagesLayer(
         if (canGoBack) navigator.navigateBack() else onClose()
     }
 
-    // Same page scripts as the main view (download hook, theme, ...), plus the layer's own
-    // in-page navigation watcher, loaded from the bundled resource like the PiP detector.
+    // Same page scripts as the main view (download hook, theme, ...).
     val loadingState = state.loadingState
     LaunchedEffect(loadingState, userScripts) {
-        if (loadingState is LoadingState.Finished) {
-            val layerScript = resources.openRawResource(R.raw.messages_layer)
-                .bufferedReader().use { it.readText() }
-            navigator.evaluateJavaScript((userScripts ?: "") + "\n" + layerScript) {}
+        if (loadingState is LoadingState.Finished && userScripts != null) {
+            navigator.evaluateJavaScript(userScripts) {}
         }
     }
 
@@ -139,11 +125,6 @@ fun MessagesLayer(
                     addJavascriptInterface(DownloadBridge(context), "DownloadBridge")
                     addJavascriptInterface(ClipboardBridge(context), "ClipboardBridge")
                     addJavascriptInterface(MaterialYouBridge(primaryColor, onPrimaryColor), "MaterialYouBridge")
-                    addJavascriptInterface(
-                        // Called on the JavaBridge thread: hop to the UI thread first.
-                        MessagesBridge { leftTo -> webView.post { currentOnOpenInMain(leftTo) } },
-                        "MessagesBridge"
-                    )
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     overScrollMode = View.OVER_SCROLL_NEVER
                     isVerticalScrollBarEnabled = false

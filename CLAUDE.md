@@ -47,8 +47,14 @@ user-visible change.
   a local build still runs `main`'s version of a script that exists there.
 - Messages in desktop mode opens `MessagesLayer` (`ui/screens/MessagesLayer.kt`), a
   second WebView with the desktop user agent over the main one. The main view never
-  switches user agent for Messages, so keep layer-specific behaviour in the layer and
-  its own script (`messages_layer.js`). Each WebView is a separate DevTools target.
+  switches user agent for Messages; Facebook pages opened from a chat stay in the layer
+  (`messagesLayerRoute`). Each WebView is a separate DevTools target.
+- `m.facebook.com` redirects full loads of some pages (profiles) to
+  `intent://…;package=com.facebook.katana;S.browser_fallback_url=…`; the interceptors open
+  the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names.
+- `state.nativeWebView` throws until the WebView exists (it's created during layout, which
+  doesn't happen with the screen off): guard it in effects.
+- Instrumented tests reset the debug app's settings (not its Facebook login).
 - All PiP, lock-screen audio and fullscreen logs use the tag `AstryxbookPiP`:
   `adb logcat AstryxbookPiP:D *:S`.
 - `WebView.setWebContentsDebuggingEnabled(true)` is unconditional on purpose.
