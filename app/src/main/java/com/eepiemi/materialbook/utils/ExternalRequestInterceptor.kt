@@ -20,10 +20,16 @@ class ExternalRequestInterceptor(
         if (request.isForMainFrame && isMessagesLink(request.url) && tryOpenMessagesDesktop(request.url))
             return WebRequestInterceptResult.Reject
 
-        val internalUrlRegex = Regex(
-            """https?://(?!(?:l|lm)\.)[^/]*(?:facebook|messenger)\.com/.*"""
-        )
-        return if (internalUrlRegex.containsMatchIn(request.url) && request.isForMainFrame) {
+        // Facebook redirects full loads of some pages (profiles) to its app via intent://;
+        // open the web fallback here instead, so the page stays in this app.
+        if (request.isForMainFrame) {
+            intentFallbackUrl(request.url)?.takeIf { isFacebookWebUrl(it) }?.let { fallback ->
+                navigator.loadUrl(fallback)
+                return WebRequestInterceptResult.Reject
+            }
+        }
+
+        return if (isFacebookWebUrl(request.url) && request.isForMainFrame) {
             WebRequestInterceptResult.Allow
         } else {
             handleExternalUrl(fbRedirectSanitizer(request.url))

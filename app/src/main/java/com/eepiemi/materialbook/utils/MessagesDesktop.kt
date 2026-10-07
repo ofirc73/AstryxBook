@@ -32,14 +32,14 @@ fun isMessagesLink(url: String): Boolean {
 
 /** Where a main-frame navigation inside the Messages layer goes. */
 sealed interface MessagesLayerRoute {
-    /** Stays in the layer as is (the desktop Messages page, login/checkpoint, subframes). */
+    /**
+     * Stays in the layer as is: the desktop Messages page and any other Facebook page opened
+     * from it (a shared reel, a profile), so Back returns to the chat.
+     */
     data object Allow : MessagesLayerRoute
 
-    /** Another form of a Messages link: open its desktop equivalent in the layer instead. */
+    /** Another form of a Messages link, or an app redirect: open its web page in the layer. */
     data class Remap(val url: String) : MessagesLayerRoute
-
-    /** A regular Facebook page: close the layer and open it in the main (mobile) view. */
-    data class OpenInMain(val url: String) : MessagesLayerRoute
 
     /** Not Facebook: hand it to the system, as the main view does. */
     data class External(val url: String) : MessagesLayerRoute
@@ -48,11 +48,9 @@ sealed interface MessagesLayerRoute {
 fun messagesLayerRoute(url: String, isMainFrame: Boolean): MessagesLayerRoute {
     if (!isMainFrame || isDesktopMessagesUrl(url)) return MessagesLayerRoute.Allow
     if (isMessagesLink(url)) return MessagesLayerRoute.Remap(messagesDesktopUrl(url))
-    val (host, path) = hostAndPath(url) ?: return MessagesLayerRoute.External(url)
-    if (!isFacebookHost(host)) return MessagesLayerRoute.External(url)
-    // The desktop Messages page may bounce through these before showing the inbox.
-    if (path.startsWith("/login") || path.startsWith("/checkpoint")) return MessagesLayerRoute.Allow
-    return MessagesLayerRoute.OpenInMain(url)
+    intentFallbackUrl(url)?.takeIf { isFacebookWebUrl(it) }?.let { return MessagesLayerRoute.Remap(it) }
+    if (isFacebookWebUrl(url)) return MessagesLayerRoute.Allow
+    return MessagesLayerRoute.External(url)
 }
 
 /** The desktop Messages page (the one loaded with the desktop user agent). */

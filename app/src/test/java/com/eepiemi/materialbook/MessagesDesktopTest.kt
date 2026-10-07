@@ -1,16 +1,38 @@
 package com.eepiemi.materialbook
 
 import com.eepiemi.materialbook.utils.MessagesLayerRoute
+import com.eepiemi.materialbook.utils.intentFallbackUrl
 import com.eepiemi.materialbook.utils.isDesktopMessagesUrl
+import com.eepiemi.materialbook.utils.isFacebookWebUrl
 import com.eepiemi.materialbook.utils.isMessagesLink
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+// What m.facebook.com answers a full profile load with (Facebook app installed or not).
+private const val PROFILE_APP_REDIRECT =
+    "intent://profile/4?wtsid=x#Intent;scheme=fb;package=com.facebook.katana;" +
+        "S.browser_fallback_url=https%3A%2F%2Fm.facebook.com%2F4%2F%3Fwtsid%3Dx%26from_intent_redirect%3D1;end"
+
 class MessagesDesktopTest {
+    @Test
+    fun intentLinkFallbacks() {
+        assertEquals("https://m.facebook.com/4/?wtsid=x&from_intent_redirect=1", intentFallbackUrl(PROFILE_APP_REDIRECT))
+        assertNull(intentFallbackUrl("intent://x#Intent;scheme=fb;package=com.facebook.katana;end"))
+        assertNull(intentFallbackUrl("intent://x#Intent;S.browser_fallback_url=javascript%3Aalert(1);end"))
+        assertNull(intentFallbackUrl("https://m.facebook.com/4/"))
+        assertTrue(isFacebookWebUrl("https://m.facebook.com/4/"))
+        assertTrue(isFacebookWebUrl("https://www.messenger.com"))
+        assertFalse(isFacebookWebUrl("https://l.facebook.com/l.php?u=x"))
+        assertFalse(isFacebookWebUrl("https://facebook.com.evil.example/"))
+        assertFalse(isFacebookWebUrl("https://evilfacebook.com/"))
+        assertFalse(isFacebookWebUrl("https://evil.example/?next=https://m.facebook.com/"))
+    }
+
     @Test
     fun messagesLinks() {
         assertTrue(isMessagesLink("https://m.facebook.com/messages/"))
@@ -38,9 +60,14 @@ class MessagesDesktopTest {
         assertEquals(MessagesLayerRoute.Remap(inbox), messagesLayerRoute("https://m.facebook.com/messages/", true))
         // What the m.facebook.com Messages tab actually sends.
         assertEquals(MessagesLayerRoute.Remap(inbox), messagesLayerRoute("fb-messenger://threads?vcuid=1&entry_point=jewel", true))
-        // Regular Facebook pages go back to the main (mobile) view.
-        assertEquals(MessagesLayerRoute.OpenInMain("https://www.facebook.com/"), messagesLayerRoute("https://www.facebook.com/", true))
-        assertEquals(MessagesLayerRoute.OpenInMain("https://www.facebook.com/profile.php?id=1"), messagesLayerRoute("https://www.facebook.com/profile.php?id=1", true))
+        // Other Facebook pages opened from a chat stay in the layer, so Back returns to the chat.
+        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute("https://www.facebook.com/share/r/1AbCdEf/?mibextid=x", true))
+        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute("https://www.facebook.com/profile.php?id=1", true))
+        // Facebook's redirect to its app opens the web fallback in the layer.
+        assertEquals(
+            MessagesLayerRoute.Remap("https://m.facebook.com/4/?wtsid=x&from_intent_redirect=1"),
+            messagesLayerRoute(PROFILE_APP_REDIRECT, true)
+        )
         // Everything else is external, outbound l.facebook.com redirects included.
         assertEquals(MessagesLayerRoute.External("https://example.com/"), messagesLayerRoute("https://example.com/", true))
         assertEquals(MessagesLayerRoute.External("https://l.facebook.com/l.php?u=x"), messagesLayerRoute("https://l.facebook.com/l.php?u=x", true))
