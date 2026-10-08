@@ -20,7 +20,9 @@ user-visible change.
 - `.\gradlew.bat testDebugUnitTest` (use the variant task; `--tests` filtering
   doesn't work on plain `test`), `.\gradlew.bat connectedDebugAndroidTest`
   (needs a device), `.\gradlew.bat lintDebug`. CI (`ci.yml`) gates on
-  `test`, `:app:lintDebug` and `connectedAndroidTest`.
+  `test`, `:app:lintDebug` and `connectedAndroidTest`. Run CI by hand on a branch with
+  `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) runs next
+  to the release job and doesn't gate it.
 - Pushing to `main` runs `create-release.yml` (which calls `ci.yml`); it
   auto-versions from conventional commits (`feat:` = minor bump) and
   publishes a release. A docs-only push (`*.md`, `LICENSE`, `fastlane/`,
