@@ -48,7 +48,9 @@ user-visible change.
 - Messages in desktop mode opens `MessagesLayer` (`ui/screens/MessagesLayer.kt`), a
   second WebView with the desktop user agent over the main one. The main view never
   switches user agent for Messages; Facebook pages opened from a chat stay in the layer
-  (`messagesLayerRoute`). Each WebView is a separate DevTools target.
+  (`messagesLayerRoute`). Each WebView is a separate DevTools target. PiP effects act on
+  `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on
+  `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to
   `intent://…;package=com.facebook.katana;S.browser_fallback_url=…`; the interceptors open
   the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names.

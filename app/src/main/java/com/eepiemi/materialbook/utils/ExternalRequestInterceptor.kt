@@ -8,6 +8,7 @@ import com.multiplatform.webview.web.WebViewNavigator
 class ExternalRequestInterceptor(
     private val handleExternalUrl: (String) -> Unit,
     private val tryOpenMessagesDesktop: (String) -> Boolean = { false },
+    private val isDesktopView: () -> Boolean = { false },
 ) : RequestInterceptor {
 
     override fun onInterceptUrlRequest(
@@ -15,10 +16,19 @@ class ExternalRequestInterceptor(
         navigator: WebViewNavigator
     ): WebRequestInterceptResult {
 
-        // Messages/Messenger entry points open in the Messages layer (desktop site in its own
-        // WebView) when enabled, so this page stays where it is underneath.
-        if (request.isForMainFrame && isMessagesLink(request.url) && tryOpenMessagesDesktop(request.url))
-            return WebRequestInterceptResult.Reject
+        if (request.isForMainFrame && isMessagesLink(request.url)) {
+            // Messages/Messenger entry points open in the Messages layer (desktop site in its
+            // own WebView) when enabled, so this page stays where it is underneath.
+            if (tryOpenMessagesDesktop(request.url)) return WebRequestInterceptResult.Reject
+            // This view already shows the desktop site (Desktop layout, large screens): open
+            // web Messages links (m.me, messenger.com, mobile /messages) here as the desktop
+            // Messages page instead of sending them to the browser.
+            val url = request.url
+            if (isDesktopView() && url.startsWith("http", ignoreCase = true) && !isDesktopMessagesUrl(url)) {
+                navigator.loadUrl(messagesDesktopUrl(url))
+                return WebRequestInterceptResult.Reject
+            }
+        }
 
         // Facebook redirects full loads of some pages (profiles) to its app via intent://;
         // open the web fallback here instead, so the page stays in this app.
