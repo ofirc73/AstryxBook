@@ -57,6 +57,14 @@ user-visible change.
 - `state.nativeWebView` throws until the WebView exists (it's created during layout, which
   doesn't happen with the screen off): guard it in effects.
 - Instrumented tests reset the debug app's settings (not its Facebook login).
+- On Android 12+ PiP auto-enters and `onUserLeaveHint` is NOT called (verified on API 34
+  and 36), so anything that must run on every PiP entry goes on
+  `onPictureInPictureModeChanged`/`isInPipMode`, not `pipEnteringTrigger`. Facebook's
+  players pause the video on each resize; the keep-playing guard
+  (`pipKeepPlayingActivateJs`) undoes that while in PiP.
+- Page scripts use optional chaining (`?.`, Chrome 80+), so on a WebView older than
+  that (e.g. the stock API 26 emulator image, Chrome 69) `scripts.js` and most others
+  fail to parse. Keep new PiP scripts ES5-style; they also run there.
 - All PiP, lock-screen audio and fullscreen logs use the tag `AstryxbookPiP`:
   `adb logcat AstryxbookPiP:D *:S`.
 - `WebView.setWebContentsDebuggingEnabled(true)` is unconditional on purpose.
