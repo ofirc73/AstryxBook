@@ -989,8 +989,11 @@ fun MaterialbookWebView(
                 setWindow(settingsVM.immersiveMode.value)
                 isFullscreen = false
                 activity?.let {
-                    it.requestedOrientation =
-                        appOrientation(it.resources.configuration.smallestScreenWidthDp, isFullscreen = false)
+                    it.requestedOrientation = appOrientation(
+                        it.resources.configuration.smallestScreenWidthDp,
+                        isFullscreen = false,
+                        isMessagesLayerOpen = messagesLayerUrl != null
+                    )
                 }
                 Log.d("AstryxbookPiP", "HTML5 fullscreen: hidden")
             }
@@ -1102,13 +1105,39 @@ fun MaterialbookWebView(
         runCatching { state.nativeWebView }.getOrNull()?.settings?.userAgentString = userAgent
     }
 
-    // The page underneath keeps running while the Messages layer is open: pause its videos
-    // so a playing reel doesn't go on behind the chat.
-    LaunchedEffect(messagesLayerUrl) {
-        if (messagesLayerUrl != null && state.loadingState is LoadingState.Finished) {
+    // While the Messages layer is open the phone may rotate (see appOrientation), and the
+    // page underneath keeps running. On open: pause its videos, so a playing reel doesn't go
+    // on behind the chat, and note its scroll position. On close: once the screen is back in
+    // portrait (a landscape layout reflows the feed and moves it), scroll it back there.
+    val isMessagesLayerOpen = messagesLayerUrl != null
+    LaunchedEffect(isMessagesLayerOpen) {
+        // While fullscreen, the fullscreen host owns the orientation (and resets it on exit).
+        if (!isFullscreen) {
+            activity?.let {
+                it.requestedOrientation = appOrientation(
+                    it.resources.configuration.smallestScreenWidthDp,
+                    isFullscreen = false,
+                    isMessagesLayerOpen = isMessagesLayerOpen
+                )
+            }
+        }
+    }
+    LaunchedEffect(isMessagesLayerOpen) {
+        if (state.loadingState !is LoadingState.Finished) return@LaunchedEffect
+        if (isMessagesLayerOpen) {
             navigator.evaluateJavaScript(
-                "document.querySelectorAll('video').forEach(function(v) { v.pause(); });"
+                "document.querySelectorAll('video').forEach(function(v) { v.pause(); });" +
+                    "window.__mbLayerScrollY = window.scrollY;"
             ) {}
+        } else {
+            val restore = "if (typeof window.__mbLayerScrollY === 'number' && " +
+                "Math.abs(window.scrollY - window.__mbLayerScrollY) > 4) " +
+                "window.scrollTo(0, window.__mbLayerScrollY);"
+            // The rotation back and Facebook's reflow take a moment; try twice, then forget it.
+            delay(400)
+            navigator.evaluateJavaScript(restore) {}
+            delay(600)
+            navigator.evaluateJavaScript("$restore window.__mbLayerScrollY = undefined;") {}
         }
     }
 

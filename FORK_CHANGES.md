@@ -50,9 +50,9 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
 ## Default behavior changes
 
-- Phones stay in portrait while browsing; only a video in fullscreen can
-  rotate (following the system auto-rotate setting), and leaving fullscreen
-  returns to portrait. Facebook's mobile site doesn't handle a real
+- Phones stay in portrait while browsing; only a video in fullscreen or the
+  Messages layer can rotate (following the system auto-rotate setting), and
+  leaving them returns to portrait. Facebook's mobile site doesn't handle a real
   landscape page: rotating made it skip the reel, and leaving fullscreen in
   landscape left an oversized still frame instead of the video (both also
   in Chrome). Tablets and other large screens (`smallestScreenWidthDp >=
@@ -192,7 +192,8 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
   dismissed, hide without show is a no-op, WebView told exactly once).
 - `AutoDesktopTest` (11): the effective-desktop rule, the one-time
   migration of the old persisted auto decision, and the orientation rule
-  (phones portrait except fullscreen video, large screens unlocked).
+  (phones portrait except fullscreen video and the Messages layer, large
+  screens unlocked).
 - `SettingsDefaultsTest` and `PipManifestTest` extended: lock-screen audio
   off by default; the service declared with `foregroundServiceType`
   mediaPlayback and exported.
@@ -225,6 +226,12 @@ separate layer was added on top.
   feed, profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
 - The layer gets the same page scripts as the main view (download hook, theme and so on).
+- **Landscape:** while the layer is open, phones follow the system auto-rotate setting, so
+  the desktop Messages page can use the full width (chat list beside the conversation,
+  all composer buttons). Closing the layer returns to portrait. The page underneath
+  reflows when the screen turns, so its scroll position is saved when the layer opens and
+  put back after the rotation back. Leaving a fullscreen video inside the layer keeps it
+  rotatable.
 - `messages_tab.js` hooks the Messages tab so it opens the layer directly; it recognises
   the tab by its English label or its icon glyph. There is no position check on purpose:
   if Facebook changed both, matching by position could hijack another tab, and a miss

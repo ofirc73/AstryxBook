@@ -13,15 +13,21 @@ fun isAutoDesktopScreen(smallestScreenWidthDp: Int): Boolean = smallestScreenWid
 /**
  * Requested orientation for the activity. Phones stay portrait while
  * browsing and may rotate (following the user's auto-rotate setting) only
- * while a video is in HTML5 fullscreen: Facebook's mobile site handles a real
- * landscape page badly (it skips the reel on rotation, and leaving fullscreen
- * in landscape leaves its viewer showing an oversized still frame instead of
- * the video, same in Chrome). Large screens (the auto-desktop ones) rotate
- * freely as before.
+ * while a video is in HTML5 fullscreen or the Messages layer is open:
+ * Facebook's mobile site handles a real landscape page badly (it skips the
+ * reel on rotation, and leaving fullscreen in landscape leaves its viewer
+ * showing an oversized still frame instead of the video, same in Chrome),
+ * while the desktop Messages page in the layer gets room for the chat list
+ * and its full composer. Large screens (the auto-desktop ones) rotate freely
+ * as before.
  */
-fun appOrientation(smallestScreenWidthDp: Int, isFullscreen: Boolean): Int = when {
+fun appOrientation(
+    smallestScreenWidthDp: Int,
+    isFullscreen: Boolean,
+    isMessagesLayerOpen: Boolean = false,
+): Int = when {
     isAutoDesktopScreen(smallestScreenWidthDp) -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    isFullscreen -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+    isFullscreen || isMessagesLayerOpen -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
     else -> ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
 }
 
