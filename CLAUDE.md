@@ -72,8 +72,8 @@ Verify against Chrome/Opera on the phone before "fixing" these: Reels can
 re-pause a resumed video; finished videos auto-advance (and leave
 fullscreen). A real landscape page is broken on Facebook's side (reel skip
 on rotation, oversized still frame after leaving fullscreen), which is why
-phones are held in portrait except during fullscreen video
-(`appOrientation`). See Known
+phones are held in portrait except during fullscreen video and while the
+Messages layer is open (`appOrientation`). See Known
 limitations in `FORK_CHANGES.md`.
 
 ## Repo housekeeping

@@ -55,13 +55,13 @@ Off by default (opt-in):
 *  Hides the system bars (immersive mode)
 *  Allows pinch-to-zoom anywhere
 *  Lets you access Messenger (Desktop layout only)
-*  Opens Messages inside the app on the desktop site, in its own layer over the feed, so Back returns you to where you were (Settings → *Messages in desktop mode*); links to a conversation keep it
+*  Opens Messages inside the app on the desktop site, in its own layer over the feed, so Back returns you to where you were; it can turn to landscape for more room (Settings → *Messages in desktop mode*); links to a conversation keep it
 *  Supports Picture-in-Picture playback with selectable portrait-window ratios
 *  Keeps a Picture-in-Picture video's audio playing when the screen locks
 
 Always on:
 *  Supports real fullscreen video, including landscape, from Facebook's fullscreen button
-   (on phones the app otherwise stays in portrait, since Facebook's mobile site breaks in landscape)
+   (on phones the app otherwise stays in portrait, apart from Messages, since Facebook's mobile site breaks in landscape)
 *  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Italian, Spanish, French, Portuguese, and Traditional Chinese
 *  And more!
 
