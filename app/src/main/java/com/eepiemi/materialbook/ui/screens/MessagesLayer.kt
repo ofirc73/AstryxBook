@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -16,7 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.zIndex
+import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.MessagesLayerRoute
@@ -24,6 +27,7 @@ import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.jsBridge.ClipboardBridge
 import com.eepiemi.materialbook.utils.jsBridge.DownloadBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
+import com.eepiemi.materialbook.utils.jsBridge.PipBridge
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import com.multiplatform.webview.request.RequestInterceptor
 import com.multiplatform.webview.request.WebRequest
@@ -31,6 +35,7 @@ import com.multiplatform.webview.request.WebRequestInterceptResult
 import com.multiplatform.webview.web.LoadingState
 import com.multiplatform.webview.web.WebView
 import com.multiplatform.webview.web.WebViewNavigator
+import com.multiplatform.webview.web.WebViewState
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
 
@@ -44,6 +49,9 @@ import com.multiplatform.webview.web.rememberWebViewState
  *   to the chat list), then closes the layer.
  * - Non-Facebook links go to [onExternalUrl], as in the main view.
  */
+/** The page PiP acts on (see MaterialbookWebView): the Messages layer's while it's open. */
+class PipTarget(val navigator: WebViewNavigator, val state: WebViewState)
+
 @Composable
 fun MessagesLayer(
     url: String,
@@ -56,8 +64,13 @@ fun MessagesLayer(
     onPrimaryColor: Int,
     onClose: () -> Unit,
     onExternalUrl: (String) -> Unit,
+    pipEnabled: Boolean = false,
+    onPipTarget: (PipTarget?) -> Unit = {},
+    onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
+    onPipPageVisible: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val currentOnExternalUrl by rememberUpdatedState(onExternalUrl)
 
     // The user agent is applied by the library when it creates the WebView, before the
@@ -102,6 +115,27 @@ fun MessagesLayer(
         }
     }
 
+    // PiP for videos in the layer (a shared reel, a video in a chat): the same detector as the
+    // main view reports them through PipBridge, and while the layer is open PiP acts on its
+    // page. When it closes, its videos are gone: say so, or leaving the app afterwards would
+    // still count as "video playing".
+    LaunchedEffect(loadingState, pipEnabled) {
+        if (loadingState is LoadingState.Finished && pipEnabled) {
+            val detector = resources.openRawResource(R.raw.pip_video_detector)
+                .bufferedReader().use { it.readText() }
+            navigator.evaluateJavaScript(detector) {}
+        }
+    }
+    val currentOnPipTarget by rememberUpdatedState(onPipTarget)
+    val currentOnVideoPlayingChanged by rememberUpdatedState(onVideoPlayingChanged)
+    DisposableEffect(navigator, state) {
+        currentOnPipTarget(PipTarget(navigator, state))
+        onDispose {
+            currentOnPipTarget(null)
+            currentOnVideoPlayingChanged(false, 0, 0)
+        }
+    }
+
     Box(modifier = modifier.zIndex(1F).background(background)) {
         WebView(
             modifier = Modifier.fillMaxSize(),
@@ -125,6 +159,13 @@ fun MessagesLayer(
                     addJavascriptInterface(DownloadBridge(context), "DownloadBridge")
                     addJavascriptInterface(ClipboardBridge(context), "ClipboardBridge")
                     addJavascriptInterface(MaterialYouBridge(primaryColor, onPrimaryColor), "MaterialYouBridge")
+                    addJavascriptInterface(
+                        PipBridge(
+                            { playing, width, height -> currentOnVideoPlayingChanged(playing, width, height) },
+                            onPipPageVisible
+                        ),
+                        "PipBridge"
+                    )
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     overScrollMode = View.OVER_SCROLL_NEVER
                     isVerticalScrollBarEnabled = false

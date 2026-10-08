@@ -226,6 +226,12 @@ separate layer was added on top.
   feed, profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
 - The layer gets the same page scripts as the main view (download hook, theme and so on).
+- **PiP:** videos in the layer (a shared reel, a video in a chat) go to Picture-in-Picture
+  like feed videos: the layer gets the same detector (`pip_video_detector.js`, `PipBridge`),
+  and while it's open every PiP action (focus mode, the Play/Pause button, lock-screen
+  audio, the fullscreen hand-off) acts on the layer's page instead of the feed's
+  (`PipTarget`). Closing the layer reports "no video playing", so leaving the app
+  afterwards doesn't start PiP. The PiP scripts themselves are unchanged.
 - **Landscape:** while the layer is open, phones follow the system auto-rotate setting, so
   the desktop Messages page can use the full width (chat list beside the conversation,
   all composer buttons). Closing the layer returns to portrait. The page underneath
