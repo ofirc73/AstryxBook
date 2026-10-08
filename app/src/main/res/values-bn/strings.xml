@@ -44,4 +44,8 @@
     <string name="pip_lockscreen_audio_title">স্ক্রিন লক হলেও অডিও চালু রাখুন</string>
     <string name="pip_lockscreen_audio_summary">পিকচার-ইন-পিকচারে থাকাকালীন স্ক্রিন বন্ধ হওয়ার পরেও অডিও চালু থাকবে</string>
     <string name="lockscreen_audio_media_title">Facebook ভিডিও</string>
+    <string name="keep_screen_on_title">স্ক্রিন চালু রাখুন</string>
+    <string name="keep_screen_on_off">বন্ধ</string>
+    <string name="keep_screen_on_video">ভিডিও চলার সময়</string>
+    <string name="keep_screen_on_always">সবসময় (অ্যাপ খোলা থাকাকালীন)</string>
 </resources>

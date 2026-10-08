@@ -34,4 +34,8 @@
     <string name="pip_lockscreen_audio_title">Manter o áudio ao bloquear a tela</string>
     <string name="pip_lockscreen_audio_summary">No picture-in-picture, o áudio continua tocando depois que a tela desliga</string>
     <string name="lockscreen_audio_media_title">Vídeo do Facebook</string>
+    <string name="keep_screen_on_title">Manter a tela ligada</string>
+    <string name="keep_screen_on_off">Desativado</string>
+    <string name="keep_screen_on_video">Enquanto um vídeo é reproduzido</string>
+    <string name="keep_screen_on_always">Sempre (enquanto o app está aberto)</string>
 </resources>

@@ -258,16 +258,28 @@ separate layer was added on top.
 New feature, opt-in (off by default): shrinks into a floating window when
 leaving the app while a Facebook video or Reel is playing.
 
-- Keeps playing in PiP: Facebook's players (mobile reels, and the desktop one
-  in the Messages layer) pause the video right after every resize of the page,
-  so entering PiP always paused it, and later resizes paused it again (traced
-  with DevTools: the pause comes from Facebook's player code, not Chromium). A
+- Keeps playing in PiP: Facebook's mobile players pause the video right after
+  every resize of the page, so entering PiP always paused it, and later resizes
+  paused it again (traced with DevTools: the pause comes from Facebook's player
+  code, not Chromium). A
   keep-playing guard, separate from focus mode, now undoes those pauses while
   PiP is engaged if the video was playing when PiP started, at most 6 times
   per 10 s; pausing from the PiP button, the lock-screen hand-off and a hidden
   page are respected. It's switched on from `onPictureInPictureModeChanged`,
   because Android 12+ doesn't call `onUserLeaveHint` when PiP auto-enters.
   Verified on emulators running Android 16, 14, 11 and 8.0 (`PipKeepPlayingJsTest`).
+- Desktop site (Desktop layout, or a reel opened in the Messages layer): reels
+  paused in PiP and every Play was undone within a second, with the view
+  jumping between sizes. Facebook's desktop player pauses any video whose
+  player is less than 50% inside the viewport (its
+  `evaluateVideoAutoplayPauseOnInvisibleRule:50%`, which outranks a user's
+  Play), and in the small PiP window the page is laid out at window size, so
+  the player never is. `pip_visibility.js`, installed as a document-start
+  script in both WebViews, wraps `IntersectionObserver` so that while PiP is
+  engaged the PiP video's player reads as fully visible, and re-sends that on
+  PiP entry; Facebook then resumes the reel itself. Needs a WebView with
+  document-start scripts (Chrome 87+). Verified on the Android 16 emulator, in
+  Desktop layout and in the Messages layer (`PipVisibilityJsTest`).
 
 - Detects playback via a lightweight JS bridge (ignores muted feed autoplay).
 - Native resume control (Play/Pause) on the PiP overlay, since
@@ -323,6 +335,15 @@ leaving the app while a Facebook video or Reel is playing.
   get transport controls only). It is bound idle at PiP entry and only goes
   to the foreground at screen-off, so no notification shows during ordinary
   PiP use.
+
+## Keep screen on
+
+New setting (Settings → *Keep screen on*, off by default): *While a video
+plays* keeps the screen from timing out while any video on the page is
+playing and shown (muted feed videos included, in the feed and the Messages
+layer); *Always* keeps it on whenever the app is on screen. It sets the view's
+`keepScreenOn`, so it never applies in the background and doesn't interfere
+with the window flag fullscreen video already sets.
 
 ## Known limitations
 

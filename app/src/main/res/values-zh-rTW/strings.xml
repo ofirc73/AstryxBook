@@ -39,4 +39,8 @@
     <string name="material_you_title">Material You</string>
     <string name="image_copied_to_clipboard">圖片已複製到剪貼簿</string>
     <string name="copy_failed_invalid_data">複製失敗：資料無效</string>
+    <string name="keep_screen_on_title">保持螢幕開啟</string>
+    <string name="keep_screen_on_off">關閉</string>
+    <string name="keep_screen_on_video">播放影片時</string>
+    <string name="keep_screen_on_always">一律（應用程式開啟時）</string>
 </resources>

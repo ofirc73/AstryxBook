@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.eepiemi.materialbook.utils.KeepScreenOn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -33,6 +34,7 @@ class SettingsDataStore(private val context: Context) {
         val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
         val PIP_PORTRAIT_RATIO = stringPreferencesKey("pip_portrait_ratio")
         val PIP_LOCKSCREEN_AUDIO = booleanPreferencesKey("pip_lockscreen_audio")
+        val KEEP_SCREEN_ON = stringPreferencesKey("keep_screen_on")
 
         // Legacy: set by the old auto-desktop logic when it wrote desktop_layout
         // on the user's behalf. Only read by the migration below.
@@ -153,5 +155,11 @@ class SettingsDataStore(private val context: Context) {
     val pipPortraitRatio = context.dataStore.data.map { it[PIP_PORTRAIT_RATIO] ?: "4:7" }
     suspend fun setPipPortraitRatio(ratio: String) {
         context.dataStore.edit { it[PIP_PORTRAIT_RATIO] = ratio }
+    }
+
+    // One of KeepScreenOn's values; off by default, like Android's own screen timeout.
+    val keepScreenOn = context.dataStore.data.map { it[KEEP_SCREEN_ON] ?: KeepScreenOn.OFF }
+    suspend fun setKeepScreenOn(mode: String) {
+        context.dataStore.edit { it[KEEP_SCREEN_ON] = mode }
     }
 }

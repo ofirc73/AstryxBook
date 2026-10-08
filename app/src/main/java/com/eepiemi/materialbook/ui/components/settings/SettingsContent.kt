@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PanoramaWideAngle
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
@@ -51,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
+import com.eepiemi.materialbook.utils.KeepScreenOn
 import com.eepiemi.materialbook.utils.effectiveDesktop
 import com.eepiemi.materialbook.utils.rememberAutoDesktop
 
@@ -61,6 +63,7 @@ fun SettingsContent(
 ) {
     var isOpenDialog by rememberSaveable { mutableStateOf(false) }
     var isPipRatioDialog by rememberSaveable { mutableStateOf(false) }
+    var isKeepScreenOnDialog by rememberSaveable { mutableStateOf(false) }
 
     val removeAds = viewModel.removeAds.collectAsState()
     val messagesDesktop = viewModel.messagesDesktop.collectAsState()
@@ -75,6 +78,8 @@ fun SettingsContent(
     val pipEnabled = viewModel.pipEnabled.collectAsState()
     val pipLockscreenAudio = viewModel.pipLockscreenAudio.collectAsState()
     val pipPortraitRatio = viewModel.pipPortraitRatio.collectAsState()
+    val keepScreenOn = viewModel.keepScreenOn.collectAsState()
+    val keepScreenOnLabels = KeepScreenOn.ALL.associateWith { keepScreenOnLabel(it) }
 
     val isAutoDesktop = rememberAutoDesktop()
 
@@ -146,6 +151,14 @@ fun SettingsContent(
                     supportingText = stringResource(R.string.hide_system_bars_for_a_fullscreen_experience),
                     isActive = immersiveMode.value,
                     onClick = { viewModel.setImmersiveMode(!immersiveMode.value) }
+                ),
+                SettingsItem(
+                    icon = Icons.Outlined.LightMode,
+                    title = stringResource(R.string.keep_screen_on_title),
+                    supportingText = keepScreenOnLabels[keepScreenOn.value]
+                        ?: keepScreenOnLabels.getValue(KeepScreenOn.OFF),
+                    isActive = null,
+                    onClick = { isKeepScreenOnDialog = true }
                 ),
                 SettingsItem(
                     icon = Icons.Default.Padding,
@@ -222,9 +235,28 @@ fun SettingsContent(
         )
     }
 
+    if (isKeepScreenOnDialog) {
+        ChoiceDialog(
+            title = stringResource(R.string.keep_screen_on_title),
+            options = keepScreenOnLabels,
+            current = keepScreenOn.value,
+            onSelect = { mode ->
+                viewModel.setKeepScreenOn(mode)
+                @Suppress("AssignedValueIsNeverRead")
+                isKeepScreenOnDialog = false
+            },
+            onDismiss = {
+                @Suppress("AssignedValueIsNeverRead")
+                isKeepScreenOnDialog = false
+            }
+        )
+    }
+
     if (isPipRatioDialog) {
-        PipRatioDialog(
-            currentRatio = viewModel.pipPortraitRatio.collectAsState().value,
+        ChoiceDialog(
+            title = stringResource(R.string.pip_ratio_title),
+            options = PIP_RATIO_PRESETS.associateWith { pipRatioLabel(it) },
+            current = viewModel.pipPortraitRatio.collectAsState().value,
             onSelect = { ratio ->
                 viewModel.setPipPortraitRatio(ratio)
                 @Suppress("AssignedValueIsNeverRead")
@@ -359,8 +391,27 @@ private val PIP_RATIO_PRESETS = listOf(
 )
 
 @Composable
-private fun PipRatioDialog(
-    currentRatio: String,
+private fun pipRatioLabel(ratio: String): String = when (ratio) {
+    "4:7"  -> stringResource(R.string.pip_ratio_4_7)
+    "2:3"  -> stringResource(R.string.pip_ratio_2_3)
+    "3:4"  -> stringResource(R.string.pip_ratio_3_4)
+    "9:16" -> stringResource(R.string.pip_ratio_9_16)
+    else   -> ratio
+}
+
+@Composable
+private fun keepScreenOnLabel(mode: String): String = when (mode) {
+    KeepScreenOn.WHILE_VIDEO -> stringResource(R.string.keep_screen_on_video)
+    KeepScreenOn.ALWAYS -> stringResource(R.string.keep_screen_on_always)
+    else -> stringResource(R.string.keep_screen_on_off)
+}
+
+// A titled list of radio buttons; options maps each stored value to its label.
+@Composable
+private fun ChoiceDialog(
+    title: String,
+    options: Map<String, String>,
+    current: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -373,32 +424,25 @@ private fun PipRatioDialog(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = stringResource(R.string.pip_ratio_title),
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
 
-            PIP_RATIO_PRESETS.forEach { ratio ->
-                val label = when (ratio) {
-                    "4:7"  -> stringResource(R.string.pip_ratio_4_7)
-                    "2:3"  -> stringResource(R.string.pip_ratio_2_3)
-                    "3:4"  -> stringResource(R.string.pip_ratio_3_4)
-                    "9:16" -> stringResource(R.string.pip_ratio_9_16)
-                    else   -> ratio
-                }
+            options.forEach { (value, label) ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.large)
-                        .clickable { onSelect(ratio) }
+                        .clickable { onSelect(value) }
                         .padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     RadioButton(
-                        selected = ratio == currentRatio,
-                        onClick = { onSelect(ratio) }
+                        selected = value == current,
+                        onClick = { onSelect(value) }
                     )
                     Text(
                         text = label,

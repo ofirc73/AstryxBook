@@ -49,4 +49,8 @@
     <string name="pip_lockscreen_audio_title">Keep audio when screen locks</string>
     <string name="pip_lockscreen_audio_summary">While in picture-in-picture, keep playing audio after the screen turns off</string>
     <string name="lockscreen_audio_media_title">Facebook video</string>
+    <string name="keep_screen_on_title">Keep screen on</string>
+    <string name="keep_screen_on_off">Off</string>
+    <string name="keep_screen_on_video">While a video plays</string>
+    <string name="keep_screen_on_always">Always (while the app is open)</string>
 </resources>

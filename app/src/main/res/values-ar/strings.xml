@@ -45,4 +45,8 @@
     <string name="pip_lockscreen_audio_title">متابعة الصوت عند قفل الشاشة</string>
     <string name="pip_lockscreen_audio_summary">أثناء وضع الصورة داخل الصورة، يستمر تشغيل الصوت بعد إيقاف الشاشة</string>
     <string name="lockscreen_audio_media_title">فيديو Facebook</string>
+    <string name="keep_screen_on_title">إبقاء الشاشة قيد التشغيل</string>
+    <string name="keep_screen_on_off">إيقاف</string>
+    <string name="keep_screen_on_video">أثناء تشغيل فيديو</string>
+    <string name="keep_screen_on_always">دائمًا (أثناء فتح التطبيق)</string>
 </resources>

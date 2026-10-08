@@ -34,4 +34,8 @@
     <string name="pip_lockscreen_audio_title">Garder le son quand l\'écran se verrouille</string>
     <string name="pip_lockscreen_audio_summary">En mode Picture-in-Picture, le son continue après l\'extinction de l\'écran</string>
     <string name="lockscreen_audio_media_title">Vidéo Facebook</string>
+    <string name="keep_screen_on_title">Garder l\'écran allumé</string>
+    <string name="keep_screen_on_off">Désactivé</string>
+    <string name="keep_screen_on_video">Pendant la lecture d\'une vidéo</string>
+    <string name="keep_screen_on_always">Toujours (tant que l\'appli est ouverte)</string>
 </resources>

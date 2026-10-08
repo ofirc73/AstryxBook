@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalView
 import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsCompat
@@ -59,13 +60,18 @@ import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
 import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
 import com.eepiemi.materialbook.utils.jsBridge.PipBridge
+import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
 import com.eepiemi.materialbook.audio.PipHandback
 import com.eepiemi.materialbook.utils.effectiveDesktop
 import com.eepiemi.materialbook.utils.fbRedirectSanitizer
 import com.eepiemi.materialbook.utils.intentFallbackUrl
+import com.eepiemi.materialbook.utils.KeepScreenOn
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
 import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
+import com.eepiemi.materialbook.utils.shouldKeepScreenOn
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.delay
 
 internal const val PIP_TOGGLE_JS = """
@@ -430,11 +436,12 @@ internal const val PIP_FREEZE_ACTIVE_VIDEO_JS = """
 })();
 """
 
-// Keep-playing guard for PiP, separate from focus mode on purpose. Facebook's own players
-// (mobile reels and the desktop one in the Messages layer alike) call pause() right after
-// every resize of the page, and entering PiP resizes it at least once (traced via DevTools:
-// pause() from Facebook's player code within ~100ms of each resize, nothing from Chromium);
-// later resizes, e.g. the PiP window adopting the video's aspect ratio, pause it again.
+// Keep-playing guard for PiP, separate from focus mode on purpose. Facebook's mobile players
+// call pause() right after every resize of the page, and entering PiP resizes it at least
+// once (traced via DevTools: pause() from Facebook's player code within ~100ms of each
+// resize, nothing from Chromium); later resizes, e.g. the PiP window adopting the video's
+// aspect ratio, pause it again. The desktop player's pauses come from its visibility rule
+// instead, which pip_visibility.js answers (replayed below); this guard alone loses to it.
 //
 // Activated once PiP is engaged, with wantsPlay = "the video was playing when PiP started"
 // (MainActivity knows; onUserLeaveHint isn't called on auto-enter, so it can't be armed
@@ -465,6 +472,9 @@ internal fun pipKeepPlayingActivateJs(wantsPlay: Boolean) = """
     var p = target.play();
     if (p && p.catch) p.catch(function() {});
   };
+  // Desktop site: tell Facebook's player the PiP video is fully visible (pip_visibility.js),
+  // or its "pause when less than 50% visible" rule pauses it on every play.
+  if (window.__astryxPipVisibleReplay) window.__astryxPipVisibleReplay();
   if (!window.__astryxPipPauseListener) {
     window.__astryxPipPauseListener = function(e) {
       if (!window.__astryxPipActive || e.target !== window.__astryxPipVideo()) return;
@@ -477,6 +487,22 @@ internal fun pipKeepPlayingActivateJs(wantsPlay: Boolean) = """
   setTimeout(window.__astryxPipResume, 150);
 })();
 """
+
+private val PIP_VISIBILITY_ORIGINS = setOf(
+    "https://facebook.com", "https://*.facebook.com",
+    "https://messenger.com", "https://*.messenger.com"
+)
+
+// Installs pip_visibility.js (see the script) as a document-start script, so it wraps
+// IntersectionObserver before Facebook's own scripts create theirs. Needs WebView's
+// DOCUMENT_START_SCRIPT (Chrome 87+); without it, desktop-site videos still pause in PiP.
+internal fun installPipVisibilityScript(webView: android.webkit.WebView) {
+    if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
+    val script = webView.resources.openRawResource(R.raw.pip_visibility)
+        .bufferedReader().use { it.readText() }
+    runCatching { WebViewCompat.addDocumentStartJavaScript(webView, script, PIP_VISIBILITY_ORIGINS) }
+        .onFailure { Log.w("AstryxbookPiP", "pip_visibility.js not installed", it) }
+}
 
 // Left PiP: stop guarding, so normal pauses (Facebook's or the user's) stick again.
 internal const val PIP_KEEP_PLAYING_DISARM_JS = """
@@ -1111,6 +1137,28 @@ fun MaterialbookWebView(
         }
     }
 
+    // Keep screen on (setting). "While a video plays" listens to video_playing.js in both
+    // WebViews (the Messages layer reports its own); the view flag only applies while the
+    // app is on screen, and doesn't touch the window flag the fullscreen host sets.
+    val keepScreenOnMode by settingsVM.keepScreenOn.collectAsState()
+    val trackVideoPlaying = keepScreenOnMode == KeepScreenOn.WHILE_VIDEO
+    var mainVideoPlaying by remember { mutableStateOf(false) }
+    var layerVideoPlaying by remember { mutableStateOf(false) }
+    LaunchedEffect(loadingState, trackVideoPlaying) {
+        if (loadingState is LoadingState.Loading) mainVideoPlaying = false
+        if (loadingState is LoadingState.Finished && trackVideoPlaying) {
+            val script = resources.openRawResource(R.raw.video_playing)
+                .bufferedReader().use { it.readText() }
+            navigator.evaluateJavaScript(script) {}
+        }
+    }
+    val hostView = LocalView.current
+    val keepScreenOn = shouldKeepScreenOn(keepScreenOnMode, mainVideoPlaying || layerVideoPlaying)
+    DisposableEffect(hostView, keepScreenOn) {
+        hostView.keepScreenOn = keepScreenOn
+        onDispose { hostView.keepScreenOn = false }
+    }
+
     // The Messages tab hook, whenever Messages in desktop mode is on. userScripts only picks up
     // settings on "Apply immediately?" or a restart; without the hook the tab still reaches the
     // layer through its fb-messenger:// link, but Facebook then leaves its "Get the Messenger
@@ -1305,6 +1353,11 @@ fun MaterialbookWebView(
                     PipBridge(onVideoPlayingChanged, onPipPageVisible),
                     "PipBridge"
                 )
+                installPipVisibilityScript(this)
+                addJavascriptInterface(
+                    ScreenBridge { mainVideoPlaying = it },
+                    "ScreenBridge"
+                )
 
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
@@ -1336,6 +1389,8 @@ fun MaterialbookWebView(
                 onPipTarget = { layerPipTarget = it },
                 onVideoPlayingChanged = onVideoPlayingChanged,
                 onPipPageVisible = onPipPageVisible,
+                trackVideoPlaying = trackVideoPlaying,
+                onScreenVideoPlayingChanged = { layerVideoPlaying = it },
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
         }
