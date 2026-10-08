@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.zIndex
+import androidx.core.content.ContextCompat
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.eepiemi.materialbook.utils.FullscreenController
@@ -26,9 +27,12 @@ import com.eepiemi.materialbook.utils.MessagesLayerRoute
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.jsBridge.ClipboardBridge
 import com.eepiemi.materialbook.utils.jsBridge.DownloadBridge
+import com.eepiemi.materialbook.utils.jsBridge.LayerBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
+import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
 import com.eepiemi.materialbook.utils.jsBridge.PipBridge
 import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
+import com.eepiemi.materialbook.utils.messagesLayerExit
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import com.multiplatform.webview.request.RequestInterceptor
 import com.multiplatform.webview.request.WebRequest
@@ -46,6 +50,8 @@ import com.multiplatform.webview.web.rememberWebViewState
  * closing the layer goes straight back to where the user was.
  *
  * - Facebook pages opened from a chat (a shared reel, a profile) open in the layer too.
+ * - Going to one of Facebook's sections (Home, Friends, the Reels tab, ...) from the desktop
+ *   page closes the layer and shows it in the main view, on the mobile site ([onLeave]).
  * - Back steps through the layer's own history (a reel back to the chat, a conversation back
  *   to the chat list), then closes the layer.
  * - Non-Facebook links go to [onExternalUrl], as in the main view.
@@ -71,10 +77,14 @@ fun MessagesLayer(
     onPipPageVisible: () -> Unit = {},
     trackVideoPlaying: Boolean = false,
     onScreenVideoPlayingChanged: (Boolean) -> Unit = {},
+    onLeave: (mainUrl: String?) -> Unit = { onClose() },
+    onOpenSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val currentOnExternalUrl by rememberUpdatedState(onExternalUrl)
+    val currentOnLeave by rememberUpdatedState(onLeave)
+    val currentOnOpenSettings by rememberUpdatedState(onOpenSettings)
 
     // The user agent is applied by the library when it creates the WebView, before the
     // first load (setting it is idempotent, so doing it on every composition is fine).
@@ -97,6 +107,10 @@ fun MessagesLayer(
                         currentOnExternalUrl(route.url)
                         WebRequestInterceptResult.Reject
                     }
+                    is MessagesLayerRoute.Leave -> {
+                        currentOnLeave(route.mainUrl)
+                        WebRequestInterceptResult.Reject
+                    }
                 }
         }
     )
@@ -115,6 +129,15 @@ fun MessagesLayer(
     LaunchedEffect(loadingState, userScripts) {
         if (loadingState is LoadingState.Finished && userScripts != null) {
             navigator.evaluateJavaScript(userScripts) {}
+        }
+    }
+
+    // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit).
+    LaunchedEffect(loadingState) {
+        if (loadingState is LoadingState.Finished) {
+            val script = resources.openRawResource(R.raw.messages_layer_nav)
+                .bufferedReader().use { it.readText() }
+            navigator.evaluateJavaScript(script) {}
         }
     }
 
@@ -182,6 +205,16 @@ fun MessagesLayer(
                         "PipBridge"
                     )
                     installPipVisibilityScript(this)
+                    // The gear scripts.js adds to the desktop header opens the app's Settings.
+                    addJavascriptInterface(MaterialbookSettings { currentOnOpenSettings() }, "SettingsBridge")
+                    addJavascriptInterface(
+                        LayerBridge { pageUrl ->
+                            messagesLayerExit(pageUrl)?.let { exit ->
+                                ContextCompat.getMainExecutor(context).execute { currentOnLeave(exit.mainUrl) }
+                            }
+                        },
+                        "LayerBridge"
+                    )
                     addJavascriptInterface(
                         ScreenBridge { currentOnScreenVideoPlayingChanged(it) },
                         "ScreenBridge"

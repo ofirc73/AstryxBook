@@ -1391,6 +1391,14 @@ fun MaterialbookWebView(
                 onPipPageVisible = onPipPageVisible,
                 trackVideoPlaying = trackVideoPlaying,
                 onScreenVideoPlayingChanged = { layerVideoPlaying = it },
+                onLeave = { mainUrl ->
+                    // Both the interceptor and the in-page watcher can report the same exit.
+                    if (messagesLayerUrl != null) {
+                        messagesLayerUrl = null
+                        mainUrl?.let { navigator.loadUrl(it) }
+                    }
+                },
+                onOpenSettings = { settingsToggle = true },
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
         }
