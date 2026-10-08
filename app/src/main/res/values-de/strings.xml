@@ -34,4 +34,8 @@
     <string name="pip_lockscreen_audio_title">Audio bei Bildschirmsperre weiterspielen</string>
     <string name="pip_lockscreen_audio_summary">Im Bild-im-Bild-Modus läuft der Ton weiter, wenn sich der Bildschirm ausschaltet</string>
     <string name="lockscreen_audio_media_title">Facebook-Video</string>
+    <string name="keep_screen_on_title">Bildschirm eingeschaltet lassen</string>
+    <string name="keep_screen_on_off">Aus</string>
+    <string name="keep_screen_on_video">Während ein Video läuft</string>
+    <string name="keep_screen_on_always">Immer (solange die App geöffnet ist)</string>
 </resources>

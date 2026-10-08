@@ -46,4 +46,8 @@
     <string name="pip_lockscreen_audio_title">Mantieni l\'audio con lo schermo bloccato</string>
     <string name="pip_lockscreen_audio_summary">In Picture-in-Picture, l\'audio continua dopo lo spegnimento dello schermo</string>
     <string name="lockscreen_audio_media_title">Video di Facebook</string>
+    <string name="keep_screen_on_title">Mantieni lo schermo acceso</string>
+    <string name="keep_screen_on_off">Disattivato</string>
+    <string name="keep_screen_on_video">Durante la riproduzione di un video</string>
+    <string name="keep_screen_on_always">Sempre (mentre l\'app è aperta)</string>
 </resources>

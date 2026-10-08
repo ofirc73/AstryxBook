@@ -28,6 +28,7 @@ import com.eepiemi.materialbook.utils.jsBridge.ClipboardBridge
 import com.eepiemi.materialbook.utils.jsBridge.DownloadBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
 import com.eepiemi.materialbook.utils.jsBridge.PipBridge
+import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import com.multiplatform.webview.request.RequestInterceptor
 import com.multiplatform.webview.request.WebRequest
@@ -68,6 +69,8 @@ fun MessagesLayer(
     onPipTarget: (PipTarget?) -> Unit = {},
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
     onPipPageVisible: () -> Unit = {},
+    trackVideoPlaying: Boolean = false,
+    onScreenVideoPlayingChanged: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -126,6 +129,17 @@ fun MessagesLayer(
             navigator.evaluateJavaScript(detector) {}
         }
     }
+    // "Keep screen on: while a video plays" (see MaterialbookWebView).
+    val currentOnScreenVideoPlayingChanged by rememberUpdatedState(onScreenVideoPlayingChanged)
+    LaunchedEffect(loadingState, trackVideoPlaying) {
+        if (loadingState is LoadingState.Loading) currentOnScreenVideoPlayingChanged(false)
+        if (loadingState is LoadingState.Finished && trackVideoPlaying) {
+            val script = resources.openRawResource(R.raw.video_playing)
+                .bufferedReader().use { it.readText() }
+            navigator.evaluateJavaScript(script) {}
+        }
+    }
+
     val currentOnPipTarget by rememberUpdatedState(onPipTarget)
     val currentOnVideoPlayingChanged by rememberUpdatedState(onVideoPlayingChanged)
     DisposableEffect(navigator, state) {
@@ -133,6 +147,7 @@ fun MessagesLayer(
         onDispose {
             currentOnPipTarget(null)
             currentOnVideoPlayingChanged(false, 0, 0)
+            currentOnScreenVideoPlayingChanged(false)
         }
     }
 
@@ -165,6 +180,11 @@ fun MessagesLayer(
                             onPipPageVisible
                         ),
                         "PipBridge"
+                    )
+                    installPipVisibilityScript(this)
+                    addJavascriptInterface(
+                        ScreenBridge { currentOnScreenVideoPlayingChanged(it) },
+                        "ScreenBridge"
                     )
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     overScrollMode = View.OVER_SCROLL_NEVER

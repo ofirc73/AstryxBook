@@ -71,6 +71,14 @@ user-visible change.
   Live debugging on the device: forward `localabstract:webview_devtools_remote_<pid>`
   and use the DevTools protocol (`/json`, `Runtime.evaluate`).
 
+- Facebook's desktop player pauses videos less than 50% inside the viewport (an
+  `IntersectionObserver` rule that outranks a user's Play). The PiP window is smaller
+  than its player, so `pip_visibility.js` (a document-start script, both WebViews) reports
+  the PiP video's player as fully visible while PiP is engaged. To see why Facebook
+  pauses/plays, hook `require('CoreVideoPlayerAutoplayClientUtils').log` in DevTools: it
+  names the deciding autoplay rule.
+- "Keep screen on" uses the host view's `keepScreenOn`, not the window flag the fullscreen
+  host adds and clears.
 - Facebook's video viewer re-lays out only on a real fullscreen transition
   (`fullscreenchange`), not on `resize`/`orientationchange`, and writes its
   widths into inline styles. Chromium ends HTML5 fullscreen by itself when

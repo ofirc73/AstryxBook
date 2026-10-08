@@ -58,6 +58,7 @@ Off by default (opt-in):
 *  Opens Messages inside the app on the desktop site, in its own layer over the feed, so Back returns you to where you were; it can turn to landscape for more room (Settings → *Messages in desktop mode*); links to a conversation keep it
 *  Supports Picture-in-Picture playback with selectable portrait-window ratios
 *  Keeps a Picture-in-Picture video's audio playing when the screen locks
+*  Keeps the screen on while a video plays, or whenever the app is open (Settings → *Keep screen on*)
 
 Always on:
 *  Supports real fullscreen video, including landscape, from Facebook's fullscreen button
@@ -106,8 +107,8 @@ audio to a native player, with media controls on the lock screen. Unlocking hand
 the video at the same position. Facebook's video links expire after a while, so audio during
 a very long lock can stop; the video is still restored where it left off.
 
-Android/Chromium auto-pauses the video the moment PiP starts (a platform limitation, not
-something an app can override) — tap the Play button on the PiP overlay to resume it.
+A video that was playing keeps playing when PiP starts, on the mobile and the desktop site.
+If it ever stops, tap the Play button on the PiP overlay to resume it.
 
 If PiP does not appear, confirm that the video is actively playing with volume above zero
 and that both the app and Android system PiP permissions are enabled.

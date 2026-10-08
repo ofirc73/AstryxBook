@@ -15,6 +15,7 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.HIDE_REEL
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.HIDE_STORIES
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.HIDE_SUGGESTED
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.IMMERSIVE_MODE
+import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.KEEP_SCREEN_ON
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.MATERIAL_YOU
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.MESSAGES_DESKTOP
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PINCH_TO_ZOOM
@@ -23,6 +24,7 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_LOCKS
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_PORTRAIT_RATIO
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.REMOVE_ADS
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.STICKY_NAVBAR
+import com.eepiemi.materialbook.utils.KeepScreenOn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -132,6 +134,11 @@ class SettingsViewModel(
         initialValue = initialPrefs[PIP_PORTRAIT_RATIO] ?: "4:7",
         started = SharingStarted.WhileSubscribed()
     )
+    val keepScreenOn = dataStore.keepScreenOn.stateIn(
+        scope = viewModelScope,
+        initialValue = initialPrefs[KEEP_SCREEN_ON] ?: KeepScreenOn.OFF,
+        started = SharingStarted.WhileSubscribed()
+    )
 
     fun setRemoveAds(removeAds: Boolean) {
         viewModelScope.launch {
@@ -238,6 +245,12 @@ class SettingsViewModel(
     fun setPipPortraitRatio(ratio: String) {
         viewModelScope.launch {
             dataStore.setPipPortraitRatio(ratio)
+        }
+    }
+
+    fun setKeepScreenOn(mode: String) {
+        viewModelScope.launch {
+            dataStore.setKeepScreenOn(mode)
         }
     }
 

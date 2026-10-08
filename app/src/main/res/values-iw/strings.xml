@@ -46,4 +46,8 @@
     <string name="pip_lockscreen_audio_title">המשך השמעת אודיו כשהמסך ננעל</string>
     <string name="pip_lockscreen_audio_summary">במצב תמונה בתוך תמונה, האודיו ימשיך להתנגן גם אחרי שהמסך נכבה</string>
     <string name="lockscreen_audio_media_title">סרטון Facebook</string>
+    <string name="keep_screen_on_title">השארת המסך דלוק</string>
+    <string name="keep_screen_on_off">כבוי</string>
+    <string name="keep_screen_on_video">בזמן שסרטון מתנגן</string>
+    <string name="keep_screen_on_always">תמיד (כל עוד האפליקציה פתוחה)</string>
 </resources>
