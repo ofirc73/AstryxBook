@@ -724,6 +724,7 @@ fun MaterialbookWebView(
                     false
                 }
             },
+            isDesktopView = { currentIsEffectiveDesktop },
             handleExternalUrl = openExternalUrl
         )
     )
@@ -1027,6 +1028,19 @@ fun MaterialbookWebView(
             val detectorScript = context.resources.openRawResource(R.raw.pip_video_detector)
                 .bufferedReader().use { it.readText() }
             navigator.evaluateJavaScript(detectorScript) {}
+        }
+    }
+
+    // The Messages tab hook, whenever Messages in desktop mode is on. userScripts only picks up
+    // settings on "Apply immediately?" or a restart; without the hook the tab still reaches the
+    // layer through its fb-messenger:// link, but Facebook then leaves its "Get the Messenger
+    // app" page on the page underneath. Bundled like the PiP detector; the script guards
+    // against running twice, so the copy in userScripts is harmless.
+    LaunchedEffect(loadingState, messagesDesktopSetting) {
+        if (loadingState is LoadingState.Finished && messagesDesktopSetting) {
+            val tabHook = resources.openRawResource(R.raw.messages_tab)
+                .bufferedReader().use { it.readText() }
+            navigator.evaluateJavaScript(tabHook) {}
         }
     }
 

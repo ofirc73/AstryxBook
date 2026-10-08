@@ -232,14 +232,19 @@ separate layer was added on top.
   reflows when the screen turns, so its scroll position is saved when the layer opens and
   put back after the rotation back. Leaving a fullscreen video inside the layer keeps it
   rotatable.
-- `messages_tab.js` hooks the Messages tab so it opens the layer directly; it recognises
-  the tab by its English label or its icon glyph. There is no position check on purpose:
+- `messages_tab.js` hooks the Messages tab so it opens the layer directly. It's injected
+  on every page load while the setting is on (bundled copy, like the PiP detector), so
+  it works right after the setting is switched on, not only after "Apply immediately?" or
+  a restart; otherwise Facebook left its "Get the Messenger app" page on the feed under
+  the layer. It recognises the tab by its English label or its icon glyph. There is no position check on purpose:
   if Facebook changed both, matching by position could hijack another tab, and a miss
   still ends in the layer through the tab's intercepted `fb-messenger://threads` link.
 - Setting **Messages in desktop mode** (off by default, opt-in). Off keeps the previous
   behavior, including `fb-messenger://` links reaching the Messenger app.
   Not used when the whole app is already on the desktop site (Desktop layout, large
-  screens), which shows Messages by itself.
+  screens), which shows Messages by itself; there, web Messages links (`m.me`,
+  `messenger.com`, mobile `/messages`) now open as the desktop Messages page in the app
+  instead of the browser.
 - `MessagesDesktopTest` covers the URL helpers and the layer's routing.
 
 ## Picture-in-Picture
