@@ -393,6 +393,50 @@ observer.observe(document.body, { childList: true, subtree: true });
 
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // The Reels viewer (m.facebook.com/reel/...) has its own top bar instead of the header
+    // the button above goes into, so there was no way to open Settings while watching
+    // reels. Show a second button at the right end of that bar while on a reel page and
+    // no other settings button is showing (the desktop header has one). Checked once a
+    // second: Facebook moves between the feed and reels in-page.
+    const REELS_BUTTON_ID = 'custom-settings-btn-reels';
+    const isReelsPage = () => /^\/reels?(\/|$)/.test(location.pathname);
+    const mainButtonShown = () => {
+      const main = document.getElementById(BUTTON_ID);
+      return !!main && main.getClientRects().length > 0;
+    };
+    const updateReelsButton = () => {
+      const existing = document.getElementById(REELS_BUTTON_ID);
+      if (!isReelsPage() || mainButtonShown()) {
+        existing?.remove();
+        return;
+      }
+      if (existing) return;
+      const btn = document.createElement('button');
+      btn.id = REELS_BUTTON_ID;
+      btn.setAttribute('aria-label', 'Settings');
+      btn.setAttribute('style', `
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        width: 40px;
+        height: 48px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        pointer-events: auto;
+      `);
+      // The reels bar is always dark.
+      btn.innerHTML = ICON_SVG.replace('%FILL%', '#ffffff');
+      btn.onclick = () => SettingsBridge?.onSettingsToggle?.();
+      document.body.appendChild(btn);
+    };
+    updateReelsButton();
+    setInterval(updateReelsButton, 1000);
+
     // observer for theme-color changes
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) {

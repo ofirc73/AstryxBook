@@ -70,6 +70,11 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
 ## WebView
 
+- Settings while watching reels: the Reels viewer has its own top bar instead of
+  Facebook's header, where the app's Settings button lives, so Settings couldn't be
+  opened from there. `scripts.js` now adds a Settings button at the right end of that
+  bar on reel pages whenever no other one is showing (it's hidden in PiP like the rest
+  of the page).
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen
