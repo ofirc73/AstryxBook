@@ -225,6 +225,16 @@ separate layer was added on top.
   feed position and broke on Facebook's mobile redirects (shared reels landed on the home
   feed, profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
+- **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
+  returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
+  Reels tab and the like open their mobile page in the main view
+  (`messagesLayerExit`). Before, they stayed in the layer: its desktop feed looked like
+  the main one, so reels picked from there played in the desktop layout and its gear did
+  nothing. The desktop site often changes pages in-page rather than loading them, so
+  `messages_layer_nav.js` reports those URL changes (`LayerBridge`) as well. Pages a chat
+  links to (a reel, a video, a group, a profile, a post) still stay in the layer.
+- The gear the page scripts add to the desktop header opens the app's Settings from the
+  layer too (it had no `SettingsBridge`).
 - The layer gets the same page scripts as the main view (download hook, theme and so on).
 - **PiP:** videos in the layer (a shared reel, a video in a chat) go to Picture-in-Picture
   like feed videos: the layer gets the same detector (`pip_video_detector.js`, `PipBridge`),

@@ -6,6 +6,7 @@ import com.eepiemi.materialbook.utils.isDesktopMessagesUrl
 import com.eepiemi.materialbook.utils.isFacebookWebUrl
 import com.eepiemi.materialbook.utils.isMessagesLink
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
+import com.eepiemi.materialbook.utils.messagesLayerExit
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -72,6 +73,31 @@ class MessagesDesktopTest {
         assertEquals(MessagesLayerRoute.External("https://example.com/"), messagesLayerRoute("https://example.com/", true))
         assertEquals(MessagesLayerRoute.External("https://l.facebook.com/l.php?u=x"), messagesLayerRoute("https://l.facebook.com/l.php?u=x", true))
         assertEquals(MessagesLayerRoute.External("tel:123"), messagesLayerRoute("tel:123", true))
+    }
+
+    @Test
+    fun leavingForAFacebookSectionClosesTheLayer() {
+        // Home (the logo, the Home button) goes back to the main view's own feed.
+        assertEquals(MessagesLayerRoute.Leave(null), messagesLayerRoute("https://www.facebook.com/", true))
+        assertEquals(MessagesLayerRoute.Leave(null), messagesLayerRoute("https://www.facebook.com/?sk=h_chr", true))
+        assertEquals(MessagesLayerRoute.Leave(null), messagesLayerRoute("https://www.facebook.com/home.php", true))
+        // Other sections open their mobile page in the main view.
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/friends/"), messagesLayerExit("https://www.facebook.com/friends/"))
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/friends/requests/"), messagesLayerExit("https://www.facebook.com/friends/requests"))
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/groups/feed/"), messagesLayerExit("https://www.facebook.com/groups/feed/"))
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/reel/?s=tab"), messagesLayerExit("https://www.facebook.com/reel/?s=tab"))
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/watch/"), messagesLayerExit("https://www.facebook.com/watch/"))
+        // What a chat links to stays in the layer: a reel, a video, a group, a profile, a post.
+        assertNull(messagesLayerExit("https://www.facebook.com/reel/123456/"))
+        assertNull(messagesLayerExit("https://www.facebook.com/watch/?v=123"))
+        assertNull(messagesLayerExit("https://www.facebook.com/groups/somegroup/"))
+        assertNull(messagesLayerExit("https://www.facebook.com/marketplace/item/1/"))
+        assertNull(messagesLayerExit("https://www.facebook.com/profile.php?id=1"))
+        assertNull(messagesLayerExit("https://www.facebook.com/someone/posts/1"))
+        // Messages itself, and anything that isn't Facebook, aren't exits.
+        assertNull(messagesLayerExit("https://www.facebook.com/messages/t/1"))
+        assertNull(messagesLayerExit("https://example.com/"))
+        assertNull(messagesLayerExit("https://l.facebook.com/l.php?u=x"))
     }
 
     @Test

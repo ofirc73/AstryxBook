@@ -43,14 +43,52 @@ sealed interface MessagesLayerRoute {
 
     /** Not Facebook: hand it to the system, as the main view does. */
     data class External(val url: String) : MessagesLayerRoute
+
+    /**
+     * One of Facebook's own sections (see [messagesLayerExit]): close the layer and show it
+     * in the main view, [mainUrl] there (null: the feed it already shows).
+     */
+    data class Leave(val mainUrl: String?) : MessagesLayerRoute
 }
 
 fun messagesLayerRoute(url: String, isMainFrame: Boolean): MessagesLayerRoute {
     if (!isMainFrame || isDesktopMessagesUrl(url)) return MessagesLayerRoute.Allow
     if (isMessagesLink(url)) return MessagesLayerRoute.Remap(messagesDesktopUrl(url))
     intentFallbackUrl(url)?.takeIf { isFacebookWebUrl(it) }?.let { return MessagesLayerRoute.Remap(it) }
+    messagesLayerExit(url)?.let { return it }
     if (isFacebookWebUrl(url)) return MessagesLayerRoute.Allow
     return MessagesLayerRoute.External(url)
+}
+
+// Facebook's own sections, as linked from the desktop page's header and menus. Pages inside
+// them (a group, a video, a marketplace item) can be shared in a chat, so only these exact
+// paths count.
+private val SECTION_PATHS = setOf(
+    "/friends", "/groups", "/groups/feed", "/groups/discover", "/watch", "/marketplace",
+    "/gaming", "/notifications", "/bookmarks", "/reel", "/reels", "/saved", "/memories"
+)
+
+/**
+ * Leaving Messages for one of Facebook's sections (Home, Friends, Watch, the Reels tab, ...)
+ * from inside the layer: that belongs in the main view, on the mobile site. Kept in the layer,
+ * the desktop feed looked just like the main one, and reels opened from it played in the
+ * desktop layout. Returns null for anything else, including pages opened from a chat (a reel,
+ * a profile, a post), which stay in the layer.
+ */
+fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
+    val uri = runCatching { URI(url) }.getOrNull() ?: return null
+    val scheme = uri.scheme?.lowercase()
+    val host = uri.host?.lowercase() ?: return null
+    if ((scheme != "http" && scheme != "https") || !isFacebookHost(host)) return null
+    val path = (uri.rawPath ?: "").trimEnd('/')
+    val query = uri.rawQuery
+    return when {
+        path.isEmpty() || path == "/home.php" -> MessagesLayerRoute.Leave(null)
+        path == "/watch" && query?.contains("v=") == true -> null
+        path in SECTION_PATHS || path.startsWith("/friends/") ->
+            MessagesLayerRoute.Leave("https://m.facebook.com$path/" + (query?.let { "?$it" } ?: ""))
+        else -> null
+    }
 }
 
 /** The desktop Messages page (the one loaded with the desktop user agent). */
