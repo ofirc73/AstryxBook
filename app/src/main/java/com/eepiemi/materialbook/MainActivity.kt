@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.util.Rational
 import android.webkit.WebView
@@ -52,6 +53,9 @@ private const val ACTION_PIP_TOGGLE = "com.astryx.book.PIP_TOGGLE_PLAYBACK"
 // the device spike); the foreground grace period leaves no room to wait.
 private const val HANDOFF_READ_TIMEOUT_MS = 300L
 
+// How recently a video must have been playing to count as "playing when PiP started".
+private const val PIP_RECENTLY_PLAYING_MS = 3000L
+
 class MainActivity : ComponentActivity() {
 
     // Shared with the composable tree below (passed explicitly rather than
@@ -85,6 +89,13 @@ class MainActivity : ComponentActivity() {
     // Drives the CSS-injection focus mode (hide page chrome, make the video
     // fill the viewport) on PiP enter/exit.
     private var isInPipMode by mutableStateOf(false)
+
+    // Whether a video was playing when PiP started (drives the keep-playing
+    // guard), and when one was last reported playing: Facebook pauses it as
+    // PiP resizes the page, which can be reported before PiP is.
+    private var pipStartedWhilePlaying by mutableStateOf(false)
+    @Volatile
+    private var lastPlayingAt = 0L
 
     // Bumped in onUserLeaveHint, the earliest moment we know PiP is about to
     // engage — observed by the composable to freeze the detector's "last
@@ -301,6 +312,7 @@ class MainActivity : ComponentActivity() {
                     pipToggleTrigger = pipToggleTrigger,
                     pipEnteringTrigger = pipEnteringTrigger,
                     isInPipMode = isInPipMode,
+                    pipStartedWhilePlaying = pipStartedWhilePlaying,
                     pipHandoffReadTrigger = pipHandoffReadTrigger,
                     pipHandback = pipHandback,
                     onPipHandoffRead = ::onPipHandoffRead,
@@ -346,6 +358,14 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         Log.d(TAG, "onPictureInPictureModeChanged: $isInPictureInPictureMode")
+        if (isInPictureInPictureMode) {
+            // Facebook pauses the video as PiP resizes the page, possibly before this
+            // callback, so "playing a moment ago" counts too; the keep-playing guard in
+            // MaterialbookWV resumes it.
+            pipStartedWhilePlaying = isVideoPlaying ||
+                SystemClock.elapsedRealtime() - lastPlayingAt < PIP_RECENTLY_PLAYING_MS
+            Log.d(TAG, "onPictureInPictureModeChanged: startedWhilePlaying=$pipStartedWhilePlaying")
+        }
         isInPipMode = isInPictureInPictureMode
 
         if (isInPictureInPictureMode) {
@@ -356,9 +376,10 @@ class MainActivity : ComponentActivity() {
             releaseAudio()
         }
 
-        // Chromium pauses the video the instant PiP starts, but our JS
-        // detector only reports state on its own schedule — without this,
-        // the Play/Pause button can briefly show the wrong icon (still
+        // Facebook's player pauses the video the instant PiP resizes the page
+        // (the keep-playing guard in MaterialbookWV resumes it shortly after),
+        // but our JS detector only reports state on its own schedule — without
+        // this, the Play/Pause button can briefly show the wrong icon (still
         // "Pause" right when it should already say "Play"). Flip + rebuild
         // the action immediately rather than waiting for the next JS report.
         if (isInPictureInPictureMode && isVideoPlaying) {
@@ -435,6 +456,7 @@ class MainActivity : ComponentActivity() {
         videoWidth: Int,
         videoHeight: Int
     ) {
+        if (isPlaying || isVideoPlaying) lastPlayingAt = SystemClock.elapsedRealtime()
         isVideoPlaying = isPlaying
         lastVideoWidth = videoWidth
         lastVideoHeight = videoHeight

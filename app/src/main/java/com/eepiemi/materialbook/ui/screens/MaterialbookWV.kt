@@ -102,6 +102,8 @@ internal const val PIP_TOGGLE_JS = """
   // directly, which does work (mediaPlaybackRequiresUserGesture is disabled),
   // even though Facebook's own logic re-pauses it shortly after - see
   // PIP_FOCUS_MODE_JS's debug hook / logDebug output for that separate issue.
+  // The user's choice is what pipKeepPlayingActivateJs's guard keeps.
+  window.__astryxPipWantsPlay = best.paused;
   if (best.paused) { best.play(); } else { best.pause(); }
 })();
 """
@@ -428,6 +430,66 @@ internal const val PIP_FREEZE_ACTIVE_VIDEO_JS = """
 })();
 """
 
+// Keep-playing guard for PiP, separate from focus mode on purpose. Facebook's own players
+// (mobile reels and the desktop one in the Messages layer alike) call pause() right after
+// every resize of the page, and entering PiP resizes it at least once (traced via DevTools:
+// pause() from Facebook's player code within ~100ms of each resize, nothing from Chromium);
+// later resizes, e.g. the PiP window adopting the video's aspect ratio, pause it again.
+//
+// Activated once PiP is engaged, with wantsPlay = "the video was playing when PiP started"
+// (MainActivity knows; onUserLeaveHint isn't called on auto-enter, so it can't be armed
+// earlier). Then any pause of the PiP video is undone, unless the user paused it
+// (PIP_TOGGLE_JS clears wantsPlay), the lock-screen hand-off took it over
+// (data-astryx-handoff-muted) or the page is hidden. At most 6 resumes per 10 s, so it
+// can't ping-pong with Facebook forever.
+internal fun pipKeepPlayingActivateJs(wantsPlay: Boolean) = """
+(function() {
+  window.__astryxPipWantsPlay = $wantsPlay;
+  window.__astryxPipActive = true;
+  window.__astryxPipResumes = [];
+  window.__astryxPipVideo = function() {
+    var marked = document.querySelector('[data-astryx-pip-video]');
+    if (marked) return marked;
+    var last = window.__astryxLastActiveVideo;
+    return last && document.documentElement.contains(last) ? last : null;
+  };
+  window.__astryxPipResume = function() {
+    var target = window.__astryxPipVideo();
+    if (!target || !target.paused || target.ended) return;
+    if (!window.__astryxPipActive || !window.__astryxPipWantsPlay) return;
+    if (document.visibilityState === 'hidden' || target.hasAttribute('data-astryx-handoff-muted')) return;
+    var now = Date.now();
+    window.__astryxPipResumes = window.__astryxPipResumes.filter(function(t) { return now - t < 10000; });
+    if (window.__astryxPipResumes.length >= 6) return;
+    window.__astryxPipResumes.push(now);
+    var p = target.play();
+    if (p && p.catch) p.catch(function() {});
+  };
+  if (!window.__astryxPipPauseListener) {
+    window.__astryxPipPauseListener = function(e) {
+      if (!window.__astryxPipActive || e.target !== window.__astryxPipVideo()) return;
+      // Let Facebook's pause land first, then undo it.
+      setTimeout(window.__astryxPipResume, 150);
+    };
+    document.addEventListener('pause', window.__astryxPipPauseListener, true);
+  }
+  // Undo the pause Facebook already made on entry.
+  setTimeout(window.__astryxPipResume, 150);
+})();
+"""
+
+// Left PiP: stop guarding, so normal pauses (Facebook's or the user's) stick again.
+internal const val PIP_KEEP_PLAYING_DISARM_JS = """
+(function() {
+  window.__astryxPipActive = false;
+  window.__astryxPipWantsPlay = false;
+  if (window.__astryxPipPauseListener) {
+    document.removeEventListener('pause', window.__astryxPipPauseListener, true);
+    window.__astryxPipPauseListener = null;
+  }
+})();
+"""
+
 // Second attempt at the black-pip-with-audio-playing bug (see
 // setLayerType(LAYER_TYPE_NONE/HARDWARE) below, the first attempt) - that one
 // operates on the Android View's own bitmap cache, which doesn't necessarily
@@ -671,6 +733,7 @@ fun MaterialbookWebView(
     pipToggleTrigger: Int = 0,
     pipEnteringTrigger: Int = 0,
     isInPipMode: Boolean = false,
+    pipStartedWhilePlaying: Boolean = false,
     pipHandoffReadTrigger: Int = 0,
     pipHandback: PipHandback? = null,
     onPipHandoffRead: (String?) -> Unit = {},
@@ -761,6 +824,16 @@ fun MaterialbookWebView(
     LaunchedEffect(pipEnteringTrigger) {
         if (pipEnteringTrigger > 0) {
             pipNavigator.evaluateJavaScript(PIP_FREEZE_ACTIVE_VIDEO_JS) {}
+        }
+    }
+
+    // Keep-playing guard (see pipKeepPlayingActivateJs): active only while PiP is engaged.
+    LaunchedEffect(isInPipMode, pipState.loadingState) {
+        if (pipState.loadingState is LoadingState.Finished) {
+            pipNavigator.evaluateJavaScript(
+                if (isInPipMode) pipKeepPlayingActivateJs(pipStartedWhilePlaying)
+                else PIP_KEEP_PLAYING_DISARM_JS
+            ) {}
         }
     }
 
