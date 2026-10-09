@@ -28,6 +28,10 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 - Local badge assets (`download.svg`, `open_issue.svg`) and the store
   listing icon/banner recolored to match; downloads badge swapped from an
   opaque third-party worker to a themed, GitHub-API-backed shields.io badge.
+- README banner (the store feature graphic) now shows what sets this fork
+  apart: Picture-in-Picture, lock-screen audio and in-app Messages, under the
+  original tagline. The README also gained a License section (GPL-3.0, as
+  upstream) with the fork's copyright line.
 - Weekly download history: `download-stats.yml` appends each release's
   GitHub download count to `downloads.csv` on the data-only `stats` branch
   (Mondays, or on demand from the Actions tab). No tracking in the app.
