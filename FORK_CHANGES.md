@@ -136,7 +136,14 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   only, calls `ci.yml` as a reusable workflow) — signing secrets no longer
   touch PR runs, and PR checks show correctly instead of "Create Release".
 - AVD image + boot snapshot cached — first run populates it, later runs
-  skip re-downloading the emulator/system-image and the cold boot.
+  skip re-downloading the emulator/system-image and the cold boot. The cache
+  key includes the installed emulator and system-image versions: a runner
+  update had made the cached snapshot unusable, so every run cold-booted.
+- Faster releases (about 11 min to about 7): the instrumented-test job
+  compiles the app and test APKs before it starts the emulator (compiling
+  next to the software-rendered emulator took most of the job), and the
+  coverage report (`coverage.yml`) runs next to the release job instead of
+  before it. `ci.yml` can also be run by hand on a branch (`workflow_dispatch`).
 - Releases now auto-version from the merge commit's conventional-commit
   prefix (`feat:` → minor, `fix:`/`chore:`/etc → patch, `feat!:`/
   `BREAKING CHANGE` → major) instead of manual tagging.
