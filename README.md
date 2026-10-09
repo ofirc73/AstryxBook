@@ -151,3 +151,14 @@ GitHub Actions runs all three checks. Android lint reports are uploaded as a wor
 
 *  This is a fork of [Materialbook](https://github.com/eepiemi/Materialbook) by eepiemi, itself a fork of [Nobook](https://github.com/ycngmn/Nobook) by ycngmn
 *  [@KevinnZou/compose-webview-multiplatform](https://github.com/KevinnZou/compose-webview-multiplatform)
+
+<h2 align="middle">
+    ⚖️ License
+</h2>
+
+Astryxbook is free software, licensed under the [GNU General Public License v3.0](./LICENSE), the same license as Materialbook and Nobook, which it's based on.
+
+*  Copyright (C) 2026 Ofir Cohen, for the changes made in this fork (see [FORK_CHANGES.md](./FORK_CHANGES.md))
+*  The original code remains copyright of its authors: eepiemi (Materialbook) and ycngmn (Nobook)
+
+You may use, change and share it under the GPL-3.0's terms: copies and modified versions must stay under the same license, with their source code available and these copyright notices kept.
