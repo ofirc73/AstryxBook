@@ -32,6 +32,9 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   apart: Picture-in-Picture, lock-screen audio and in-app Messages, under the
   original tagline. The README also gained a License section (GPL-3.0, as
   upstream) with the fork's copyright line.
+- `NOTICE.md` adds GPL-3.0 section 7 terms for this fork's own material: no
+  trademark rights to the Astryxbook name and logo, and modified versions must
+  use their own name, logo and application ID and keep the author notices.
 - Weekly download history: `download-stats.yml` appends each release's
   GitHub download count to `downloads.csv` on the data-only `stats` branch
   (Mondays, or on demand from the Actions tab). No tracking in the app.
