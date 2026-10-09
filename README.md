@@ -162,3 +162,5 @@ Astryxbook is free software, licensed under the [GNU General Public License v3.0
 *  The original code remains copyright of its authors: eepiemi (Materialbook) and ycngmn (Nobook)
 
 You may use, change and share it under the GPL-3.0's terms: copies and modified versions must stay under the same license, with their source code available and these copyright notices kept.
+
+The name "Astryxbook" and its logo aren't covered by the license: modified versions need their own name, logo and application ID. See [NOTICE.md](./NOTICE.md) for these additional terms (GPL-3.0, section 7).
