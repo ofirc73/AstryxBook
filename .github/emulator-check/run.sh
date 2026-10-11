@@ -164,10 +164,27 @@ note "intent:// link naming another app should open only its web fallback:"
 click_link "intent://profile#Intent;scheme=fb;package=com.facebook.katana;S.browser_fallback_url=https%3A%2F%2Fexample.org%2F;end"
 sleep 6; resumed; shot intent-link-fallback
 back_to_app
-note "Plain web link opens directly in the browser:"
-click_link "https://example.com/"
+note "Plain web link opens directly in the browser, without trackers (#28):"
+click_link "https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.com%2F%3Fkeep%3D1%26utm_source%3Dfb%26fbclid%3DIwAR123&h=AT0"
 sleep 6; resumed; shot web-link-browser
+note "Link the browser was sent: $(adb shell dumpsys activity activities | grep -m1 -oE 'dat=[^ ]*example[^ ]*')"
 back_to_app
+
+step "WebView hardening: geolocation off, no file access (#28)"
+js 'new Promise(function(r){navigator.geolocation.getCurrentPosition(function(){r("got a position")},function(e){r("refused: code "+e.code+" "+e.message)},{timeout:8000})})'
+js 'fetch("file:///sdcard/Pictures/astryx-test-photo.png").then(function(){return "file read"},function(e){return "refused: "+e})'
+
+step "Share this page sends a clean www link (#28)"
+WAIT=20 fresh_start -a android.intent.action.VIEW -d "'https://m.facebook.com/Meta?fbclid=IwAR123&utm_source=test&mibextid=abc'"
+url
+js 'SettingsBridge.onSettingsToggle(); "opened"'
+sleep 3
+if ui tap "Share this page"; then
+    sleep 3; shot share-this-page-clean-link
+    ui texts | grep -i "facebook" | head -5
+    adb shell input keyevent BACK; sleep 1
+fi
+adb shell input keyevent BACK; sleep 2
 
 step "Downloads: only photos and videos, only from Facebook's main frame (#33, #34)"
 PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
