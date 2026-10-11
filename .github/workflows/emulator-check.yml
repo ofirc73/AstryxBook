@@ -1,0 +1,74 @@
+name: Emulator check
+
+# Hands-on run of the debug app on an emulator (.github/emulator-check/run.sh): drives it
+# like a user and commits screenshots and a log to emulator-check-results/ on the branch
+# it ran on, for reading without artifact access. Not a gate: it never fails on what it sees.
+# Runs on claude/manual-emulator-check-* branches, or by hand:
+# gh workflow run emulator-check.yml --ref <branch>
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/manual-emulator-check-**']
+    paths-ignore: ['emulator-check-results/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: emulator-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Build Debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: DevTools client
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet websocket-client
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Drive the app
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          PY: /tmp/venv/bin/python
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: bash .github/emulator-check/run.sh
+
+      - name: Commit results
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git add -A emulator-check-results
+          git commit -q -m "chore: emulator check results for ${GITHUB_SHA::7}" || exit 0
+          git pull -q --rebase origin "$GITHUB_REF_NAME"
+          git push -q origin "HEAD:$GITHUB_REF_NAME"
