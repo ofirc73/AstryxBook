@@ -129,6 +129,10 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   scrolling to the top first. The check expected one dialog element on the
   feed at rest, which Facebook's desktop feed no longer has. Back now scrolls
   a scrolled feed to the top, and leaves the app from the top, as on mobile.
+- Outbound links: removing Facebook's tracking (`l.php` wrapper, `fbclid`)
+  re-encoded query values (`a%20b` became `a%2520b`) and dropped the
+  `#fragment`, so some links opened broken or at the wrong spot. Values now
+  stay exactly as encoded and the fragment is kept.
 
 ## CI/CD
 
