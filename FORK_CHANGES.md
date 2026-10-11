@@ -77,6 +77,12 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
 ## WebView
 
+- Outbound links open intact: removing `fbclid` from a link no longer re-encodes
+  the rest of its query (`a%20b` used to become `a%2520b`) or drops its `#fragment`,
+  so search results and links to a section of a page open as shared.
+- The Facebook login no longer leaves the phone in backups: Android backup and
+  device-to-device transfer now include only the app's settings, not the WebView's
+  cookies, storage or cache. After restoring to a new phone, sign in again.
 - Settings while watching reels: the Reels viewer has its own top bar instead of
   Facebook's header, where the app's Settings button lives, so Settings couldn't be
   opened from there. `scripts.js` now adds a Settings button at the right end of that
