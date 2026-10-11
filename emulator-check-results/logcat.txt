@@ -1,0 +1,155 @@
+--------- beginning of system
+10-11 23:09:18.243 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=4498) has no WPC
+10-11 23:09:18.283 I/ActivityTaskManager(  523): START u0 {flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:09:18.541 W/ActivityTaskManager(  523): takeTaskSnapshot: taskId=8 not found or not visible
+--------- beginning of main
+10-11 23:09:19.903 E/chromium( 4501): [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.astryx.book.test/cache/WebView/Default/HTTP Cache/Code Cache/wasm: No such file or directory (2)
+10-11 23:09:19.904 E/chromium( 4501): [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-11 23:09:19.904 E/chromium( 4501): [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.astryx.book.test/cache/WebView/Default/HTTP Cache/Code Cache/js: No such file or directory (2)
+10-11 23:09:19.904 E/chromium( 4501): [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-11 23:09:20.044 D/AstryxbookPiP( 4501): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:09:20.050 D/AstryxbookPiP( 4501): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:09:21.327 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +3s54ms
+10-11 23:09:24.547 E/chromium( 4547): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:09:24.548 E/chromium( 4547): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:09:26.757 D/AstryxbookPiP( 4501): userScripts finished evaluating
+10-11 23:09:38.606 I/ActivityTaskManager(  523): Activity reported stop, but no longer stopping: ActivityRecord{c18248c u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7} STOPPED
+10-11 23:09:47.989 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.MAIN cat=[android.intent.category.HOME] flg=0x10000100 cmp=com.google.android.apps.nexuslauncher/.NexusLauncherActivity (has extras)} with LAUNCH_SINGLE_TASK from uid 0 (BAL_ALLOW_ALLOWLISTED_UID) result code=2
+10-11 23:09:47.992 W/ActivityTaskManager(  523):   Not force finishing home activity com.google.android.apps.nexuslauncher/.NexusLauncherActivity
+10-11 23:09:47.992 W/ActivityTaskManager(  523):   Not force finishing home activity com.google.android.apps.nexuslauncher/.NexusLauncherActivity
+10-11 23:09:48.025 D/AstryxbookPiP( 4501): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:10:06.399 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=6043) has no WPC
+10-11 23:10:06.427 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.SEND typ=text/plain flg=0x10000000 cmp=android/com.android.internal.app.ResolverActivity (has extras)} with LAUNCH_MULTIPLE from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:10:07.049 I/ActivityTaskManager(  523): Displayed android/com.android.internal.app.ResolverActivity for user 0: +629ms
+10-11 23:10:27.886 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.SEND typ=text/plain flg=0x13000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity clip={text/plain {T(42)}} (has extras)} with LAUNCH_SINGLE_TASK from uid 2000 (realCallingUid=1000) (BAL_ALLOW_PENDING_INTENT) result code=2
+10-11 23:10:29.481 W/ActivityTaskManager(  523): Finishing task with all activities already finished
+10-11 23:10:29.481 W/ActivityTaskManager(  523): Duplicate finish request for r=ActivityRecord{5f64181 u0 android/com.android.internal.app.ResolverActivity t9 f}}
+10-11 23:10:32.450 D/AstryxbookPiP( 4501): userScripts finished evaluating
+10-11 23:10:48.173 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=6393) has no WPC
+10-11 23:10:48.179 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.SEND typ=text/plain flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity (has extras)} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+10-11 23:10:52.676 W/ActivityTaskManager(  523): Force removing ActivityRecord{8b86978 u0 com.astryx.book.test/com.eepiemi.materialbook.MainActivity t8 f}}: app died, no saved state
+10-11 23:10:53.713 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=6424) has no WPC
+10-11 23:10:53.719 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=https://example.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:10:55.088 E/chromium( 6428): [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.astryx.book.test/cache/WebView/Default/HTTP Cache/Code Cache/wasm: No such file or directory (2)
+10-11 23:10:55.089 E/chromium( 6428): [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-11 23:10:55.089 E/chromium( 6428): [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.astryx.book.test/cache/WebView/Default/HTTP Cache/Code Cache/js: No such file or directory (2)
+10-11 23:10:55.089 E/chromium( 6428): [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-11 23:10:55.221 D/AstryxbookPiP( 6428): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:10:55.225 D/AstryxbookPiP( 6428): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:10:56.110 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +2s394ms
+10-11 23:10:56.490 W/ActivityTaskManager(  523): Request to remove task ignored for non-existent task 9
+10-11 23:10:57.873 E/chromium( 6458): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:10:57.873 E/chromium( 6458): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:10:58.235 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint (unset) for first_image_paint 1.581 s
+10-11 23:10:58.329 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:10:58.666 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:10:58.891 D/AstryxbookPiP( 6428): userScripts finished evaluating
+10-11 23:10:58.899 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:10:59.232 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:10:59.330 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:10:59.490 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:10:59.666 E/chromium( 6428): [ERROR:page_load_metrics_update_dispatcher.cc(178)] Invalid first_paint 1.664 s for first_image_paint 1.581 s
+10-11 23:11:16.313 W/ActivityTaskManager(  523): Force removing ActivityRecord{c628984 u0 com.astryx.book.test/com.eepiemi.materialbook.MainActivity t10 f}}: app died, no saved state
+10-11 23:11:17.549 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=6587) has no WPC
+10-11 23:11:17.565 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=javascript: flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:11:19.038 D/AstryxbookPiP( 6590): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:11:19.043 D/AstryxbookPiP( 6590): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:11:19.945 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +2s374ms
+10-11 23:11:21.951 E/chromium( 6623): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:11:21.952 E/chromium( 6623): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:11:22.875 D/AstryxbookPiP( 6590): userScripts finished evaluating
+10-11 23:11:40.113 W/ActivityTaskManager(  523): Force removing ActivityRecord{e507152 u0 com.astryx.book.test/com.eepiemi.materialbook.MainActivity t11 f}}: app died, no saved state
+10-11 23:11:41.163 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=6750) has no WPC
+10-11 23:11:41.210 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=file:///... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:11:42.413 E/chromium( 6753): [ERROR:simple_version_upgrade.cc(152)] Failed to write a new fake index.
+10-11 23:11:42.416 E/chromium( 6753): [ERROR:simple_version_upgrade.cc(152)] Failed to write a new fake index.
+10-11 23:11:42.553 D/AstryxbookPiP( 6753): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:11:42.558 D/AstryxbookPiP( 6753): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:11:43.380 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +2s212ms
+10-11 23:11:45.421 E/chromium( 6781): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:11:45.421 E/chromium( 6781): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:11:46.627 D/AstryxbookPiP( 6753): userScripts finished evaluating
+10-11 23:12:03.615 W/ActivityTaskManager(  523): Force removing ActivityRecord{5af484e u0 com.astryx.book.test/com.eepiemi.materialbook.MainActivity t12 f}}: app died, no saved state
+10-11 23:12:04.687 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=6964) has no WPC
+10-11 23:12:04.697 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=https://example.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:12:05.858 E/chromium( 6968): [ERROR:simple_version_upgrade.cc(152)] Failed to write a new fake index.
+10-11 23:12:05.859 E/chromium( 6968): [ERROR:simple_version_upgrade.cc(152)] Failed to write a new fake index.
+10-11 23:12:06.030 D/AstryxbookPiP( 6968): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:12:06.036 D/AstryxbookPiP( 6968): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:12:06.885 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +2s194ms
+10-11 23:12:08.797 E/chromium( 6996): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:12:08.798 E/chromium( 6996): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:12:09.882 D/AstryxbookPiP( 6968): userScripts finished evaluating
+10-11 23:12:27.095 W/ActivityTaskManager(  523): Force removing ActivityRecord{a625828 u0 com.astryx.book.test/com.eepiemi.materialbook.MainActivity t13 f}}: app died, no saved state
+10-11 23:12:28.156 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=7098) has no WPC
+10-11 23:12:28.173 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=https://m.facebook.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:12:29.379 E/chromium( 7101): [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.astryx.book.test/cache/WebView/Default/HTTP Cache/Code Cache/wasm: No such file or directory (2)
+10-11 23:12:29.380 E/chromium( 7101): [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-11 23:12:29.380 E/chromium( 7101): [ERROR:simple_file_enumerator.cc(21)] opendir /data/user/0/com.astryx.book.test/cache/WebView/Default/HTTP Cache/Code Cache/js: No such file or directory (2)
+10-11 23:12:29.380 E/chromium( 7101): [ERROR:simple_index_file.cc(614)] Could not reconstruct index from disk
+10-11 23:12:29.489 D/AstryxbookPiP( 7101): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:12:29.494 D/AstryxbookPiP( 7101): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:12:30.370 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +2s195ms
+10-11 23:12:31.979 E/chromium( 7129): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:12:31.980 E/chromium( 7129): [ERROR:tile_manager.cc(835)] WARNING: tile memory limits exceeded, some content may not draw
+10-11 23:12:37.229 D/AstryxbookPiP( 7101): userScripts finished evaluating
+10-11 23:12:51.272 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=7253) has no WPC
+10-11 23:12:51.279 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=https://m.facebook.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+10-11 23:12:52.707 D/AstryxbookPiP( 7101): userScripts finished evaluating
+10-11 23:13:06.456 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=7264) has no WPC
+10-11 23:13:06.459 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=https://example.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+10-11 23:13:11.688 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=7279) has no WPC
+10-11 23:13:11.700 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https://m.facebook.com/... flg=0x10000000 cmp=com.android.chrome/com.google.android.apps.chrome.IntentDispatcher} with LAUNCH_MULTIPLE from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:13:11.701 D/AstryxbookPiP( 7101): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:13:11.798 I/ActivityTaskManager(  523): START u0 {cmp=com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity (has extras)} with LAUNCH_SINGLE_TOP from uid 10149 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:13:12.411 I/ActivityTaskManager(  523): Displayed com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity for user 0: +628ms
+10-11 23:13:17.739 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=7436) has no WPC
+10-11 23:13:17.746 I/ActivityTaskManager(  523): START u0 {flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=2
+10-11 23:13:23.798 W/chromium( 2939): [WARNING:controller_impl.cc(1188)] Background download complete, client: 6, completion type: 0, file size:5398
+10-11 23:13:23.851 W/chromium( 2939): [WARNING:controller_impl.cc(1188)] Background download complete, client: 6, completion type: 0, file size:5225
+10-11 23:13:23.890 W/chromium( 2939): [WARNING:controller_impl.cc(1188)] Background download complete, client: 6, completion type: 0, file size:5112
+10-11 23:13:29.346 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.CHOOSER cmp=com.android.intentresolver/.ChooserActivity (has extras)} with LAUNCH_MULTIPLE from uid 10192 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:13:29.509 D/AstryxbookPiP( 7101): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:13:30.129 I/ActivityTaskManager(  523): Displayed com.android.intentresolver/.ChooserActivity for user 0: +761ms
+10-11 23:13:43.607 I/ActivityTaskManager(  523): Activity reported stop, but no longer stopping: ActivityRecord{c18248c u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7} STOPPED
+10-11 23:15:11.842 D/AstryxbookPiP( 7101): userScripts finished evaluating
+10-11 23:15:13.123 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=8632) has no WPC
+10-11 23:15:13.129 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https://m.facebook.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+10-11 23:15:15.731 D/AstryxbookPiP( 7101): userScripts finished evaluating
+10-11 23:15:37.910 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https://example.org/... cmp=com.android.chrome/com.google.android.apps.chrome.IntentDispatcher} with LAUNCH_MULTIPLE from uid 10192 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:15:37.916 D/AstryxbookPiP( 7101): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:15:38.014 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https://example.org/... flg=0x10800000 cmp=com.android.chrome/com.google.android.apps.chrome.IntentDispatcher (has extras)} with LAUNCH_MULTIPLE from uid 10149 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:15:38.051 I/ActivityTaskManager(  523): Add Task{4eb9c9d #15 type=standard A=10149:com.android.chrome} to hidden list because adding Task{e500f4 #16 type=standard A=10149:com.android.chrome}
+10-11 23:15:38.052 I/ActivityTaskManager(  523): START u0 {cmp=com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity (has extras)} with LAUNCH_SINGLE_TOP from uid 10149 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:15:38.519 I/ActivityTaskManager(  523): Displayed com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity for user 0: +456ms
+10-11 23:15:44.277 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=8756) has no WPC
+10-11 23:15:44.290 I/ActivityTaskManager(  523): START u0 {flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=2
+10-11 23:15:47.791 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https://example.com/... cmp=com.android.chrome/com.google.android.apps.chrome.IntentDispatcher} with LAUNCH_MULTIPLE from uid 10192 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:15:47.795 D/AstryxbookPiP( 7101): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:15:47.843 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW cat=[android.intent.category.BROWSABLE] dat=https://example.com/... flg=0x10800000 cmp=com.android.chrome/com.google.android.apps.chrome.IntentDispatcher (has extras)} with LAUNCH_MULTIPLE from uid 10149 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:15:47.865 I/ActivityTaskManager(  523): Add Task{e500f4 #16 type=standard A=10149:com.android.chrome} to hidden list because adding Task{6710805 #17 type=standard A=10149:com.android.chrome}
+10-11 23:15:47.866 I/ActivityTaskManager(  523): START u0 {cmp=com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity (has extras)} with LAUNCH_SINGLE_TOP from uid 10149 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:15:48.088 I/ActivityTaskManager(  523): Displayed com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity for user 0: +162ms
+10-11 23:15:54.173 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=8787) has no WPC
+10-11 23:15:54.182 I/ActivityTaskManager(  523): START u0 {flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=2
+10-11 23:15:57.734 W/ActivityTaskManager(  523): Force removing ActivityRecord{1eb2b28 u0 com.astryx.book.test/com.eepiemi.materialbook.MainActivity t14 f}}: app died, no saved state
+10-11 23:15:58.815 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=8808) has no WPC
+10-11 23:15:58.822 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.VIEW dat=https://m.facebook.com/... flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:16:00.172 D/AstryxbookPiP( 8811): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:16:00.176 D/AstryxbookPiP( 8811): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:16:00.975 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +2s153ms
+10-11 23:16:03.614 D/AstryxbookPiP( 8811): userScripts finished evaluating
+10-11 23:16:26.617 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.CHOOSER cmp=com.android.intentresolver/.ChooserActivity (has extras)} with LAUNCH_MULTIPLE from uid 10192 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:16:26.752 D/AstryxbookPiP( 8811): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:16:27.267 I/ActivityTaskManager(  523): Displayed com.android.intentresolver/.ChooserActivity for user 0: +644ms
+10-11 23:16:33.102 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=9006) has no WPC
+10-11 23:16:33.106 I/ActivityTaskManager(  523): START u0 {flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+10-11 23:16:46.778 I/ActivityTaskManager(  523): START u0 {act=android.intent.action.GET_CONTENT cat=[android.intent.category.OPENABLE] typ=image/* cmp=com.google.android.providers.media.module/com.android.providers.media.photopicker.PhotoPickerGetContentActivity (has extras)} with LAUNCH_MULTIPLE from uid 10192 (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+10-11 23:16:46.788 D/AstryxbookPiP( 8811): onUserLeaveHint: sdkInt=34, isVideoPlaying=false, pipEnabled=false, eligible=false
+10-11 23:16:47.544 I/ActivityTaskManager(  523): Displayed com.google.android.providers.media.module/com.android.providers.media.photopicker.PhotoPickerGetContentActivity for user 0: +747ms
+10-11 23:16:59.784 W/ActivityTaskManager(  523): callingPackage for (uid=2000, pid=9145) has no WPC
+10-11 23:16:59.794 I/ActivityTaskManager(  523): START u0 {flg=0x10000000 cmp=com.astryx.book.test/com.eepiemi.materialbook.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-11 23:17:00.007 D/AstryxbookPiP( 8811): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:17:00.020 D/AstryxbookPiP( 8811): reapplyPipParams: autoEnter=false, ratio=16/9
+10-11 23:17:00.542 I/ActivityTaskManager(  523): Displayed com.astryx.book.test/com.eepiemi.materialbook.MainActivity for user 0: +756ms
+10-11 23:17:02.403 D/AstryxbookPiP( 8811): userScripts finished evaluating
