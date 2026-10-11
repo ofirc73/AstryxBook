@@ -4,6 +4,8 @@
 # Run by emulator-check.yml; also works against any adb device with the debug APK built.
 # Not a test suite: it never fails the job, the log and screenshots are what to read.
 set -u
+# Git Bash on Windows would rewrite /sdcard/... arguments into Windows paths.
+export MSYS_NO_PATHCONV=1
 cd "$(dirname "$0")/../.."
 OUT=emulator-check-results
 rm -rf "$OUT"; mkdir -p "$OUT"
@@ -31,7 +33,8 @@ ui() { "$PY" "$HERE/ui.py" "$@" 2>&1 | tee -a "$LOG"; return "${PIPESTATUS[0]}";
 js() { { echo '```js'; echo "$1"; echo '```'; } >> "$LOG"; "$PY" "$HERE/cdp.py" "$PKG" "$1" 2>&1 | tee -a "$LOG"; }
 url() { note "page: $("$PY" "$HERE/cdp.py" "$PKG" 'location.href' 2>&1)"; }
 resumed() { note "resumed: $(adb shell dumpsys activity activities | grep -m1 -E 'mResumedActivity|topResumedActivity' | sed 's/^ *//')"; }
-instances() { adb shell dumpsys activity activities | grep -c "ActivityRecord{.*$PKG/com.eepiemi.materialbook.MainActivity"; }
+# One "Hist #" line per activity record; other dumpsys lines repeat the same record.
+instances() { adb shell dumpsys activity activities | grep -cE "Hist #[0-9]+: ActivityRecord\{.*$PKG/com.eepiemi.materialbook.MainActivity"; }
 fresh_start() { adb shell am force-stop "$PKG"; sleep 1; run adb shell am start -W -n "$ACT" "$@"; sleep "${WAIT:-25}"; }
 back_to_app() { run adb shell am start -W -n "$ACT"; sleep 3; }
 
@@ -158,7 +161,7 @@ note "content: link should be refused:"
 click_link "content://media/external/images/media/1"
 sleep 1; shot content-link-refused; resumed
 note "javascript: link (the page runs it itself, as in any browser; it never reaches the app):"
-click_link "javascript:void(document.title='ran')"
+click_link 'javascript:void(document.title=\"ran\")'
 sleep 1; js 'document.title'
 note "intent:// link naming another app should open only its web fallback:"
 click_link "intent://profile#Intent;scheme=fb;package=com.facebook.katana;S.browser_fallback_url=https%3A%2F%2Fexample.org%2F;end"
@@ -184,7 +187,7 @@ if ui tap "Share this page"; then
     ui texts | grep -i "facebook" | head -5
     adb shell input keyevent BACK; sleep 1
 fi
-adb shell input keyevent BACK; sleep 2
+back_to_app
 
 step "Downloads: only photos and videos, only from Facebook's main frame (#33, #34)"
 PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -212,10 +215,10 @@ js 'window.__picked || null'
 adb shell input keyevent BACK; sleep 1; back_to_app
 
 step "Backups leave the Facebook session out (#33)"
-run adb root; sleep 3
+run timeout 60 adb root; sleep 5; adb wait-for-device
 run adb shell bmgr enable true
 run adb shell bmgr transport com.android.localtransport/.LocalTransport
-run adb shell bmgr backupnow "$PKG"
+run timeout 180 adb shell bmgr backupnow "$PKG"
 sleep 3
 note "Backed-up files (should be only the settings DataStore):"
 run adb shell "find /data/cache/backup -path '*$PKG*' -type f 2>/dev/null | head"

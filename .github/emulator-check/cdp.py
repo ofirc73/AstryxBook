@@ -43,7 +43,7 @@ def page_socket(package):
 
 def main():
     package, expression = sys.argv[1], sys.argv[2]
-    ws = websocket.create_connection(page_socket(package), timeout=30, suppress_origin=True)
+    ws = websocket.create_connection(page_socket(package), timeout=15, suppress_origin=True)
     ws.send(json.dumps({
         "id": 1,
         "method": "Runtime.evaluate",
