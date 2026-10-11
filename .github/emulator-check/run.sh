@@ -218,8 +218,13 @@ step "Backups leave the Facebook session out (#33)"
 run timeout 60 adb root; sleep 5; adb wait-for-device
 run adb shell bmgr enable true
 run adb shell bmgr transport com.android.localtransport/.LocalTransport
-run timeout 180 adb shell bmgr backupnow "$PKG"
+# LocalTransport refuses an app's data unless it claims the cloud transport's encryption
+# flag; with it, the cloud-backup rules (data_extraction_rules.xml) decide what's copied.
+run adb shell settings put secure backup_local_transport_parameters fake_encryption_flag=true
+adb logcat -c
+run timeout 180 adb shell bmgr backupnow --non-incremental "$PKG"
 sleep 3
+run sh -c "adb logcat -d -s BackupManagerService:* LocalTransport:* FullBackupEngine:* PFTBT:* | grep -iE 'reject|exclud|include|$PKG|size' | head -30"
 note "Backed-up files (should be only the settings DataStore):"
 run adb shell "find /data/cache/backup -path '*$PKG*' -type f 2>/dev/null | head"
 for f in $(adb shell "find /data/cache/backup -path '*$PKG*' -type f 2>/dev/null"); do
