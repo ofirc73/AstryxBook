@@ -509,6 +509,41 @@ with the window flag fullscreen video already sets.
   a navigation inside an ad or embed frame stays in that frame, so it can't open the
   browser or another app without a tap.
 
+## UX pass (October 2026)
+
+From a hands-on pass through the app in light and dark mode on an emulator.
+
+- Material You works: the theme now follows the setting (it never got `dynamicColor`, so
+  the page script swapped Facebook blue for Facebook blue). The Facebook-blue schemes are
+  filled in with Facebook's own greys, so Settings, switches and dialogs no longer mix in
+  Material's default purple, and the dark switches are white on blue.
+- Night themes have a dark parent, so the page sees `prefers-color-scheme: dark` in dark mode.
+  m.facebook.com still keeps its own Dark mode switch (Facebook menu); the AMOLED Black text
+  now says so.
+- The status bar icons are re-applied after a system light/dark switch (they went white on
+  Facebook's white page), and the bar is black over Facebook's photo, video, reel and story
+  viewers. The page reports the colour under the bar once a second, not only when the
+  `theme-color` meta changes.
+- Back on the feed sends the app to the background instead of finishing it, so coming back
+  keeps the page instead of reloading the feed.
+- The download and copy buttons show only on a viewer's own URL, not on a Page's Videos or
+  Photos tab, where the download button floated over the header.
+- Settings opens from every page: a gear in the top bar of Pages, profiles, Notifications…,
+  and the feed's gear has the round backdrop of Facebook's header buttons. The feed's gear no
+  longer shows over the tab bar on another page loaded directly.
+- Settings: sections with headings (Feed, Appearance, Video, Messages and links, Privacy and
+  security, Backup); Log out in red; "Reload to apply" (was "Apply Immediately?") shows only
+  after a change that needs the page reloaded; Customize feed has a "Hide from your feed"
+  title; Text size warns that Facebook's layout can overlap above 115%; App lock without a
+  screen lock opens the security settings; "Open Facebook links here" explains what to pick
+  first; the header buttons are 48dp and sharing the page keeps Settings open.
+- Facebook's Messages tab, with Messages in desktop mode off, offers desktop mode instead of
+  a raw `fb-messenger://` link; other app links name only their scheme, and a link no app can
+  open says so.
+- "Share via…" in Facebook's share sheet hands the post's link to the Android share sheet.
+- Downloads are named `Facebook_<date>_<time>`, saving the same file again points at the
+  first copy, and a snackbar offers Open.
+
 ## Known limitations
 
 - On Reels specifically, Facebook's own web player can re-pause a video

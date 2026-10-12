@@ -12,12 +12,17 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -29,9 +34,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
@@ -46,6 +53,7 @@ import com.multiplatform.webview.web.rememberSaveableWebViewState
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.ui.components.ExternalLinkDialog
+import com.eepiemi.materialbook.ui.components.MessengerLinkDialog
 import com.eepiemi.materialbook.ui.components.NetworkErrorDialog
 import com.eepiemi.materialbook.ui.components.settings.SettingsDialog
 import com.eepiemi.materialbook.ui.viewmodel.MainViewModel
@@ -54,6 +62,7 @@ import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.eepiemi.materialbook.utils.ExternalLinkAction
 import com.eepiemi.materialbook.utils.ExternalRequestInterceptor
 import com.eepiemi.materialbook.utils.externalLinkAction
+import com.eepiemi.materialbook.utils.isMessengerAppLink
 import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.appOrientation
 import com.eepiemi.materialbook.utils.appWebViewParams
@@ -64,6 +73,7 @@ import com.eepiemi.materialbook.utils.jsBridge.installPageBridges
 import com.eepiemi.materialbook.utils.jsBridge.PageBridges
 import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
 import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
+import com.eepiemi.materialbook.utils.jsBridge.DownloadEvents
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
 import com.eepiemi.materialbook.utils.jsBridge.PipBridge
 import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
@@ -820,10 +830,15 @@ fun MaterialbookWebView(
         val intent = Intent(Intent.ACTION_VIEW, target.toUri())
             .addCategory(Intent.CATEGORY_BROWSABLE)
             .apply { selector = null }
-        runCatching { context.startActivity(intent) }.onFailure { showNotSupported() }
+        runCatching { context.startActivity(intent) }.onFailure {
+            Toast.makeText(context, resources.getString(R.string.no_app_for_link), Toast.LENGTH_SHORT).show()
+        }
     }
     // A link into another app (not web, email or phone) waits here for the user's OK.
     var pendingExternalLink by remember { mutableStateOf<String?>(null) }
+    // A Messenger app link (Facebook's Messages tab sends one) while Messages in desktop mode
+    // is off: offered as desktop mode instead, so the tab isn't a dead end without Messenger.
+    var pendingMessengerLink by remember { mutableStateOf<String?>(null) }
     val openExternalUrl: (String) -> Unit = { externalUrl ->
         // intent:// links are never used to launch the app they name (Facebook uses them to
         // push its own apps); if one carries a web fallback, that page is opened instead.
@@ -837,20 +852,15 @@ fun MaterialbookWebView(
         } else {
             when (externalLinkAction(target)) {
                 ExternalLinkAction.OPEN -> launchExternalUrl(target)
-                ExternalLinkAction.CONFIRM -> { pendingExternalLink = target }
+                ExternalLinkAction.CONFIRM ->
+                    if (isMessengerAppLink(target) && !settingsVM.messagesDesktop.value && !isEffectiveDesktop) {
+                        pendingMessengerLink = target
+                    } else {
+                        pendingExternalLink = target
+                    }
                 ExternalLinkAction.BLOCK -> showNotSupported()
             }
         }
-    }
-    pendingExternalLink?.let { link ->
-        ExternalLinkDialog(
-            link = link,
-            onOpen = {
-                pendingExternalLink = null
-                launchExternalUrl(link)
-            },
-            onDismiss = { pendingExternalLink = null }
-        )
     }
 
     // Messages in desktop mode: Messages links open in MessagesLayer, a separate desktop
@@ -861,6 +871,30 @@ fun MaterialbookWebView(
     val currentMessagesDesktopSetting by rememberUpdatedState(messagesDesktopSetting)
     val currentIsEffectiveDesktop by rememberUpdatedState(isEffectiveDesktop)
     var messagesLayerUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    pendingExternalLink?.let { link ->
+        ExternalLinkDialog(
+            link = link,
+            onOpen = {
+                pendingExternalLink = null
+                launchExternalUrl(link)
+            },
+            onDismiss = { pendingExternalLink = null }
+        )
+    }
+    pendingMessengerLink?.let { link ->
+        MessengerLinkDialog(
+            onUseDesktop = {
+                pendingMessengerLink = null
+                settingsVM.setMessagesDesktop(true)
+                messagesLayerUrl = messagesDesktopUrl(link)
+            },
+            onOpenApp = {
+                pendingMessengerLink = null
+                launchExternalUrl(link)
+            },
+            onDismiss = { pendingMessengerLink = null }
+        )
+    }
     val navigator = rememberWebViewNavigator(
         requestInterceptor = ExternalRequestInterceptor(
             tryOpenMessagesDesktop = { messagesUrl ->
@@ -1082,9 +1116,12 @@ fun MaterialbookWebView(
 
     // allow exiting while scrolling to top.
     var exitScroll by remember { mutableStateOf(false) }
+    // Leaving the app from the feed sends it to the background instead of finishing it, like
+    // Home does: finishing dropped the WebView, so coming back reloaded the feed from the top.
+    val leaveApp = { activity?.moveTaskToBack(true) }
     BackHandler {
         if (exitScroll) {
-            activity?.finish()
+            leaveApp()
         } else {
             navigator.evaluateJavaScript("backHandlerNB();") {
                 val backHandled = it.removeSurrounding("\"")
@@ -1093,10 +1130,10 @@ fun MaterialbookWebView(
                         if (navigator.canGoBack) {
                             navigator.navigateBack()
                         } else {
-                            activity?.finish()
+                            leaveApp()
                         }
                     }
-                    "exit" -> activity?.finish()
+                    "exit" -> leaveApp()
                     "scrolling" -> exitScroll = true
                 }
             }
@@ -1146,7 +1183,10 @@ fun MaterialbookWebView(
         isImmersiveMode = immersive
     }
 
-    LaunchedEffect(isImmersiveMode, barColor.value) {
+    // A system light/dark switch doesn't recreate the activity (configChanges), but it resets
+    // the bars to the theme's icon colours, which left white icons on Facebook's white page.
+    val uiMode = LocalConfiguration.current.uiMode
+    LaunchedEffect(isImmersiveMode, barColor.value, uiMode) {
         setWindow(isImmersiveMode)
     }
 
@@ -1410,6 +1450,8 @@ fun MaterialbookWebView(
 
     val primaryColor = colorScheme.primary.toArgb()
     val onPrimaryColor  = colorScheme.onPrimary.toArgb()
+    val currentPrimaryColor by rememberUpdatedState(primaryColor)
+    val currentOnPrimaryColor by rememberUpdatedState(onPrimaryColor)
 
     val pageModifier = Modifier
         .fillMaxSize()
@@ -1463,12 +1505,20 @@ fun MaterialbookWebView(
                         theme = ThemeChange { if (!settingsToggle) viewModel.setThemeColor(Color(it)) },
                         pip = PipBridge(onVideoPlayingChanged, onPipPageVisible),
                         screen = ScreenBridge { mainVideoPlaying = it },
+                        share = { link ->
+                            val send = Intent(Intent.ACTION_SEND)
+                                .setType("text/plain")
+                                .putExtra(Intent.EXTRA_TEXT, link)
+                            runCatching {
+                                context.startActivity(Intent.createChooser(send, resources.getString(R.string.share_via)))
+                            }
+                        },
                     )
                 )
                 installDownloadBridge(this, context)
                 installClipboardBridge(this, context)
                 addJavascriptInterface(
-                    MaterialYouBridge(primaryColor, onPrimaryColor),
+                    MaterialYouBridge({ currentPrimaryColor }, { currentOnPrimaryColor }),
                     "MaterialYouBridge"
                 )
                 installPipVisibilityScript(this)
@@ -1518,5 +1568,33 @@ fun MaterialbookWebView(
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
         }
+    }
+
+    // Saved downloads, with an Open action (DownloadBridge shows a toast when this isn't on screen).
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        DownloadEvents.saved.collect { download ->
+            val result = snackbarHostState.showSnackbar(
+                message = resources.getString(
+                    if (download.alreadySaved) R.string.download_already_saved else R.string.saved_to_downloads
+                ),
+                actionLabel = resources.getString(R.string.download_open),
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                val view = Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(download.uri, download.mimeType)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                runCatching { context.startActivity(view) }.onFailure { showNotSupported() }
+            }
+        }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(barsInsets),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        SnackbarHost(snackbarHostState)
     }
 }

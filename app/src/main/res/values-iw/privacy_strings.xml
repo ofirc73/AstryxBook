@@ -7,7 +7,6 @@
     <string name="app_lock_after_1_min">נעילה אחרי דקה מחוץ לאפליקציה</string>
     <string name="app_lock_after_5_min">נעילה אחרי 5 דקות מחוץ לאפליקציה</string>
     <string name="app_lock_after_15_min">נעילה אחרי 15 דקות מחוץ לאפליקציה</string>
-    <string name="app_lock_unavailable">כדי להשתמש בנעילת אפליקציה, צריך להגדיר נעילת מסך במכשיר</string>
     <string name="app_lock_locked">%1$s נעולה</string>
     <string name="app_lock_unlock">ביטול נעילה</string>
     <string name="app_lock_prompt_title">ביטול הנעילה של %1$s</string>

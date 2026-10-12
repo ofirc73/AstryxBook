@@ -10,7 +10,6 @@
     <string name="app_lock_after_1_min">Lock after 1 minute away</string>
     <string name="app_lock_after_5_min">Lock after 5 minutes away</string>
     <string name="app_lock_after_15_min">Lock after 15 minutes away</string>
-    <string name="app_lock_unavailable">Set a screen lock on this device to use app lock</string>
     <string name="app_lock_locked">%1$s is locked</string>
     <string name="app_lock_unlock">Unlock</string>
     <string name="app_lock_prompt_title">Unlock %1$s</string>

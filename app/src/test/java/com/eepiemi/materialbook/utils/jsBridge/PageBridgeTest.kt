@@ -58,4 +58,17 @@ class PageBridgeTest {
         assertFalse(dispatchPageMessage("""{"call":"pageVisible"}""", mainView))
         assertTrue(calls.isEmpty())
     }
+
+    @Test
+    fun shareLink_passesOnFacebookLinksOnly() {
+        val shared = mutableListOf<String>()
+        val withShare = PageBridges(share = { shared += it })
+        assertTrue(dispatchPageMessage("""{"call":"shareLink","url":"https://www.facebook.com/share/1abc/"}""", withShare))
+        assertFalse(dispatchPageMessage("""{"call":"shareLink","url":"https://evil.example/x"}""", withShare))
+        assertFalse(dispatchPageMessage("""{"call":"shareLink","url":"javascript:alert(1)"}""", withShare))
+        assertFalse(dispatchPageMessage("""{"call":"shareLink"}""", withShare))
+        assertEquals(listOf("https://www.facebook.com/share/1abc/"), shared)
+        // A view without the share bridge doesn't take it.
+        assertFalse(dispatchPageMessage("""{"call":"shareLink","url":"https://www.facebook.com/share/1abc/"}""", bridges))
+    }
 }

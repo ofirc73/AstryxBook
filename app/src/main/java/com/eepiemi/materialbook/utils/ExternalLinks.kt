@@ -26,3 +26,10 @@ fun externalLinkAction(url: String): ExternalLinkAction {
         else -> ExternalLinkAction.CONFIRM
     }
 }
+
+/** Whether [url] is a link into the Messenger app (`fb-messenger://…`). */
+fun isMessengerAppLink(url: String): Boolean =
+    SCHEME.find(url.trim())?.groupValues?.get(1)?.lowercase()?.startsWith("fb-messenger") == true
+
+/** The scheme of a link, to name the kind of app it opens without showing the whole link. */
+fun linkScheme(url: String): String = SCHEME.find(url.trim())?.groupValues?.get(1) ?: url

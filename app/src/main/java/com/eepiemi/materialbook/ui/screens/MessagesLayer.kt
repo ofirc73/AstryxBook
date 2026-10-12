@@ -210,7 +210,7 @@ fun MessagesLayer(
                 webView.apply {
                     installDownloadBridge(this, context)
                     installClipboardBridge(this, context)
-                    addJavascriptInterface(MaterialYouBridge(primaryColor, onPrimaryColor), "MaterialYouBridge")
+                    addJavascriptInterface(MaterialYouBridge({ primaryColor }, { onPrimaryColor }), "MaterialYouBridge")
                     installPageBridges(
                         this,
                         PageBridges(

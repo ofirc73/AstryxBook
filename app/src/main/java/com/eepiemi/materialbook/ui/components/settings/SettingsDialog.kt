@@ -15,7 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -25,9 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -50,6 +51,8 @@ fun SettingsDialog(
     onSharePage: (() -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
+    // Shown only once a setting that needs the page reloaded has changed (see SettingsContent).
+    var reloadNeeded by rememberSaveable { mutableStateOf(false) }
 
     Dialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -77,21 +80,20 @@ fun SettingsDialog(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    // 48dp: the minimum touch target.
                     IconButton(
-                        modifier = Modifier.align(Alignment.TopStart).size(22.dp),
+                        modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
                         onClick = { onDismiss() }
                     ) { Icon(Icons.AutoMirrored.Default.ArrowBackIos, "back button") }
 
+                    // Shares the Facebook page underneath; Settings stays open behind the share sheet.
                     onSharePage?.let { share ->
                         IconButton(
-                            modifier = Modifier.align(Alignment.TopEnd).size(22.dp),
-                            onClick = {
-                                onDismiss()
-                                share()
-                            }
+                            modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
+                            onClick = { share() }
                         ) { Icon(Icons.Default.Share, stringResource(R.string.share_page)) }
                     }
 
@@ -104,13 +106,8 @@ fun SettingsDialog(
                 }
             },
             floatingActionButton = {
-                val isVisible by remember {
-                    derivedStateOf {
-                        scrollState.maxValue == 0 || scrollState.value < scrollState.maxValue
-                    }
-                }
                 AnimatedVisibility(
-                    isVisible,
+                    reloadNeeded,
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut()
                 ) {
@@ -121,11 +118,11 @@ fun SettingsDialog(
                         },
                         text = {
                             Text(
-                                stringResource(R.string.apply_immediately)
+                                stringResource(R.string.reload_to_apply)
                             )
                         },
                         icon = {
-                            Icon(Icons.Default.Bolt, null)
+                            Icon(Icons.Default.Refresh, null)
                         }
                     )
                 }
@@ -135,7 +132,10 @@ fun SettingsDialog(
                 modifier = Modifier
                     .padding(paddingValues)
                     .verticalScroll(scrollState)
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    // Room to scroll the last rows out from under the reload button.
+                    .padding(bottom = if (reloadNeeded) 72.dp else 0.dp),
+                onPageSettingsChanged = { reloadNeeded = it },
                 onLogOut = {
                     onDismiss()
                     onLogOut()

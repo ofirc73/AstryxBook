@@ -334,9 +334,18 @@ observer.observe(document.body, { childList: true, subtree: true });
       return color === '#ffffff' ? '#080809' : '#e4e6eb';
     };
 
+    // The round grey backdrop of Facebook's own header buttons (Search, Menu), so the gear
+    // reads as one of them.
+    const getBackdropColor = () => {
+      const color = document.querySelector('meta[name="theme-color"]')?.content?.toLowerCase();
+      return color === '#ffffff' ? '#e2e5e9' : '#3a3b3c';
+    };
+
     const updateButtonColor = () => {
       const svg = document.querySelector(`#${BUTTON_ID} svg`);
       if (svg) svg.setAttribute('fill', getFillColor());
+      const btn = document.getElementById(BUTTON_ID);
+      if (btn && btn.style.position === 'fixed') btn.style.background = getBackdropColor();
     };
 
     const findInsertionPoint = () => {
@@ -354,11 +363,15 @@ observer.observe(document.body, { childList: true, subtree: true });
     const createButton = () => {
       const btn = document.createElement('button');
       btn.id = BUTTON_ID;
+      const mobile = findInsertionPoint().desktopTarget === null;
       btn.setAttribute('style', `
-        position: ${findInsertionPoint().desktopTarget === null ? 'fixed' : 'block'};
-        top: 8px;
-        right: 100px;
-        background: transparent;
+        position: ${mobile ? 'fixed' : 'block'};
+        top: ${mobile ? 4 : 8}px;
+        right: ${mobile ? 96 : 100}px;
+        width: ${mobile ? '36px' : 'auto'};
+        height: ${mobile ? '36px' : 'auto'};
+        padding: 0;
+        background: ${mobile ? getBackdropColor() : 'transparent'};
         border: none;
         border-radius: 50%;
         cursor: pointer;
@@ -368,7 +381,10 @@ observer.observe(document.body, { childList: true, subtree: true });
         z-index: 9999;
         pointer-events: auto;
       `);
-      btn.innerHTML = ICON_SVG.replace('%FILL%', getFillColor());
+      btn.setAttribute('aria-label', 'Astryxbook settings');
+      btn.innerHTML = mobile
+        ? ICON_SVG.replace('%FILL%', getFillColor()).replace(/"28"/g, '"22"')
+        : ICON_SVG.replace('%FILL%', getFillColor());
       btn.onclick = () => window.AstryxPage
         ? window.AstryxPage.postMessage(JSON.stringify({ call: 'openSettings' }))
         : window.SettingsBridge?.onSettingsToggle?.();
@@ -376,7 +392,11 @@ observer.observe(document.body, { childList: true, subtree: true });
     };
 
     const insertButton = () => {
-      if (document.getElementById(BUTTON_ID)) return;
+      // Feed only: the button is fixed to the top of the window, so on another page loaded
+      // directly (a notification link) it sat over the tab bar. Other pages get their own
+      // gear in their top bar (below). The desktop layout's header is on every page.
+      const onFeed = () => isFeed() || window.isDesktopMode();
+      if (document.getElementById(BUTTON_ID) || !onFeed()) return;
 
       const { container, desktopTarget } = findInsertionPoint();
       const button = createButton();
@@ -388,7 +408,9 @@ observer.observe(document.body, { childList: true, subtree: true });
     insertButton();
 
     const observer = new MutationObserver(() => {
-      if (!document.getElementById(BUTTON_ID) && isFeed()) {
+      if (!isFeed() && !window.isDesktopMode()) {
+        document.getElementById(BUTTON_ID)?.remove();
+      } else if (!document.getElementById(BUTTON_ID)) {
         insertButton();
       }
     });
@@ -441,6 +463,93 @@ observer.observe(document.body, { childList: true, subtree: true });
     updateReelsButton();
     setInterval(updateReelsButton, 1000);
 
+    // Other pages (a Page, a profile, Notifications…) have a top bar with Back, a title and
+    // their own buttons (Search, Mark all as read…) instead of the feed's header, so Settings
+    // could only be opened from Home. Put a gear between the title and those buttons. Found
+    // from the Back button, whose icon is the same on every page. Checked once a second, like
+    // the Reels button.
+    const PAGE_BUTTON_ID = 'custom-settings-btn-page';
+    const BACK_GLYPH = '\u{F30DF}';
+    // The bar: the nearest ancestor of Back whose first child holds Back, then the title, then
+    // the bar's buttons; the gear goes just before the buttons.
+    const findPageBar = () => {
+      const back = Array.from(document.querySelectorAll('span'))
+        .find(s => s.textContent === BACK_GLYPH && s.getBoundingClientRect().top < 160);
+      let branch = back?.closest('div[role="button"]');
+      for (let i = 0; branch && i < 3; i++) {
+        const bar = branch.parentNode;
+        const items = bar ? Array.from(bar.children).filter(el => el.id !== PAGE_BUTTON_ID) : [];
+        if (items.length === 3 && items[0] === branch && items[2].querySelector('[role="button"]')) {
+          return { title: items[1], slot: items[2] };
+        }
+        branch = bar;
+      }
+      return null;
+    };
+    const updatePageButton = () => {
+      const existing = document.getElementById(PAGE_BUTTON_ID);
+      if (mainButtonShown() || document.getElementById(REELS_BUTTON_ID) || isReelsPage()) {
+        existing?.remove();
+        return;
+      }
+      const pageBar = findPageBar();
+      const slot = pageBar?.slot;
+      if (!slot) {
+        existing?.remove();
+        return;
+      }
+      if (existing && existing.nextSibling === slot) {
+        existing.querySelector('svg')?.setAttribute('fill', getFillColor());
+        return;
+      }
+      existing?.remove();
+      // The bar stacks its items with negative top margins and fixed left offsets, not normal
+      // flow: give the gear the same, just left of the bar's buttons, and narrow the title to
+      // make room.
+      // Each item is pulled up by the previous one's height: the gear's own pull-up cancels the
+      // title's, and its height is what the buttons' box then pulls back up.
+      const size = 44;
+      const height = -parseFloat(slot.style.marginTop) || slot.offsetHeight || 45;
+      const pullUp = pageBar.title.offsetHeight || height;
+      const slotLeft = parseFloat(slot.style.marginLeft) || slot.offsetLeft;
+      const title = pageBar.title;
+      if (!title.dataset.astryxWidth) {
+        title.dataset.astryxWidth = title.style.width;
+        const width = Math.max(0, title.offsetWidth - size);
+        title.style.width = width + 'px';
+        title.style.overflow = 'hidden';
+        // Its text box has its own fixed width; shrink it too so the ellipsis stays visible.
+        title.querySelectorAll('[style*="width"]').forEach(el => {
+          const w = parseFloat(el.style.width);
+          if (w > width) el.style.width = Math.max(0, w - size) + 'px';
+        });
+      }
+      const btn = document.createElement('button');
+      btn.id = PAGE_BUTTON_ID;
+      btn.setAttribute('aria-label', 'Astryxbook settings');
+      btn.setAttribute('style', `
+        margin-top: -${pullUp}px;
+        margin-left: ${Math.max(0, slotLeft - size)}px;
+        width: ${size}px;
+        height: ${height}px;
+        padding: 0;
+        flex: none;
+        background: transparent;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+      `);
+      btn.innerHTML = ICON_SVG.replace('%FILL%', getFillColor()).replace(/"28"/g, '"24"');
+      btn.onclick = () => window.AstryxPage
+        ? window.AstryxPage.postMessage(JSON.stringify({ call: 'openSettings' }))
+        : window.SettingsBridge?.onSettingsToggle?.();
+      slot.parentNode.insertBefore(btn, slot);
+    };
+    updatePageButton();
+    setInterval(updatePageButton, 1000);
+
     // observer for theme-color changes
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) {
@@ -454,17 +563,55 @@ observer.observe(document.body, { childList: true, subtree: true });
 
 
 // Color Extraction Script
+// Tells the app the colour behind the status bar: black on a media viewer, else the first
+// opaque background at the top edge of the page, or the theme-color meta when there's none.
+// Facebook keeps theme-color white on its black full-screen viewers (Reels, photos) and
+// navigates in-page, so the meta alone left a white bar over them. Checked on meta changes and once a second; only
+// changes are sent.
 (function() {
+    const toHex = (c) => {
+        const m = c && c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (!m || (m[4] !== undefined && parseFloat(m[4]) < 1)) return null;
+        return '#' + [m[1], m[2], m[3]].map(n => (+n).toString(16).padStart(2, '0')).join('');
+    };
+    const topColor = () => {
+        let el = document.elementFromPoint(window.innerWidth / 2, 1);
+        for (; el && el !== document.documentElement; el = el.parentElement) {
+            const hex = toHex(getComputedStyle(el).backgroundColor);
+            if (hex) return hex;
+        }
+        return null;
+    };
+    // Facebook's photo, video, reel and story viewers are always black, but paint it without
+    // a background the page can read, so they're recognised by URL.
+    const isMediaViewer = () => {
+        const path = window.location.pathname;
+        return /\/(stories|reel|highlights)\//.test(path) ||
+            /^\/photo(\.php)?\/?$/.test(path) ||
+            /\/photos\/(?:[^/]+\/)?\d+/.test(path) ||
+            /\/videos\/(?:[^/]+\/)?\d+/.test(path);
+    };
+    let last = null;
+    const notify = () => {
+        const meta = document.querySelector('meta[name="theme-color"]');
+        const color = (isMediaViewer() ? '#000000' : topColor()) || meta?.content || '';
+        if (!color || color === last) return;
+        last = color;
+        // AstryxPage: the app's Facebook-only message listener; ThemeBridge: older WebViews.
+        if (window.AstryxPage)
+            window.AstryxPage.postMessage(JSON.stringify({ call: 'themeColor', color: color }));
+        else
+            window.ThemeBridge?.onThemeColorChanged?.(color);
+    };
+    // The app asks again after a system light/dark switch.
+    window.__astryxThemeRefresh = () => { last = null; notify(); };
+    notify();
     const meta = document.querySelector('meta[name="theme-color"]');
-    // AstryxPage: the app's Facebook-only message listener; ThemeBridge: older WebViews.
-    const notify = () => window.AstryxPage
-        ? window.AstryxPage.postMessage(JSON.stringify({ call: 'themeColor', color: meta?.content ?? '' }))
-        : window.ThemeBridge?.onThemeColorChanged?.(meta?.content ?? "null");
     if (meta) {
-        notify();
-        new MutationObserver(() => notify())
+        new MutationObserver(notify)
             .observe(meta, { attributes: true, attributeFilter: ['content'] });
     }
+    setInterval(notify, 1000);
 })();
 
 // File Download Script
@@ -517,4 +664,102 @@ observer.observe(document.body, { childList: true, subtree: true });
         if (!this.isConnected) save(this);
         return originalClick.call(this);
     };
+})();
+// Share via… in Facebook's share sheet
+// Facebook's sheet offers Facebook-only targets and Copy link, with no way into other apps.
+// This adds a "Share via…" row under Copy link: it runs Copy link, catches the link
+// Facebook copies, and hands it to the Android share sheet. Only with the message listener
+// (WebView 83+).
+(function() {
+    if (window._astryxShareViaInitialized) return;
+    window._astryxShareViaInitialized = true;
+    const ROW_ID = 'astryx-share-via';
+    const COPY_GLYPH = '\u{F310F}';
+    const ROW_HEIGHT = 56;
+    const LABEL = (navigator.language || '').toLowerCase().startsWith('he') ? 'שיתוף באמצעות…' : 'Share via…';
+    const SHARE_ICON = '<svg width="20" height="20" viewBox="0 -960 960 960" fill="currentColor"><path d="M720-80q-50 0-85-35t-35-85q0-7 1-14.5t3-13.5L322-392q-17 15-38 23.5t-44 8.5q-50 0-85-35t-35-85q0-50 35-85t85-35q23 0 44 8.5t38 23.5l282-164q-2-6-3-13.5t-1-14.5q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35q-23 0-44-8.5T638-672L356-508q2 6 3 13.5t1 14.5q0 7-1 14.5t-3 13.5l282 164q17-15 38-23.5t44-8.5q50 0 85 35t35 85q0 50-35 85t-85 35Z"/></svg>';
+
+    // The last text the page put on the clipboard, however it did it.
+    let lastCopied = null;
+    const remember = (text) => { if (text) lastCopied = String(text); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        const writeText = navigator.clipboard.writeText.bind(navigator.clipboard);
+        navigator.clipboard.writeText = (text) => { remember(text); return writeText(text); };
+    }
+    const setData = DataTransfer.prototype.setData;
+    DataTransfer.prototype.setData = function(type, data) {
+        if (/^text(\/plain)?$/i.test(type)) remember(data);
+        return setData.call(this, type, data);
+    };
+    const execCommand = document.execCommand.bind(document);
+    document.execCommand = (command, ...args) => {
+        if (String(command).toLowerCase() === 'copy') {
+            const active = document.activeElement;
+            remember(active && 'value' in active ? active.value : String(window.getSelection() || ''));
+        }
+        return execCommand(command, ...args);
+    };
+
+    const shareCopiedLink = (copyButton) => {
+        lastCopied = null;
+        copyButton.click();
+        const started = Date.now();
+        const poll = setInterval(() => {
+            const link = lastCopied && lastCopied.trim();
+            if (link && /^https:\/\//.test(link)) {
+                clearInterval(poll);
+                window.AstryxPage.postMessage(JSON.stringify({ call: 'shareLink', url: link }));
+            } else if (Date.now() - started > 3000) {
+                clearInterval(poll);
+            }
+        }, 100);
+    };
+
+    const addRow = () => {
+        // Checked here, not at load: the listener object can show up after this script runs.
+        if (!window.AstryxPage || document.getElementById(ROW_ID)) return;
+        const glyph = Array.from(document.querySelectorAll('[role="presentation"] [role="button"] span'))
+            .find(span => span.textContent === COPY_GLYPH);
+        const copyButton = glyph && glyph.closest('[role="button"]');
+        const row = copyButton && copyButton.parentElement;
+        if (!row || !row.parentElement) return;
+
+        const copyLabel = copyButton.getAttribute('aria-label') || '';
+        const clone = row.cloneNode(true);
+        clone.id = ROW_ID;
+        const button = clone.querySelector('[role="button"]');
+        button.setAttribute('aria-label', LABEL);
+        clone.querySelectorAll('*').forEach(el => {
+            if (el.childElementCount) return;
+            if (el.textContent === COPY_GLYPH) el.innerHTML = SHARE_ICON;
+            else if (el.textContent.trim() === copyLabel) el.textContent = LABEL;
+        });
+        // The label's box is sized to "Copy link".
+        clone.querySelectorAll('[style*="width"]').forEach(el => {
+            if (el !== clone && el !== button && el.textContent === LABEL) el.style.width = 'auto';
+        });
+        // Facebook's own handlers must not see taps on the copy: they'd run Copy link twice.
+        ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(type =>
+            clone.addEventListener(type, e => e.stopPropagation(), true));
+        clone.addEventListener('click', e => {
+            e.stopPropagation();
+            e.preventDefault();
+            shareCopiedLink(copyButton);
+        }, true);
+        row.parentElement.insertBefore(clone, row.nextSibling);
+
+        // The sheet's boxes have fixed heights: make room for the new row.
+        let el = row.parentElement;
+        for (let i = 0; i < 6 && el && el !== document.body; i++, el = el.parentElement) {
+            const height = parseFloat(el.style.height);
+            if (height >= ROW_HEIGHT * 2) el.style.height = (height + ROW_HEIGHT) + 'px';
+        }
+    };
+
+    let scheduled = false;
+    new MutationObserver(() => {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => { scheduled = false; addRow(); });
+    }).observe(document.documentElement, { childList: true, subtree: true });
 })();

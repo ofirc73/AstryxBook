@@ -1,5 +1,4 @@
 <resources>
-    <string name="apply_immediately">هل تريد تطبيق التغييرات فوراً؟</string>
     <string name="remove_ads_title">إزالة الإعلانات</string>
     <string name="download_content_title">تنزيل المحتوى</string>
     <string name="copy_to_clipboard_title">نسخ إلى الحافظة</string>
@@ -25,7 +24,6 @@
     <string name="people_you_may_know">أشخاص قد تعرفهم</string>
     <string name="groups">المجموعات</string>
     <string name="enable_material_you_theming_for_facebook">تفعيل سمات Material You لفيسبوك</string>
-    <string name="enable_pure_black_theme_for_amoled_displays">تفعيل الوضع الأسود النقي. يحتاج إلى "الوضع الداكن" للعمل</string>
     <string name="keep_the_navigation_bar_visible_while_scrolling">إبقاء شريط التنقل ظاهراً أثناء التمرير</string>
     <string name="hide_system_bars_for_a_fullscreen_experience">إخفاء شريط النظام لتجربة ملء الشاشة</string>
     <string name="force_desktop_layout_may_not_be_suitable_for_smaller_display">فرض عرض سطح المكتب. قد لا يكون مناسباً للشاشات الصغيرة.</string>

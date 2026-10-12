@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="apply_immediately">এখনই প্রয়োগ করুন?</string>
     <string name="remove_ads_title">বিজ্ঞাপন বন্ধ করুন</string>
     <string name="download_content_title">কনটেন্ট ডাউনলোড করুন</string>
     <string name="desktop_layout_title">ডেস্কটপ লেআউট</string>
@@ -19,7 +18,6 @@
     <string name="stories">স্টোরিজ</string>
     <string name="people_you_may_know">যাদের আপনি চিনতে পারেন</string>
     <string name="groups">গ্রুপসমূহ</string>
-    <string name="enable_pure_black_theme_for_amoled_displays">সম্পূর্ণ কালো থিম চালু করুন। \'ডার্ক মোড\' প্রয়োজন</string>
     <string name="keep_the_navigation_bar_visible_while_scrolling">স্ক্রল করার সময় নেভিগেশন বার দৃশ্যমান রাখুন</string>
     <string name="hide_system_bars_for_a_fullscreen_experience">পূর্ণস্ক্রিন অভিজ্ঞতার জন্য সিস্টেম বার হাইড করুন</string>
     <string name="force_desktop_layout_may_not_be_suitable_for_smaller_display">ডেস্কটপ লেআউট বাধ্যতামূলক করুন। ছোট ডিসপ্লের জন্য উপযুক্ত নাও হতে পারে।</string>

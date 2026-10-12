@@ -2,10 +2,17 @@ package com.eepiemi.materialbook.utils.jsBridge
 
 import android.webkit.JavascriptInterface
 
+/**
+ * The app's current primary colours for `material_you.js`. Read on each call, not fixed when
+ * the WebView is created, so turning Material You on or off takes effect on the next reload.
+ */
 class MaterialYouBridge(
-    private val primary: Int,
-    private val onPrimary: Int
+    private val primaryColor: () -> Int,
+    private val onPrimaryColor: () -> Int
 ) {
+    private val primary get() = primaryColor()
+    private val onPrimary get() = onPrimaryColor()
+
 
     @JavascriptInterface
     @Suppress("unused")

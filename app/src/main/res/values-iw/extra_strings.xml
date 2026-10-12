@@ -34,4 +34,31 @@
         <item quantity="two">יובאו %1$d הגדרות</item>
         <item quantity="other">יובאו %1$d הגדרות</item>
     </plurals>
+    <!-- Settings sections -->
+    <string name="settings_section_feed">פיד</string>
+    <string name="settings_section_appearance">מראה</string>
+    <string name="settings_section_video">וידאו</string>
+    <string name="settings_section_messages_links">הודעות וקישורים</string>
+    <string name="settings_section_privacy">פרטיות ואבטחה</string>
+    <string name="settings_section_backup">גיבוי</string>
+    <string name="reload_to_apply">טעינה מחדש להחלה</string>
+    <string name="hide_from_feed_title">הסתרה מהפיד</string>
+    <string name="amoled_black_summary">רקע שחור מלא במצב הכהה של פייסבוק (תפריט פייסבוק › מצב כהה)</string>
+    <string name="text_size_layout_note">מעל 115%, חלקים מהעיצוב של פייסבוק עלולים לחפוף.</string>
+    <string name="app_lock_open_security_settings">כדי להשתמש בנעילת אפליקציה, צריך להגדיר נעילת מסך במכשיר. אפשר להקיש כדי לפתוח את הגדרות האבטחה.</string>
+    <string name="open_links_hint_text">במסך הבא, צריך להקיש על ״הוספת קישור״ ולבחור את כל הקישורים של פייסבוק.</string>
+    <string name="open_links_hint_continue">המשך</string>
+
+    <!-- Links into other apps -->
+    <string name="external_link_text">הקישור הזה פותח אפליקציה אחרת בטלפון (%1$s).</string>
+    <string name="no_app_for_link">אין בטלפון אפליקציה שיכולה לפתוח את הקישור הזה</string>
+    <string name="messenger_link_title">לקרוא את ההודעות כאן?</string>
+    <string name="messenger_link_text">פייסבוק רוצה לפתוח את אפליקציית Messenger. עם ההגדרה ״Messages in desktop mode״ אפשר לקרוא ולשלוח הודעות באפליקציה הזאת במקום.</string>
+    <string name="messenger_link_use_desktop">שימוש במצב מחשב</string>
+    <string name="messenger_link_open_app">פתיחת Messenger</string>
+
+    <!-- Sharing and downloads -->
+    <string name="share_via">שיתוף באמצעות…</string>
+    <string name="download_open">פתיחה</string>
+    <string name="download_already_saved">כבר נמצא בהורדות</string>
 </resources>

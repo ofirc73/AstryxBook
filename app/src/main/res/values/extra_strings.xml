@@ -37,4 +37,31 @@
         <item quantity="one">Imported %1$d setting</item>
         <item quantity="other">Imported %1$d settings</item>
     </plurals>
+    <!-- Settings sections -->
+    <string name="settings_section_feed">Feed</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_video">Video</string>
+    <string name="settings_section_messages_links">Messages and links</string>
+    <string name="settings_section_privacy">Privacy and security</string>
+    <string name="settings_section_backup">Backup</string>
+    <string name="reload_to_apply">Reload to apply</string>
+    <string name="hide_from_feed_title">Hide from your feed</string>
+    <string name="amoled_black_summary">Pure black backgrounds in Facebook\'s dark mode (Facebook menu › Dark mode)</string>
+    <string name="text_size_layout_note">Above 115%, parts of Facebook\'s layout can overlap.</string>
+    <string name="app_lock_open_security_settings">Set a screen lock on this device to use app lock. Tap to open the security settings.</string>
+    <string name="open_links_hint_text">On the next screen, tap Add link and select all the Facebook links.</string>
+    <string name="open_links_hint_continue">Continue</string>
+
+    <!-- Links into other apps -->
+    <string name="external_link_text">This link opens another app on your phone (%1$s).</string>
+    <string name="no_app_for_link">No app on this phone can open this link</string>
+    <string name="messenger_link_title">Read your messages here?</string>
+    <string name="messenger_link_text">Facebook wants to open the Messenger app. With Messages in desktop mode, you can read and send messages in this app instead.</string>
+    <string name="messenger_link_use_desktop">Use desktop mode</string>
+    <string name="messenger_link_open_app">Open Messenger</string>
+
+    <!-- Sharing and downloads -->
+    <string name="share_via">Share via…</string>
+    <string name="download_open">Open</string>
+    <string name="download_already_saved">Already in Downloads</string>
 </resources>

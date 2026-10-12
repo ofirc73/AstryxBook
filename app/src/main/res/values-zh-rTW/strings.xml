@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="apply_immediately">立即應用？</string>
     <string name="remove_ads_title">移除廣告</string>
     <string name="download_content_title">下載內容</string>
     <string name="desktop_layout_title">桌面佈局</string>
@@ -19,7 +18,6 @@
     <string name="stories">限時動態</string>
     <string name="people_you_may_know">可能認識的人</string>
     <string name="groups">社團</string>
-    <string name="enable_pure_black_theme_for_amoled_displays">啟用純黑主題，需要「深色模式」</string>
     <string name="keep_the_navigation_bar_visible_while_scrolling">捲動時保持導覽列可見</string>
     <string name="hide_system_bars_for_a_fullscreen_experience">隱藏系統列以進入全螢幕</string>
     <string name="force_desktop_layout_may_not_be_suitable_for_smaller_display">強制桌面佈局，不適用於小螢幕</string>

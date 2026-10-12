@@ -52,6 +52,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -86,6 +87,9 @@ fun SettingsContent(
     modifier: Modifier,
     viewModel: SettingsViewModel = viewModel(),
     onLogOut: () -> Unit = {},
+    // Whether a setting the page's scripts read has changed since Settings opened (it needs
+    // a reload to show).
+    onPageSettingsChanged: (Boolean) -> Unit = {},
 ) {
     var isOpenDialog by rememberSaveable { mutableStateOf(false) }
     var isAppLockDialog by rememberSaveable { mutableStateOf(false) }
@@ -93,6 +97,7 @@ fun SettingsContent(
     var isPipRatioDialog by rememberSaveable { mutableStateOf(false) }
     var isKeepScreenOnDialog by rememberSaveable { mutableStateOf(false) }
     var isTextZoomDialog by rememberSaveable { mutableStateOf(false) }
+    var isOpenLinksHint by rememberSaveable { mutableStateOf(false) }
 
     val removeAds = viewModel.removeAds.collectAsState()
     val messagesDesktop = viewModel.messagesDesktop.collectAsState()
@@ -119,6 +124,22 @@ fun SettingsContent(
     val developerOptions = viewModel.developerOptions.collectAsState()
     val webViewDebugging = viewModel.webViewDebugging.collectAsState()
     val openLinksInApp = viewModel.openLinksInApp.collectAsState()
+    val hideSuggested = viewModel.hideSuggested.collectAsState()
+    val hideReels = viewModel.hideReels.collectAsState()
+    val hideStories = viewModel.hideStories.collectAsState()
+    val hidePeopleYouMayKnow = viewModel.hidePeopleYouMayKnow.collectAsState()
+    val hideGroups = viewModel.hideGroups.collectAsState()
+
+    // The settings the page's scripts and user agent are built from (MainViewModel.refresh);
+    // the rest apply at once.
+    val pageSettings = listOf(
+        messagesDesktop, removeAds, enableDownloadContent, enableCopyToClipboard, desktopLayout,
+        stickyNavbar, pinchToZoom, materialYou, amoledBlack, hideSuggested, hideReels,
+        hideStories, hidePeopleYouMayKnow, hideGroups
+    ).map { it.value }
+    val initialPageSettings = remember { pageSettings }
+    val pageSettingsChanged = pageSettings != initialPageSettings
+    LaunchedEffect(pageSettingsChanged) { onPageSettingsChanged(pageSettingsChanged) }
 
     // Settings export and import go through the system file picker (no storage permission).
     val toastContext = LocalContext.current
@@ -153,6 +174,7 @@ fun SettingsContent(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        SettingsHeading(stringResource(R.string.settings_section_feed))
         SettingsGroup(
             items = listOf(
                 SettingsItem(
@@ -163,11 +185,11 @@ fun SettingsContent(
                     onClick = { viewModel.setRemoveAds(!removeAds.value) },
                 ),
                 SettingsItem(
-                    icon = Icons.AutoMirrored.Outlined.Message,
-                    title = stringResource(R.string.messages_desktop_title),
-                    supportingText = stringResource(R.string.messages_desktop_desc),
-                    isActive = messagesDesktop.value,
-                    onClick = { viewModel.setMessagesDesktop(!messagesDesktop.value) },
+                    icon = Icons.Outlined.GridView,
+                    title = stringResource(R.string.customize_feed_title),
+                    supportingText = stringResource(R.string.customize_feed),
+                    isActive = null,
+                    onClick = { isOpenDialog = true },
                 ),
                 SettingsItem(
                     icon = Icons.Outlined.FileDownload,
@@ -183,48 +205,25 @@ fun SettingsContent(
                     isActive = enableCopyToClipboard.value,
                     onClick = { viewModel.setEnableCopyToClipboard(!enableCopyToClipboard.value) },
                 ),
-                SettingsItem(
-                    icon = Icons.Outlined.GridView,
-                    title = stringResource(R.string.customize_feed_title),
-                    supportingText = stringResource(R.string.customize_feed),
-                    isActive = null,
-                    onClick = { isOpenDialog = true },
-                )
             )
         )
 
+        SettingsHeading(stringResource(R.string.settings_section_appearance))
         SettingsGroup(
             items = listOf(
                 SettingsItem(
-                    icon = Icons.Outlined.Pinch,
-                    title = stringResource(R.string.pinch_to_zoom_title),
-                    supportingText = stringResource(R.string.use_two_fingers_to_zoom_in_or_out),
-                    isActive = pinchToZoom.value,
-                    onClick = { viewModel.setPinchToZoom(!pinchToZoom.value) }
+                    icon = Icons.Outlined.Palette,
+                    title = stringResource(R.string.material_you_title),
+                    supportingText = stringResource(R.string.enable_material_you_theming_for_facebook),
+                    isActive = materialYou.value,
+                    onClick = { viewModel.setMaterialYou(!materialYou.value) }
                 ),
                 SettingsItem(
-                    icon = Icons.Outlined.DesktopWindows,
-                    title = stringResource(R.string.desktop_layout_title),
-                    supportingText = stringResource(R.string.force_desktop_layout_may_not_be_suitable_for_smaller_display),
-                    // Large screens are always desktop: shown on and locked.
-                    // On phones this is a plain toggle.
-                    isActive = effectiveDesktop(desktopLayout.value, isAutoDesktop),
-                    onClick = { if (!isAutoDesktop) viewModel.setDesktopLayout(!desktopLayout.value) }
-                ),
-                SettingsItem(
-                    icon = Icons.Outlined.PanoramaWideAngle,
-                    title = stringResource(R.string.immersive_mode_title),
-                    supportingText = stringResource(R.string.hide_system_bars_for_a_fullscreen_experience),
-                    isActive = immersiveMode.value,
-                    onClick = { viewModel.setImmersiveMode(!immersiveMode.value) }
-                ),
-                SettingsItem(
-                    icon = Icons.Outlined.LightMode,
-                    title = stringResource(R.string.keep_screen_on_title),
-                    supportingText = keepScreenOnLabels[keepScreenOn.value]
-                        ?: keepScreenOnLabels.getValue(KeepScreenOn.OFF),
-                    isActive = null,
-                    onClick = { isKeepScreenOnDialog = true }
+                    icon = Icons.Outlined.Circle,
+                    title = stringResource(R.string.amoled_black_title),
+                    supportingText = stringResource(R.string.amoled_black_summary),
+                    isActive = amoledBlack.value,
+                    onClick = { viewModel.setAmoledBlack(!amoledBlack.value) }
                 ),
                 SettingsItem(
                     icon = Icons.Outlined.FormatSize,
@@ -242,61 +241,126 @@ fun SettingsContent(
                     onClick = { viewModel.setStickyNavbar(!stickyNavbar.value) }
                 ),
                 SettingsItem(
-                    icon = Icons.Outlined.Palette,
-                    title = stringResource(R.string.material_you_title),
-                    supportingText = stringResource(R.string.enable_material_you_theming_for_facebook),
-                    isActive = materialYou.value,
-                    onClick = { viewModel.setMaterialYou(!materialYou.value) }
+                    icon = Icons.Outlined.PanoramaWideAngle,
+                    title = stringResource(R.string.immersive_mode_title),
+                    supportingText = stringResource(R.string.hide_system_bars_for_a_fullscreen_experience),
+                    isActive = immersiveMode.value,
+                    onClick = { viewModel.setImmersiveMode(!immersiveMode.value) }
                 ),
                 SettingsItem(
-                    icon = Icons.Outlined.Circle,
-                    title = stringResource(R.string.amoled_black_title),
-                    supportingText = stringResource(R.string.enable_pure_black_theme_for_amoled_displays),
-                    isActive = amoledBlack.value,
-                    onClick = { viewModel.setAmoledBlack(!amoledBlack.value) }
+                    icon = Icons.Outlined.DesktopWindows,
+                    title = stringResource(R.string.desktop_layout_title),
+                    supportingText = stringResource(R.string.force_desktop_layout_may_not_be_suitable_for_smaller_display),
+                    // Large screens are always desktop: shown on and locked.
+                    // On phones this is a plain toggle.
+                    isActive = effectiveDesktop(desktopLayout.value, isAutoDesktop),
+                    onClick = { if (!isAutoDesktop) viewModel.setDesktopLayout(!desktopLayout.value) }
                 ),
                 SettingsItem(
-                    icon = Icons.Outlined.PictureInPictureAlt,
-                    title = stringResource(R.string.pip_title),
-                    supportingText = stringResource(R.string.shrink_into_a_floating_window_when_leaving_while_a_video_plays),
-                    isActive = pipEnabled.value,
-                    onClick = { viewModel.setPipEnabled(!pipEnabled.value) }
-                )
+                    icon = Icons.Outlined.Pinch,
+                    title = stringResource(R.string.pinch_to_zoom_title),
+                    supportingText = stringResource(R.string.use_two_fingers_to_zoom_in_or_out),
+                    isActive = pinchToZoom.value,
+                    onClick = { viewModel.setPinchToZoom(!pinchToZoom.value) }
+                ),
             )
         )
 
-        // PiP ratio row — only shown while PiP is enabled so it doesn't clutter
-        // the settings for users who never use PiP.
-        if (pipEnabled.value) {
-            val deviceLabel = run {
-                val mfr = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
-                val model = Build.MODEL
-                if (model.startsWith(mfr, ignoreCase = true)) model else "$mfr $model"
-            }
-            SettingsGroup(
-                items = listOf(
+        SettingsHeading(stringResource(R.string.settings_section_video))
+        SettingsGroup(
+            items = buildList {
+                add(
                     SettingsItem(
-                        icon = Icons.Outlined.AspectRatio,
-                        title = stringResource(R.string.pip_ratio_title),
-                        supportingText = "$deviceLabel · ${pipPortraitRatio.value}",
-                        isActive = null,
-                        onClick = { isPipRatioDialog = true }
-                    ),
+                        icon = Icons.Outlined.PictureInPictureAlt,
+                        title = stringResource(R.string.pip_title),
+                        supportingText = stringResource(R.string.shrink_into_a_floating_window_when_leaving_while_a_video_plays),
+                        isActive = pipEnabled.value,
+                        onClick = { viewModel.setPipEnabled(!pipEnabled.value) }
+                    )
+                )
+                // PiP ratio and lock-screen audio: only shown while PiP is enabled so they
+                // don't clutter the settings for users who never use PiP.
+                if (pipEnabled.value) {
+                    val deviceLabel = run {
+                        val mfr = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                        val model = Build.MODEL
+                        if (model.startsWith(mfr, ignoreCase = true)) model else "$mfr $model"
+                    }
+                    add(
+                        SettingsItem(
+                            icon = Icons.Outlined.AspectRatio,
+                            title = stringResource(R.string.pip_ratio_title),
+                            supportingText = "$deviceLabel · ${pipPortraitRatio.value}",
+                            isActive = null,
+                            onClick = { isPipRatioDialog = true }
+                        )
+                    )
                     // No POST_NOTIFICATIONS prompt here: notifications for a
                     // media session are exempt from that permission on API 33+
                     // (Android notification-permission docs), so the media
                     // notification and lock-screen controls show without it.
+                    add(
+                        SettingsItem(
+                            icon = Icons.Outlined.Headphones,
+                            title = stringResource(R.string.pip_lockscreen_audio_title),
+                            supportingText = stringResource(R.string.pip_lockscreen_audio_summary),
+                            isActive = pipLockscreenAudio.value,
+                            onClick = { viewModel.setPipLockscreenAudio(!pipLockscreenAudio.value) }
+                        )
+                    )
+                }
+                add(
                     SettingsItem(
-                        icon = Icons.Outlined.Headphones,
-                        title = stringResource(R.string.pip_lockscreen_audio_title),
-                        supportingText = stringResource(R.string.pip_lockscreen_audio_summary),
-                        isActive = pipLockscreenAudio.value,
-                        onClick = { viewModel.setPipLockscreenAudio(!pipLockscreenAudio.value) }
+                        icon = Icons.Outlined.LightMode,
+                        title = stringResource(R.string.keep_screen_on_title),
+                        supportingText = keepScreenOnLabels[keepScreenOn.value]
+                            ?: keepScreenOnLabels.getValue(KeepScreenOn.OFF),
+                        isActive = null,
+                        onClick = { isKeepScreenOnDialog = true }
                     )
                 )
-            )
-        }
+            }
+        )
 
+        SettingsHeading(stringResource(R.string.settings_section_messages_links))
+        SettingsGroup(
+            items = buildList {
+                add(
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Outlined.Message,
+                        title = stringResource(R.string.messages_desktop_title),
+                        supportingText = stringResource(R.string.messages_desktop_desc),
+                        isActive = messagesDesktop.value,
+                        onClick = { viewModel.setMessagesDesktop(!messagesDesktop.value) },
+                    )
+                )
+                // Android 12+ opens Facebook links in the browser until the user allows them
+                // for this app (facebook.com can't verify for it); this opens that system page,
+                // after a hint on what to pick there.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    add(
+                        SettingsItem(
+                            icon = Icons.Outlined.Link,
+                            title = stringResource(R.string.open_links_title),
+                            supportingText = stringResource(R.string.open_links_summary),
+                            isActive = null,
+                            onClick = { isOpenLinksHint = true }
+                        )
+                    )
+                }
+                add(
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Outlined.OpenInNew,
+                        title = stringResource(R.string.open_web_links_in_app_title),
+                        supportingText = stringResource(R.string.open_web_links_in_app_summary),
+                        isActive = openLinksInApp.value,
+                        onClick = { viewModel.setOpenLinksInApp(!openLinksInApp.value) }
+                    )
+                )
+            }
+        )
+
+        SettingsHeading(stringResource(R.string.settings_section_privacy))
         SettingsGroup(
             items = listOf(
                 SettingsItem(
@@ -304,55 +368,31 @@ fun SettingsContent(
                     title = stringResource(R.string.app_lock_title),
                     supportingText = when {
                         appLockAvailable -> appLockLabels[appLock.value] ?: appLockLabels.getValue(AppLock.OFF)
-                        else -> stringResource(R.string.app_lock_unavailable)
+                        else -> stringResource(R.string.app_lock_open_security_settings)
                     },
                     isActive = null,
-                    onClick = { if (appLockAvailable) isAppLockDialog = true }
+                    onClick = {
+                        if (appLockAvailable) {
+                            isAppLockDialog = true
+                        } else {
+                            runCatching { context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
+                        }
+                    }
                 ),
                 SettingsItem(
                     icon = Icons.AutoMirrored.Outlined.Logout,
                     title = stringResource(R.string.log_out_title),
                     supportingText = stringResource(R.string.log_out_summary),
                     isActive = null,
+                    isDestructive = true,
                     onClick = { isLogOutDialog = true }
                 )
             )
         )
 
-        // Android 12+ opens Facebook links in the browser until the user allows them for this
-        // app (facebook.com can't verify for it); this opens that system page.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            SettingsGroup(
-                items = listOf(
-                    SettingsItem(
-                        icon = Icons.Outlined.Link,
-                        title = stringResource(R.string.open_links_title),
-                        supportingText = stringResource(R.string.open_links_summary),
-                        isActive = null,
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(
-                                        Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
-                                        "package:${context.packageName}".toUri()
-                                    )
-                                )
-                            }
-                        }
-                    )
-                )
-            )
-        }
-
+        SettingsHeading(stringResource(R.string.settings_section_backup))
         SettingsGroup(
             items = listOf(
-                SettingsItem(
-                    icon = Icons.AutoMirrored.Outlined.OpenInNew,
-                    title = stringResource(R.string.open_web_links_in_app_title),
-                    supportingText = stringResource(R.string.open_web_links_in_app_summary),
-                    isActive = openLinksInApp.value,
-                    onClick = { viewModel.setOpenLinksInApp(!openLinksInApp.value) }
-                ),
                 SettingsItem(
                     icon = Icons.Outlined.Upload,
                     title = stringResource(R.string.export_settings_title),
@@ -433,9 +473,43 @@ fun SettingsContent(
         )
     }
 
+    if (isOpenLinksHint) {
+        AlertDialog(
+            onDismissRequest = {
+                @Suppress("AssignedValueIsNeverRead")
+                isOpenLinksHint = false
+            },
+            title = { Text(stringResource(R.string.open_links_title)) },
+            text = { Text(stringResource(R.string.open_links_hint_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    @Suppress("AssignedValueIsNeverRead")
+                    isOpenLinksHint = false
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        runCatching {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                                    "package:${context.packageName}".toUri()
+                                )
+                            )
+                        }
+                    }
+                }) { Text(stringResource(R.string.open_links_hint_continue)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    @Suppress("AssignedValueIsNeverRead")
+                    isOpenLinksHint = false
+                }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
     if (isTextZoomDialog) {
         ChoiceDialog(
             title = stringResource(R.string.text_size_title),
+            note = stringResource(R.string.text_size_layout_note),
             options = textZoomLabels,
             current = textZoom.value,
             onSelect = { zoom ->
@@ -519,6 +593,13 @@ private fun HideOptionsDialog(
                 .padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // The switches turn hiding on: on means the item is hidden.
+            Text(
+                text = stringResource(R.string.hide_from_feed_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
 
             HideDialogItem(
                 SettingsItem(
@@ -685,6 +766,7 @@ private fun ChoiceDialog(
     current: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
+    note: String? = null,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -721,6 +803,15 @@ private fun ChoiceDialog(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+            }
+
+            note?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
             }
         }
     }

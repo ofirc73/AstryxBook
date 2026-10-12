@@ -28,6 +28,7 @@ import androidx.activity.viewModels
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -412,7 +413,8 @@ class MainActivity : FragmentActivity() {
         val intentUrl = linkUrl(intent)
 
         setContent {
-            MaterialbookTheme {
+            val materialYou by settingsVM.materialYou.collectAsState()
+            MaterialbookTheme(dynamicColor = materialYou) {
                 // Stacks the lock screen over the page; passes the window's exact size on
                 // to the page, as the window itself did before.
                 Box(Modifier.fillMaxSize(), propagateMinConstraints = true) {

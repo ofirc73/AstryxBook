@@ -27,6 +27,8 @@ data class SettingsItem(
     val title: String,
     val supportingText: String? = null,
     val isActive: Boolean? = null,
+    // Shown in the error colour (Log out).
+    val isDestructive: Boolean = false,
     val onClick: () -> Unit,
 )
 
@@ -43,9 +45,11 @@ fun SettingsItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val titleColor =
+            if (item.isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
         Icon(
             imageVector = item.icon,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = titleColor,
             contentDescription = null
         )
 
@@ -53,7 +57,7 @@ fun SettingsItem(
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = titleColor
             )
 
             item.supportingText?.let {
@@ -80,6 +84,17 @@ fun SettingsItem(
     }
 }
 
+
+// A section title above a group of settings.
+@Composable
+fun SettingsHeading(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 8.dp)
+    )
+}
 
 @Composable
 fun SettingsGroup(

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="apply_immediately">Applica immediatamente?</string>
     <string name="remove_ads_title">Rimuovi pubblicità</string>
     <string name="download_content_title">Scarica contenuti</string>
     <string name="copy_to_clipboard_title">Copia negli appunti</string>
@@ -27,7 +26,6 @@
     <string name="people_you_may_know">Persone che potresti conoscere</string>
     <string name="groups">Gruppi</string>
     <string name="enable_material_you_theming_for_facebook">Abilita il tema Material You per Facebook</string>
-    <string name="enable_pure_black_theme_for_amoled_displays">Abilita il tema nero puro. Richiede la \'Modalità scura\' per funzionare</string>
     <string name="keep_the_navigation_bar_visible_while_scrolling">Mantieni visibile la barra di navigazione durante lo scorrimento</string>
     <string name="hide_system_bars_for_a_fullscreen_experience">Nascondi le barre di sistema per un\'esperienza a schermo intero</string>
     <string name="force_desktop_layout_may_not_be_suitable_for_smaller_display">Forza il layout desktop. Non adatto a schermi piccoli.</string>

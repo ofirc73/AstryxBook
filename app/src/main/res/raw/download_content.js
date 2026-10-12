@@ -102,16 +102,15 @@
 
   // Check if we are in a story or reel view
   const isInStoryOrReelView = () => {
-    // URL pattern checks
-    const url = window.location.href;
+    // A viewer's own URL, not a Page's Videos or Photos tab (/NASA/videos/), where the
+    // button used to float over the page header.
+    const path = window.location.pathname;
     if (
-      url.includes("/stories/") ||
-      url.includes("/reel/") ||
-      url.includes("/videos/") ||
-      url.includes("/watch/?") ||
-      url.includes("/photo") ||
-      url.includes("/photos/") ||
-      url.includes("/highlights/")
+      /\/(stories|reel|highlights)\//.test(path) ||
+      (/\/watch\/?$/.test(path) && window.location.search.length > 1) ||
+      /^\/photo(\.php)?\/?$/.test(path) ||
+      /\/photos\/(?:[^/]+\/)?\d+/.test(path) ||
+      /\/videos\/(?:[^/]+\/)?\d+/.test(path)
     ) {
       return true;
     }

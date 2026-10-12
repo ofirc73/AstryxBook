@@ -18,6 +18,8 @@ class PageBridges(
     val pip: PipBridge? = null,
     val screen: ScreenBridge? = null,
     val layer: LayerBridge? = null,
+    // "Share via…" in Facebook's share sheet: a Facebook link to hand to the Android share sheet.
+    val share: ((String) -> Unit)? = null,
 )
 
 /**
@@ -58,9 +60,17 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
         "pipAnomaly" -> bridges.pip?.logPipAnomaly(msg.optString("message")) ?: return false
         "pageVisible" -> bridges.pip?.onPageVisible() ?: return false
         "screenVideoPlaying" -> bridges.screen?.setVideoPlaying(msg.optBoolean("playing")) ?: return false
+        "shareLink" -> {
+            val share = bridges.share ?: return false
+            val url = msg.optString("url")
+            if (url.length > MAX_SHARE_URL_LENGTH || !isFacebookWebUrl(url)) return false
+            share(url)
+        }
         "layerUrl" -> bridges.layer?.onUrlChanged(msg.optString("url").takeIf { it.isNotEmpty() } ?: return false)
             ?: return false
         else -> return false
     }
     return true
 }
+
+private const val MAX_SHARE_URL_LENGTH = 2048

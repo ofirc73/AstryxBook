@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -17,10 +18,17 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.isFacebookWebUrl
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 // The page object scripts post downloads to (see scripts.js / download_content.js).
@@ -31,6 +39,25 @@ internal val FACEBOOK_PAGE_ORIGINS = setOf(
     "https://facebook.com", "https://*.facebook.com",
     "https://messenger.com", "https://*.messenger.com"
 )
+
+/** A file saved to Downloads; [alreadySaved] when the same file was saved earlier this session. */
+data class SavedDownload(val uri: Uri, val mimeType: String, val alreadySaved: Boolean)
+
+/**
+ * Saved downloads, for the page to show with an Open action. With nobody listening (the page
+ * isn't on screen) the bridge shows a toast instead.
+ */
+object DownloadEvents {
+    private val _saved = MutableSharedFlow<SavedDownload>(extraBufferCapacity = 4)
+    val saved: SharedFlow<SavedDownload> = _saved.asSharedFlow()
+
+    internal fun emit(download: SavedDownload): Boolean =
+        _saved.subscriptionCount.value > 0 && _saved.tryEmit(download)
+}
+
+/** The name a download is saved under: `Facebook_20261012_093100.mp4`. */
+fun downloadFileName(time: Date, extension: String): String =
+    "Facebook_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(time)}.$extension"
 
 /**
  * The MIME type to save a download as, or null when it isn't a photo or video. Parameters
@@ -101,7 +128,15 @@ class DownloadBridge(private val context: Context) {
                 Triple(data, type, ext)
             }
 
-            val fileName = "${System.currentTimeMillis()}.$extension"
+            val fileName = downloadFileName(Date(), extension)
+
+            // Saving the same photo or video again: point at the first copy instead of a second file.
+            val hash = MessageDigest.getInstance("SHA-256").digest(finalData)
+                .joinToString("") { "%02x".format(it) }
+            synchronized(savedThisSession) { savedThisSession[hash] }?.let { uri ->
+                saved(SavedDownload(uri, finalMimeType, alreadySaved = true))
+                return
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val contentValues = ContentValues().apply {
@@ -122,7 +157,8 @@ class DownloadBridge(private val context: Context) {
                     contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
                     resolver.update(uri, contentValues, null, null)
 
-                    toast(R.string.saved_to_downloads)
+                    synchronized(savedThisSession) { savedThisSession[hash] = uri }
+                    saved(SavedDownload(uri, finalMimeType, alreadySaved = false))
                 } ?: toast(R.string.failed_to_save_file)
             } else {
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -141,6 +177,12 @@ class DownloadBridge(private val context: Context) {
     @Suppress("unused")
     fun downloadFailed() = toast(R.string.video_download_unavailable)
 
+    private fun saved(download: SavedDownload) {
+        if (!DownloadEvents.emit(download)) {
+            toast(if (download.alreadySaved) R.string.download_already_saved else R.string.saved_to_downloads)
+        }
+    }
+
     private fun toast(message: Int) {
         ContextCompat.getMainExecutor(context).execute {
             Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
@@ -149,5 +191,7 @@ class DownloadBridge(private val context: Context) {
 
     companion object {
         internal val saver = Executors.newSingleThreadExecutor()
+        // Content hash -> the file it was saved as, for this run of the app.
+        private val savedThisSession = mutableMapOf<String, Uri>()
     }
 }
