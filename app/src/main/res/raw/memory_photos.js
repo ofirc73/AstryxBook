@@ -17,7 +17,7 @@
   var OPEN_MS = 30000; // from the lookup to the post's page
   var FIND_MS = window.__astryxMemoryFindMs || 15000; // tests shorten it
   var MIN_TILE = 60;
-  var SETTLE_MS = window.__astryxMemorySettleMs || 1000;
+  var SETTLE_MS = window.__astryxMemorySettleMs || 300;
   var KEEP_MS = 6000;
   var LIST_TOP = 48; // below the list's bar (Back)
   var go = window.__astryxMemoryGo || function (url) { location.replace(url); }; // tests catch it

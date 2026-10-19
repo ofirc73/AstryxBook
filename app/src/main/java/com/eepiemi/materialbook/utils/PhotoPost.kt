@@ -1,11 +1,11 @@
 package com.eepiemi.materialbook.utils
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.webkit.CookieManager
 import org.json.JSONObject
+import java.io.Reader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
@@ -34,12 +34,17 @@ data class PhotoPost(val url: String, val index: Int) {
         )
         private val ID = Regex("""\d+""")
 
+        private const val LIST_MARK = "photo_attachments_list"
+        private const val CHUNK = 32 * 1024
+        // The post's and owner's ids come just before the list, in the same tracking data.
+        private const val BEFORE_LIST = 1000
+
         /**
          * The post of photo [fbid] from its desktop page [html], or null when the page names no
          * post with several photos. A photo past the ones the post's tiles show (behind "+6")
-         * isn't in the list: it opens at the last tile, the one before it.
+         * isn't in the list: it opens at the last tile, the one before it ([exactOnly]: then null).
          */
-        fun parse(html: String, fbid: String): PhotoPost? {
+        fun parse(html: String, fbid: String, exactOnly: Boolean = false): PhotoPost? {
             // The tracking data is a JSON string inside the page's JSON: its quotes are escaped.
             val text = html.replace("\\\"", "\"")
             var fallback: PhotoPost? = null
@@ -50,9 +55,42 @@ data class PhotoPost(val url: String, val index: Int) {
                 val url = "https://m.facebook.com/$owner/posts/$post/"
                 val index = ids.indexOf(fbid)
                 if (index >= 0) return PhotoPost(url, index)
-                if (fallback == null) fallback = PhotoPost(url, ids.lastIndex)
+                if (fallback == null && !exactOnly) fallback = PhotoPost(url, ids.lastIndex)
             }
             return fallback
+        }
+
+        /**
+         * [parse] while the page is still coming in: stops reading once the photo's own post has
+         * arrived. The desktop page is about 2 MB and the post comes about a third of the way in,
+         * so this saves most of the download (about 2 s of 2.5 s on the emulator). A photo past
+         * the post's tiles isn't listed there: the whole page is read for it.
+         */
+        fun read(page: Reader, fbid: String): PhotoPost? {
+            val text = StringBuilder()
+            val buffer = CharArray(CHUNK)
+            var from = 0
+            while (true) {
+                val count = page.read(buffer)
+                if (count < 0) break
+                text.append(buffer, 0, count)
+                while (true) {
+                    val at = text.indexOf(LIST_MARK, from)
+                    if (at < 0) {
+                        from = maxOf(0, text.length - LIST_MARK.length)
+                        break
+                    }
+                    val end = text.indexOf("]", at)
+                    if (end < 0) {
+                        from = at // the rest of this list is still on its way
+                        break
+                    }
+                    parse(text.substring(maxOf(0, at - BEFORE_LIST), end + 1), fbid, exactOnly = true)
+                        ?.let { return it }
+                    from = end + 1
+                }
+            }
+            return parse(text.toString(), fbid)
         }
 
         fun isPhotoId(fbid: String) = fbid.length in 1..MAX_ID_LENGTH && fbid.all { it.isDigit() }
@@ -72,19 +110,20 @@ private val main = Handler(Looper.getMainLooper())
  * Looks up the post of photo [fbid] off the main thread ([PhotoPost]) and hands [reply] its JSON
  * on the main thread, or nothing when there's none (or on any error).
  */
-fun lookUpPhotoPost(context: Context, fbid: String, reply: (String) -> Unit) {
+fun lookUpPhotoPost(fbid: String, reply: (String) -> Unit) {
     if (!PhotoPost.isPhotoId(fbid)) return
     lookups.execute {
-        val post = fetchDesktopPhotoPage(context, fbid)?.let { PhotoPost.parse(it, fbid) }
+        val post = fetchPhotoPost(fbid)
         Log.d(TAG, "Photo post of $fbid: ${post ?: "none"}")
         if (post != null) main.post { reply(post.toJson(fbid)) }
     }
 }
 
-// The desktop photo page, fetched with the app's Facebook login (the WebView's cookies) and the
-// headers a browser sends when it opens a page (with fewer, Facebook answers 400). Cookies
-// Facebook sets in the answer aren't kept: this is a lookup, not a visit.
-private fun fetchDesktopPhotoPage(context: Context, fbid: String): String? = runCatching {
+// The post, read from the desktop photo page as it comes in ([PhotoPost.read]), fetched with the
+// app's Facebook login (the WebView's cookies) and the headers a browser sends when it opens a
+// page (with fewer, Facebook answers 400). Cookies Facebook sets in the answer aren't kept: this
+// is a lookup, not a visit.
+private fun fetchPhotoPost(fbid: String): PhotoPost? = runCatching {
     val cookie = CookieManager.getInstance().getCookie(COOKIE_URL)
     if (cookie == null || !cookie.contains("c_user=")) return null
     val connection = URL("$COOKIE_URL/photo.php?fbid=$fbid").openConnection() as HttpURLConnection
@@ -107,7 +146,7 @@ private fun fetchDesktopPhotoPage(context: Context, fbid: String): String? = run
             Log.d(TAG, "Photo post of $fbid: HTTP ${connection.responseCode}")
             return null
         }
-        connection.inputStream.bufferedReader().use { it.readText() }
+        connection.inputStream.bufferedReader().use { PhotoPost.read(it, fbid) }
     } finally {
         connection.disconnect()
     }
