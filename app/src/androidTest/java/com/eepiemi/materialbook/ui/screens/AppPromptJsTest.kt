@@ -191,6 +191,35 @@ class AppPromptJsTest {
     }
 
     @Test
+    fun createStoryInAnyLanguage_isTheTraysFirstCard() {
+        // Facebook in Hebrew: the card's label isn't "Create story"; it's the stories tray's first
+        // card (story-sized buttons side by side). A friend's story card is left to Facebook.
+        val h = Harness()
+        h.load()
+        h.eval(
+            "window.__pageCalls = []; window.__facebookClicks = 0;" +
+                "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } };" +
+                "history.replaceState({}, '', '/');" +
+                "var tray = document.createElement('div'); tray.style.cssText = 'display:flex;direction:rtl';" +
+                "['create', 'mine', 'friend'].forEach(function (id) {" +
+                "  var c = document.createElement('div'); c.id = id; c.setAttribute('role', 'button');" +
+                "  c.style.cssText = 'width:114px;height:202px;flex:none';" +
+                "  c.innerHTML = '<img style=\"width:100px;height:100px\"><div role=\"button\" aria-label=\"' + id + '\"><span>' + id + '</span></div>';" +
+                "  c.addEventListener('click', function () { window.__facebookClicks++; });" +
+                "  tray.appendChild(c); });" +
+                "document.body.appendChild(tray); 1"
+        )
+        h.eval("document.querySelector('#friend span').click(); 1")
+        assertEquals("0", h.eval("window.__pageCalls.length"))
+        assertEquals("1", h.eval("window.__facebookClicks"))
+
+        h.eval("document.querySelector('#create span').click(); 1")
+        assertEquals("1", h.eval("window.__pageCalls.length"))
+        assertEquals("layerUrl", h.eval("window.__pageCalls[0].call").removeSurrounding("\""))
+        assertEquals("1", h.eval("window.__facebookClicks"))
+    }
+
+    @Test
     fun addStoryGlyphOutsideAStoryViewer_isLeftToFacebook() {
         val h = Harness()
         h.load()
