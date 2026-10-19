@@ -115,4 +115,8 @@
     <string name="messages_desktop_title">الرسائل في وضع سطح المكتب</string>
     <string name="messages_desktop_desc">فتح الرسائل داخل التطبيق باستخدام موقع سطح المكتب (لهذا القسم فقط)</string>
     <string name="video_download_unavailable">لا يمكن تنزيل هذا الفيديو</string>
+    <string name="webview_update_title">تحديث Android System WebView</string>
+    <string name="webview_update_text">يعرض Astryxbook فيسبوك عبر Android System WebView، والإصدار على هذا الهاتف (%1$s) قديم جدًا: لن تعمل أجزاء من فيسبوك. يلزم الإصدار %2$d أو أحدث.</string>
+    <string name="webview_update_open">تحديث</string>
+    <string name="webview_update_later">ليس الآن</string>
 </resources>

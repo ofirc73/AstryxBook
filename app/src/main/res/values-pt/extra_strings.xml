@@ -102,4 +102,8 @@
     <string name="messages_desktop_title">Mensagens no modo desktop</string>
     <string name="messages_desktop_desc">Abre Mensagens dentro do app usando o site para desktop (só nessa seção)</string>
     <string name="video_download_unavailable">Não é possível baixar este vídeo</string>
+    <string name="webview_update_title">Atualizar o Android System WebView</string>
+    <string name="webview_update_text">O Astryxbook mostra o Facebook através do Android System WebView, e o deste telemóvel (versão %1$s) é demasiado antigo: partes do Facebook não vão funcionar. É necessária a versão %2$d ou mais recente.</string>
+    <string name="webview_update_open">Atualizar</string>
+    <string name="webview_update_later">Agora não</string>
 </resources>

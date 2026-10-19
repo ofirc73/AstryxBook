@@ -97,4 +97,8 @@
     <string name="messages_desktop_title">ডেস্কটপ মোডে মেসেজ</string>
     <string name="messages_desktop_desc">ডেস্কটপ সাইট ব্যবহার করে অ্যাপের ভেতরেই মেসেজ খুলুন (শুধু সেই অংশের জন্য)</string>
     <string name="video_download_unavailable">এই ভিডিওটি ডাউনলোড করা যাবে না</string>
+    <string name="webview_update_title">Android System WebView আপডেট করুন</string>
+    <string name="webview_update_text">Astryxbook, Android System WebView দিয়ে Facebook দেখায়, আর এই ফোনেরটি (সংস্করণ %1$s) খুব পুরোনো: Facebook-এর কিছু অংশ কাজ করবে না। সংস্করণ %2$d বা নতুন দরকার।</string>
+    <string name="webview_update_open">আপডেট করুন</string>
+    <string name="webview_update_later">এখন নয়</string>
 </resources>

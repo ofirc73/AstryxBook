@@ -102,4 +102,8 @@
     <string name="messages_desktop_title">Messages en mode ordinateur</string>
     <string name="messages_desktop_desc">Ouvre Messages dans l\'application avec le site pour ordinateur (pour cette section seulement)</string>
     <string name="video_download_unavailable">Cette vidéo ne peut pas être téléchargée</string>
+    <string name="webview_update_title">Mettre à jour Android System WebView</string>
+    <string name="webview_update_text">Astryxbook affiche Facebook via Android System WebView, et celle de ce téléphone (version %1$s) est trop ancienne : certaines parties de Facebook ne fonctionneront pas. La version %2$d ou plus récente est nécessaire.</string>
+    <string name="webview_update_open">Mettre à jour</string>
+    <string name="webview_update_later">Plus tard</string>
 </resources>

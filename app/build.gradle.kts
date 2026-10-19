@@ -61,6 +61,10 @@ extensions.configure<ApplicationExtension> {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Signed with the debug key on purpose: a local release build is for testing (R8, the
+            // release smoke test) and installs on a device without the release key. It is NOT a
+            // distributable APK: create-release.yml re-signs the published one with the release
+            // keystore from the repository's secrets (KEYSTORE_FILE etc.).
             signingConfig = signingConfigs.getByName("debug")
         }
         debug {

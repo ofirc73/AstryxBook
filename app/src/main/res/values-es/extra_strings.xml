@@ -102,4 +102,8 @@
     <string name="messages_desktop_title">Mensajes en modo escritorio</string>
     <string name="messages_desktop_desc">Abre Mensajes dentro de la aplicación con el sitio de escritorio (solo para esa sección)</string>
     <string name="video_download_unavailable">Este vídeo no se puede descargar</string>
+    <string name="webview_update_title">Actualiza Android System WebView</string>
+    <string name="webview_update_text">Astryxbook muestra Facebook mediante Android System WebView, y la de este teléfono (versión %1$s) es demasiado antigua: partes de Facebook no funcionarán. Se necesita la versión %2$d o posterior.</string>
+    <string name="webview_update_open">Actualizar</string>
+    <string name="webview_update_later">Ahora no</string>
 </resources>
