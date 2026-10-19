@@ -37,8 +37,12 @@ data class ShareSelection(val accepted: List<ShareCandidate>, val skipped: Int)
 /** The page Facebook creates stories on (desktop site; not a section that closes the layer). */
 const val STORY_CREATE_URL = "https://www.facebook.com/stories/create"
 
-/** The mobile Home feed, where the composer's Photo button is. */
-const val FEED_COMPOSER_PAGE_URL = "https://m.facebook.com/"
+/**
+ * The mobile composer, opened directly (empty, "What's on your mind?"): it shows at once and the
+ * shared photos go in through its Photos button. Through Home's Photo button the composer opened
+ * only once Facebook had read the photos, seconds later.
+ */
+const val FEED_COMPOSER_PAGE_URL = "https://m.facebook.com/composer/"
 
 /** The user's own profile on the mobile site, where the profile picture is changed. */
 const val PROFILE_PAGE_URL = "https://m.facebook.com/profile.php"

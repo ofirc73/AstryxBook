@@ -119,4 +119,6 @@
     <string name="webview_update_text">يعرض Astryxbook فيسبوك عبر Android System WebView، والإصدار على هذا الهاتف (%1$s) قديم جدًا: لن تعمل أجزاء من فيسبوك. يلزم الإصدار %2$d أو أحدث.</string>
     <string name="webview_update_open">تحديث</string>
     <string name="webview_update_later">ليس الآن</string>
+    <string name="share_media_adding_one">جارٍ إضافة صورتك…</string>
+    <string name="share_media_adding_several">جارٍ إضافة الصور (%1$d)…</string>
 </resources>

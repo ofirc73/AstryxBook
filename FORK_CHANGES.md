@@ -234,6 +234,11 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   handed the photos over. When no load starts within 2 s, the page showing now counts; and the
   photos are offered again on each page that finishes loading until they're taken (up to a
   minute), in case the first page is replaced.
+- Sharing photos to Feed opens Facebook's composer right away: the app loads the composer page
+  itself (`m.facebook.com/composer/`) and hands the photos to its Photos button, instead of going
+  through Home's Photo button, where the composer opened only once Facebook had read the photos (a
+  few seconds for a phone's full-size photo). A note ("Adding your photo…", in every language)
+  shows over the composer until Facebook has drawn each photo's preview (at most 30 s).
 - Facebook's "Facebook is better on the app" sheet (Get app / Not now), which it puts over the
   feed when the app opens, is pressed away with Not now (`scripts.js`). It's recognized by its
   shape (a dialog screen whose bottom sheet holds a picture, one title and two buttons, nothing to

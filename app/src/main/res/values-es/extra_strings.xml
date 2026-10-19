@@ -106,4 +106,6 @@
     <string name="webview_update_text">Astryxbook muestra Facebook mediante Android System WebView, y la de este teléfono (versión %1$s) es demasiado antigua: partes de Facebook no funcionarán. Se necesita la versión %2$d o posterior.</string>
     <string name="webview_update_open">Actualizar</string>
     <string name="webview_update_later">Ahora no</string>
+    <string name="share_media_adding_one">Añadiendo tu foto…</string>
+    <string name="share_media_adding_several">Añadiendo %1$d fotos…</string>
 </resources>
