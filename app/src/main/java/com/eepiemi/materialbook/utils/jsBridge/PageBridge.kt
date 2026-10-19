@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.utils.jsBridge
 
+import android.util.Log
 import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -64,9 +65,12 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
         "openSettings" -> bridges.settings?.onSettingsToggle() ?: return false
         "themeColor" -> bridges.theme?.onThemeColorChanged(msg.optString("color").takeIf { it.isNotEmpty() })
             ?: return false
-        "videoState" -> bridges.pip?.setVideoState(
-            msg.optBoolean("playing"), msg.optInt("width"), msg.optInt("height")
-        ) ?: return false
+        "videoState" -> {
+            val pip = bridges.pip ?: return false
+            // Why the page found no playing video (each video's failing check), for the log.
+            msg.optString("why").takeIf { it.isNotEmpty() }?.let { Log.d("AstryxbookPiP", "videoState: not playing ($it)") }
+            pip.setVideoState(msg.optBoolean("playing"), msg.optInt("width"), msg.optInt("height"))
+        }
         "pipAnomaly" -> bridges.pip?.logPipAnomaly(msg.optString("message")) ?: return false
         "pageVisible" -> bridges.pip?.onPageVisible() ?: return false
         "screenVideoPlaying" -> bridges.screen?.setVideoPlaying(msg.optBoolean("playing")) ?: return false

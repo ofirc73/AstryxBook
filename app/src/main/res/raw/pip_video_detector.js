@@ -59,6 +59,22 @@
   var lastWidth = 0;
   var lastHeight = 0;
 
+  // Why no video counts as playing, for the log (each video's first failing check): a reel that
+  // played on screen was once reported paused right after PiP closed, and Home then opened no PiP.
+  function whyNotPlaying() {
+    var videos = document.querySelectorAll('video');
+    var out = [];
+    for (var i = 0; i < videos.length && i < 6; i++) {
+      var v = videos[i];
+      var r = v.getBoundingClientRect();
+      var why = v.paused ? 'paused' : v.ended ? 'ended' : v.readyState <= 2 ? 'ready' + v.readyState
+        : v.muted ? 'muted' : v.volume <= 0 ? 'volume0' : (r.width <= 0 || r.height <= 0) ? 'nosize'
+        : (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) ? 'offscreen' : 'ok';
+      out.push('v' + i + ':' + why);
+    }
+    return out.length ? out.join(' ') : 'novideo';
+  }
+
   function reportState() {
     var v = getActiveVideo();
     var playing = !!v;
@@ -73,7 +89,8 @@
 
       // AstryxPage: the app's Facebook-only message listener; PipBridge: older WebViews.
       if (window.AstryxPage) {
-        window.AstryxPage.postMessage(JSON.stringify({ call: 'videoState', playing: playing, width: videoWidth, height: videoHeight }));
+        window.AstryxPage.postMessage(JSON.stringify({ call: 'videoState', playing: playing, width: videoWidth, height: videoHeight,
+          why: playing ? '' : whyNotPlaying() }));
       } else if (window.PipBridge && window.PipBridge.setVideoState) {
         window.PipBridge.setVideoState(playing, videoWidth, videoHeight);
       } else if (window.PipBridge && window.PipBridge.setVideoPlaying) {
