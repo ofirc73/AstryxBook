@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -64,6 +65,9 @@ import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.copySharedMedia
 import com.eepiemi.materialbook.utils.sharedUris
+import com.eepiemi.materialbook.utils.isWebViewTooOld
+import com.eepiemi.materialbook.ui.components.WebViewUpdateDialog
+import androidx.webkit.WebViewCompat
 import com.eepiemi.materialbook.ui.screens.ShareMediaRequest
 import com.eepiemi.materialbook.utils.shouldLockOnReturn
 import com.eepiemi.materialbook.ui.screens.OpenLinkRequest
@@ -396,6 +400,13 @@ class MainActivity : FragmentActivity() {
     }
     // ---- end app lock ----
 
+    // An app's Play Store page (the Play Store app, or the site without it).
+    private fun openStorePage(packageName: String) {
+        val market = Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
+        val web = Intent(Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=$packageName".toUri())
+        runCatching { startActivity(market) }.recoverCatching { startActivity(web) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enableEdgeToEdge()
@@ -449,6 +460,11 @@ class MainActivity : FragmentActivity() {
             ?: startPageUrl(if (mediaTarget == null) linkUrl(intent) else null, settingsVM.startOnFeeds.value)
         mediaTarget?.let { receiveSharedMedia(intent, it) }
 
+        // An Android System WebView too old for the page scripts (before Chrome 80): asked to
+        // update it, once per app start (not again when the activity is recreated).
+        val outdatedWebView = if (savedInstanceState != null) null
+        else WebViewCompat.getCurrentWebViewPackage(this)?.takeIf { isWebViewTooOld(it.versionName) }
+
         setContent {
             val materialYou by settingsVM.materialYou.collectAsState()
             MaterialbookTheme(dynamicColor = materialYou) {
@@ -474,6 +490,17 @@ class MainActivity : FragmentActivity() {
                         }
                     )
                     if (isAppLocked) AppLockScreen(onUnlock = ::authenticate)
+                    var askWebViewUpdate by remember { mutableStateOf(outdatedWebView != null) }
+                    if (askWebViewUpdate && outdatedWebView != null) {
+                        WebViewUpdateDialog(
+                            version = outdatedWebView.versionName ?: "",
+                            onUpdate = {
+                                askWebViewUpdate = false
+                                openStorePage(outdatedWebView.packageName)
+                            },
+                            onDismiss = { askWebViewUpdate = false }
+                        )
+                    }
                 }
             }
         }

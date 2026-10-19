@@ -27,6 +27,10 @@ user-visible change.
   `test`, `:app:lintDebug` and `connectedAndroidTest`. Run CI by hand on a branch with
   `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) runs next
   to the release job and doesn't gate it.
+- A local release APK is signed with the **debug** key (`app/build.gradle.kts`): it's for testing
+  only and never distributable. The published APK is re-signed with the release keystore by
+  `create-release.yml` (GitHub secrets); that's also why a local release build can't update a phone
+  that has an official one.
 - Release builds are minified (R8 full mode); debug builds and the tests aren't. A class or
   constructor something creates by reflection needs a keep rule in `proguard-rules.pro` (v1.25.1
   and v1.25.2 crashed at launch: WorkManager's Room database). The instrumented-tests job also
@@ -89,7 +93,8 @@ user-visible change.
   (`pipKeepPlayingActivateJs`) undoes that while in PiP.
 - Page scripts use optional chaining (`?.`, Chrome 80+), so on a WebView older than
   that (e.g. the stock API 26 emulator image, Chrome 69) `scripts.js` and most others
-  fail to parse. Keep new PiP scripts ES5-style; they also run there.
+  fail to parse. Keep new PiP scripts ES5-style; they also run there. On such a WebView the app
+  asks the user to update it at start (`utils/WebViewVersion.kt`, `MIN_WEBVIEW_MAJOR`).
 - All PiP, lock-screen audio and fullscreen logs use the tag `AstryxbookPiP`:
   `adb logcat AstryxbookPiP:D *:S`.
 - WebView debugging is always on in debug builds; on a release build turn it on in

@@ -68,6 +68,11 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 - Backups (Google cloud backup, device-to-device transfer and `adb backup`) now
   carry only the app's settings. The Facebook login (the WebView's cookies) and
   caches stay on the phone, so a restored or new phone starts logged out.
+- The page scripts need Android System WebView 80 or newer (they use optional chaining). On an
+  older one, found on Android 8/9 phones without Play updates, most of them don't run and the app
+  half-works; it now says so when it starts and offers the WebView's Play Store page (Update /
+  Not now, once per start). Older WebViews aren't otherwise supported. Covered by
+  `WebViewVersionTest`.
 
 ## Default behavior changes
 

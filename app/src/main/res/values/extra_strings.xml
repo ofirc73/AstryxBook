@@ -110,4 +110,8 @@
         <item quantity="one">%1$s new friend request</item>
         <item quantity="other">%1$s new friend requests</item>
     </plurals>
+    <string name="webview_update_title">Update Android System WebView</string>
+    <string name="webview_update_text">Astryxbook shows Facebook through Android System WebView, and this phone\'s (version %1$s) is too old: parts of Facebook won\'t work. Version %2$d or newer is needed.</string>
+    <string name="webview_update_open">Update</string>
+    <string name="webview_update_later">Not now</string>
 </resources>

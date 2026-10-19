@@ -92,4 +92,8 @@
     <string name="messages_desktop_title">桌面模式的訊息</string>
     <string name="messages_desktop_desc">在應用程式中使用桌面版網站開啟訊息（僅限該區段）</string>
     <string name="video_download_unavailable">無法下載這部影片</string>
+    <string name="webview_update_title">更新 Android System WebView</string>
+    <string name="webview_update_text">Astryxbook 透過 Android System WebView 顯示 Facebook，而這支手機的版本（%1$s）太舊：Facebook 的部分功能將無法使用。需要 %2$d 版或更新版本。</string>
+    <string name="webview_update_open">更新</string>
+    <string name="webview_update_later">稍後再說</string>
 </resources>
