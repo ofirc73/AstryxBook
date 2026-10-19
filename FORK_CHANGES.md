@@ -537,6 +537,12 @@ leaving the app while a Facebook video or Reel is playing.
   stopped. The hand-off now uses the MP4 that Facebook's player carries in
   `data-video-url` (the same file video downloads use), which is the SD
   version.
+- Lock-screen audio from PiP: a long lock ended the video on the lock screen (the player stopped
+  at its end); on unlock the page's video was set to its very end, which Facebook takes for a
+  finished video, so it closed the viewer: the PiP window went black, the sound stopped, and
+  enlarging it showed the feed instead of the video (seen on a Galaxy A56, 260 s video). The
+  lock-screen player now loops the video, and the hand-back starts the page's video over rather
+  than at its very end. Covered by `PipHandoffJsTest`.
 
 ## Sharing, text size, shortcuts and developer options
 
