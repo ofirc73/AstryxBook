@@ -154,7 +154,45 @@ class StoryLayoutJsTest {
     }
 
     @Test
-    fun aDisclosureBesideAKeptTool_isHiddenWithoutHidingTheTool() {
+    fun theAiLabelRedrawnWithoutItsSwitch_isNeverATool() {
+        // While posting, Facebook redraws the AI label row as an icon with its short label (no
+        // switch, no explanation); taken for a tool, it was squeezed into a slot beside Share,
+        // its letters in a column. The sidebar's switch row named it first.
+        val h = Harness()
+        h.load(CREATOR)
+        h.run()
+        h.eval("window.__showFrame()")
+        assertTrue(h.waitFor("document.querySelectorAll('[data-astryx-story=\"tool\"]').length > 0"))
+        h.eval(
+            "(function () { var row = document.createElement('div'); row.id = 'ai-row';" +
+                " row.innerHTML = \"<div role='button' id='ai-tool'><svg width='20' height='20'></svg><span>Add AI label</span></div>\";" +
+                " document.getElementById('tools').appendChild(row); })()"
+        )
+        assertTrue(h.waitFor("document.getElementById('ai-tool').hasAttribute('data-astryx-story-hide')"))
+        assertEquals("true", h.hidden("#ai-tool"))
+        assertEquals("null", h.eval("document.getElementById('ai-tool').getAttribute('data-astryx-story')"))
+    }
+
+    @Test
+    fun aSwitchRowInAnyLanguage_isHidden() {
+        // Recognized by its switch, not its words (Hebrew here).
+        val h = Harness()
+        h.load(CREATOR)
+        h.eval(
+            "(function () { var row = document.createElement('div'); row.setAttribute('role', 'button'); row.id = 'he-ai';" +
+                " row.innerHTML = \"<svg width='20' height='20'></svg><span>הוספת תווית AI</span><div role='switch' aria-checked='false'></div>\";" +
+                " document.getElementById('tools').appendChild(row); })()"
+        )
+        h.run()
+        h.eval("window.__showFrame()")
+        assertTrue(h.waitFor("document.getElementById('he-ai').hasAttribute('data-astryx-story-hide')"))
+        assertEquals("true", h.hidden("#he-ai"))
+    }
+
+    @Test
+    fun aDisclosureBesideTheTools_isHidden_andSoIsTheAiLabel() {
+        // The AI label is the sidebar's switch row (CREATOR's #ai), never a tool: shown as an
+        // extra tool, it was squeezed into a slot with its letters in a column.
         val h = Harness()
         h.load(CREATOR)
         h.eval(
@@ -166,8 +204,8 @@ class StoryLayoutJsTest {
         h.run()
         h.eval("window.__showFrame()")
 
-        assertTrue(h.waitFor("document.getElementById('ai-tool').getAttribute('data-astryx-story') === 'tool-extra'"))
-        assertEquals("false", h.hidden("#ai-tool"))
+        assertTrue(h.waitFor("document.getElementById('ai-tool').hasAttribute('data-astryx-story-hide')"))
+        assertEquals("true", h.hidden("#ai-tool"))
         assertTrue(h.waitFor("!!document.getElementById('ai-disclosure').closest('[data-astryx-story-hide]')"))
         assertEquals("true", h.hidden("#ai-disclosure"))
     }

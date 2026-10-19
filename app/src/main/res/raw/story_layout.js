@@ -137,6 +137,40 @@
     if (el && el.getAttribute('data-astryx-story') !== value) el.setAttribute('data-astryx-story', value);
   }
 
+  // Rows with an on/off switch (the AI label: "Add AI label", its explanation and the switch):
+  // never a tool, always hidden, in any language. Their label (the row's first text) is
+  // remembered: while posting, Facebook redraws the row without its switch or explanation, and as
+  // an icon with a short label it was taken for a tool and squeezed into a slot, its letters in a
+  // column beside Share (seen on a Galaxy A56). Never a dialog's switches.
+  var switchLabels = {};
+  function firstText(el) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    for (var node = walker.nextNode(); node; node = walker.nextNode()) {
+      var text = node.nodeValue.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+      if (text) return text;
+    }
+    return '';
+  }
+  function isSwitchRow(button) {
+    return !!button.querySelector('[role="switch"], input[type="checkbox"]') || !!switchLabels[firstText(button)];
+  }
+  function hideSwitchRows() {
+    var switches = document.querySelectorAll('[role="switch"], input[type="checkbox"]');
+    for (var i = 0; i < switches.length; i++) {
+      if (switches[i].closest('[role="dialog"]')) continue;
+      var row = switches[i].closest('[role="button"], button, label') || switches[i].parentElement;
+      var label = firstText(row);
+      if (label && label.length <= 40) switchLabels[label] = true;
+      if (!row.hasAttribute('data-astryx-story-hide')) row.setAttribute('data-astryx-story-hide', '');
+    }
+    var buttons = document.querySelectorAll('[role="button"], button');
+    for (var j = 0; j < buttons.length; j++) {
+      var b = buttons[j];
+      if (b.closest('[role="dialog"]') || !switchLabels[firstText(b)]) continue;
+      if (!b.hasAttribute('data-astryx-story-hide')) b.setAttribute('data-astryx-story-hide', '');
+    }
+  }
+
   // During posting, Facebook can move the AI-label control and explanation out of the sidebar.
   // Hide them by their text so they cannot wrap into a vertical column over the photo.
   function hideAIDisclosure() {
@@ -354,6 +388,7 @@
       untag(); // choosing a story: Facebook's own page
       return;
     }
+    hideSwitchRows();
     hideAIDisclosure();
     var nav = null; // the sidebar beside the preview (the page header is a navigation too)
     for (var sib = main.parentElement.firstElementChild; sib; sib = sib.nextElementSibling) {
@@ -381,7 +416,7 @@
       // A tool: an icon and a short label, at any height (two-line labels, a submenu arrow).
       // The AI label row has a checkbox and an explanation.
       var text = (b.innerText || '').replace(/\s+/g, ' ');
-      if (labelled && icon && text.length <= 40 && !b.querySelector('input')) {
+      if (labelled && icon && text.length <= 40 && !b.querySelector('input') && !isSwitchRow(b)) {
         tools.push(b);
       } else if (labelled && !icon && !actions) {
         actions = b.parentElement;

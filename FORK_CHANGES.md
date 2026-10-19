@@ -284,6 +284,11 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   and disclosure are hidden if Facebook moves them outside the sidebar during posting, so they
   cannot spill into a vertical letter column. Covered by
   `AppPromptJsTest` and `StoryLayoutJsTest`.
+- The AI label still showed as a column of letters beside Share while a story was posting: Facebook
+  redraws its row then as an icon with the short label "Add AI label" (no switch, no explanation),
+  which the layout took for a tool and squeezed into a slot. The row is now recognized by its
+  on/off switch while the editor shows it, in any language; its label is remembered, so the
+  redrawn row is never a tool and stays hidden.
 
 ## CI/CD
 
