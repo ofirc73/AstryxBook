@@ -53,6 +53,38 @@ class PhotoPostTest {
     }
 
     @Test
+    fun readingThePage_stopsOnceThePhotosPostHasArrived() {
+        // Past the post: a reader that fails, as a page cut short would.
+        val start = "x".repeat(100_000) + tracking("900", "654346397", *photos)
+        val page = object : java.io.Reader() {
+            private val head = java.io.StringReader(start)
+            override fun read(cbuf: CharArray, off: Int, len: Int): Int {
+                val count = head.read(cbuf, off, len)
+                if (count < 0) throw AssertionError("read past the photo's post")
+                return count
+            }
+            override fun close() = Unit
+        }
+        assertEquals(PhotoPost("https://m.facebook.com/654346397/posts/900/", 1), PhotoPost.read(page, "102"))
+    }
+
+    @Test
+    fun readingThePage_forAPhotoPastTheTiles_readsItAll() {
+        val page = "x".repeat(70_000) + tracking("900", "654346397", *photos) + "y".repeat(70_000)
+        assertEquals(
+            PhotoPost("https://m.facebook.com/654346397/posts/900/", 4),
+            PhotoPost.read(java.io.StringReader(page), "107")
+        )
+    }
+
+    @Test
+    fun aListSplitAcrossReads_isStillFound() {
+        // The chunk boundary falls inside the list.
+        val page = "x".repeat(32 * 1024 - 60) + tracking("900", "654346397", *photos)
+        assertEquals(PhotoPost("https://m.facebook.com/654346397/posts/900/", 3), PhotoPost.read(java.io.StringReader(page), "104"))
+    }
+
+    @Test
     fun aSinglePhotoPost_orNoPost_isNothing() {
         assertNull(PhotoPost.parse(tracking("900", "1", "101"), "101"))
         assertNull(PhotoPost.parse("<html>not logged in</html>", "101"))

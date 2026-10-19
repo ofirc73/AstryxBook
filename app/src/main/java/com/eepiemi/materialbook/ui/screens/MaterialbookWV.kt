@@ -1726,7 +1726,7 @@ fun MaterialbookWebView(
                                     context.startActivity(Intent.createChooser(send, resources.getString(R.string.share_via)))
                                 }
                             },
-                            photoPost = { fbid, reply -> lookUpPhotoPost(context, fbid, reply) },
+                            photoPost = { fbid, reply -> lookUpPhotoPost(fbid, reply) },
                         )
                     )
                     installDownloadBridge(this, context)
