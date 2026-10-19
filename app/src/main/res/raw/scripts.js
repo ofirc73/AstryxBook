@@ -316,6 +316,20 @@ const hideOpenAppButtons = () => {
 // desktop creator in Astryxbook instead: the viewer's plus/photo glyph is shared across languages,
 // while the feed's Create story card has a nested accessible button.
 const ADD_STORY_ICON = String.fromCodePoint(0xF31CC);
+// A story card in the tray at the top of the feed: a tall, narrow button.
+const isStoryCardSized = (el) => {
+  const r = el.getBoundingClientRect();
+  return r.width >= 80 && r.width <= 160 && r.height >= 140 && r.height <= 260;
+};
+// The feed's Create story card, in any language: the first story-sized card on Home, in the
+// stories tray right under the composer (its label is only text, "Create story" translated, and
+// its "+" an image). The tray may hold no other card; Reels' cards further down never count.
+const CREATE_STORY_MAX_TOP = 450;
+const isCreateStoryCard = (card) => {
+  if (card.getBoundingClientRect().top + window.scrollY > CREATE_STORY_MAX_TOP) return false;
+  const first = Array.from(document.querySelectorAll('[role="button"], [data-action-id]')).find(isStoryCardSized);
+  return first === card;
+};
 document.addEventListener('click', event => {
   const path = location.pathname;
   const inStoryViewer = /^\/stories\/[^/]+(?:\/|$)/.test(path) && !/^\/stories\/create\/?$/.test(path);
@@ -325,8 +339,13 @@ document.addEventListener('click', event => {
   // The feed's Create story card has a nested, accessibly labelled button (no add-story glyph).
   // Let it use the same in-app creator as Add story from a Story viewer instead of Facebook's
   // mobile-site sheet that asks the user to open the Facebook app.
+  let card = target;
+  while (card && !isStoryCardSized(card)) {
+    card = card.parentElement ? card.parentElement.closest('[role="button"]') : null;
+  }
   const createStoryOnFeed = onFeed && (target.getAttribute('aria-label') === 'Create story'
-    || !!target.querySelector('[role="button"][aria-label="Create story"]'));
+    || !!target.querySelector('[role="button"][aria-label="Create story"]')
+    || (!!card && isCreateStoryCard(card)));
   if (!createStoryOnFeed && (!inStoryViewer || !target.hasAttribute('data-action-id'))) return;
   const hasAddStoryIcon = Array.from(target.querySelectorAll('span'))
     .some(span => span.textContent.includes(ADD_STORY_ICON));
