@@ -250,6 +250,9 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 - v1.30.9's memory photos sometimes still opened alone: soon after the feed loads, Facebook may open
   the tapped photo as a new page, and the post the app found was answered to the feed's page, by
   then gone. The tap is now kept for the page (for 8 s), so the photo's own page asks for its post.
+- A memory photo's lookup of its post is tried once more after a second when the download fails
+  (no answer, a failed name lookup, a server error), as one did once on a phone; the photo then
+  stayed on its own.
 - Memory photos switch to their post faster (about 1 to 2 s sooner): the app stops reading
   Facebook's 2 MB desktop page once the photo's post has come in (about a third of the way), and
   taps the photo 0.3 s after the post appears rather than 1 s (the list's scroll is still put
