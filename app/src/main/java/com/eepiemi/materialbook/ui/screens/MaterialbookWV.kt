@@ -856,7 +856,12 @@ data class ShareMediaRequest(val seq: Int, val target: ShareTarget)
 /** share_media.js for [target], with the target it's run for. */
 internal fun shareMediaScript(resources: android.content.res.Resources, target: ShareTarget): String {
     val script = resources.openRawResource(R.raw.share_media).bufferedReader().use { it.readText() }
-    return "window.__astryxShareTarget = '${target.key}';\n$script"
+    // The note shown while Facebook prepares the photos (share_media.js showAdding).
+    val count = ShareMediaQueue.remaining(target)
+    val adding = if (count > 1) resources.getString(R.string.share_media_adding_several, count)
+    else resources.getString(R.string.share_media_adding_one)
+    return "window.__astryxShareTarget = '${target.key}';\n" +
+        "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
 }
 
 @Composable

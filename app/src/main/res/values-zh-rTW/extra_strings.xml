@@ -96,4 +96,6 @@
     <string name="webview_update_text">Astryxbook 透過 Android System WebView 顯示 Facebook，而這支手機的版本（%1$s）太舊：Facebook 的部分功能將無法使用。需要 %2$d 版或更新版本。</string>
     <string name="webview_update_open">更新</string>
     <string name="webview_update_later">稍後再說</string>
+    <string name="share_media_adding_one">正在新增你的相片…</string>
+    <string name="share_media_adding_several">正在新增 %1$d 張相片…</string>
 </resources>

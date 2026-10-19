@@ -102,6 +102,42 @@ class ShareMediaJsTest {
     }
 
     @Test
+    fun feed_inTheComposerOpenedDirectly_goesThroughItsPhotosButton() {
+        // The share opens m.facebook.com/composer/ (shown at once); its Photos button (the
+        // add-photo icon U+F18BB) gets the files.
+        val h = Harness()
+        h.load("https://m.facebook.com/composer/", COMPOSER_PAGE)
+        h.eval("document.getElementById('cicon').textContent = String.fromCharCode(0xDB86, 0xDCBB);")
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed")
+
+        assertTrue("the composer never got the files", h.waitFor("!!window.__got"))
+        assertEquals("0_a.jpg:image/jpeg:5", h.eval("window.__got.join(',')").unquoted())
+        assertEquals("0", h.eval("window.__pickerOpened"))
+    }
+
+    @Test
+    fun feed_aNoteShows_whileFacebookPreparesThePhotos() {
+        // Facebook takes a few seconds to resize a phone's photo and draw its preview (a data:
+        // image): the app's note covers that wait, then goes once every preview is there.
+        val h = Harness()
+        h.load("https://m.facebook.com/", feedPage(label = "Photo"))
+        h.eval(PHOTO_ICON)
+        h.eval("window.__astryxShareAdding = 'Adding 2 photos…';")
+        h.files(Triple("0_a.jpg", "image/jpeg", 5), Triple("1_b.png", "image/png", 7))
+        h.run("feed")
+
+        assertTrue("the composer never got the files", h.waitFor("!!window.__got"))
+        assertTrue(h.waitFor("(document.getElementById('astryx-share-adding') || {}).textContent === 'Adding 2 photos…'"))
+        // The first preview: still waiting for the second.
+        h.eval("var p1 = document.createElement('img'); p1.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; document.body.appendChild(p1); 1")
+        Thread.sleep(600)
+        assertEquals("true", h.eval("!!document.getElementById('astryx-share-adding')"))
+        h.eval("var p2 = document.createElement('img'); p2.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; document.body.appendChild(p2); 1")
+        assertTrue(h.waitFor("!document.getElementById('astryx-share-adding')"))
+    }
+
+    @Test
     fun feed_photoButtonWithoutItsIcon_isFoundByItsEnglishLabel() {
         val h = Harness()
         h.load("https://m.facebook.com/", feedPage(label = "Photo"))
@@ -275,6 +311,17 @@ class ShareMediaJsTest {
                 "<input type='file' id='in' style='display:none'>" +
                 "<script>window.__pickerOpened = 0;" +
                 "document.getElementById('photo').addEventListener('click', function () {" +
+                "  var i = document.getElementById('in'); i.accept = 'image/*'; i.multiple = true; i.click(); });" +
+                "document.getElementById('in').addEventListener('change', function (e) {" +
+                "  window.__got = Array.prototype.map.call(e.target.files, function (f) { return f.name + ':' + f.type + ':' + f.size; }); });" +
+                "</script>"
+
+        // The composer page (m.facebook.com/composer/): its Photos row, icon put in by script.
+        const val COMPOSER_PAGE =
+            "<div role='button' id='photos' aria-label='Photos'><span id='cicon'></span><span>Photos</span></div>" +
+                "<input type='file' id='in' style='display:none'>" +
+                "<script>window.__pickerOpened = 0;" +
+                "document.getElementById('photos').addEventListener('click', function () {" +
                 "  var i = document.getElementById('in'); i.accept = 'image/*'; i.multiple = true; i.click(); });" +
                 "document.getElementById('in').addEventListener('change', function (e) {" +
                 "  window.__got = Array.prototype.map.call(e.target.files, function (f) { return f.name + ':' + f.type + ':' + f.size; }); });" +

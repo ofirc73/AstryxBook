@@ -92,6 +92,37 @@
     });
   }
 
+  // A note over the composer while Facebook prepares the shared photos (it resizes each one and
+  // draws its preview, a few seconds for a phone's full-size photo), until their previews are
+  // all there or ADDING_MS. The previews are data: images, so this works in any language. Its
+  // text comes from the app (window.__astryxShareAdding).
+  var ADDING_MS = 30000;
+  var ADDING_ID = 'astryx-share-adding';
+  function previewCount() {
+    return document.querySelectorAll('img[src^="data:image"]').length;
+  }
+  function showAdding(count, before) {
+    var text = window.__astryxShareAdding;
+    if (!text || document.getElementById(ADDING_ID)) return;
+    var note = document.createElement('div');
+    note.id = ADDING_ID;
+    note.setAttribute('role', 'status');
+    note.textContent = text;
+    note.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;' +
+      'max-width:calc(100% - 32px);box-sizing:border-box;padding:10px 18px;border-radius:20px;' +
+      'background:rgba(32,33,36,0.92);color:#fff;font:500 14px/20px system-ui,sans-serif;' +
+      'text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);pointer-events:none;';
+    document.body.appendChild(note);
+    var started = Date.now();
+    (function check() {
+      if (previewCount() - before >= count || Date.now() - started > ADDING_MS) {
+        if (note.parentNode) note.parentNode.removeChild(note);
+        return;
+      }
+      setTimeout(check, 250);
+    })();
+  }
+
   function giveFiles(input, files) {
     var transfer = new DataTransfer();
     for (var i = 0; i < files.length; i++) transfer.items.add(files[i]);
@@ -133,6 +164,7 @@
   // change, even once its input allows several).
   function answerFileClick(button, files) {
     var rest = [];
+    var before = previewCount();
     var taken = whenFileClicked(function (input) {
       if (input.multiple) {
         giveFiles(input, files);
@@ -142,6 +174,8 @@
       }
     });
     button.click();
+    // The composer opens with the first photo given (before TAKE_MS): the note shows from then.
+    waitFor(taken, TAKE_MS, function (given) { if (given) showAdding(files.length, before); });
     setTimeout(function () {
       if (!taken()) { send({ call: 'failed', reason: 'notTaken' }); return; }
       addOneByOne(rest);
@@ -191,8 +225,15 @@
     });
   }
 
+  // The feed share opens the composer itself (FEED_COMPOSER_PAGE_URL): its Photos button, found
+  // by the add-photo icon. Home's Photo button still works where the composer isn't open.
+  function feedPhotoButton() {
+    if (/^\/composer\/?$/.test(window.location.pathname)) return addPhotoButton();
+    return photoButton();
+  }
+
   function shareToFeed() {
-    waitFor(photoButton, FIND_MS, function (button) {
+    waitFor(feedPhotoButton, FIND_MS, function (button) {
       if (!button) { send({ call: 'failed', reason: 'noComposer' }); return; }
       receiveFiles('all', function (files) {
         if (!files.length) { send({ call: 'finished' }); return; }

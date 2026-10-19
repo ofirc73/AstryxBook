@@ -118,4 +118,6 @@
     <string name="webview_update_text">Astryxbook מציגה את פייסבוק באמצעות Android System WebView, והגרסה בטלפון הזה (%1$s) ישנה מדי: חלקים מפייסבוק לא יעבדו. נדרשת גרסה %2$d ומעלה.</string>
     <string name="webview_update_open">עדכון</string>
     <string name="webview_update_later">לא עכשיו</string>
+    <string name="share_media_adding_one">מוסיף את התמונה…</string>
+    <string name="share_media_adding_several">מוסיף %1$d תמונות…</string>
 </resources>
