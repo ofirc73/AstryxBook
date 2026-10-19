@@ -228,6 +228,12 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   photo: the post's photos one under another, as tapping a photo of the post itself does
   (`memory_photos.js`). Back returns to the memory. Covered by `PhotoPostTest` and
   `MemoryPhotosJsTest`.
+- Sharing a photo to Feed (or as the profile picture) when the share starts the app, e.g. from
+  Samsung's Gallery with the app closed, ended on the feed with no composer. The share's page load
+  merged with the app's first one, so the app never saw the fresh load it waited for and never
+  handed the photos over. When no load starts within 2 s, the page showing now counts; and the
+  photos are offered again on each page that finishes loading until they're taken (up to a
+  minute), in case the first page is replaced.
 - Facebook's "Facebook is better on the app" sheet (Get app / Not now), which it puts over the
   feed when the app opens, is pressed away with Not now (`scripts.js`). It's recognized by its
   shape (a dialog screen whose bottom sheet holds a picture, one title and two buttons, nothing to

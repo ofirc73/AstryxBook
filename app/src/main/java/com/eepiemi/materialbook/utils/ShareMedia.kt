@@ -125,6 +125,8 @@ object ShareMedia {
 object ShareMediaQueue {
     /** How long a group share waits for the user to pick the group. */
     const val GROUP_PICK_MS = 10 * 60 * 1000L
+    /** How long a feed or profile picture share keeps offering its files to the pages that load. */
+    const val SHARE_PAGE_MS = 60 * 1000L
 
     private var target: ShareTarget? = null
     private var files: List<SharedFile> = emptyList()

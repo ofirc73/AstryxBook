@@ -842,6 +842,8 @@ private const val HOME_URL = HOME_PAGE_URL
 // Leaving PiP after a lost renderer: how long the window takes to get its full size back, and
 // how many zoom-out steps (x0.8 each) can bring a page from the PiP window's width back.
 private const val PIP_EXIT_SETTLE_MS = 600L
+// A shared photo's page: how long to wait for a fresh load before using the page showing.
+private const val SHARE_LOAD_WAIT_MS = 2000L
 private const val MAX_ZOOM_OUT_STEPS = 20
 
 /** A link the running app was sent (onNewIntent); [seq] tells two taps on the same link apart. */
@@ -1777,19 +1779,36 @@ fun MaterialbookWebView(
             layerGeneration++
         }
     }
+    // A share that starts the app (a cold start from a gallery) can come while the first page is
+    // loading: its own load then merges with that one and no fresh load is seen, so the script
+    // never ran and the share ended on the feed (seen on a Galaxy A56). When no load starts within
+    // SHARE_LOAD_WAIT_MS of the request, the page showing counts as the share's page.
+    LaunchedEffect(pageShareTarget, pageShareLoadSeen) {
+        val target = pageShareTarget ?: return@LaunchedEffect
+        if (pageShareLoadSeen) return@LaunchedEffect
+        delay(SHARE_LOAD_WAIT_MS)
+        if (!pageShareLoadSeen && loadingState is LoadingState.Finished && ShareMediaQueue.pending(target)) {
+            pageShareLoadSeen = true
+            navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
+        }
+    }
     LaunchedEffect(loadingState, pageShareTarget) {
         val target = pageShareTarget ?: return@LaunchedEffect
         if (loadingState is LoadingState.Loading) {
             pageShareLoadSeen = true
         } else if (loadingState is LoadingState.Finished && pageShareLoadSeen) {
-            // A group share waits on every page while the user picks the group (opening one can
-            // be a full load), for up to GROUP_PICK_MS; the others run once.
-            if (target == ShareTarget.GROUP && ShareMediaQueue.olderThan(ShareMediaQueue.GROUP_PICK_MS)) {
-                ShareMediaQueue.clear()
-            }
-            if (target != ShareTarget.GROUP || !ShareMediaQueue.pending(target)) pageShareTarget = null
+            // The script runs again on every page that finishes loading until it has taken the
+            // files: the share's page can be replaced right after it loads, taking the script with
+            // it (on a cold start m.facebook.com redirects its first load to "/?wtsid=…", and a
+            // share that opens the app ended on the feed). Up to SHARE_PAGE_MS; a group share
+            // waits while the user picks the group (opening one can be a full load), for up to
+            // GROUP_PICK_MS. share_media.js runs only once per page.
+            val wait = if (target == ShareTarget.GROUP) ShareMediaQueue.GROUP_PICK_MS else ShareMediaQueue.SHARE_PAGE_MS
+            if (ShareMediaQueue.olderThan(wait)) ShareMediaQueue.clear()
             if (ShareMediaQueue.pending(target)) {
                 navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
+            } else {
+                pageShareTarget = null
             }
         }
     }
