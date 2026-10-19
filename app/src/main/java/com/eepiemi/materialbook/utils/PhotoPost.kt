@@ -102,6 +102,7 @@ data class PhotoPost(val url: String, val index: Int) {
 private const val TAG = "Astryxbook"
 private const val COOKIE_URL = "https://www.facebook.com"
 private const val TIMEOUT_MS = 20_000
+private const val RETRY_MS = 1_000L
 
 private val lookups = Executors.newSingleThreadExecutor()
 private val main = Handler(Looper.getMainLooper())
@@ -113,7 +114,14 @@ private val main = Handler(Looper.getMainLooper())
 fun lookUpPhotoPost(fbid: String, reply: (String) -> Unit) {
     if (!PhotoPost.isPhotoId(fbid)) return
     lookups.execute {
-        val post = fetchPhotoPost(fbid)
+        // A download that failed (no answer, a name lookup that failed for a moment, as seen
+        // once on a phone) is tried once more; a page without the post isn't.
+        var result = fetchPhotoPost(fbid)
+        if (result.isFailure) {
+            Thread.sleep(RETRY_MS)
+            result = fetchPhotoPost(fbid)
+        }
+        val post = result.getOrNull()
         Log.d(TAG, "Photo post of $fbid: ${post ?: "none"}")
         if (post != null) main.post { reply(post.toJson(fbid)) }
     }
@@ -123,9 +131,9 @@ fun lookUpPhotoPost(fbid: String, reply: (String) -> Unit) {
 // app's Facebook login (the WebView's cookies) and the headers a browser sends when it opens a
 // page (with fewer, Facebook answers 400). Cookies Facebook sets in the answer aren't kept: this
 // is a lookup, not a visit.
-private fun fetchPhotoPost(fbid: String): PhotoPost? = runCatching {
+private fun fetchPhotoPost(fbid: String): Result<PhotoPost?> = runCatching {
     val cookie = CookieManager.getInstance().getCookie(COOKIE_URL)
-    if (cookie == null || !cookie.contains("c_user=")) return null
+    if (cookie == null || !cookie.contains("c_user=")) return Result.success(null)
     val connection = URL("$COOKIE_URL/photo.php?fbid=$fbid").openConnection() as HttpURLConnection
     try {
         connection.connectTimeout = TIMEOUT_MS
@@ -142,12 +150,18 @@ private fun fetchPhotoPost(fbid: String): PhotoPost? = runCatching {
         connection.setRequestProperty("Sec-Fetch-User", "?1")
         connection.setRequestProperty("Sec-CH-UA-Mobile", "?0")
         connection.setRequestProperty("Sec-CH-UA-Platform", "\"Windows\"")
-        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-            Log.d(TAG, "Photo post of $fbid: HTTP ${connection.responseCode}")
-            return null
+        val code = connection.responseCode
+        if (code != HttpURLConnection.HTTP_OK) {
+            Log.d(TAG, "Photo post of $fbid: HTTP $code")
+            // A server error may pass (tried again); any other answer won't.
+            if (code >= 500) throw java.io.IOException("HTTP $code")
+            return Result.success(null)
         }
         connection.inputStream.bufferedReader().use { PhotoPost.read(it, fbid) }
     } finally {
         connection.disconnect()
     }
-}.onFailure { Log.w(TAG, "Photo post of $fbid: fetch failed", it) }.getOrNull()
+}.onFailure {
+    // Named in the message: Android leaves the stack trace out for some (UnknownHostException).
+    Log.w(TAG, "Photo post of $fbid: fetch failed (${it.javaClass.simpleName}: ${it.message})", it)
+}
