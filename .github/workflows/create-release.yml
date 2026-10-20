@@ -55,11 +55,30 @@ jobs:
       contents: write
     outputs:
       new_tag: ${{ steps.tag.outputs.new_tag }}
+      skip: ${{ steps.only-dependabot.outputs.skip }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
+      # Dependabot's own changes never make a release or bump the version: when
+      # every commit since the last release is Dependabot's (its security
+      # updates touch the Gradle files, so paths-ignore doesn't catch them),
+      # nothing below runs. They go out with the next real release instead.
+      # Merge commits don't count: a merged Dependabot PR is one of the user's.
+      - name: Only Dependabot changes since the last release?
+        id: only-dependabot
+        run: |
+          LAST=$(git describe --tags --abbrev=0 --match 'v*.*.*' 2>/dev/null || true)
+          AUTHORS=$(git log ${LAST:+$LAST..}HEAD --no-merges --format='%an' | sort -u)
+          echo "Authors since ${LAST:-the start}: $(echo $AUTHORS)"
+          if [ "$AUTHORS" = "dependabot[bot]" ]; then
+            echo "Only Dependabot's changes: no release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # Reads conventional-commit prefixes since the last tag: feat -> minor,
       # fix/chore/docs/ci/etc -> patch (default_bump), BREAKING CHANGE or a
@@ -69,6 +88,7 @@ jobs:
       # we already continue in this same run via the outputs below instead.
       - name: Bump version and push tag
         id: tag
+        if: steps.only-dependabot.outputs.skip != 'true'
         uses: mathieudutour/github-tag-action@af99e60ce8132224b8e6ebab5023449fe256ed46 # v7.0.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -83,7 +103,7 @@ jobs:
   # unless that job has its own if:, so each job below states what it needs.
   resolve-version:
     needs: compute-version
-    if: ${{ !failure() && !cancelled() }}
+    if: ${{ !failure() && !cancelled() && needs.compute-version.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}

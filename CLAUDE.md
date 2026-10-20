@@ -52,7 +52,9 @@ user-visible change.
   auto-versions from conventional commits (`feat:` = minor bump) and
   publishes a release. A push touching only docs or repo tooling (`*.md`,
   `LICENSE`, `fastlane/`, `assets/`, `.github/`, `.gitignore`, `lint.xml`)
-  skips it via `paths-ignore`.
+  skips it via `paths-ignore`. So does a push whose commits since the last release are all
+  Dependabot's (`compute-version`'s check; its security updates touch the Gradle files): they go
+  out with the next real release.
 
 ## WebView and PiP code (`ui/screens/MaterialbookWV.kt`)
 
