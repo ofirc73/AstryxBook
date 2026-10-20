@@ -153,14 +153,21 @@ fun MessagesLayer(
     // Composed after the main view's handlers, so it gets Back first; disabled while a
     // video is fullscreen, so Back leaves fullscreen through the main view's handler.
     BackHandler(enabled = !isFullscreen && !hidden) {
-        // A photo open in the desktop viewer closes first: the viewer isn't a page of its own,
-        // so stepping back left the chat for "No chats selected" (seen on a Galaxy A56).
-        navigator.evaluateJavaScript(CLOSE_PHOTO_VIEWER_JS) { closed ->
-            if (closed == "true") return@evaluateJavaScript
-            // Asked of the WebView itself: opening a conversation is an in-page navigation,
-            // which navigator.canGoBack doesn't always pick up.
-            val canGoBack = runCatching { state.nativeWebView.canGoBack() }.getOrDefault(false)
-            if (canGoBack) navigator.navigateBack() else onClose()
+        // As the desktop site does at phone width (messages_layer_nav.js __astryxLayerBack): a
+        // photo closes, a chat goes back to the chat list (its own Back button), the chat list
+        // closes the layer. Stepping back a page instead left the chat for "No chats selected"
+        // (seen on a Galaxy A56). Anything else steps back a page.
+        navigator.evaluateJavaScript(LAYER_BACK_JS) { done ->
+            when (done.removeSurrounding("\"")) {
+                "photo", "chat" -> Unit
+                "list" -> onClose()
+                else -> {
+                    // Asked of the WebView itself: opening a conversation is an in-page
+                    // navigation, which navigator.canGoBack doesn't always pick up.
+                    val canGoBack = runCatching { state.nativeWebView.canGoBack() }.getOrDefault(false)
+                    if (canGoBack) navigator.navigateBack() else onClose()
+                }
+            }
         }
     }
 
@@ -259,7 +266,9 @@ fun MessagesLayer(
         }
     }
 
-    Box(modifier = modifier.zIndex(1F).background(if (hidden) Color.Transparent else background)) {
+    // Out of sight, it also goes under the main view, which then gets the taps: on top, even with
+    // its WebView invisible, it would take them.
+    Box(modifier = modifier.zIndex(if (hidden) -1F else 1F).background(if (hidden) Color.Transparent else background)) {
         WebView(
             modifier = Modifier.fillMaxSize(),
             state = state,
@@ -352,9 +361,9 @@ private const val STEP_BACK_TO_CHAT_JS =
         " steps++; history.back(); }" +
         " window.addEventListener('popstate', step); step(); })()"
 
-// Closes the desktop photo viewer if it's open (layer_photo_viewer.js); "true" when it was.
-private const val CLOSE_PHOTO_VIEWER_JS =
-    "(function () { return !!(window.__astryxClosePhotoViewer && window.__astryxClosePhotoViewer()); })()"
+// Back on the layer's page (messages_layer_nav.js): "photo", "chat", "list" or "page".
+private const val LAYER_BACK_JS =
+    "(function () { return window.__astryxLayerBack ? window.__astryxLayerBack() : 'page'; })()"
 
 // The layer's route for [url]; during a reel share the desktop reels page stays in the layer.
 private fun layerRoute(url: String, isMainFrame: Boolean, reelShare: Boolean): MessagesLayerRoute {

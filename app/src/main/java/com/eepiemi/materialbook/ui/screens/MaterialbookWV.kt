@@ -711,19 +711,18 @@ fun MaterialbookWebView(
     val currentPrimaryColor by rememberUpdatedState(primaryColor)
     val currentOnPrimaryColor by rememberUpdatedState(onPrimaryColor)
 
+    val pagePadding = if (isImmersiveMode) {
+        Modifier.padding(bottom = imeHeight)
+    } else {
+        Modifier.padding(
+            top = barsInsets.calculateTopPadding(),
+            bottom = maxOf(barsInsets.calculateBottomPadding(), imeHeight)
+        )
+    }
     val pageModifier = Modifier
         .fillMaxSize()
         .background(barColor)
-        .then(
-            if (isImmersiveMode) {
-                Modifier.padding(bottom = imeHeight)
-            } else {
-                Modifier.padding(
-                    top = barsInsets.calculateTopPadding(),
-                    bottom = maxOf(barsInsets.calculateBottomPadding(), imeHeight)
-                )
-            }
-        )
+        .then(pagePadding)
 
     // A lost renderer (see RendererGoneClient) leaves the WebView unusable: a new one takes its
     // place (the key below) with the same onCreated setup, and once it exists the navigator
@@ -877,7 +876,10 @@ fun MaterialbookWebView(
                 userScripts = userScripts,
                 fullscreen = fullscreen,
                 isFullscreen = isFullscreen,
-                modifier = pageModifier,
+                // Without a background of its own: a layer kept out of sight behind a reel painted
+                // its page colour over the reel (a black screen in dark mode); MessagesLayer paints
+                // one while it's shown.
+                modifier = Modifier.fillMaxSize().then(pagePadding),
                 background = barColor,
                 primaryColor = primaryColor,
                 onPrimaryColor = onPrimaryColor,

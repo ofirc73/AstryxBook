@@ -176,6 +176,33 @@ class MessagesLayerReelTest {
     }
 
     @Test
+    fun backInAChat_pressesTheChatsOwnBack_toShowTheChatList() {
+        // At phone width the desktop page shows its chat list through the chat header's Back
+        // button; stepping back a page left "No chats selected" instead.
+        val layer = openChat()
+        app.eval(
+            "document.body.insertAdjacentHTML('beforeend', \"$CHAT_HEADER_BACK\");" +
+                " document.getElementById('chatBack').addEventListener('click', function () { window.__listShown = true; this.remove(); }); 1",
+            layer
+        )
+        app.pressBack()
+        assertTrue("Back didn't press the chat's own Back button", app.waitFor {
+            app.eval("window.__listShown === true", layer) == "true"
+        })
+        Thread.sleep(1000)
+        assertTrue("Back in a chat closed the layer", layerOpen())
+        assertEquals("Back in a chat stepped the page back", "true", app.eval("!!window.__testPage", layer))
+    }
+
+    @Test
+    fun backOnTheChatList_closesTheLayer() {
+        // No chat open (no chat header Back button): the chat list, which Back leaves.
+        openChat()
+        app.pressBack()
+        assertTrue("Back on the chat list didn't close the layer", app.waitFor { !layerOpen() })
+    }
+
+    @Test
     fun backAfterLeavingTheReel_doesNotReopenTheChat() {
         val layer = openChat()
         moveTo(layer, "/reel/$REEL_ID")
@@ -205,6 +232,11 @@ class MessagesLayerReelTest {
         private const val CHAT_ID = "4567"
         private const val CHAT_PATH = "/messages/t/$CHAT_ID/"
         private const val REEL_ID = "1360854416127071"
+        // A chat header's Back button, where the desktop site puts it at phone width: an icon
+        // button below Facebook's header bar, at the left.
+        private const val CHAT_HEADER_BACK =
+            "<div id='chatBack' role='button' aria-label='Back' style='position:fixed;left:32px;top:84px;width:36px;height:36px'>" +
+                "<svg width='20' height='20'></svg></div>"
         // The desktop viewer's layout (see LayerPhotoViewerJsTest): arrow columns around the photo.
         private const val PHOTO_VIEWER =
             "<div id='viewer' style='position:fixed;inset:0;background:#000'>" +
