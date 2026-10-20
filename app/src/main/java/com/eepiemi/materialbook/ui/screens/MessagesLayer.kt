@@ -32,6 +32,7 @@ import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.deadWebViewUrl
 import com.eepiemi.materialbook.utils.hardenWebView
+import com.eepiemi.materialbook.utils.isDesktopMessagesUrl
 import com.eepiemi.materialbook.utils.isReelCreatePage
 import com.eepiemi.materialbook.utils.isStoryCreatePage
 import com.eepiemi.materialbook.utils.jsBridge.LayerBridge
@@ -116,9 +117,11 @@ fun MessagesLayer(
     // Opened for a reel share: the desktop reels page (where the reel creator opens) stays in
     // the layer instead of leaving for the main view's Reels tab.
     val reelShare = isReelCreatePage(url)
-    // The last page the layer showed (a chat), for [onLeave]: a reel opened from it goes back
-    // there on Back.
-    var pageUrl by remember { mutableStateOf(url) }
+    // The last chat the layer showed, for [onLeave]: a reel opened from it goes back there on
+    // Back. Only Messages pages count: a reel shared in a chat comes as Facebook's share link
+    // (/share/r/...), which redirects to the reel; kept as the page to go back to, Back opened the
+    // link again and so the reel, on every press (seen on a Galaxy A56).
+    var pageUrl by remember { mutableStateOf(url.takeIf { isDesktopMessagesUrl(it) }) }
     val navigator = rememberWebViewNavigator(
         requestInterceptor = object : RequestInterceptor {
             override fun onInterceptUrlRequest(
@@ -127,7 +130,7 @@ fun MessagesLayer(
             ): WebRequestInterceptResult =
                 when (val route = layerRoute(request.url, request.isForMainFrame, reelShare)) {
                     MessagesLayerRoute.Allow -> {
-                        if (request.isForMainFrame) pageUrl = request.url
+                        if (request.isForMainFrame && isDesktopMessagesUrl(request.url)) pageUrl = request.url
                         WebRequestInterceptResult.Allow
                     }
                     is MessagesLayerRoute.Remap -> {
@@ -193,11 +196,13 @@ fun MessagesLayer(
         target?.let { navigator.evaluateJavaScript(shareMediaScript(resources, it)) {} }
     }
 
-    // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit).
+    // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), and
+    // its photo viewer laid out for a phone (layer_photo_viewer.js).
     LaunchedEffect(loadingState) {
         if (loadingState is LoadingState.Finished) {
-            val script = resources.openRawResource(R.raw.messages_layer_nav)
-                .bufferedReader().use { it.readText() }
+            val script = listOf(R.raw.messages_layer_nav, R.raw.layer_photo_viewer).joinToString("\n") { id ->
+                resources.openRawResource(id).bufferedReader().use { it.readText() }
+            }
             navigator.evaluateJavaScript(script) {}
         }
     }
@@ -294,7 +299,8 @@ fun MessagesLayer(
                             layer = LayerBridge { newUrl ->
                                 val exit = messagesLayerExit(newUrl)?.takeUnless { reelShare && isReelCreatePage(newUrl) }
                                 ContextCompat.getMainExecutor(context).execute {
-                                    if (exit != null) currentOnLeave(exit.mainUrl, pageUrl) else pageUrl = newUrl
+                                    if (exit != null) currentOnLeave(exit.mainUrl, pageUrl)
+                                    else if (isDesktopMessagesUrl(newUrl)) pageUrl = newUrl
                                 }
                             },
                         )

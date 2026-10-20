@@ -119,6 +119,8 @@ import kotlinx.coroutines.delay
 
 private const val HOME_URL = HOME_PAGE_URL
 
+// A reel opened from a chat: the longest the chat stays on screen while the reel loads.
+private const val LAYER_CLOSE_WAIT_MS = 8000L
 // A shared photo's page: how long to wait for a fresh load before using the page showing.
 private const val SHARE_LOAD_WAIT_MS = 2000L
 
@@ -236,6 +238,10 @@ fun MaterialbookWebView(
     var messagesLayerUrl by rememberSaveable { mutableStateOf<String?>(null) }
     // The chat a reel was opened from (see messagesLayerExit): Back on that reel opens it again.
     var layerReturnUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    // A reel opened from a chat loads in this view while the chat stays on screen: closing the
+    // layer at once showed this view's feed for a second before the reel came (seen on a Galaxy
+    // A56). The layer closes once the reel has loaded, or after LAYER_CLOSE_WAIT_MS.
+    var closeLayerOnReel by remember { mutableStateOf(false) }
     pendingExternalLink?.let { link ->
         ExternalLinkDialog(
             link = link,
@@ -725,6 +731,14 @@ fun MaterialbookWebView(
     // on behind the chat, and note its scroll position. On close: once the screen is back in
     // portrait (a landscape layout reflows the feed and moves it), scroll it back there.
     val isMessagesLayerOpen = messagesLayerUrl != null
+    LaunchedEffect(closeLayerOnReel, state.loadingState) {
+        if (!closeLayerOnReel) return@LaunchedEffect
+        val onReel = state.loadingState is LoadingState.Finished &&
+            isMobileReelPage(runCatching { state.nativeWebView.url }.getOrNull())
+        if (!onReel) delay(LAYER_CLOSE_WAIT_MS)
+        closeLayerOnReel = false
+        messagesLayerUrl = null
+    }
     LaunchedEffect(isMessagesLayerOpen) {
         // While fullscreen, the fullscreen host owns the orientation (and resets it on exit).
         if (!isFullscreen) {
@@ -1003,9 +1017,14 @@ fun MaterialbookWebView(
                         return@leave
                     }
                     // Both the interceptor and the in-page watcher can report the same exit.
-                    if (messagesLayerUrl != null) {
-                        messagesLayerUrl = null
-                        layerReturnUrl = fromUrl.takeIf { isMobileReelPage(mainUrl) }
+                    if (messagesLayerUrl != null && !closeLayerOnReel) {
+                        if (isMobileReelPage(mainUrl)) {
+                            layerReturnUrl = fromUrl
+                            closeLayerOnReel = true
+                        } else {
+                            messagesLayerUrl = null
+                            layerReturnUrl = null
+                        }
                         mainUrl?.let { navigator.loadUrl(it) }
                     }
                 },

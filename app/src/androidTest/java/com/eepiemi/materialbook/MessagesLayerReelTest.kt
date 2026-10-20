@@ -63,9 +63,9 @@ class MessagesLayerReelTest {
         return layer
     }
 
-    private fun moveTo(layer: WebView, path: String) {
+    private fun moveTo(layer: WebView, path: String, settle: Boolean = true) {
         app.eval("history.pushState({}, '', '$path'); 1", layer)
-        Thread.sleep(1500) // messages_layer_nav.js checks every second besides pushState itself
+        if (settle) Thread.sleep(1500) // messages_layer_nav.js checks every second besides pushState itself
     }
 
     private fun layerOpen() = app.webViews().size > 1
@@ -102,6 +102,41 @@ class MessagesLayerReelTest {
         assertTrue("the layer reopened somewhere other than the chat", app.waitFor(15_000) {
             app.url(app.layerWebView()!!).contains(CHAT_ID)
         })
+    }
+
+    @Test
+    fun aReelFromAShareLink_goesBackToTheChat_notTheLink() {
+        // A reel shared in a chat comes as Facebook's share link, which redirects to the reel.
+        // Back reopened the link (so the reel) on every press.
+        val layer = openChat()
+        moveTo(layer, "/share/r/AbCdEf123/")
+        assertTrue("the share link left the layer", layerOpen())
+        moveTo(layer, "/reel/$REEL_ID")
+        reelOpenedInTheMainView()
+
+        app.pressBack()
+        assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        assertTrue("Back reopened something other than the chat (the share link?)", app.waitFor(15_000) {
+            app.layerWebView()?.let { app.url(it) }.orEmpty().let { it.contains(CHAT_ID) && !it.contains("/share/") }
+        })
+    }
+
+    @Test
+    fun theChatStaysOnScreen_untilTheReelIsInTheMainView() {
+        // Closing the layer at once showed the main view's feed for a second before the reel.
+        val layer = openChat()
+        moveTo(layer, "/reel/$REEL_ID", settle = false)
+        var mainUrlWhenClosed: String? = null
+        val main = app.mainWebView()
+        assertTrue("the layer never closed", app.waitFor(15_000) {
+            val open = layerOpen()
+            if (!open) mainUrlWhenClosed = app.url(main)
+            !open
+        })
+        assertTrue(
+            "the layer closed before the main view had the reel (it showed $mainUrlWhenClosed)",
+            mainUrlWhenClosed.orEmpty().startsWith("https://m.facebook.com/reel/$REEL_ID")
+        )
     }
 
     @Test
