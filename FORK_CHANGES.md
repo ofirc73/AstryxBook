@@ -399,11 +399,27 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
 Facebook's own player behavior (the re-pause limitation below) is
 deliberately out of scope — external, unfixable from here.
 
-App-level tests (`MainActivityPipTest`, with `AppHarness`) start the real `MainActivity`, load a
-reel-like test page into its WebView and enter and leave real picture-in-picture: focus mode
-applied and restored, a wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP), a
-pinch-zoomed page shown whole in PiP with its zoom back afterwards. They catch the wiring between
-the activity, the effects and the scripts, which the script tests on their own can't.
+App-level regression tests (with `AppHarness`) start the real `MainActivity` and drive it as a
+user would, with test pages at Facebook addresses in its WebViews (no login, so they run in CI).
+They catch the wiring between the activity, the effects and the scripts, which the script tests
+on their own can't:
+
+- `MainActivityPipTest`: Home with a playing video enters PiP (not with PiP off); focus mode
+  applied and restored; the keep-playing guard only in PiP; leaving PiP keeps the page; a
+  wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP); a pinch-zoomed page shown
+  whole in PiP and zoomed back after; PiP from the Messages layer acting on the layer; PiP on the
+  WebView that replaces a crashed renderer; lock and unlock in PiP keeping the window, the page
+  and the sound.
+- `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
+- `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
+  Groups, profile picture) taking the files in and opening its page in the right view.
+- `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
+  unlocked with the PIN; locking again on coming back; the grace period letting a quick return
+  in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
+- `LinksTest`: a Facebook link opening in the app, also while it runs (the same instance) and
+  when shared as text; a link to another site leaving for the browser with the page kept.
+- `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
+  on Feeds opening the menu, Back on the first page leaving the app to the background.
 
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a

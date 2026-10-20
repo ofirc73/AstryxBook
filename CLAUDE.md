@@ -31,7 +31,10 @@ user-visible change.
   only and never distributable. The published APK is re-signed with the release keystore by
   `create-release.yml` (GitHub secrets); that's also why a local release build can't update a phone
   that has an official one.
-- App-level tests drive the real `MainActivity` through `AppHarness` (androidTest). The live
+- App-level tests drive the real `MainActivity` through `AppHarness` (androidTest; one class per
+  feature, listed in FORK_CHANGES' Testing). Test pages loaded with `loadPage` have no WebView
+  history (`asHistory` gives them one, but a reload then fetches the real page). The lock-screen
+  and app-lock tests need the screen lock's PIN: `-e pin 1234` on the emulator. The live
   checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).

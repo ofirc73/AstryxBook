@@ -26,19 +26,37 @@ class AppHarness {
     val context: Context = ApplicationProvider.getApplicationContext()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
+    /**
+     * Starts (or, as Android does for this singleTask activity, brings back) MainActivity with
+     * [intent] and waits until it's on screen.
+     */
     fun start(intent: Intent = Intent(context, MainActivity::class.java)) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        assertTrue("MainActivity never came up", waitFor(15_000) { activity() != null })
+        assertTrue("MainActivity never came up", waitFor(15_000) { activity()?.let { !it.isFinishing } == true })
     }
 
-    /** Finishes every activity the test left, so the next test starts the app afresh. */
+    private fun anyMainActivity(): Boolean {
+        var any = false
+        instrumentation.runOnMainSync {
+            val registry = ActivityLifecycleMonitorRegistry.getInstance()
+            any = listOf(Stage.PRE_ON_CREATE, Stage.CREATED, Stage.STARTED, Stage.RESUMED, Stage.PAUSED, Stage.STOPPED)
+                .any { stage -> registry.getActivitiesInStage(stage).any { it is MainActivity } }
+        }
+        return any
+    }
+
+    /**
+     * Finishes every activity the test left and waits until they're destroyed, so the next test
+     * starts the app afresh (a finishing activity still found by [activity] handed the next test
+     * the old WebView).
+     */
     fun finish() {
         instrumentation.runOnMainSync {
             for (stage in listOf(Stage.RESUMED, Stage.PAUSED, Stage.STOPPED, Stage.STARTED, Stage.CREATED)) {
                 ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage).forEach { it.finish() }
             }
         }
-        waitFor(5_000) { activity() == null }
+        waitFor(10_000) { !anyMainActivity() }
     }
 
     fun activity(): MainActivity? {
@@ -46,7 +64,7 @@ class AppHarness {
         instrumentation.runOnMainSync {
             val registry = ActivityLifecycleMonitorRegistry.getInstance()
             found = (registry.getActivitiesInStage(Stage.RESUMED) + registry.getActivitiesInStage(Stage.PAUSED))
-                .firstOrNull { it is MainActivity }
+                .filter { it is MainActivity }.let { list -> list.firstOrNull { !it.isFinishing } ?: list.firstOrNull() }
         }
         return found as MainActivity?
     }
@@ -82,11 +100,20 @@ class AppHarness {
      * Back handling reads it; a reload then fetches the real page.
      */
     fun loadPage(url: String, html: String, webView: WebView = mainWebView(), asHistory: Boolean = false) {
-        instrumentation.runOnMainSync {
-            webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", url.takeIf { asHistory })
-        }
-        val loaded = waitFor {
-            eval("location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
+        // Whatever the WebView was loading (the start page, a page the app opened) finishes
+        // first: a load still under way replaced the test page with the real one at its address.
+        waitFor(20_000) { onActivity { webView.progress } == 100 }
+        Thread.sleep(1000)
+        var loaded = false
+        for (attempt in 1..3) {
+            instrumentation.runOnMainSync {
+                webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", url.takeIf { asHistory })
+            }
+            loaded = waitFor {
+                eval("location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
+            }
+            if (loaded) break
+            waitFor(20_000) { onActivity { webView.progress } == 100 }
         }
         assertTrue("the test page never loaded (the WebView shows ${eval("location.href + ' ' + document.readyState", webView)})", loaded)
         Thread.sleep(1500) // the app's scripts run once the page has finished loading

@@ -309,6 +309,9 @@ class MainActivity : FragmentActivity() {
     // ---- app lock (AppLockController) ----
     private val appLockController = AppLockController(this) { settingsVM.appLock.value }
 
+    /** Whether app lock covers the page now (for the app-level tests). */
+    internal val isAppLocked: Boolean get() = appLockController.isLocked
+
     override fun onStop() {
         super.onStop()
         AppVisibility.onScreen = false
