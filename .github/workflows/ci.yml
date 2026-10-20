@@ -23,11 +23,6 @@ on:
         type: string
         required: false
         default: ''
-      coverage:
-        description: 'Generate the coverage report in the instrumented-tests job. create-release.yml passes false and runs coverage.yml next to its release job instead, so publishing does not wait for it.'
-        type: boolean
-        required: false
-        default: true
 
 jobs:
   android-lint:
@@ -307,12 +302,3 @@ jobs:
         run: |
           echo "instrumented tests: $SHARDS, release launch: $LAUNCH"
           [ "$SHARDS" = success ] && [ "$LAUNCH" = success ]
-
-  # Combined coverage report from all the parts' .ec files. Release runs (coverage: false) make
-  # it in coverage.yml next to their release job instead. It never gates anything.
-  # inputs.coverage is empty on PR and manual runs; GitHub's loose == would treat that like
-  # false, so compare it as text.
-  coverage:
-    needs: instrumented-shard
-    if: ${{ !cancelled() && needs.instrumented-shard.result == 'success' && format('{0}', inputs.coverage) != 'false' }}
-    uses: ./.github/workflows/coverage.yml

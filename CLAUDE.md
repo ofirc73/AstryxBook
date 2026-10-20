@@ -29,8 +29,8 @@ user-visible change.
   APK's launch check (`release-launch`, the build job's APK); the required `instrumented-tests`
   check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
   `--build-cache`). Run CI by hand on a branch with
-  `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) runs next
-  to the release job and doesn't gate it.
+  `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) is its own
+  workflow, started after each CI or release run that passed (`workflow_run`); it gates nothing.
 - A local release APK is signed with the **debug** key (`app/build.gradle.kts`): it's for testing
   only and never distributable. The published APK is re-signed with the release keystore by
   `create-release.yml` (GitHub secrets); that's also why a local release build can't update a phone
