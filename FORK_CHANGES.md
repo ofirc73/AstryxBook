@@ -456,6 +456,11 @@ separate layer was added on top.
   Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile
   redirects (profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
+- A photo sent in a chat can be pinch-zoomed: the desktop photo viewer shows it small at phone
+  width and has no zoom of its own for fingers, and the layer's WebView had pinch zoom off (and
+  *Pinch to zoom* off locked it too; the lock now leaves the layer alone, as it leaves the mobile
+  site's photo pages). Not in the story and reel creators, whose editors follow finger drags.
+  Covered by `MessagesLayerZoomTest`.
 - A reel shared in a chat opens in the main view's mobile reel player
   (`m.facebook.com/reel/<id>`): on the desktop reel page in the layer it was drawn small in the
   phone-wide layout, couldn't be enlarged, and played without sound even when unmuted (seen on a

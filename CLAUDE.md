@@ -80,7 +80,8 @@ user-visible change.
   reel's own page (`/reel/<id>`, as a reel shared in a chat opens; Back on it reopens the chat,
   `layerReturnUrl`) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
-  DevTools target. PiP effects act on
+  DevTools target. The layer pinch-zooms (not in the creators) and runs the page scripts with
+  `window.__astryxMessagesLayer` set (`pinch_to_zoom.js` leaves it zoomable). PiP effects act on
   `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on
   `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to
