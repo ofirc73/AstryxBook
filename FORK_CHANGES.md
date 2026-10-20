@@ -59,6 +59,9 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   links, downloads, sharing into Facebook…) into Arabic, Bengali, German, Spanish, French,
   Italian, Portuguese and Traditional Chinese, with each language's plural forms. They
   showed in English in those languages until now.
+- Indonesian (`in`): upstream's new translation, merged from upstream without its
+  Materialbook-branded strings, plus the fork's own strings and its additions to `strings.xml`
+  (PiP, Messages in desktop mode, keep screen on…), so the whole app is in Indonesian.
 
 ## Android compatibility
 
