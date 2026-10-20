@@ -4,7 +4,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -49,7 +48,10 @@ class PagesAndSettingsTest {
     @Test
     fun theAppsScripts_runOnFacebooksPages() {
         startOnPage()
-        assertEquals("scripts.js never ran on the page", "\"function\"", app.eval("typeof window.backHandlerNB"))
+        // The app's scripts run once the page has finished loading; on a slow emulator a moment later.
+        assertTrue("scripts.js never ran on the page", app.waitFor(10_000) {
+            app.eval("typeof window.backHandlerNB") == "\"function\""
+        })
     }
 
     @Test

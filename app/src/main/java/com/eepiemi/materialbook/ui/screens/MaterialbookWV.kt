@@ -109,6 +109,21 @@ import kotlinx.coroutines.delay
 
 private const val HOME_URL = HOME_PAGE_URL
 
+// The main view's videos while the Messages layer is over it: paused, and paused again whenever
+// they start (Facebook's reel player starts a paused reel again, so a reel went on playing, with
+// its sound, under the chat; seen on a Galaxy A56). The guard goes when the layer closes or hides.
+private const val PAUSE_UNDER_LAYER_JS = "(function () {" +
+    " document.querySelectorAll('video').forEach(function (v) { v.pause(); });" +
+    " if (window.__astryxPauseUnderLayer) return;" +
+    " window.__astryxPauseUnderLayer = function (e) { if (e.target && e.target.pause) e.target.pause(); };" +
+    " document.addEventListener('play', window.__astryxPauseUnderLayer, true);" +
+    " })();"
+private const val RESUME_UNDER_LAYER_JS = "(function () {" +
+    " if (!window.__astryxPauseUnderLayer) return;" +
+    " document.removeEventListener('play', window.__astryxPauseUnderLayer, true);" +
+    " window.__astryxPauseUnderLayer = null;" +
+    " })();"
+
 // A reel opened from a chat: the longest the chat stays on screen while the reel loads.
 private const val LAYER_CLOSE_WAIT_MS = 8000L
 
@@ -686,11 +701,9 @@ fun MaterialbookWebView(
     LaunchedEffect(isMessagesLayerOpen) {
         if (state.loadingState !is LoadingState.Finished) return@LaunchedEffect
         if (isMessagesLayerOpen) {
-            navigator.evaluateJavaScript(
-                "document.querySelectorAll('video').forEach(function(v) { v.pause(); });" +
-                    "window.__mbLayerScrollY = window.scrollY;"
-            ) {}
+            navigator.evaluateJavaScript(PAUSE_UNDER_LAYER_JS + "window.__mbLayerScrollY = window.scrollY;") {}
         } else {
+            navigator.evaluateJavaScript(RESUME_UNDER_LAYER_JS) {}
             val restore = "if (typeof window.__mbLayerScrollY === 'number' && " +
                 "Math.abs(window.scrollY - window.__mbLayerScrollY) > 4) " +
                 "window.scrollTo(0, window.__mbLayerScrollY);"

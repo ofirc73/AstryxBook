@@ -140,6 +140,26 @@ class MessagesLayerReelTest {
     }
 
     @Test
+    fun backToTheChat_keepsTheReelBehindItPaused() {
+        // Facebook's reel player starts a paused reel again: it went on playing, with its sound,
+        // under the chat.
+        val layer = openChat()
+        moveTo(layer, "/reel/$REEL_ID")
+        reelOpenedInTheMainView()
+        val main = app.mainWebView()
+        app.eval("document.body.insertAdjacentHTML('beforeend', \"<video id='reel' playsinline></video>\"); 1", main)
+
+        app.pressBack()
+        assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        Thread.sleep(1000)
+        // The reel's player starts it again.
+        app.eval("var v = document.getElementById('reel'); var p = v.play(); if (p && p.catch) p.catch(function () {}); 1", main)
+        assertTrue("the reel under the chat went on playing", app.waitFor(3_000) {
+            app.eval("document.getElementById('reel').paused", main) == "true"
+        })
+    }
+
+    @Test
     fun aReelFromAShareLink_goesBackToTheChat_notTheLink() {
         // A reel shared in a chat comes as Facebook's share link, which redirects to the reel.
         // Back reopened the link (so the reel) on every press.
