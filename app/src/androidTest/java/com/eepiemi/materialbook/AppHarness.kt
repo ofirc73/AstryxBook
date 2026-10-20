@@ -78,12 +78,17 @@ class AppHarness {
     /**
      * Loads [html] into [webView] as if it came from [url] (a Facebook address, so the app's
      * scripts and effects treat it as Facebook's), and waits for the app's scripts to have run.
+     * With [asHistory] the WebView also reports [url] as its address (WebView.url), as the app's
+     * Back handling reads it; a reload then fetches the real page.
      */
-    fun loadPage(url: String, html: String, webView: WebView = mainWebView()) {
-        instrumentation.runOnMainSync { webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", null) }
-        assertTrue("the test page never loaded", waitFor {
+    fun loadPage(url: String, html: String, webView: WebView = mainWebView(), asHistory: Boolean = false) {
+        instrumentation.runOnMainSync {
+            webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", url.takeIf { asHistory })
+        }
+        val loaded = waitFor {
             eval("location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
-        })
+        }
+        assertTrue("the test page never loaded (the WebView shows ${eval("location.href + ' ' + document.readyState", webView)})", loaded)
         Thread.sleep(1500) // the app's scripts run once the page has finished loading
     }
 

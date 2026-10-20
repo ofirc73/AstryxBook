@@ -68,12 +68,18 @@ private val SECTION_PATHS = setOf(
     "/gaming", "/notifications", "/bookmarks", "/reel", "/reels", "/saved", "/memories"
 )
 
+// A reel's own page (www.facebook.com/reel/<id>), as a reel shared in a chat opens.
+private val REEL_PAGE_PATH = Regex("^/reel/\\d+$")
+
 /**
  * Leaving Messages for one of Facebook's sections (Home, Friends, Watch, the Reels tab, ...)
  * from inside the layer: that belongs in the main view, on the mobile site. Kept in the layer,
  * the desktop feed looked just like the main one, and reels opened from it played in the
- * desktop layout. Returns null for anything else, including pages opened from a chat (a reel,
- * a profile, a post), which stay in the layer.
+ * desktop layout. A reel opened from a chat leaves too: the desktop reel page drew it small in
+ * the layer's phone-wide layout, with no way to enlarge it, and it played without sound (seen on
+ * a Galaxy A56); the mobile site's reel player shows it full size, with sound and PiP. Returns
+ * null for anything else, including other pages opened from a chat (a profile, a post), which
+ * stay in the layer.
  */
 fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
     val uri = runCatching { URI(url) }.getOrNull() ?: return null
@@ -85,10 +91,17 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
     return when {
         path.isEmpty() || path == "/home.php" -> MessagesLayerRoute.Leave(null)
         path == "/watch" && query?.contains("v=") == true -> null
+        REEL_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave("https://m.facebook.com$path/")
         path in SECTION_PATHS || path.startsWith("/friends/") ->
             MessagesLayerRoute.Leave("https://m.facebook.com$path/" + (query?.let { "?$it" } ?: ""))
         else -> null
     }
+}
+
+/** A reel's page on the mobile site (m.facebook.com/reel/<id>), as [messagesLayerExit] opens one. */
+fun isMobileReelPage(url: String?): Boolean {
+    val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
+    return uri.host?.lowercase() == "m.facebook.com" && REEL_PAGE_PATH.matches((uri.rawPath ?: "").trimEnd('/'))
 }
 
 /** The desktop Messages page (the one loaded with the desktop user agent). */

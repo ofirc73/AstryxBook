@@ -3,7 +3,6 @@ package com.eepiemi.materialbook.ui.screens
 import android.view.View
 import android.webkit.CookieManager
 import androidx.activity.compose.BackHandler
-import org.json.JSONObject
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,24 +27,24 @@ import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.MessagesLayerRoute
+import com.eepiemi.materialbook.utils.ShareMediaQueue
+import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.deadWebViewUrl
 import com.eepiemi.materialbook.utils.hardenWebView
-import com.eepiemi.materialbook.utils.jsBridge.installClipboardBridge
-import com.eepiemi.materialbook.utils.jsBridge.installDownloadBridge
-import com.eepiemi.materialbook.utils.jsBridge.installShareMediaBridge
-import com.eepiemi.materialbook.utils.ShareMediaQueue
-import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.isReelCreatePage
 import com.eepiemi.materialbook.utils.isStoryCreatePage
-import com.eepiemi.materialbook.utils.jsBridge.installPageBridges
-import com.eepiemi.materialbook.utils.jsBridge.PageBridges
 import com.eepiemi.materialbook.utils.jsBridge.LayerBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
+import com.eepiemi.materialbook.utils.jsBridge.PageBridges
 import com.eepiemi.materialbook.utils.jsBridge.PipBridge
 import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
 import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
+import com.eepiemi.materialbook.utils.jsBridge.installClipboardBridge
+import com.eepiemi.materialbook.utils.jsBridge.installDownloadBridge
+import com.eepiemi.materialbook.utils.jsBridge.installPageBridges
+import com.eepiemi.materialbook.utils.jsBridge.installShareMediaBridge
 import com.eepiemi.materialbook.utils.messagesLayerExit
 import com.eepiemi.materialbook.utils.messagesLayerRoute
 import com.multiplatform.webview.request.RequestInterceptor
@@ -54,16 +56,18 @@ import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.WebViewState
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
+import org.json.JSONObject
 
 /**
  * Messages in desktop mode: the desktop Messages page in its own WebView, drawn over the
  * main one. The main view keeps its mobile page (and scroll position) underneath, so
  * closing the layer goes straight back to where the user was.
  *
- * - Facebook pages opened from a chat (a shared reel, a profile) open in the layer too.
+ * - Facebook pages opened from a chat (a profile, a post) open in the layer too.
  * - Going to one of Facebook's sections (Home, Friends, the Reels tab, ...) from the desktop
- *   page closes the layer and shows it in the main view, on the mobile site ([onLeave]).
- * - Back steps through the layer's own history (a reel back to the chat, a conversation back
+ *   page, or opening a reel shared in a chat, closes the layer and shows it in the main view, on
+ *   the mobile site ([onLeave], with the layer's page it left from).
+ * - Back steps through the layer's own history (a profile back to the chat, a conversation back
  *   to the chat list), then closes the layer.
  * - Non-Facebook links go to [onExternalUrl], as in the main view.
  * - If the page's renderer process is lost, [onRendererGone] gets the page it was showing, to
@@ -90,7 +94,7 @@ fun MessagesLayer(
     onPipPageVisible: () -> Unit = {},
     trackVideoPlaying: Boolean = false,
     onScreenVideoPlayingChanged: (Boolean) -> Unit = {},
-    onLeave: (mainUrl: String?) -> Unit = { onClose() },
+    onLeave: (mainUrl: String?, fromUrl: String?) -> Unit = { _, _ -> onClose() },
     onOpenSettings: () -> Unit = {},
     onThemeColor: (Color) -> Unit = {},
     textZoom: Int = 100,
@@ -112,6 +116,9 @@ fun MessagesLayer(
     // Opened for a reel share: the desktop reels page (where the reel creator opens) stays in
     // the layer instead of leaving for the main view's Reels tab.
     val reelShare = isReelCreatePage(url)
+    // The last page the layer showed (a chat), for [onLeave]: a reel opened from it goes back
+    // there on Back.
+    var pageUrl by remember { mutableStateOf(url) }
     val navigator = rememberWebViewNavigator(
         requestInterceptor = object : RequestInterceptor {
             override fun onInterceptUrlRequest(
@@ -119,7 +126,10 @@ fun MessagesLayer(
                 navigator: WebViewNavigator
             ): WebRequestInterceptResult =
                 when (val route = layerRoute(request.url, request.isForMainFrame, reelShare)) {
-                    MessagesLayerRoute.Allow -> WebRequestInterceptResult.Allow
+                    MessagesLayerRoute.Allow -> {
+                        if (request.isForMainFrame) pageUrl = request.url
+                        WebRequestInterceptResult.Allow
+                    }
                     is MessagesLayerRoute.Remap -> {
                         navigator.loadUrl(route.url)
                         WebRequestInterceptResult.Reject
@@ -129,7 +139,7 @@ fun MessagesLayer(
                         WebRequestInterceptResult.Reject
                     }
                     is MessagesLayerRoute.Leave -> {
-                        currentOnLeave(route.mainUrl)
+                        currentOnLeave(route.mainUrl, pageUrl)
                         WebRequestInterceptResult.Reject
                     }
                 }
@@ -272,9 +282,10 @@ fun MessagesLayer(
                                 onPipPageVisible
                             ),
                             screen = ScreenBridge { currentOnScreenVideoPlayingChanged(it) },
-                            layer = LayerBridge { pageUrl ->
-                                messagesLayerExit(pageUrl)?.takeUnless { reelShare && isReelCreatePage(pageUrl) }?.let { exit ->
-                                    ContextCompat.getMainExecutor(context).execute { currentOnLeave(exit.mainUrl) }
+                            layer = LayerBridge { newUrl ->
+                                val exit = messagesLayerExit(newUrl)?.takeUnless { reelShare && isReelCreatePage(newUrl) }
+                                ContextCompat.getMainExecutor(context).execute {
+                                    if (exit != null) currentOnLeave(exit.mainUrl, pageUrl) else pageUrl = newUrl
                                 }
                             },
                         )

@@ -73,8 +73,9 @@ user-visible change.
 - Messages in desktop mode opens `MessagesLayer` (`ui/screens/MessagesLayer.kt`), a
   second WebView with the desktop user agent over the main one. The main view never
   switches user agent for Messages; Facebook pages opened from a chat stay in the layer
-  (`messagesLayerRoute`), but Facebook's own sections (Home, Friends, the Reels tab…) close
-  the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
+  (`messagesLayerRoute`), but Facebook's own sections (Home, Friends, the Reels tab…) and a
+  reel's own page (`/reel/<id>`, as a reel shared in a chat opens; Back on it reopens the chat,
+  `layerReturnUrl`) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
   DevTools target. PiP effects act on
   `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on

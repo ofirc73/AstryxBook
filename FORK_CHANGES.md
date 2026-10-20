@@ -434,12 +434,17 @@ separate layer was added on top.
   `m.me`, `messenger.com`, `fb-messenger://`, `intent://`) opens the layer. Links that
   point at a conversation keep it (`/messages/t/<id>`, `m.me/<name>`,
   `messenger.com/t/<id>`, `fb-messenger://user/<id>`); anything else opens the inbox.
-- Facebook pages opened from a chat (a shared reel, a profile) open in the layer too, on
-  the desktop site, which plays shared reels and opens profiles without pushing the
-  Facebook app; Back returns to the chat. Handing them to the mobile view instead lost the
-  feed position and broke on Facebook's mobile redirects (shared reels landed on the home
-  feed, profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
+- Facebook pages opened from a chat (a profile, a post) open in the layer too, on the desktop
+  site, which opens profiles without pushing the Facebook app; Back returns to the chat.
+  Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile
+  redirects (profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
+- A reel shared in a chat opens in the main view's mobile reel player
+  (`m.facebook.com/reel/<id>`): on the desktop reel page in the layer it was drawn small in the
+  phone-wide layout, couldn't be enlarged, and played without sound even when unmuted (seen on a
+  Galaxy A56). Back on the reel reopens the chat it came from. Facebook's share link for a reel
+  (`/share/r/…`) still opens in the layer first and leaves once it reaches the reel's page.
+  Covered by `MessagesDesktopTest` and `MessagesLayerReelTest`.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
   Reels tab and the like open their mobile page in the main view

@@ -30,8 +30,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -53,11 +53,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.multiplatform.webview.web.LoadingState
-import com.multiplatform.webview.web.WebView
-import com.multiplatform.webview.web.rememberSaveableWebViewState
-import com.multiplatform.webview.web.rememberWebViewNavigator
+import androidx.webkit.ScriptHandler
+import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
+import com.eepiemi.materialbook.audio.PipHandback
 import com.eepiemi.materialbook.notifications.FacebookCounts
 import com.eepiemi.materialbook.notifications.FacebookCountsWorker
 import com.eepiemi.materialbook.ui.components.ExternalLinkDialog
@@ -67,54 +66,56 @@ import com.eepiemi.materialbook.ui.components.settings.SettingsDialog
 import com.eepiemi.materialbook.ui.viewmodel.MainViewModel
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
-import com.eepiemi.materialbook.utils.lookUpPhotoPost
 import com.eepiemi.materialbook.utils.ExternalLinkAction
 import com.eepiemi.materialbook.utils.ExternalRequestInterceptor
-import com.eepiemi.materialbook.utils.externalLinkAction
-import com.eepiemi.materialbook.utils.isMessengerAppLink
-import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.FEEDS_PAGE_URL
+import com.eepiemi.materialbook.utils.FullscreenController
+import com.eepiemi.materialbook.utils.HOME_PAGE_URL
+import com.eepiemi.materialbook.utils.KeepScreenOn
 import com.eepiemi.materialbook.utils.REEL_CREATE_URL
 import com.eepiemi.materialbook.utils.STORY_CREATE_URL
 import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
-import com.eepiemi.materialbook.utils.shareStartPageUrl
-import com.eepiemi.materialbook.utils.HOME_PAGE_URL
+import com.eepiemi.materialbook.utils.TextZoom
 import com.eepiemi.materialbook.utils.appOrientation
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.clearWebData
 import com.eepiemi.materialbook.utils.deadWebViewUrl
-import com.eepiemi.materialbook.utils.rendererRecoveryUrl
-import com.eepiemi.materialbook.utils.jsBridge.installClipboardBridge
-import com.eepiemi.materialbook.utils.jsBridge.installDownloadBridge
-import com.eepiemi.materialbook.utils.jsBridge.installShareMediaBridge
-import com.eepiemi.materialbook.utils.jsBridge.installPageBridges
-import com.eepiemi.materialbook.utils.jsBridge.PageBridges
-import com.eepiemi.materialbook.utils.jsBridge.LayerBridge
-import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
-import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
-import com.eepiemi.materialbook.utils.jsBridge.DownloadEvents
-import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
-import com.eepiemi.materialbook.utils.jsBridge.PipBridge
-import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
-import com.eepiemi.materialbook.audio.PipHandback
 import com.eepiemi.materialbook.utils.effectiveDesktop
+import com.eepiemi.materialbook.utils.externalLinkAction
 import com.eepiemi.materialbook.utils.fbRedirectSanitizer
 import com.eepiemi.materialbook.utils.hardenWebView
 import com.eepiemi.materialbook.utils.intentFallbackUrl
-import com.eepiemi.materialbook.utils.KeepScreenOn
-import com.eepiemi.materialbook.utils.TextZoom
 import com.eepiemi.materialbook.utils.isMessagesLink
+import com.eepiemi.materialbook.utils.isMessengerAppLink
+import com.eepiemi.materialbook.utils.isMobileReelPage
 import com.eepiemi.materialbook.utils.isStoryCreatePage
 import com.eepiemi.materialbook.utils.isWebUrl
-import com.eepiemi.materialbook.utils.openInCustomTab
+import com.eepiemi.materialbook.utils.jsBridge.DownloadEvents
+import com.eepiemi.materialbook.utils.jsBridge.LayerBridge
+import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
+import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
+import com.eepiemi.materialbook.utils.jsBridge.PageBridges
+import com.eepiemi.materialbook.utils.jsBridge.PipBridge
+import com.eepiemi.materialbook.utils.jsBridge.ScreenBridge
+import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
+import com.eepiemi.materialbook.utils.jsBridge.installClipboardBridge
+import com.eepiemi.materialbook.utils.jsBridge.installDownloadBridge
+import com.eepiemi.materialbook.utils.jsBridge.installPageBridges
+import com.eepiemi.materialbook.utils.jsBridge.installShareMediaBridge
+import com.eepiemi.materialbook.utils.lookUpPhotoPost
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
-import com.eepiemi.materialbook.utils.shareablePageUrl
+import com.eepiemi.materialbook.utils.openInCustomTab
 import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
+import com.eepiemi.materialbook.utils.rendererRecoveryUrl
+import com.eepiemi.materialbook.utils.shareStartPageUrl
+import com.eepiemi.materialbook.utils.shareablePageUrl
 import com.eepiemi.materialbook.utils.shouldKeepScreenOn
-import androidx.webkit.ScriptHandler
-import androidx.webkit.WebViewFeature
+import com.multiplatform.webview.web.LoadingState
+import com.multiplatform.webview.web.WebView
+import com.multiplatform.webview.web.rememberSaveableWebViewState
+import com.multiplatform.webview.web.rememberWebViewNavigator
 import kotlinx.coroutines.delay
 
 private const val HOME_URL = HOME_PAGE_URL
@@ -243,6 +244,8 @@ fun MaterialbookWebView(
     val currentMessagesDesktopSetting by rememberUpdatedState(messagesDesktopSetting)
     val currentIsEffectiveDesktop by rememberUpdatedState(isEffectiveDesktop)
     var messagesLayerUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    // The chat a reel was opened from (see messagesLayerExit): Back on that reel opens it again.
+    var layerReturnUrl by rememberSaveable { mutableStateOf<String?>(null) }
     pendingExternalLink?.let { link ->
         ExternalLinkDialog(
             link = link,
@@ -543,7 +546,13 @@ fun MaterialbookWebView(
     // Home does: finishing dropped the WebView, so coming back reloaded the feed from the top.
     val leaveApp = { activity?.moveTaskToBack(true) }
     BackHandler {
-        if (exitScroll) {
+        val returnUrl = layerReturnUrl
+        layerReturnUrl = null
+        val onReturnReel = returnUrl != null &&
+            isMobileReelPage(runCatching { state.nativeWebView.url }.getOrNull())
+        if (onReturnReel) {
+            messagesLayerUrl = returnUrl
+        } else if (exitScroll) {
             leaveApp()
         } else {
             navigator.evaluateJavaScript("backHandlerNB();") {
@@ -1156,7 +1165,7 @@ fun MaterialbookWebView(
                 trackVideoPlaying = trackVideoPlaying,
                 textZoom = textZoomPercent,
                 onScreenVideoPlayingChanged = { layerVideoPlaying = it },
-                onLeave = leave@{ mainUrl ->
+                onLeave = leave@{ mainUrl, fromUrl ->
                     // A story was shared and Facebook moved on (to its feed): the next shared
                     // file gets the story creator again instead.
                     if (ShareMediaQueue.pending(ShareTarget.STORY)) {
@@ -1167,6 +1176,7 @@ fun MaterialbookWebView(
                     // Both the interceptor and the in-page watcher can report the same exit.
                     if (messagesLayerUrl != null) {
                         messagesLayerUrl = null
+                        layerReturnUrl = fromUrl.takeIf { isMobileReelPage(mainUrl) }
                         mainUrl?.let { navigator.loadUrl(it) }
                     }
                 },
