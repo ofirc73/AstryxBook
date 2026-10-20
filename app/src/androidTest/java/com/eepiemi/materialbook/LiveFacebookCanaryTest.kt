@@ -84,6 +84,12 @@ class LiveFacebookCanaryTest {
     @Test
     fun aReel_keepsPlayingInPip() {
         open("https://m.facebook.com/reels/")
+        // The test account on GitHub gets "Content not found" for the Reels tab (no reels for it
+        // there): a public reel, opened by its address, is checked instead.
+        if (app.waitFor(20_000) { eval("document.title === 'Content not found'") == "true" }) {
+            eval("location.href = '$PUBLIC_REEL_URL'; 1")
+            Thread.sleep(3000)
+        }
         var playing = app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" }
         if (!playing) {
             // Facebook's autoplay may not start on a slow emulator (GitHub's draws in software):
@@ -193,6 +199,8 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
+        // A public reel (shared with Public), for when the Reels tab has nothing for the account.
+        private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of
         // the account's: the address without values, the title, counts, and the ids of Facebook's
         // own static icons, which open_feeds.js and scripts.js look for).
