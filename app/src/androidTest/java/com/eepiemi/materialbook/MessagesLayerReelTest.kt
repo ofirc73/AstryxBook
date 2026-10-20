@@ -4,6 +4,7 @@ import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -68,7 +69,8 @@ class MessagesLayerReelTest {
         if (settle) Thread.sleep(1500) // messages_layer_nav.js checks every second besides pushState itself
     }
 
-    private fun layerOpen() = app.webViews().size > 1
+    // A layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
+    private fun layerOpen() = app.webViews().drop(1).any { webView -> app.onActivity { webView.visibility == android.view.View.VISIBLE } }
 
     // The layer closed and the main view started loading the reel: let that load finish (the
     // real page, or wherever Facebook sends a logged-out view) before putting a test page there.
@@ -99,9 +101,42 @@ class MessagesLayerReelTest {
         val before = app.url(app.mainWebView())
         app.pressBack()
         assertTrue("Back on the reel never reopened the chat (main view at $before)", app.waitFor { layerOpen() })
-        assertTrue("the layer reopened somewhere other than the chat", app.waitFor(15_000) {
-            app.url(app.layerWebView()!!).contains(CHAT_ID)
+        // The same layer, back in Messages (opened anew, an encrypted chat landed on the chat list).
+        // Which chat a step back lands on is the browser's: on these test pages one step from the
+        // reel lands on the page's first address rather than the chat's (a test page quirk; on
+        // Facebook's pages it's the chat).
+        assertSame("Back opened a new layer instead of the chat kept behind the reel", layer, app.layerWebView())
+        assertTrue("the layer came back somewhere other than Messages (${app.eval("location.pathname", layer)})", app.waitFor(15_000) {
+            app.eval("location.pathname", layer).contains("/messages/t/")
         })
+        assertEquals("the chat's page was reloaded", "true", app.eval("!!window.__testPage", layer))
+    }
+
+    @Test
+    fun backWithAPhotoOpen_closesThePhoto_notTheChat() {
+        // The desktop photo viewer isn't a page of its own: stepping back left the chat for
+        // "No chats selected".
+        val layer = openChat()
+        val viewer = app.context.resources.openRawResource(R.raw.layer_photo_viewer).bufferedReader().use { it.readText() }
+        app.eval(viewer + "; 1", layer)
+        app.eval(
+            "document.body.insertAdjacentHTML('beforeend', \"$PHOTO_VIEWER\");" +
+                " window.__escapes = 0; document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { window.__escapes++; var v = document.getElementById('viewer'); if (v) v.remove(); } }); 1",
+            layer
+        )
+        assertTrue("the viewer was never laid out for the phone", app.waitFor {
+            app.eval("!!document.querySelector('[data-astryx-photo-row]')", layer) == "true"
+        })
+
+        app.pressBack()
+        assertTrue("Back didn't close the photo", app.waitFor {
+            app.eval("!!document.getElementById('viewer')", layer) == "false"
+        })
+        Thread.sleep(1000)
+        assertTrue("Back closed the chat too", layerOpen())
+        assertTrue("Back left the chat", app.eval("location.pathname", layer).contains(CHAT_ID))
+        // One Escape: Messenger's desktop page takes a second one as closing the chat too.
+        assertEquals("1", app.eval("window.__escapes", layer))
     }
 
     @Test
@@ -117,8 +152,9 @@ class MessagesLayerReelTest {
         app.pressBack()
         assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
         assertTrue("Back reopened something other than the chat (the share link?)", app.waitFor(15_000) {
-            app.layerWebView()?.let { app.url(it) }.orEmpty().let { it.contains(CHAT_ID) && !it.contains("/share/") }
+            app.eval("location.pathname", layer).let { it.contains("/messages/t/") && !it.contains("/share/") }
         })
+        assertSame("Back opened a new layer instead of the chat kept behind the reel", layer, app.layerWebView())
     }
 
     @Test
@@ -169,6 +205,14 @@ class MessagesLayerReelTest {
         private const val CHAT_ID = "4567"
         private const val CHAT_PATH = "/messages/t/$CHAT_ID/"
         private const val REEL_ID = "1360854416127071"
+        // The desktop viewer's layout (see LayerPhotoViewerJsTest): arrow columns around the photo.
+        private const val PHOTO_VIEWER =
+            "<div id='viewer' style='position:fixed;inset:0;background:#000'>" +
+                "<div style='display:flex;justify-content:space-between;width:100%;height:600px'>" +
+                "<div style='width:72px;height:600px;flex:none'></div>" +
+                "<div style='display:flex;flex:0 0 200px'><div style='position:relative;width:100%;padding-top:75%'>" +
+                "<img style='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#468'>" +
+                "</div></div><div style='width:72px;height:600px;flex:none'></div></div></div>"
         private const val PAGE =
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
                 "<body><p>test page</p><script>window.__testPage = true;</script></body></html>"

@@ -44,17 +44,51 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
     /** When the layer's renderer was last lost, for rendererRecoveryUrl. */
     var lastRendererLossAt: Long? = null
 
+    /**
+     * The layer is kept, out of sight, behind the reel it left for: Back shows the same chat again,
+     * where it was. Opened anew at the chat's address, an end-to-end encrypted chat landed on the
+     * chat list instead (seen on a Galaxy A56).
+     */
+    var hidden by mutableStateOf(false)
+
+    /** The layer exists (shown or hidden). */
     val isOpen: Boolean get() = url != null
+
+    /** The layer is on screen. */
+    val isShown: Boolean get() = url != null && !hidden
+
+    /** Opens the layer at [url] (shows it, if it's the hidden one at that page). */
+    fun open(url: String) {
+        this.url = url
+        hidden = false
+    }
+
+    /** Closes the layer, shown or hidden. */
+    fun close() {
+        url = null
+        hidden = false
+    }
 
     /**
      * Back in the main view, at [mainUrl]: on the reel a chat opened, opens that chat again and
      * returns true. Either way the chat is forgotten (Back on another page leaves it).
      */
     fun backToChat(mainUrl: String?): Boolean {
+        val onReel = isMobileReelPage(mainUrl)
+        if (hidden) {
+            if (onReel) {
+                hidden = false
+                returnUrl = null
+                return true
+            }
+            // The user went on from the reel: the chat kept behind it goes.
+            close()
+        }
         val chat = returnUrl
         returnUrl = null
-        if (chat == null || !isMobileReelPage(mainUrl)) return false
-        url = chat
+        if (chat == null || !onReel) return false
+        // The layer kept behind the reel is gone (the activity was recreated): the chat anew.
+        open(chat)
         return true
     }
 
@@ -63,7 +97,7 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         if (ShareMediaQueue.pending(ShareTarget.STORY) || ShareMediaQueue.pending(ShareTarget.REEL)) {
             ShareMediaQueue.clear()
         }
-        url = null
+        close()
     }
 
     /**
@@ -85,17 +119,17 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
                 returnUrl = fromUrl
                 closeOnReel = true
             } else {
-                url = null
+                close()
                 returnUrl = null
             }
             mainUrl?.let(loadMain)
         }
     }
 
-    /** The reel the layer left for is on screen in the main view: the layer closes. */
+    /** The reel the layer left for is on screen in the main view: the layer goes out of sight. */
     fun reelShown() {
         closeOnReel = false
-        url = null
+        hidden = true
     }
 
     /** The layer's renderer was lost at [pageUrl] ([layerUrl] it opened at): a new layer opens there. */
@@ -107,7 +141,8 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
 
     companion object {
         val Saver = listSaver<MessagesLayerState, String?>(
-            save = { listOf(it.url, it.returnUrl) },
+            // A hidden layer isn't brought back: Back opens its chat anew (returnUrl).
+            save = { listOf(it.url.takeUnless { _ -> it.hidden }, it.returnUrl) },
             restore = { MessagesLayerState(url = it[0], returnUrl = it[1]) },
         )
     }
