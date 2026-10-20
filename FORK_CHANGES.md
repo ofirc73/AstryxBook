@@ -399,6 +399,20 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
 Facebook's own player behavior (the re-pause limitation below) is
 deliberately out of scope — external, unfixable from here.
 
+App-level tests (`MainActivityPipTest`, with `AppHarness`) start the real `MainActivity`, load a
+reel-like test page into its WebView and enter and leave real picture-in-picture: focus mode
+applied and restored, a wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP), a
+pinch-zoomed page shown whole in PiP with its zoom back afterwards. They catch the wiring between
+the activity, the effects and the scripts, which the script tests on their own can't.
+
+`LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
+Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
+visible video, a photo shared to Feed reaching the composer, Create story opening the creator,
+Start on Feeds finding the menu entry, and the notification counts read from the tab bar. It
+needs a logged-in device, so it runs only with `-e canary true` (`tools/canary.ps1` builds main
+and runs it on the emulator); in CI it is skipped. Nothing is posted: the checks stop at the
+open editors.
+
 ## Messages in desktop mode
 
 Facebook's mobile site (`m.facebook.com`) no longer has Messages: its Messages tab sends
@@ -574,6 +588,9 @@ leaving the app while a Facebook video or Reel is playing.
   enlarging it showed the feed instead of the video (seen on a Galaxy A56, 260 s video). The
   lock-screen player now loops the video, and the hand-back starts the page's video over rather
   than at its very end. Covered by `PipHandoffJsTest`.
+- The app could crash when the PiP window closed (or the app was closed) while the page was still
+  reporting the video's state: Android refuses PiP settings for an activity that is going away.
+  Those updates are now skipped then. Found by the live-Facebook checks (`LiveFacebookCanaryTest`).
 
 ## Sharing, text size, shortcuts and developer options
 
