@@ -36,18 +36,36 @@
   // - on the chat list, the layer closes ('list');
   // - anywhere else (a profile opened from a chat) the layer steps back a page ('page').
   // Answers what it did: 'photo', 'chat', 'list' or 'page'.
+  // The chat header's Back button: an icon button below Facebook's own header bar (56 px), at the
+  // left, with the chat's name (a link) right next to it on the same row. The name tells it from
+  // the chat list's search icon, which sits there too (Back on the list pressed it, and the list
+  // stayed; seen on a Galaxy A56).
+  function chatBackButton() {
+    var buttons = document.querySelectorAll('[role="button"]');
+    var links = document.querySelectorAll('a[href], [role="link"]');
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i], r = b.getBoundingClientRect();
+      if (r.width < 20 || r.width > 56 || r.left < 0 || r.left > 80 || r.top < 56 || r.top > 200) continue;
+      if (!b.querySelector('svg')) continue;
+      // On screen, not just laid out: with the chat list showing, the chat's header is still there
+      // underneath, its call buttons where the Back button would be (one of them was pressed).
+      var hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (!hit || !b.contains(hit)) continue;
+      for (var j = 0; j < links.length; j++) {
+        var l = links[j].getBoundingClientRect();
+        var middle = l.top + l.height / 2;
+        if (l.width > 0 && l.left >= r.right - 4 && l.left <= r.right + 60 && middle >= r.top && middle <= r.bottom) return b;
+      }
+    }
+    return null;
+  }
+
   window.__astryxLayerBack = function () {
     if (window.__astryxClosePhotoViewer && window.__astryxClosePhotoViewer()) return 'photo';
     if (location.pathname.indexOf('/messages') !== 0) return 'page';
-    var buttons = document.querySelectorAll('[role="button"]');
-    for (var i = 0; i < buttons.length; i++) {
-      var b = buttons[i], r = b.getBoundingClientRect();
-      // Below Facebook's own header bar (56 px), at the chat header's left, an icon button.
-      if (r.width < 20 || r.width > 56 || r.left < 0 || r.left > 80 || r.top < 56 || r.top > 200) continue;
-      if (!b.querySelector('svg')) continue;
-      b.click();
-      return 'chat';
-    }
-    return 'list';
+    var back = chatBackButton();
+    if (!back) return 'list';
+    back.click();
+    return 'chat';
   };
 })();
