@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -12,8 +11,6 @@ import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.util.Rational
@@ -36,15 +33,6 @@ import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.eepiemi.materialbook.audio.LockScreenAudioService
-import com.eepiemi.materialbook.audio.PipHandback
-import com.eepiemi.materialbook.audio.isHandoffEligible
-import com.eepiemi.materialbook.audio.parseHandoffRead
 import com.eepiemi.materialbook.notifications.AppVisibility
 import com.eepiemi.materialbook.notifications.FacebookCountsWorker
 import com.eepiemi.materialbook.ui.screens.AppLockScreen
@@ -63,15 +51,10 @@ import com.eepiemi.materialbook.utils.appOrientation
 import com.eepiemi.materialbook.utils.publishAppShortcuts
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
-import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.launch
 
 private const val TAG = "AstryxbookPiP"
 private const val ACTION_PIP_TOGGLE = "com.astryx.book.PIP_TOGGLE_PLAYBACK"
-
-// Cap on PIP_HANDOFF_READ_JS answering after screen-off (it took 5-30ms in
-// the device spike); the foreground grace period leaves no room to wait.
-private const val HANDOFF_READ_TIMEOUT_MS = 300L
 
 // How recently a video must have been playing to count as "playing when PiP started".
 private const val PIP_RECENTLY_PLAYING_MS = 3000L
@@ -138,17 +121,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    // ---- Lock-screen audio (see LockScreenAudioService) ----
-    // While in PiP with the setting on, locking the screen hands the video's
-    // audio from the WebView to a native player; coming back hands it back.
-
-    // Bumped at screen-off to run PIP_HANDOFF_READ_JS; the result comes back
-    // through onPipHandoffRead.
-    private var pipHandoffReadTrigger by mutableIntStateOf(0)
-
-    // Latest handback request for the composable to run (pipHandbackJs).
-    private var pipHandback by mutableStateOf<PipHandback?>(null)
-    private var pipHandbackSeq = 0
+    // Lock-screen audio: the video's sound handed to a native player while the screen is locked in PiP.
+    private val lockScreenAudio = LockScreenAudioController(
+        this,
+        isInPip = { isInPipMode },
+        enabled = { settingsVM.pipEnabled.value && settingsVM.pipLockscreenAudio.value },
+    )
 
     // A link sent while the app runs (singleTask: onNewIntent) opens in the existing WebView.
     private var openLinkRequest by mutableStateOf<OpenLinkRequest?>(null)
@@ -156,25 +134,6 @@ class MainActivity : FragmentActivity() {
     // Photos or videos shared from another app ("Post to Facebook", "Facebook story"), once
     // they're copied into the cache: the WebView opens Facebook's composer for them.
     private var shareMediaRequest by mutableStateOf<ShareMediaRequest?>(null)
-
-    // Bound at PiP entry (option B: binding creates the service idle, not in
-    // the foreground), used at screen-off to start playback and at handback
-    // to read the position.
-    private var audioController: ListenableFuture<MediaController>? = null
-
-    // Single guard so screen-off never double-starts a handoff and handback
-    // never runs twice.
-    private var handoffActive = false
-    private var handoffReadPending = false
-    private var handoffStartMs = 0L
-
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val handoffReadTimeout = Runnable {
-        if (handoffReadPending) {
-            handoffReadPending = false
-            Log.w(TAG, "handoff: page read timed out after ${HANDOFF_READ_TIMEOUT_MS}ms, aborting")
-        }
-    }
 
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -184,127 +143,9 @@ class MainActivity : FragmentActivity() {
             if (locksOnScreenOff(settingsVM.appLock.value, settingsVM.appLockOnScreenOff.value)) {
                 appLockController.lockOnNextStart = true
             }
-            // Observed order on the device spike (SM-A566B, Android 16): the
-            // page gets visibilitychange -> hidden first, Facebook pauses the
-            // video 25-60ms later, then SCREEN_OFF arrives ~0.5s after that,
-            // still in PiP (PiP stays open across lock and unlock), so the
-            // live isInPipMode check here is reliable.
-            Log.d(TAG, "handoff: SCREEN_OFF inPip=$isInPipMode enabled=${lockscreenAudioEnabled()} active=$handoffActive pending=$handoffReadPending")
-            if (!isInPipMode || !lockscreenAudioEnabled() || handoffActive || handoffReadPending) return
-            handoffReadPending = true
-            pipHandoffReadTrigger++
-            mainHandler.postDelayed(handoffReadTimeout, HANDOFF_READ_TIMEOUT_MS)
+            lockScreenAudio.onScreenOff()
         }
     }
-
-    private fun lockscreenAudioEnabled(): Boolean =
-        settingsVM.pipEnabled.value && settingsVM.pipLockscreenAudio.value
-
-    private fun connectAudioController(): ListenableFuture<MediaController> =
-        audioController ?: MediaController.Builder(
-            this, SessionToken(this, ComponentName(this, LockScreenAudioService::class.java))
-        ).buildAsync().also { audioController = it }
-
-    private fun releaseAudio() {
-        audioController?.let { MediaController.releaseFuture(it) }
-        audioController = null
-        stopService(Intent(this, LockScreenAudioService::class.java))
-    }
-
-    private fun onPipHandoffRead(raw: String?) {
-        if (!handoffReadPending) {
-            // Timed out already; still undo the mute the read applied.
-            Log.w(TAG, "handoff: late page read ignored, restoring WebView video")
-            requestHandback(positionMs = null, play = false)
-            return
-        }
-        handoffReadPending = false
-        mainHandler.removeCallbacks(handoffReadTimeout)
-
-        val read = parseHandoffRead(raw)
-        if (read == null || !isHandoffEligible(read.src, read.wasPlaying)) {
-            Log.d(TAG, "handoff: not eligible (src=${read?.src?.take(40)}, wasPlaying=${read?.wasPlaying}), aborting")
-            requestHandback(positionMs = null, play = false)
-            return
-        }
-
-        handoffActive = true
-        handoffStartMs = read.positionMs
-        val item = MediaItem.Builder()
-            .setUri(read.src)
-            .setRequestMetadata(
-                MediaItem.RequestMetadata.Builder().setMediaUri(read.src.toUri()).build()
-            )
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(getString(R.string.lockscreen_audio_media_title))
-                    .build()
-            )
-            .build()
-        val future = connectAudioController()
-        // Nothing slow before play(): the system only allows the service's
-        // promotion to the foreground for a short grace period after the PiP
-        // window stops being visible (~0.6s after screen-off in the spike).
-        future.addListener({
-            try {
-                val controller = future.get()
-                // Start position goes in with the item: a separate seekTo()
-                // was applied before the item was set and then reset to 0
-                // (seen on device: playback always started from 0:00).
-                controller.setMediaItem(item, read.positionMs)
-                controller.prepare()
-                controller.play()
-                Log.d(TAG, "handoff: native playback started at ${read.positionMs}ms")
-            } catch (e: Exception) {
-                Log.e(TAG, "handoff: starting native playback failed", e)
-            }
-        }, ContextCompat.getMainExecutor(this))
-    }
-
-    /**
-     * Ends an active handoff. Called from whichever signal comes first; the
-     * others are no-ops. ACTION_USER_PRESENT isn't used: the system sent it
-     * on unlock in the spike, but this receiver never got it.
-     */
-    private fun handBack(signal: String) {
-        if (!handoffActive) return
-        handoffActive = false
-        val controller = audioController
-            ?.takeIf { it.isDone && !it.isCancelled }
-            ?.let { runCatching { it.get() }.getOrNull() }
-            ?.takeIf { it.isConnected }
-        // After a player error (e.g. an expired URL) the player is stopped
-        // but keeps its last position, so this is still the right place to
-        // resume from.
-        val positionMs = controller?.currentPosition ?: handoffStartMs
-        // Paused from the lock-screen controls (or stopped by an error):
-        // hand back without resuming.
-        val play = controller?.playWhenReady == true &&
-            (controller.playbackState == Player.STATE_READY ||
-                controller.playbackState == Player.STATE_BUFFERING)
-        Log.d(TAG, "handback: signal=$signal positionMs=$positionMs play=$play")
-        controller?.stop()
-        // An empty timeline makes Media3 drop the notification and call
-        // stopForeground right away. Without this the service stays in the
-        // foreground (Media3 keeps it there for up to 10 minutes after
-        // playback stops) because the reconnect below keeps it bound and
-        // alive, so stopService alone never destroys it.
-        controller?.clearMediaItems()
-        releaseAudio()
-        requestHandback(positionMs, play)
-        // Still in PiP: get ready for the next lock.
-        if (isInPipMode && lockscreenAudioEnabled()) connectAudioController()
-    }
-
-    private fun requestHandback(positionMs: Long?, play: Boolean) {
-        pipHandback = PipHandback(
-            seq = ++pipHandbackSeq,
-            positionMs = positionMs,
-            play = play,
-            rearm = isInPipMode && lockscreenAudioEnabled(),
-        )
-    }
-    // ---- end lock-screen audio ----
 
     // ---- app lock (AppLockController) ----
     private val appLockController = AppLockController(this) { settingsVM.appLock.value }
@@ -395,12 +236,12 @@ class MainActivity : FragmentActivity() {
                         pipEnteringTrigger = pipEnteringTrigger,
                         isInPipMode = isInPipMode,
                         pipStartedWhilePlaying = pipStartedWhilePlaying,
-                        pipHandoffReadTrigger = pipHandoffReadTrigger,
-                        pipHandback = pipHandback,
+                        pipHandoffReadTrigger = lockScreenAudio.readTrigger,
+                        pipHandback = lockScreenAudio.handback,
                         openLinkRequest = openLinkRequest,
                         shareMediaRequest = shareMediaRequest,
-                        onPipHandoffRead = ::onPipHandoffRead,
-                        onPipPageVisible = { runOnUiThread { handBack("page visible") } },
+                        onPipHandoffRead = lockScreenAudio::onPageRead,
+                        onPipPageVisible = { runOnUiThread { lockScreenAudio.handBack("page visible") } },
                         isAppLocked = appLockController.isLocked,
                         onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
                             updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
@@ -475,13 +316,13 @@ class MainActivity : FragmentActivity() {
         super.onStart()
         AppVisibility.onScreen = true
         FacebookCountsWorker.onAppShown(this)
-        handBack("onStart")
+        lockScreenAudio.handBack("onStart")
         appLockController.onStart()
     }
 
     override fun onResume() {
         super.onResume()
-        handBack("onResume")
+        lockScreenAudio.handBack("onResume")
         appLockController.onResume(isInPictureInPictureMode)
     }
 
@@ -489,9 +330,7 @@ class MainActivity : FragmentActivity() {
         super.onDestroy()
         unregisterReceiver(pipActionReceiver)
         unregisterReceiver(screenOffReceiver)
-        mainHandler.removeCallbacks(handoffReadTimeout)
-        handoffActive = false
-        releaseAudio()
+        lockScreenAudio.onDestroy()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
@@ -507,13 +346,7 @@ class MainActivity : FragmentActivity() {
         }
         isInPipMode = isInPictureInPictureMode
 
-        if (isInPictureInPictureMode) {
-            if (lockscreenAudioEnabled()) connectAudioController()
-        } else if (handoffActive) {
-            handBack("PiP exit")
-        } else {
-            releaseAudio()
-        }
+        lockScreenAudio.onPipModeChanged(isInPictureInPictureMode)
 
         // Facebook's player pauses the video the instant PiP resizes the page
         // (the keep-playing guard in MaterialbookWV resumes it shortly after),
