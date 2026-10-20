@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian copy of values/privacy_strings.xml (see the comment there). -->
+<resources>
+    <string name="app_lock_title">Kunci aplikasi</string>
+    <string name="app_lock_off">Mati</string>
+    <string name="app_lock_immediately">Kunci begitu saya keluar</string>
+    <string name="app_lock_after_1_min">Kunci setelah 1 menit ditinggalkan</string>
+    <string name="app_lock_after_5_min">Kunci setelah 5 menit ditinggalkan</string>
+    <string name="app_lock_after_15_min">Kunci setelah 15 menit ditinggalkan</string>
+    <string name="app_lock_locked">%1$s terkunci</string>
+    <string name="app_lock_unlock">Buka kunci</string>
+    <string name="app_lock_prompt_title">Buka kunci %1$s</string>
+
+    <string name="app_lock_on_screen_off_title">Kunci saat layar mati</string>
+    <string name="app_lock_on_screen_off_summary">Mematikan layar langsung mengunci aplikasi, berapa pun waktu di atas</string>
+    <string name="block_screenshots_title">Blokir tangkapan layar</string>
+    <string name="block_screenshots_summary">Tangkapan layar, perekaman layar, transmisi, dan pratinjau Terbaru menampilkan aplikasi sebagai hitam</string>
+    <string name="clear_cache_on_leave_title">Hapus cache saat keluar</string>
+    <string name="clear_cache_on_leave_summary">Hapus foto, video, dan halaman yang disimpan aplikasi di cache setiap kali Anda keluar. Anda tetap login; halaman dimuat lebih lambat dan memakai lebih banyak data</string>
+
+    <string name="log_out_title">Logout dan hapus data</string>
+    <string name="log_out_summary">Hapus login Facebook, cookie, cache, dan data situs dari aplikasi ini</string>
+    <string name="log_out_confirm_title">Logout dan hapus data?</string>
+    <string name="log_out_confirm_text">Anda akan logout dari Facebook di aplikasi ini, dan cookie, cache, serta data situsnya akan dihapus. Pengaturan Anda tetap disimpan.</string>
+    <string name="log_out_confirm">Logout</string>
+    <string name="cancel">Batal</string>
+</resources>

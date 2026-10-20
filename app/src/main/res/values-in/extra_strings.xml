@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian copy of values/extra_strings.xml (see the comment there). -->
+<resources>
+    <string name="text_size_title">Zoom halaman</string>
+    <string name="text_size_percent">%1$d%%</string>
+    <string name="text_size_default">%1$d%% (bawaan)</string>
+
+    <string name="share_page">Bagikan halaman ini</string>
+    <string name="share_only_links">Hanya tautan yang dapat dibagikan ke Facebook</string>
+
+    <string name="shortcut_messages">Pesan</string>
+    <string name="shortcut_notifications">Notifikasi</string>
+    <string name="shortcut_marketplace">Marketplace</string>
+
+    <string name="app_version">%1$s %2$s</string>
+    <string name="developer_options_enabled">Opsi pengembang aktif</string>
+    <string name="webview_debugging_title">Debugging WebView</string>
+    <string name="webview_debugging_summary">Izinkan komputer dengan debugging USB memeriksa dan mengontrol halaman (chrome://inspect). Matikan setelah selesai.</string>
+    <string name="external_link_title">Buka di aplikasi lain?</string>
+    <string name="external_link_open">Buka</string>
+    <string name="open_links_title">Buka tautan Facebook di sini</string>
+    <string name="open_links_summary">Pilih tautan Facebook mana yang terbuka di aplikasi ini, bukan di browser</string>
+    <string name="open_web_links_in_app_title">Buka tautan web di aplikasi</string>
+    <string name="open_web_links_in_app_summary">Tampilkan di tab browser di atas aplikasi alih-alih berpindah aplikasi. Tab itu tidak memakai login Facebook Anda di sini.</string>
+    <string name="export_settings_title">Ekspor pengaturan</string>
+    <string name="export_settings_summary">Simpan pengaturan Anda ke sebuah berkas</string>
+    <string name="import_settings_title">Impor pengaturan</string>
+    <string name="import_settings_summary">Pulihkan pengaturan dari berkas yang diekspor</string>
+    <string name="settings_exported">Pengaturan diekspor</string>
+    <string name="settings_export_failed">Tidak dapat mengekspor pengaturan</string>
+    <string name="settings_import_failed">Itu bukan berkas pengaturan Astryxbook</string>
+    <plurals name="settings_imported">
+        <item quantity="other">%1$d pengaturan diimpor</item>
+    </plurals>
+    <!-- Settings sections -->
+    <string name="settings_section_feed">Umpan</string>
+    <string name="settings_section_appearance">Tampilan</string>
+    <string name="settings_section_video">Video</string>
+    <string name="settings_section_messages_links">Pesan dan tautan</string>
+    <string name="settings_section_privacy">Privasi dan keamanan</string>
+    <string name="settings_section_backup">Cadangan</string>
+    <string name="reload_to_apply">Muat ulang untuk menerapkan</string>
+    <string name="hide_from_feed_title">Sembunyikan dari umpan Anda</string>
+    <string name="amoled_black_summary">Latar belakang hitam pekat dalam mode gelap Facebook (menu Facebook › Mode gelap)</string>
+    <string name="text_size_layout_note">Memperbesar atau memperkecil halaman Facebook: teks, gambar, dan tombol bersamaan, sehingga tidak ada yang bertumpuk.</string>
+    <string name="app_lock_open_security_settings">Atur kunci layar di perangkat ini untuk menggunakan kunci aplikasi. Ketuk untuk membuka pengaturan keamanan.</string>
+    <string name="open_links_hint_text">Di layar berikutnya, ketuk Tambahkan tautan lalu pilih semua tautan Facebook.</string>
+    <string name="open_links_hint_continue">Lanjutkan</string>
+
+    <!-- Links into other apps -->
+    <string name="external_link_text">Tautan ini membuka aplikasi lain di ponsel Anda (%1$s).</string>
+    <string name="no_app_for_link">Tidak ada aplikasi di ponsel ini yang dapat membuka tautan ini</string>
+    <string name="messenger_link_title">Baca pesan Anda di sini?</string>
+    <string name="messenger_link_text">Facebook ingin membuka aplikasi Messenger. Dengan Pesan dalam mode desktop, Anda dapat membaca dan mengirim pesan di aplikasi ini.</string>
+    <string name="messenger_link_use_desktop">Gunakan mode desktop</string>
+    <string name="messenger_link_open_app">Buka Messenger</string>
+
+    <!-- Sharing and downloads -->
+    <string name="share_via">Bagikan melalui…</string>
+    <string name="download_open">Buka</string>
+    <string name="download_already_saved">Sudah ada di Unduhan</string>
+
+    <!-- Text wrap on zoom (shown under Pinch to zoom) -->
+    <string name="text_wrap_on_zoom_title">Bungkus teks saat diperbesar</string>
+    <string name="text_wrap_on_zoom_summary">Menyesuaikan teks yang Anda perbesar dengan layar, sehingga tidak perlu menggulir ke samping</string>
+
+    <!-- Start page (Feed section) -->
+    <string name="start_on_feeds_title">Mulai di Feeds</string>
+    <string name="start_on_feeds_summary">Buka aplikasi di Feeds Facebook, postingan terbaru lebih dulu, bukan di Beranda</string>
+
+    <!-- Facebook notifications (Notifications section) -->
+    <string name="settings_section_notifications">Notifikasi</string>
+    <string name="facebook_notifications_title">Notifikasi Facebook</string>
+    <string name="facebook_notifications_summary">Saat aplikasi ditutup, memeriksa notifikasi, pesan, dan permintaan pertemanan baru setiap 15 menit, menggunakan login Facebook Anda di aplikasi</string>
+    <string name="facebook_notifications_denied">Notifikasi untuk Astryxbook dimatikan di pengaturan Android</string>
+    <string name="facebook_notifications_channel">Notifikasi Facebook</string>
+    <!-- Share photos and videos into Facebook (share sheet entries and messages) -->
+    <string name="share_target_feed">Umpan</string>
+    <string name="share_target_profile_picture">Jadikan foto profil</string>
+    <string name="share_target_group">Grup Anda</string>
+    <string name="share_target_reel">Reels</string>
+    <string name="share_target_story">Cerita Anda</string>
+    <string name="share_media_nothing_feed">Hanya foto yang dapat diposting ke umpan dari sini. Video bisa ke cerita.</string>
+    <string name="share_media_nothing_story">Tidak ada yang bisa dibagikan: cerita menerima foto dan video.</string>
+    <string name="share_media_nothing_photos">Hanya foto yang dapat dibagikan di sini. Video bisa ke cerita atau reel.</string>
+    <string name="share_media_nothing_reel">Tidak ada yang bisa dibagikan: reel menerima video.</string>
+    <string name="story_panel_done">Selesai</string>
+    <plurals name="share_media_skipped">
+        <item quantity="other">%1$d item tidak disertakan (terlalu besar, terlalu banyak, atau jenisnya tidak didukung)</item>
+    </plurals>
+    <string name="share_media_no_composer">Tidak dapat membuka penyusun Facebook. Apakah Anda sudah login?</string>
+    <string name="share_media_failed">Halaman Facebook tidak menerima berkasnya. Coba tombol Foto miliknya sendiri.</string>
+    <string name="facebook_notification_text_title">Tampilkan isinya</string>
+    <string name="facebook_notification_text_summary">Menambahkan teks notifikasi Facebook baru (bukan obrolan). Disembunyikan di layar kunci</string>
+    <plurals name="facebook_new_notifications">
+        <item quantity="other">%1$s notifikasi baru di Facebook</item>
+    </plurals>
+    <plurals name="facebook_new_messages">
+        <item quantity="other">%1$s obrolan belum dibaca</item>
+    </plurals>
+    <plurals name="facebook_new_friend_requests">
+        <item quantity="other">%1$s permintaan pertemanan baru</item>
+    </plurals>
+    <string name="webview_update_title">Perbarui Android System WebView</string>
+    <string name="webview_update_text">Astryxbook menampilkan Facebook melalui Android System WebView, dan versi di ponsel ini (%1$s) terlalu lama: sebagian Facebook tidak akan berfungsi. Diperlukan versi %2$d atau yang lebih baru.</string>
+    <string name="webview_update_open">Perbarui</string>
+    <string name="webview_update_later">Nanti</string>
+    <string name="share_media_adding_one">Menambahkan foto Anda…</string>
+    <string name="share_media_adding_several">Menambahkan %1$d foto…</string>
+</resources>
