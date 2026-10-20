@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.util.Base64
 import android.webkit.CookieManager
 import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,8 +26,10 @@ import java.io.File
 /**
  * The app against today's real Facebook, logged in: catches Facebook changing the pages our
  * scripts rely on, which the tests on fixed test pages can't. Needs a device where the debug app
- * is logged in to Facebook, so it runs only when asked (`-e canary true`), never in CI:
- * `tools/canary.ps1` runs it on the emulator.
+ * is logged in to Facebook, so it runs only when asked (`-e canary true`), never in the CI
+ * checks. `facebook-canary.yml` runs it daily on GitHub, logged in to a test account with the
+ * session cookies in the FB_TEST_COOKIES secret (passed base64-encoded as `-e fbCookies`);
+ * `tools/canary.ps1` runs it on an emulator that is logged in already.
  *
  * Nothing here posts or shares: the share and story checks stop at the open editor, and the app
  * is closed with the draft unsent.
@@ -42,6 +45,7 @@ class LiveFacebookCanaryTest {
             "Live Facebook checks run only with -e canary true",
             InstrumentationRegistry.getArguments().getString("canary") == "true"
         )
+        InstrumentationRegistry.getArguments().getString("fbCookies")?.let { logIn(it) }
         val cookie = runCatching { CookieManager.getInstance().getCookie("https://m.facebook.com") }.getOrNull()
         assertTrue("Not logged in to Facebook: log in in the debug app first", cookie?.contains("c_user=") == true)
         File(app.context.filesDir, "datastore").deleteRecursively()
@@ -56,10 +60,24 @@ class LiveFacebookCanaryTest {
 
     private fun eval(js: String) = app.eval(js)
 
+    // The session cookies ("c_user=...; xs=...; ..."), base64-encoded, into the app's WebView.
+    private fun logIn(encoded: String) {
+        val cookies = String(Base64.decode(encoded, Base64.DEFAULT)).split(';').map { it.trim() }.filter { '=' in it }
+        val manager = CookieManager.getInstance()
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            cookies.forEach { manager.setCookie("https://www.facebook.com", "$it; Domain=.facebook.com; Path=/; Secure") }
+            manager.flush()
+        }
+    }
+
     private fun open(url: String) {
         app.start()
         assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
         assertTrue("Facebook never loaded", app.waitFor(30_000) { eval("location.hostname") == "\"m.facebook.com\"" })
+        assertEquals(
+            "Facebook session expired: log in again (FB_TEST_COOKIES)", "false",
+            eval("location.pathname.indexOf('/login') === 0 || !!document.querySelector('input[name=\"pass\"]')")
+        )
         eval("location.href = '$url'; 1")
     }
 

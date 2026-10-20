@@ -409,9 +409,12 @@ the activity, the effects and the scripts, which the script tests on their own c
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
 visible video, a photo shared to Feed reaching the composer, Create story opening the creator,
 Start on Feeds finding the menu entry, and the notification counts read from the tab bar. It
-needs a logged-in device, so it runs only with `-e canary true` (`tools/canary.ps1` builds main
-and runs it on the emulator); in CI it is skipped. Nothing is posted: the checks stop at the
-open editors.
+needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
+**Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
+to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
+a "Daily Facebook check failed" issue when a check fails (closed by the next passing run).
+`tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
+stop at the open editors.
 
 ## Messages in desktop mode
 

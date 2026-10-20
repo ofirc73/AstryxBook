@@ -1,0 +1,139 @@
+name: Daily Facebook check
+
+# Runs LiveFacebookCanaryTest, the app against today's real m.facebook.com, to catch Facebook
+# changing the pages the app's scripts rely on (the CI checks run on fixed test pages and can't).
+# Logged in to a Facebook TEST account through its session cookies in the FB_TEST_COOKIES secret
+# ("c_user=...; xs=...; datr=..."), set by the repo owner (gh secret set FB_TEST_COOKIES); never
+# a personal account. Nothing is posted: the checks stop at open editors.
+#
+# A failure opens (or comments on) one "Daily Facebook check failed" issue; the next passing run
+# closes it. "Facebook session expired" in the issue means the cookies need replacing.
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 09:00 in Israel in summer, 08:00 in winter
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: facebook-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    steps:
+      - name: Check the secret
+        env:
+          FB_TEST_COOKIES: ${{ secrets.FB_TEST_COOKIES }}
+        run: |
+          if [ -z "$FB_TEST_COOKIES" ]; then
+            echo "::error::The FB_TEST_COOKIES secret isn't set"
+            exit 1
+          fi
+          # The encoded form goes on the am instrument command line: hidden in the logs too.
+          echo "::add-mask::$(printf %s "$FB_TEST_COOKIES" | base64 -w0)"
+
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Build App and Test APKs
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace
+
+      # As in ci.yml (see the comments there).
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Emulator and System Image
+        id: avd-versions
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
+          VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
+            grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
+            awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
+          echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
+
+      - name: AVD cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-34-google_apis-x86_64-pixel_6-${{ steps.avd-versions.outputs.key }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      # Installed with adb rather than connectedAndroidTest: that runs every test class and
+      # can't pass the canary's arguments.
+      - name: Run the live checks
+        id: checks
+        continue-on-error: true
+        env:
+          FB_TEST_COOKIES: ${{ secrets.FB_TEST_COOKIES }}
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e canary true -e fbCookies "$(printf %s "$FB_TEST_COOKIES" | base64 -w0)" -e class com.eepiemi.materialbook.LiveFacebookCanaryTest com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner | tee canary.txt
+            grep -qE '^OK \([0-9]+ tests?\)' canary.txt
+
+      - name: Report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OUTCOME: ${{ steps.checks.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Daily Facebook check failed"
+          OPEN=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
+            -q ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ "$OUTCOME" = success ]; then
+            echo "All live checks passed"
+            if [ -n "$OPEN" ]; then gh issue close "$OPEN" --comment "Passing again: $RUN_URL"; fi
+            exit 0
+          fi
+          # The failing checks and their messages, without stack traces.
+          FAILED=$(grep -E '^(Error in |[0-9]+\) |java\.lang\.[A-Za-z]+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)' canary.txt 2>/dev/null || true)
+          [ -n "$FAILED" ] || FAILED="The checks couldn't run (outcome: $OUTCOME); see the run."
+          BODY=$(printf '**%s** at %s:\n\n```\n%s\n```\n\n%s' "$(date -u '+%Y-%m-%d %H:%M UTC')" "${GITHUB_SHA::7}" "$FAILED" "$RUN_URL")
+          if [ -n "$OPEN" ]; then gh issue comment "$OPEN" --body "$BODY"
+          else gh issue create --title "$TITLE" --body "$BODY"; fi
+          exit 1
