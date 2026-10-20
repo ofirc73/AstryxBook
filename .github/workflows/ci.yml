@@ -42,12 +42,16 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
+
+      # Caches Gradle's dependencies and its build cache (with --build-cache) between runs:
+      # written from main, read on branches. Unchanged tasks come from the cache.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Run Android Lint
         run: |
           chmod +x gradlew
-          ./gradlew :app:lintDebug --stacktrace
+          ./gradlew :app:lintDebug --build-cache --stacktrace
 
       - name: Upload Android Lint Report
         if: always()
@@ -72,7 +76,11 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
+
+      # Caches Gradle's dependencies and its build cache (with --build-cache) between runs:
+      # written from main, read on branches. Unchanged tasks come from the cache.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Run Unit Tests and Build APK
         env:
@@ -80,9 +88,9 @@ jobs:
         run: |
           chmod +x gradlew
           if [ -n "$VERSION_NAME" ]; then
-            ./gradlew test assembleRelease -PversionNameOverride="$VERSION_NAME" --stacktrace
+            ./gradlew test assembleRelease -PversionNameOverride="$VERSION_NAME" --build-cache --stacktrace
           else
-            ./gradlew test assembleRelease --stacktrace
+            ./gradlew test assembleRelease --build-cache --stacktrace
           fi
           ls -R app/build/outputs/apk || echo "No APK directory found"
 
@@ -93,11 +101,22 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           compression-level: 5
 
-  instrumented-tests:
+  # The instrumented tests, split in two halves that run side by side on two emulators
+  # (the test runner's numShards/shardIndex: every test runs once, in one of the halves).
+  instrumented-shard:
+    name: Instrumented tests (part ${{ matrix.part }} of 2)
     runs-on: ubuntu-26.04
     # A hung emulator otherwise runs to GitHub's 6-hour default. A normal run
-    # takes ~8 minutes from the AVD cache; a cold AVD build fits well inside 30.
+    # takes ~5 minutes from the AVD cache; a cold AVD build fits well inside 30.
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 0
+            part: 1
+          - shard: 1
+            part: 2
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,17 +126,20 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
+
+      # Caches Gradle's dependencies and its build cache (with --build-cache) between runs:
+      # written from main, read on branches. Unchanged tasks come from the cache.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       # Compile the app and test APKs before the emulator starts: the emulator
       # renders in software (swiftshader) and competing with it for the CPUs
       # made compiling take most of this job. connectedAndroidTest below then
-      # finds them up to date and only installs and runs the tests. The minified
-      # release APK is built here too, for the launch check after the tests.
+      # finds them up to date and only installs and runs the tests.
       - name: Build App and Test APKs
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug assembleDebugAndroidTest assembleRelease --stacktrace
+          ./gradlew assembleDebug assembleDebugAndroidTest --build-cache --stacktrace
 
       # GitHub-hosted Ubuntu runners support nested virtualization but need
       # KVM permissions opened up explicitly for the emulator to use it.
@@ -177,35 +199,114 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          # Then the release build, which is minified (R8) while the tests aren't: launched
-          # once, so something R8 strips fails here instead of crashing a published release.
-          # In the same emulator session (each line runs in turn; a failing one fails the step).
-          script: |
-            ./gradlew connectedAndroidTest --stacktrace
-            bash .github/scripts/release-smoke-test.sh
+          script: ./gradlew connectedAndroidTest --build-cache -Pandroid.testInstrumentationRunnerArguments.numShards=2 -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }} --stacktrace
 
       - name: Upload Instrumented Test Coverage Data
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: instrumented-test-coverage
+          name: instrumented-test-coverage-${{ matrix.shard }}
           path: app/build/outputs/code_coverage/debugAndroidTest/connected/**/*.ec
           if-no-files-found: warn
 
-      # Combined coverage report, built from this job's own .ec. It's steps, not
-      # a job, because release runs (coverage: false) make it in coverage.yml
-      # next to their release job, and a skipped job would still show in their
-      # graph. continue-on-error: the report never gates a PR.
-      # inputs.coverage is empty on PR and manual runs; GitHub's loose == would
-      # treat that like false, so compare it as text.
-      - name: Generate Coverage Report
-        if: format('{0}', inputs.coverage) != 'false'
-        continue-on-error: true
-        run: ./gradlew jacocoTestReport --stacktrace
+  # The release build, which is minified (R8) while the tests aren't: launched once, so
+  # something R8 strips fails here instead of crashing a published release. It's the build
+  # job's APK, on its own emulator next to the test halves.
+  release-launch:
+    name: Release launch check
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Upload Coverage Report
-        if: format('{0}', inputs.coverage) != 'false'
-        continue-on-error: true
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Download the release APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: coverage-report
-          path: app/build/reports/jacoco/jacocoTestReport/html
+          name: apk-artifact
+          path: release-apk
+
+      # GitHub-hosted Ubuntu runners support nested virtualization but need
+      # KVM permissions opened up explicitly for the emulator to use it.
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # A boot snapshot only loads in the emulator and system image it was made
+      # with ("Snapshot file cannot be used, incompatible version" otherwise, and
+      # every run cold-booted). Install both up front and put their versions in
+      # the cache key, so a runner image update makes a fresh snapshot once.
+      - name: Install Emulator and System Image
+        id: avd-versions
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
+          VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
+            grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
+            awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
+          echo "Installed versions: $VERSIONS"
+          echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
+
+      # Caches the AVD image + boot snapshot, so a cache hit restores from the
+      # snapshot instead of cold-booting. Not hashed on source: the AVD only
+      # depends on the api-level/target/arch/profile below and the versions above.
+      - name: AVD cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-34-google_apis-x86_64-pixel_6-${{ steps.avd-versions.outputs.key }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Launch the Release Build
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash .github/scripts/release-smoke-test.sh release-apk/app-release.apk
+
+  # The check the main branch's rules require ("instrumented-tests"): both test halves and
+  # the release launch check passed.
+  instrumented-tests:
+    name: instrumented-tests
+    needs: [instrumented-shard, release-launch]
+    if: always()
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Both test halves and the launch check passed
+        env:
+          SHARDS: ${{ needs.instrumented-shard.result }}
+          LAUNCH: ${{ needs.release-launch.result }}
+        run: |
+          echo "instrumented tests: $SHARDS, release launch: $LAUNCH"
+          [ "$SHARDS" = success ] && [ "$LAUNCH" = success ]
+
+  # Combined coverage report from both halves' .ec files. Release runs (coverage: false) make
+  # it in coverage.yml next to their release job instead. It never gates anything.
+  # inputs.coverage is empty on PR and manual runs; GitHub's loose == would treat that like
+  # false, so compare it as text.
+  coverage:
+    needs: instrumented-shard
+    if: ${{ !cancelled() && needs.instrumented-shard.result == 'success' && format('{0}', inputs.coverage) != 'false' }}
+    uses: ./.github/workflows/coverage.yml
