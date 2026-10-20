@@ -66,9 +66,6 @@ import com.eepiemi.materialbook.utils.FEEDS_PAGE_URL
 import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.HOME_PAGE_URL
 import com.eepiemi.materialbook.utils.KeepScreenOn
-import com.eepiemi.materialbook.utils.STORY_CREATE_URL
-import com.eepiemi.materialbook.utils.ShareMediaQueue
-import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.TextZoom
 import com.eepiemi.materialbook.utils.appOrientation
 import com.eepiemi.materialbook.utils.appWebViewParams
@@ -212,13 +209,7 @@ fun MaterialbookWebView(
     val messagesDesktopSetting by settingsVM.messagesDesktop.collectAsState()
     val currentMessagesDesktopSetting by rememberUpdatedState(messagesDesktopSetting)
     val currentIsEffectiveDesktop by rememberUpdatedState(isEffectiveDesktop)
-    var messagesLayerUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    // The chat a reel was opened from (see messagesLayerExit): Back on that reel opens it again.
-    var layerReturnUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    // A reel opened from a chat loads in this view while the chat stays on screen: closing the
-    // layer at once showed this view's feed for a second before the reel came (seen on a Galaxy
-    // A56). The layer closes once the reel has loaded, or after LAYER_CLOSE_WAIT_MS.
-    var closeLayerOnReel by remember { mutableStateOf(false) }
+    val messagesLayer = rememberMessagesLayerState()
     pendingExternalLink?.let { link ->
         ExternalLinkDialog(
             link = link,
@@ -234,7 +225,7 @@ fun MaterialbookWebView(
             onUseDesktop = {
                 pendingMessengerLink = null
                 settingsVM.setMessagesDesktop(true)
-                messagesLayerUrl = messagesDesktopUrl(link)
+                messagesLayer.url = messagesDesktopUrl(link)
             },
             onOpenApp = {
                 pendingMessengerLink = null
@@ -247,7 +238,7 @@ fun MaterialbookWebView(
         requestInterceptor = ExternalRequestInterceptor(
             tryOpenMessagesDesktop = { messagesUrl ->
                 if (currentMessagesDesktopSetting && !currentIsEffectiveDesktop) {
-                    messagesLayerUrl = messagesDesktopUrl(messagesUrl)
+                    messagesLayer.url = messagesDesktopUrl(messagesUrl)
                     true
                 } else {
                     false
@@ -266,11 +257,11 @@ fun MaterialbookWebView(
     fun openAppLink(link: String, whileRunning: Boolean) {
         when {
             !isMessagesLink(link) || !link.startsWith("http", ignoreCase = true) -> {
-                if (whileRunning) messagesLayerUrl = null
+                if (whileRunning) messagesLayer.url = null
                 navigator.loadUrl(link)
             }
             currentMessagesDesktopSetting && !currentIsEffectiveDesktop -> {
-                messagesLayerUrl = messagesDesktopUrl(link)
+                messagesLayer.url = messagesDesktopUrl(link)
                 if (!whileRunning) navigator.loadUrl(HOME_URL)
             }
             currentIsEffectiveDesktop -> navigator.loadUrl(messagesDesktopUrl(link))
@@ -353,12 +344,8 @@ fun MaterialbookWebView(
     // Home does: finishing dropped the WebView, so coming back reloaded the feed from the top.
     val leaveApp = { activity?.moveTaskToBack(true) }
     BackHandler {
-        val returnUrl = layerReturnUrl
-        layerReturnUrl = null
-        val onReturnReel = returnUrl != null &&
-            isMobileReelPage(runCatching { state.nativeWebView.url }.getOrNull())
-        if (onReturnReel) {
-            messagesLayerUrl = returnUrl
+        if (messagesLayer.backToChat(runCatching { state.nativeWebView.url }.getOrNull())) {
+            // Back on a reel opened from a chat: the chat again.
         } else if (exitScroll) {
             leaveApp()
         } else {
@@ -405,8 +392,8 @@ fun MaterialbookWebView(
     var settingsToggle by rememberSaveable { mutableStateOf(false) }
     // The Messages layer's own page colour (its theme-color, e.g. the desktop site's dark mode)
     // while it's open, so the system bars match the page on screen; the main page's otherwise.
-    var layerThemeColor by remember(messagesLayerUrl) { mutableStateOf<Color?>(null) }
-    val barColor = layerThemeColor?.takeIf { messagesLayerUrl != null && !settingsToggle } ?: themeColor
+    var layerThemeColor by remember(messagesLayer.url) { mutableStateOf<Color?>(null) }
+    val barColor = layerThemeColor?.takeIf { messagesLayer.url != null && !settingsToggle } ?: themeColor
     // Manual handling to fix visual & padding bug on settings dialog.
     var isImmersiveMode by rememberSaveable { mutableStateOf(settingsVM.immersiveMode.value) }
 
@@ -478,7 +465,7 @@ fun MaterialbookWebView(
                     it.requestedOrientation = appOrientation(
                         it.resources.configuration.smallestScreenWidthDp,
                         isFullscreen = false,
-                        isMessagesLayerOpen = messagesLayerUrl != null
+                        isMessagesLayerOpen = messagesLayer.url != null
                     )
                 }
                 Log.d("AstryxbookPiP", "HTML5 fullscreen: hidden")
@@ -608,7 +595,7 @@ fun MaterialbookWebView(
                 navigator.reload()
             },
             onLogOut = {
-                messagesLayerUrl = null
+                messagesLayer.url = null
                 clearWebData(context, runCatching { state.nativeWebView }.getOrNull()) {
                     navigator.loadUrl(HOME_URL)
                 }
@@ -674,14 +661,13 @@ fun MaterialbookWebView(
     // page underneath keeps running. On open: pause its videos, so a playing reel doesn't go
     // on behind the chat, and note its scroll position. On close: once the screen is back in
     // portrait (a landscape layout reflows the feed and moves it), scroll it back there.
-    val isMessagesLayerOpen = messagesLayerUrl != null
-    LaunchedEffect(closeLayerOnReel, state.loadingState) {
-        if (!closeLayerOnReel) return@LaunchedEffect
+    val isMessagesLayerOpen = messagesLayer.url != null
+    LaunchedEffect(messagesLayer.closeOnReel, state.loadingState) {
+        if (!messagesLayer.closeOnReel) return@LaunchedEffect
         val onReel = state.loadingState is LoadingState.Finished &&
             isMobileReelPage(runCatching { state.nativeWebView.url }.getOrNull())
         if (!onReel) delay(LAYER_CLOSE_WAIT_MS)
-        closeLayerOnReel = false
-        messagesLayerUrl = null
+        messagesLayer.reelShown()
     }
     LaunchedEffect(isMessagesLayerOpen) {
         // While fullscreen, the fullscreen host owns the orientation (and resets it on exit).
@@ -831,7 +817,7 @@ fun MaterialbookWebView(
                             pip = PipBridge(onVideoPlayingChanged, onPipPageVisible),
                             screen = ScreenBridge { mainVideoPlaying = it },
                             layer = LayerBridge { pageUrl ->
-                                if (isStoryCreatePage(pageUrl)) messagesLayerUrl = pageUrl
+                                if (isStoryCreatePage(pageUrl)) messagesLayer.url = pageUrl
                             },
                             share = { link ->
                                 val send = Intent(Intent.ACTION_SEND)
@@ -869,23 +855,21 @@ fun MaterialbookWebView(
         )
     }
 
-    var layerGeneration by remember { mutableIntStateOf(0) }
-    var lastLayerRendererLossAt by remember { mutableStateOf<Long?>(null) }
 
     MainViewShareEffects(
         shareMediaRequest = shareMediaRequest,
         navigator = navigator,
         loadingState = loadingState,
         onOpenLayer = { layerUrl ->
-            messagesLayerUrl = layerUrl
-            layerGeneration++
+            messagesLayer.url = layerUrl
+            messagesLayer.generation++
         },
-        onCloseLayer = { messagesLayerUrl = null },
+        onCloseLayer = { messagesLayer.url = null },
     )
-    messagesLayerUrl?.let { layerUrl ->
+    messagesLayer.url?.let { layerUrl ->
         // A new Messages link while the layer is open (a notification, say) recreates it, and
         // so does a lost renderer (onRendererGone), at the page it was showing.
-        key(layerUrl, layerGeneration) {
+        key(layerUrl, messagesLayer.generation) {
             MessagesLayer(
                 url = layerUrl,
                 userScripts = userScripts,
@@ -895,13 +879,7 @@ fun MaterialbookWebView(
                 background = barColor,
                 primaryColor = primaryColor,
                 onPrimaryColor = onPrimaryColor,
-                onClose = {
-                    // Closing the layer gives up the stories (or the reel) still waiting to be offered.
-                    if (ShareMediaQueue.pending(ShareTarget.STORY) || ShareMediaQueue.pending(ShareTarget.REEL)) {
-                        ShareMediaQueue.clear()
-                    }
-                    messagesLayerUrl = null
-                },
+                onClose = { messagesLayer.onClosed() },
                 pipEnabled = pipEnabled,
                 onPipTarget = { layerPipTarget = it },
                 onVideoPlayingChanged = onVideoPlayingChanged,
@@ -909,33 +887,13 @@ fun MaterialbookWebView(
                 trackVideoPlaying = trackVideoPlaying,
                 textZoom = textZoomPercent,
                 onScreenVideoPlayingChanged = { layerVideoPlaying = it },
-                onLeave = leave@{ mainUrl, fromUrl ->
-                    // A story was shared and Facebook moved on (to its feed): the next shared
-                    // file gets the story creator again instead.
-                    if (ShareMediaQueue.pending(ShareTarget.STORY)) {
-                        messagesLayerUrl = STORY_CREATE_URL
-                        layerGeneration++
-                        return@leave
-                    }
-                    // Both the interceptor and the in-page watcher can report the same exit.
-                    if (messagesLayerUrl != null && !closeLayerOnReel) {
-                        if (isMobileReelPage(mainUrl)) {
-                            layerReturnUrl = fromUrl
-                            closeLayerOnReel = true
-                        } else {
-                            messagesLayerUrl = null
-                            layerReturnUrl = null
-                        }
-                        mainUrl?.let { navigator.loadUrl(it) }
-                    }
+                onLeave = { mainUrl, fromUrl ->
+                    messagesLayer.onLeave(mainUrl, fromUrl) { navigator.loadUrl(it) }
                 },
                 onOpenSettings = { settingsToggle = true },
                 onThemeColor = { layerThemeColor = it },
                 onRendererGone = { pageUrl ->
-                    val now = SystemClock.elapsedRealtime()
-                    messagesLayerUrl = rendererRecoveryUrl(pageUrl, layerUrl, lastLayerRendererLossAt, now)
-                    lastLayerRendererLossAt = now
-                    layerGeneration++
+                    messagesLayer.onRendererGone(pageUrl, layerUrl, SystemClock.elapsedRealtime())
                 },
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
