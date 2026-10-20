@@ -25,6 +25,19 @@ the code that comes unchanged from Materialbook (eepiemi) or Nobook (ycngmn).
 3. **Attribution (section 7(b)).** Keep the copyright and author notices,
    including the ones in the README's License and Acknowledgement sections.
 
+4. **Official source, and no affiliation (section 7(e)).** The official
+   Astryxbook is the repository
+   [github.com/ofirc73/AstryxBook](https://github.com/ofirc73/AstryxBook) and the
+   releases published there. Forks, mirrors and other copies, modified or not,
+   are not affiliated with or endorsed by Astryxbook or its author, and neither
+   are their owners or anything those owners publish, say or support.
+   - Don't use the name "Astryxbook" or its logo to name, describe or promote a
+     copy, a fork, a profile or anything else in a way that presents it as the
+     official Astryxbook, or suggests that Astryxbook or its author is
+     affiliated with it, endorses it or its owner, or shares their views.
+   - The name may stay where it appears unchanged in the copied code and
+     notices, and you may say that your version is based on Astryxbook.
+
 Everything else is governed by the GPL-3.0. In particular, you remain free to
 use, study, change and share the code under its terms. Unmodified copies of
-Astryxbook may be shared under its own name.
+Astryxbook may be shared under its own name, within item 4.
