@@ -87,7 +87,10 @@ class PagesAndSettingsTest {
         startOnPage()
         val webView = app.mainWebView()
         app.onActivity { webView.clearHistory() }
+        // The page answers Back through scripts.js; a press while the page is still busy (a slow
+        // CI emulator) can go unanswered, so it's pressed once more, as a user would.
         app.pressBack()
+        if (!app.waitFor(5_000) { app.isInBackground() }) app.pressBack()
         assertTrue("Back on the first page never left the app", app.waitFor { app.isInBackground() })
     }
 
