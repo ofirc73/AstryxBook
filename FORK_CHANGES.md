@@ -484,7 +484,8 @@ separate layer was added on top.
   of sight it paints nothing and sits under the main view (it painted its page colour over the
   reel: a black screen in dark mode).
 - Back in the Messages layer goes as the desktop site does at phone width: a photo closes, a chat
-  goes back to the chat list (the chat header's own Back button), the chat list closes the layer,
+  goes back to the chat list (the chat header's own Back button, the one with the chat's name next
+  to it: not the list's search icon), the chat list closes the layer,
   and other pages (a profile opened from a chat) step back a page. Stepping back a page from a
   chat left "No chats selected".
   Covered by `MessagesDesktopTest` and `MessagesLayerReelTest`.

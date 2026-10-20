@@ -196,10 +196,17 @@ class MessagesLayerReelTest {
 
     @Test
     fun backOnTheChatList_closesTheLayer() {
-        // No chat open (no chat header Back button): the chat list, which Back leaves.
-        openChat()
+        // No chat open (no chat header Back button): the chat list, which Back leaves. Its search
+        // icon, where a chat's Back button would be, isn't one (Back pressed it, the list stayed).
+        val layer = openChat()
+        app.eval(
+            "document.body.insertAdjacentHTML('beforeend', \"$CHAT_LIST_SEARCH\");" +
+                " document.getElementById('searchIcon').addEventListener('click', function () { window.__searchPressed = true; }); 1",
+            layer
+        )
         app.pressBack()
         assertTrue("Back on the chat list didn't close the layer", app.waitFor { !layerOpen() })
+        assertEquals("Back pressed the chat list's search", "false", runCatching { app.eval("window.__searchPressed === true", layer) }.getOrDefault("false"))
     }
 
     @Test
@@ -236,7 +243,13 @@ class MessagesLayerReelTest {
         // button below Facebook's header bar, at the left.
         private const val CHAT_HEADER_BACK =
             "<div id='chatBack' role='button' aria-label='Back' style='position:fixed;left:32px;top:84px;width:36px;height:36px'>" +
-                "<svg width='20' height='20'></svg></div>"
+                "<svg width='20' height='20'></svg></div>" +
+                "<a href='/4/' style='position:fixed;left:74px;top:78px;width:129px;height:52px'>name</a>"
+        // The chat list's search box, its magnifier icon where a chat's Back button would be.
+        private const val CHAT_LIST_SEARCH =
+            "<label style='position:fixed;left:24px;top:150px;width:290px;height:40px'>" +
+                "<div id='searchIcon' role='button' style='display:inline-block;width:24px;height:24px'><svg width='20' height='20'></svg></div>" +
+                "<input placeholder='Search Messenger'></label>"
         // The desktop viewer's layout (see LayerPhotoViewerJsTest): arrow columns around the photo.
         private const val PHOTO_VIEWER =
             "<div id='viewer' style='position:fixed;inset:0;background:#000'>" +
