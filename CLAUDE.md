@@ -24,7 +24,11 @@ user-visible change.
 - `.\gradlew.bat testDebugUnitTest` (use the variant task; `--tests` filtering
   doesn't work on plain `test`), `.\gradlew.bat connectedDebugAndroidTest`
   (needs a device), `.\gradlew.bat lintDebug`. CI (`ci.yml`) gates on
-  `test`, `:app:lintDebug` and `connectedAndroidTest`. Run CI by hand on a branch with
+  `test`, `:app:lintDebug` and `connectedAndroidTest`. The instrumented tests run in four parts on
+  four emulators (`instrumented-shard`, the runner's `numShards`/`shardIndex`) next to the release
+  APK's launch check (`release-launch`, the build job's APK); the required `instrumented-tests`
+  check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
+  `--build-cache`). Run CI by hand on a branch with
   `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) runs next
   to the release job and doesn't gate it.
 - A local release APK is signed with the **debug** key (`app/build.gradle.kts`): it's for testing
