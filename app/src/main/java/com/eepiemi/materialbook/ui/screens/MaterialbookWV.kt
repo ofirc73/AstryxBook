@@ -31,6 +31,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -124,6 +125,11 @@ private const val PIP_EXIT_SETTLE_MS = 600L
 // A shared photo's page: how long to wait for a fresh load before using the page showing.
 private const val SHARE_LOAD_WAIT_MS = 2000L
 private const val MAX_ZOOM_OUT_STEPS = 20
+// A pinch zoom undone in PiP: from just above 1 (none) up to what zoomBy takes; checked once the
+// PiP window has its size.
+private const val PINCH_RATIO_MIN = 1.05f
+private const val PINCH_RATIO_MAX = 100f
+private const val PIP_PINCH_CHECK_DELAY_MS = 300L
 
 /** A link the running app was sent (onNewIntent); [seq] tells two taps on the same link apart. */
 data class OpenLinkRequest(val seq: Int, val url: String)
@@ -424,6 +430,33 @@ fun MaterialbookWebView(
             Log.d("AstryxbookPiP", "fullscreen ended during PiP: applying focus mode")
             fullscreenEndedInPip = true
             pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS) {}
+        }
+    }
+
+    // A pinch zoom carried into PiP (pinch to zoom on): the PiP window showed only the zoomed-in
+    // part of the page, the video cropped in a corner with Facebook's labels around it (seen on a
+    // Galaxy A56). In PiP the page is zoomed all the way out, which fits its whole width as a
+    // PiP window normally does; checked on entering PiP and again after each return from the lock
+    // screen (the hand-back), which can bring the zoom back. Leaving PiP puts the user's zoom back
+    // once the window is full size again. Separate from focus mode, like the effects around it.
+    var pipPinchRatio by remember { mutableFloatStateOf(1f) }
+    LaunchedEffect(isInPipMode, pipHandback) {
+        val webView = runCatching { pipState.nativeWebView }.getOrNull() ?: return@LaunchedEffect
+        if (isInPipMode) {
+            if (isFullscreen || pipState.loadingState !is LoadingState.Finished) return@LaunchedEffect
+            delay(PIP_PINCH_CHECK_DELAY_MS) // the window's resize first
+            pipNavigator.evaluateJavaScript(PIP_PINCH_RATIO_JS) { raw ->
+                val ratio = raw?.removeSurrounding("\"")?.toFloatOrNull() ?: return@evaluateJavaScript
+                if (ratio <= PINCH_RATIO_MIN) return@evaluateJavaScript
+                Log.d("AstryxbookPiP", "PiP shows the page zoomed x$ratio: zooming out")
+                if (pipPinchRatio <= 1f) pipPinchRatio = minOf(ratio, PINCH_RATIO_MAX)
+                repeat(MAX_ZOOM_OUT_STEPS) { if (!webView.zoomOut()) return@evaluateJavaScript }
+            }
+        } else if (pipPinchRatio > 1f) {
+            val ratio = pipPinchRatio
+            pipPinchRatio = 1f
+            delay(PIP_EXIT_SETTLE_MS)
+            webView.zoomBy(ratio)
         }
     }
 

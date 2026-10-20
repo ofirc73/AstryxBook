@@ -718,3 +718,14 @@ internal const val PIP_KEEP_CHAIN_JS = """
   window.__astryxKeepChain = setInterval(keepChain, 250);
 })();
 """
+
+// How much a pinch zoom crops the page in the PiP window: the page's width over the width the
+// window shows (1 when it shows the whole width, as a PiP window normally does; 2.5 for a page
+// pinch-zoomed 2.5x). Read in PiP: see MaterialbookWebView's pinch-zoom effect.
+internal const val PIP_PINCH_RATIO_JS = """
+(function() {
+  var vv = window.visualViewport;
+  if (!vv || !vv.width) return 1;
+  return window.innerWidth / vv.width;
+})();
+"""
