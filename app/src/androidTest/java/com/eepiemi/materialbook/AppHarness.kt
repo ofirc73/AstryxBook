@@ -72,6 +72,44 @@ class AppHarness {
 
     fun mainWebView(): WebView = webViews().first()
 
+    /** The Messages layer's WebView, once it's open. */
+    fun layerWebView(): WebView? = webViews().getOrNull(1)
+
+    /**
+     * Loads [html] into [webView] as if it came from [url] (a Facebook address, so the app's
+     * scripts and effects treat it as Facebook's), and waits for the app's scripts to have run.
+     */
+    fun loadPage(url: String, html: String, webView: WebView = mainWebView()) {
+        instrumentation.runOnMainSync { webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", null) }
+        assertTrue("the test page never loaded", waitFor {
+            eval("location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
+        })
+        Thread.sleep(1500) // the app's scripts run once the page has finished loading
+    }
+
+    /** The page tells the app a video is playing, as pip_video_detector.js does for a real one. */
+    fun reportPlaying(webView: WebView = mainWebView()) {
+        eval(
+            "window.AstryxPage.postMessage(JSON.stringify({ call: 'videoState', playing: true, width: 720, height: 1280, why: '' })); 1",
+            webView
+        )
+        Thread.sleep(500)
+    }
+
+    /** MainActivity is alive but in the background (Home, or Back leaving the app). */
+    fun isInBackground(): Boolean {
+        var stopped = false
+        instrumentation.runOnMainSync {
+            stopped = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.STOPPED)
+                .any { it is MainActivity && !it.isFinishing }
+        }
+        return stopped
+    }
+
+    fun pressBack() {
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+    }
+
     fun url(webView: WebView): String = onActivity { webView.url.orEmpty() }
 
     /** [js]'s value as evaluateJavascript gives it (JSON: strings quoted, "null" for none). */
@@ -100,7 +138,9 @@ class AppHarness {
     }
 
     fun pressHome() {
-        instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME")
+        ).use { it.readBytes() }
     }
 
     // Back to full screen the way a tap on the PiP window's expand does: the activity to the front.
