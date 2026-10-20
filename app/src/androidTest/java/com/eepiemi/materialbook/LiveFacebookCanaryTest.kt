@@ -60,6 +60,14 @@ class LiveFacebookCanaryTest {
 
     private fun eval(js: String) = app.eval(js)
 
+    // The app's last PiP log lines (AstryxbookPiP: video states, PiP params), for a failure message.
+    private fun pipLog(): String = runCatching {
+        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s AstryxbookPiP:D")
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
+            .filter { "AstryxbookPiP" in it }.takeLast(8)
+            .joinToString(" | ") { it.substringAfter("AstryxbookPiP: ") }
+    }.getOrDefault("unreadable")
+
     // The session cookies ("c_user=...; xs=...; ..."), base64-encoded, into the app's WebView.
     private fun logIn(encoded: String) {
         val cookies = String(Base64.decode(encoded, Base64.DEFAULT)).split(';').map { it.trim() }.filter { '=' in it }
@@ -112,7 +120,7 @@ class LiveFacebookCanaryTest {
 
         // Home, as the user leaves the app: Android 12+ enters PiP by itself (auto-enter).
         app.pressHome()
-        assertTrue("the playing reel never went to PiP on Home", app.waitFor { app.isInPip() })
+        assertTrue("the playing reel never went to PiP on Home (the app's PiP log: ${pipLog()})", app.waitFor { app.isInPip() })
         assertTrue("focus mode never ran", app.waitFor { eval("document.body.hasAttribute('data-astryx-pip-active')") == "true" })
         Thread.sleep(3000) // Facebook re-wraps and pauses the video in the first seconds of PiP
         assertEquals(
