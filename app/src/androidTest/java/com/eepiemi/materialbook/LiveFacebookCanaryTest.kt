@@ -60,6 +60,14 @@ class LiveFacebookCanaryTest {
 
     private fun eval(js: String) = app.eval(js)
 
+    // The app's last PiP log lines (AstryxbookPiP: video states, PiP params), for a failure message.
+    private fun pipLog(): String = runCatching {
+        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s AstryxbookPiP:D")
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
+            .filter { "AstryxbookPiP" in it }.takeLast(8)
+            .joinToString(" | ") { it.substringAfter("AstryxbookPiP: ") }
+    }.getOrDefault("unreadable")
+
     // The session cookies ("c_user=...; xs=...; ..."), base64-encoded, into the app's WebView.
     private fun logIn(encoded: String) {
         val cookies = String(Base64.decode(encoded, Base64.DEFAULT)).split(';').map { it.trim() }.filter { '=' in it }
@@ -84,6 +92,12 @@ class LiveFacebookCanaryTest {
     @Test
     fun aReel_keepsPlayingInPip() {
         open("https://m.facebook.com/reels/")
+        // The test account on GitHub gets "Content not found" for the Reels tab (no reels for it
+        // there): a public reel, opened by its address, is checked instead.
+        if (app.waitFor(20_000) { eval("document.title === 'Content not found'") == "true" }) {
+            eval("location.href = '$PUBLIC_REEL_URL'; 1")
+            Thread.sleep(3000)
+        }
         var playing = app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" }
         if (!playing) {
             // Facebook's autoplay may not start on a slow emulator (GitHub's draws in software):
@@ -91,7 +105,7 @@ class LiveFacebookCanaryTest {
             eval("(function (v) { if (v) { v.muted = true; var p = v.play(); if (p && p.catch) p.catch(function () {}); } })(document.querySelector('video')); 1")
             playing = app.waitFor(30_000) { eval(PLAYING_JS) == "true" }
         }
-        assertTrue("no reel played on /reels/ (${eval(VIDEO_STATE_JS)})", playing)
+        assertTrue("no reel played on /reels/ (${eval(VIDEO_STATE_JS)}; ${eval(PAGE_SHAPE_JS)})", playing)
         assertTrue(
             "the reels' containers (div.vertically-snappable, adblock.js) are gone",
             eval("!!document.querySelector('div.vertically-snappable')") == "true"
@@ -106,7 +120,7 @@ class LiveFacebookCanaryTest {
 
         // Home, as the user leaves the app: Android 12+ enters PiP by itself (auto-enter).
         app.pressHome()
-        assertTrue("the playing reel never went to PiP on Home", app.waitFor { app.isInPip() })
+        assertTrue("the playing reel never went to PiP on Home (the app's PiP log: ${pipLog()})", app.waitFor { app.isInPip() })
         assertTrue("focus mode never ran", app.waitFor { eval("document.body.hasAttribute('data-astryx-pip-active')") == "true" })
         Thread.sleep(3000) // Facebook re-wraps and pauses the video in the first seconds of PiP
         assertEquals(
@@ -152,7 +166,7 @@ class LiveFacebookCanaryTest {
     fun createStoryOnHome_opensTheStoryCreator() {
         open("https://m.facebook.com/")
         // The tray's first story-sized card near the top of Home (isCreateStoryCard in scripts.js).
-        val clicked = app.waitFor(30_000) {
+        val tapCreateStory = {
             eval(
                 """
                 (function () {
@@ -168,18 +182,21 @@ class LiveFacebookCanaryTest {
                 """.trimIndent()
             ) == "true"
         }
-        assertTrue("no Create story card on Home (scripts.js isCreateStoryCard)", clicked)
-        assertTrue("Create story never opened the story creator in the Messages layer", app.waitFor(30_000) {
-            app.webViews().drop(1).any { app.url(it).contains("/stories/create") }
-        })
+        val clicked = app.waitFor(30_000) { tapCreateStory() }
+        assertTrue("no Create story card on Home (scripts.js isCreateStoryCard) (${eval(PAGE_SHAPE_JS)})", clicked)
+        val creatorOpen = { app.webViews().drop(1).any { app.url(it).contains("/stories/create") } }
+        // A tap before the page listens to taps is lost on a slow emulator: tapped once more.
+        val opened = app.waitFor(15_000) { creatorOpen() } || (tapCreateStory() && app.waitFor(20_000) { creatorOpen() })
+        assertTrue("Create story never opened the story creator in the Messages layer", opened)
     }
 
     @Test
     fun startOnFeeds_pressesTheMenusFeedsEntry() {
         open("https://m.facebook.com/bookmarks/#astryx-feeds")
-        assertTrue("open_feeds.js never found the menu's Feeds entry (its icon or label)", app.waitFor(30_000) {
+        val pressed = app.waitFor(30_000) {
             eval("window.__astryxFeeds === true && location.pathname === '/'") == "true"
-        })
+        }
+        assertTrue("open_feeds.js never found the menu's Feeds entry (its icon or label) (${eval(PAGE_SHAPE_JS)})", pressed)
     }
 
     @Test
@@ -190,6 +207,20 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
+        // A public reel (shared with Public), for when the Reels tab has nothing for the account.
+        private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
+        // The page's shape, for a failure message in the public issue (no page text and nothing of
+        // the account's: the address without values, the title, counts, and the ids of Facebook's
+        // own static icons, which open_feeds.js and scripts.js look for).
+        private const val PAGE_SHAPE_JS =
+            "(function () { var icons = Array.prototype.slice.call(document.querySelectorAll('img[src*=\"rsrc.php\"]'))" +
+                ".map(function (i) { var m = (i.getAttribute('src') || '').match(/([A-Za-z0-9_-]{8,})\\.(png|gif|webp)/); return m ? m[1] : null; })" +
+                ".filter(function (x) { return x; }).slice(0, 15);" +
+                " return location.pathname + location.search.replace(/=[^&]*/g, '=') + ' title=' + document.title +" +
+                " ' buttons=' + document.querySelectorAll('[role=button]').length + ' videos=' + document.querySelectorAll('video').length +" +
+                " ' login=' + !!document.querySelector('input[name=pass]') +" +
+                " ' feedsIcon=' + !!document.querySelector('img[src*=FTDJiLwLrcM]') + ' feedsLabel=' + !!document.querySelector('[aria-label=Feeds]') +" +
+                " ' icons=' + icons.join(','); })()"
         // What the page's videos are doing, for a failure message: a reel that doesn't play on one
         // device only (an emulator without the codec, an error from Facebook's server) shows here.
         private const val VIDEO_STATE_JS =
