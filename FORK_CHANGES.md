@@ -456,6 +456,11 @@ separate layer was added on top.
   Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile
   redirects (profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
+- A photo opened from a chat fills the screen's width, with rounded corners, as in the Facebook
+  app: the desktop viewer put it in a middle column between two columns for its arrows, about
+  half the width at phone size. The arrows are laid over the photo instead
+  (`layer_photo_viewer.js`, Messages layer only, not the creators). Covered by
+  `LayerPhotoViewerJsTest`.
 - A photo sent in a chat can be pinch-zoomed: the desktop photo viewer shows it small at phone
   width and has no zoom of its own for fingers, and the layer's WebView had pinch zoom off (and
   *Pinch to zoom* off locked it too; the lock now leaves the layer alone, as it leaves the mobile
@@ -465,7 +470,10 @@ separate layer was added on top.
   (`m.facebook.com/reel/<id>`): on the desktop reel page in the layer it was drawn small in the
   phone-wide layout, couldn't be enlarged, and played without sound even when unmuted (seen on a
   Galaxy A56). Back on the reel reopens the chat it came from. Facebook's share link for a reel
-  (`/share/r/…`) still opens in the layer first and leaves once it reaches the reel's page.
+  (`/share/r/…`) still opens in the layer first and leaves once it reaches the reel's page. The
+  chat stays on screen until the reel has loaded (closing the layer at once showed the feed for a
+  second), and only a chat counts as the page to go back to: the share link did, so Back opened
+  it again, and the reel, on every press.
   Covered by `MessagesDesktopTest` and `MessagesLayerReelTest`.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
