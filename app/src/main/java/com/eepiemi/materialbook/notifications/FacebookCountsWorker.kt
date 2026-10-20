@@ -127,7 +127,7 @@ class FacebookCountsWorker(context: Context, params: WorkerParameters) : Corouti
         // The page, as the app's WebView would get it: its cookies (the Facebook login) and user
         // agent. Cookies Facebook sets in the answer go back to the WebView's store, as a
         // browser would keep them. Null when logged out or on any error.
-        private fun fetchPage(context: Context): String? = runCatching {
+        internal fun fetchPage(context: Context): String? = runCatching {
             val cookies = CookieManager.getInstance()
             val cookie = cookies.getCookie(COOKIE_URL)
             if (cookie == null || !cookie.contains("c_user=")) {

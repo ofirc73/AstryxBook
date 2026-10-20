@@ -31,6 +31,10 @@ user-visible change.
   only and never distributable. The published APK is re-signed with the release keystore by
   `create-release.yml` (GitHub secrets); that's also why a local release build can't update a phone
   that has an official one.
+- App-level tests drive the real `MainActivity` through `AppHarness` (androidTest). The live
+  checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
+  `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
+  in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
 - Release builds are minified (R8 full mode); debug builds and the tests aren't. A class or
   constructor something creates by reflection needs a keep rule in `proguard-rules.pro` (v1.25.1
   and v1.25.2 crashed at launch: WorkManager's Room database). The instrumented-tests job also

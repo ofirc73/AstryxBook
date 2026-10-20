@@ -521,7 +521,7 @@ class MainActivity : FragmentActivity() {
         if (isInPictureInPictureMode && isVideoPlaying) {
             isVideoPlaying = false
             Log.d(TAG, "onPictureInPictureModeChanged: immediate icon flip to Play")
-            setPictureInPictureParams(
+            applyPipParams(
                 pipParamsBuilder()
                     .setAspectRatio(currentAspectRatio)
                     .setActions(listOf(buildPlayPauseAction(false)))
@@ -540,6 +540,14 @@ class MainActivity : FragmentActivity() {
         )
         val label = if (isPlaying) "Pause" else "Play"
         return RemoteAction(icon, label, label, pendingIntent)
+    }
+
+    // Android throws when the activity is already going (the PiP window dismissed, the app
+    // closed) while a video-state report from the page is still on its way: the app crashed.
+    private fun applyPipParams(params: PictureInPictureParams) {
+        if (isFinishing || isDestroyed) return
+        runCatching { setPictureInPictureParams(params) }
+            .onFailure { Log.w(TAG, "setPictureInPictureParams failed", it) }
     }
 
     private fun pipParamsBuilder(): PictureInPictureParams.Builder {
@@ -577,7 +585,7 @@ class MainActivity : FragmentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
             Log.d(TAG, "reapplyPipParams: autoEnter=$autoEnter, ratio=$currentAspectRatio")
-            setPictureInPictureParams(
+            applyPipParams(
                 pipParamsBuilder()
                     .setAspectRatio(currentAspectRatio)
                     .setAutoEnterEnabled(autoEnter)
@@ -609,7 +617,7 @@ class MainActivity : FragmentActivity() {
                 .setAutoEnterEnabled(autoEnter)
                 .setActions(listOf(buildPlayPauseAction(isPlaying)))
                 .build()
-            setPictureInPictureParams(pipParams)
+            applyPipParams(pipParams)
         }
     }
 
