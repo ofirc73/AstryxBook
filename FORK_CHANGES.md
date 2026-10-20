@@ -559,6 +559,10 @@ leaving the app while a Facebook video or Reel is playing.
   stopped. The hand-off now uses the MP4 that Facebook's player carries in
   `data-video-url` (the same file video downloads use), which is the SD
   version.
+- A reel pinch-zoomed before going to PiP showed only the zoomed-in part of the page in the PiP
+  window: the video cropped in a corner, Facebook's labels around it. In PiP the page is now
+  zoomed all the way out, so the window shows its whole width as usual; checked on entering PiP and
+  after each return from the lock screen. Leaving PiP puts the zoom back.
 - The PiP window went black every time (seen with v1.32.6 on a Galaxy A56): Facebook's reels scroller
   re-wraps the video after PiP's focus mode has marked the video's boxes to keep, and the new,
   unmarked wrappers were hidden with the rest of the page, so the video collapsed to nothing. While
