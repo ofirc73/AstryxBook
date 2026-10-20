@@ -225,7 +225,7 @@ fun MaterialbookWebView(
             onUseDesktop = {
                 pendingMessengerLink = null
                 settingsVM.setMessagesDesktop(true)
-                messagesLayer.url = messagesDesktopUrl(link)
+                messagesLayer.open(messagesDesktopUrl(link))
             },
             onOpenApp = {
                 pendingMessengerLink = null
@@ -238,7 +238,7 @@ fun MaterialbookWebView(
         requestInterceptor = ExternalRequestInterceptor(
             tryOpenMessagesDesktop = { messagesUrl ->
                 if (currentMessagesDesktopSetting && !currentIsEffectiveDesktop) {
-                    messagesLayer.url = messagesDesktopUrl(messagesUrl)
+                    messagesLayer.open(messagesDesktopUrl(messagesUrl))
                     true
                 } else {
                     false
@@ -257,11 +257,11 @@ fun MaterialbookWebView(
     fun openAppLink(link: String, whileRunning: Boolean) {
         when {
             !isMessagesLink(link) || !link.startsWith("http", ignoreCase = true) -> {
-                if (whileRunning) messagesLayer.url = null
+                if (whileRunning) messagesLayer.close()
                 navigator.loadUrl(link)
             }
             currentMessagesDesktopSetting && !currentIsEffectiveDesktop -> {
-                messagesLayer.url = messagesDesktopUrl(link)
+                messagesLayer.open(messagesDesktopUrl(link))
                 if (!whileRunning) navigator.loadUrl(HOME_URL)
             }
             currentIsEffectiveDesktop -> navigator.loadUrl(messagesDesktopUrl(link))
@@ -316,8 +316,10 @@ fun MaterialbookWebView(
     // own videos through PipBridge too), else this view's. Everything below acts on that
     // page; the PiP scripts themselves are the same for both.
     var layerPipTarget by remember { mutableStateOf<PipTarget?>(null) }
-    val pipNavigator = layerPipTarget?.navigator ?: navigator
-    val pipState = layerPipTarget?.state ?: state
+    // Not the layer kept out of sight behind a reel (MessagesLayerState.hidden).
+    val shownLayerPipTarget = layerPipTarget?.takeUnless { messagesLayer.hidden }
+    val pipNavigator = shownLayerPipTarget?.navigator ?: navigator
+    val pipState = shownLayerPipTarget?.state ?: state
 
     // Set by FullscreenController's host below while an HTML5 fullscreen
     // custom view is showing.
@@ -393,7 +395,7 @@ fun MaterialbookWebView(
     // The Messages layer's own page colour (its theme-color, e.g. the desktop site's dark mode)
     // while it's open, so the system bars match the page on screen; the main page's otherwise.
     var layerThemeColor by remember(messagesLayer.url) { mutableStateOf<Color?>(null) }
-    val barColor = layerThemeColor?.takeIf { messagesLayer.url != null && !settingsToggle } ?: themeColor
+    val barColor = layerThemeColor?.takeIf { messagesLayer.isShown && !settingsToggle } ?: themeColor
     // Manual handling to fix visual & padding bug on settings dialog.
     var isImmersiveMode by rememberSaveable { mutableStateOf(settingsVM.immersiveMode.value) }
 
@@ -465,7 +467,7 @@ fun MaterialbookWebView(
                     it.requestedOrientation = appOrientation(
                         it.resources.configuration.smallestScreenWidthDp,
                         isFullscreen = false,
-                        isMessagesLayerOpen = messagesLayer.url != null
+                        isMessagesLayerOpen = messagesLayer.isShown
                     )
                 }
                 Log.d("AstryxbookPiP", "HTML5 fullscreen: hidden")
@@ -595,7 +597,7 @@ fun MaterialbookWebView(
                 navigator.reload()
             },
             onLogOut = {
-                messagesLayer.url = null
+                messagesLayer.close()
                 clearWebData(context, runCatching { state.nativeWebView }.getOrNull()) {
                     navigator.loadUrl(HOME_URL)
                 }
@@ -661,7 +663,7 @@ fun MaterialbookWebView(
     // page underneath keeps running. On open: pause its videos, so a playing reel doesn't go
     // on behind the chat, and note its scroll position. On close: once the screen is back in
     // portrait (a landscape layout reflows the feed and moves it), scroll it back there.
-    val isMessagesLayerOpen = messagesLayer.url != null
+    val isMessagesLayerOpen = messagesLayer.isShown
     LaunchedEffect(messagesLayer.closeOnReel, state.loadingState) {
         if (!messagesLayer.closeOnReel) return@LaunchedEffect
         val onReel = state.loadingState is LoadingState.Finished &&
@@ -817,7 +819,7 @@ fun MaterialbookWebView(
                             pip = PipBridge(onVideoPlayingChanged, onPipPageVisible),
                             screen = ScreenBridge { mainVideoPlaying = it },
                             layer = LayerBridge { pageUrl ->
-                                if (isStoryCreatePage(pageUrl)) messagesLayer.url = pageUrl
+                                if (isStoryCreatePage(pageUrl)) messagesLayer.open(pageUrl)
                             },
                             share = { link ->
                                 val send = Intent(Intent.ACTION_SEND)
@@ -861,10 +863,10 @@ fun MaterialbookWebView(
         navigator = navigator,
         loadingState = loadingState,
         onOpenLayer = { layerUrl ->
-            messagesLayer.url = layerUrl
+            messagesLayer.open(layerUrl)
             messagesLayer.generation++
         },
-        onCloseLayer = { messagesLayer.url = null },
+        onCloseLayer = { messagesLayer.close() },
     )
     messagesLayer.url?.let { layerUrl ->
         // A new Messages link while the layer is open (a notification, say) recreates it, and
@@ -881,6 +883,7 @@ fun MaterialbookWebView(
                 onPrimaryColor = onPrimaryColor,
                 onClose = { messagesLayer.onClosed() },
                 pipEnabled = pipEnabled,
+                hidden = messagesLayer.hidden,
                 onPipTarget = { layerPipTarget = it },
                 onVideoPlayingChanged = onVideoPlayingChanged,
                 onPipPageVisible = onPipPageVisible,

@@ -90,6 +90,7 @@ fun MessagesLayer(
     onClose: () -> Unit,
     onExternalUrl: (String) -> Unit,
     pipEnabled: Boolean = false,
+    hidden: Boolean = false,
     onPipTarget: (PipTarget?) -> Unit = {},
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
     onPipPageVisible: () -> Unit = {},
@@ -151,11 +152,29 @@ fun MessagesLayer(
 
     // Composed after the main view's handlers, so it gets Back first; disabled while a
     // video is fullscreen, so Back leaves fullscreen through the main view's handler.
-    BackHandler(enabled = !isFullscreen) {
-        // Asked of the WebView itself: opening a conversation is an in-page navigation,
-        // which navigator.canGoBack doesn't always pick up.
-        val canGoBack = runCatching { state.nativeWebView.canGoBack() }.getOrDefault(false)
-        if (canGoBack) navigator.navigateBack() else onClose()
+    BackHandler(enabled = !isFullscreen && !hidden) {
+        // A photo open in the desktop viewer closes first: the viewer isn't a page of its own,
+        // so stepping back left the chat for "No chats selected" (seen on a Galaxy A56).
+        navigator.evaluateJavaScript(CLOSE_PHOTO_VIEWER_JS) { closed ->
+            if (closed == "true") return@evaluateJavaScript
+            // Asked of the WebView itself: opening a conversation is an in-page navigation,
+            // which navigator.canGoBack doesn't always pick up.
+            val canGoBack = runCatching { state.nativeWebView.canGoBack() }.getOrDefault(false)
+            if (canGoBack) navigator.navigateBack() else onClose()
+        }
+    }
+
+    // Kept out of sight behind a reel it left for (MessagesLayerState.hidden): the page stays as it
+    // is, under the main view, and takes no touches.
+    // Out of sight, it steps back to the chat: the site had already moved on to the reel (or its
+    // share link) in the layer before the reel left for the main view.
+    LaunchedEffect(hidden) {
+        val webView = runCatching { state.nativeWebView }.getOrNull() ?: return@LaunchedEffect
+        webView.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
+        if (!hidden) return@LaunchedEffect
+        // The page's own history: the site moves in-page (pushState), which WebView's doesn't
+        // always count.
+        navigator.evaluateJavaScript(STEP_BACK_TO_CHAT_JS) {}
     }
 
     // Text size (Settings), when it changes while the layer is open. Not on the story or reel
@@ -240,7 +259,7 @@ fun MessagesLayer(
         }
     }
 
-    Box(modifier = modifier.zIndex(1F).background(background)) {
+    Box(modifier = modifier.zIndex(1F).background(if (hidden) Color.Transparent else background)) {
         WebView(
             modifier = Modifier.fillMaxSize(),
             state = state,
@@ -313,7 +332,7 @@ fun MessagesLayer(
                 }
             }
         )
-        if (loadingState is LoadingState.Loading) {
+        if (loadingState is LoadingState.Loading && !hidden) {
             LinearProgressIndicator(
                 progress = { loadingState.progress },
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
@@ -321,6 +340,21 @@ fun MessagesLayer(
         }
     }
 }
+
+// A layer hidden behind a reel steps back to its chat: one page at a time (the reel, its share link,
+// at most three), each step once the previous one has landed (popstate). Once at a time: run twice,
+// it stepped past the chat.
+private const val STEP_BACK_TO_CHAT_JS =
+    "(function () { if (window.__astryxSteppingBack) return; window.__astryxSteppingBack = true;" +
+        " var steps = 0; function step() {" +
+        " if (location.pathname.indexOf('/messages') === 0 || steps >= 3) {" +
+        " window.removeEventListener('popstate', step); window.__astryxSteppingBack = false; return; }" +
+        " steps++; history.back(); }" +
+        " window.addEventListener('popstate', step); step(); })()"
+
+// Closes the desktop photo viewer if it's open (layer_photo_viewer.js); "true" when it was.
+private const val CLOSE_PHOTO_VIEWER_JS =
+    "(function () { return !!(window.__astryxClosePhotoViewer && window.__astryxClosePhotoViewer()); })()"
 
 // The layer's route for [url]; during a reel share the desktop reels page stays in the layer.
 private fun layerRoute(url: String, isMainFrame: Boolean, reelShare: Boolean): MessagesLayerRoute {

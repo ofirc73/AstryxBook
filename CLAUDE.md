@@ -79,8 +79,8 @@ user-visible change.
   second WebView with the desktop user agent over the main one. The main view never
   switches user agent for Messages; Facebook pages opened from a chat stay in the layer
   (`messagesLayerRoute`), but Facebook's own sections (Home, Friends, the Reels tab…) and a
-  reel's own page (`/reel/<id>`, as a reel shared in a chat opens; Back on it reopens the chat,
-  `layerReturnUrl`) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
+  reel's own page (`/reel/<id>`, as a reel shared in a chat opens; the layer is then kept hidden
+  behind the reel and Back shows it again, `MessagesLayerState`) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
   DevTools target. The layer pinch-zooms (not in the creators) and runs the page scripts with
   `window.__astryxMessagesLayer` set (`pinch_to_zoom.js` leaves it zoomable); `layer_photo_viewer.js`

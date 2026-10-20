@@ -55,6 +55,24 @@
     }
   }
 
+  // Back in the app (MessagesLayer): a photo open in the viewer closes, as the viewer's own X or
+  // Escape closes it, instead of the layer stepping back a page (the viewer isn't a page of its
+  // own, so that left the chat for "No chats selected"). True when a viewer was open.
+  window.__astryxClosePhotoViewer = function () {
+    var rows = document.querySelectorAll('[' + MARK + ']');
+    var open = null;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].isConnected && rows[i].getBoundingClientRect().width > 0) open = rows[i];
+    }
+    if (!open) return false;
+    // One Escape only, at the focused element (it bubbles up): a second one also closed the chat,
+    // leaving "No chats selected" (checked on a Galaxy A56).
+    (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true
+    }));
+    return true;
+  };
+
   widen();
   new MutationObserver(widen).observe(document.documentElement, { childList: true, subtree: true });
 })();

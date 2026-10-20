@@ -38,7 +38,8 @@ class MessagesLayerStateTest {
         assertTrue(layer.closeOnReel)
 
         layer.reelShown()
-        assertFalse(layer.isOpen)
+        assertTrue("the chat behind the reel was closed", layer.isOpen)
+        assertFalse("the chat stayed on screen over the reel", layer.isShown)
         assertFalse(layer.closeOnReel)
         assertEquals(chat, layer.returnUrl)
     }
@@ -53,27 +54,56 @@ class MessagesLayerStateTest {
     }
 
     @Test
-    fun backOnTheReel_opensTheChat_once() {
+    fun backOnTheReel_showsTheSameChatAgain_once() {
         val layer = openAt(chat)
+        val generation = layer.generation
         layer.onLeave(reel, chat) { loaded += it }
         layer.reelShown()
 
         assertTrue(layer.backToChat(reel))
+        assertTrue("the chat isn't on screen again", layer.isShown)
+        // The same layer, not a new one at the chat's address (an encrypted chat landed on the list).
         assertEquals(chat, layer.url)
+        assertEquals(generation, layer.generation)
         // The next Back, on the reel again, is the main view's own.
-        layer.url = null
+        layer.close()
         assertFalse(layer.backToChat(reel))
     }
 
     @Test
-    fun backOnAnotherPage_forgetsTheChat() {
+    fun backOnAnotherPage_closesTheChatKeptBehindTheReel() {
         val layer = openAt(chat)
         layer.onLeave(reel, chat) { loaded += it }
         layer.reelShown()
 
         assertFalse(layer.backToChat("https://m.facebook.com/profile.php?id=4"))
+        assertFalse("the hidden chat was kept after the user went on", layer.isOpen)
         assertNull(layer.returnUrl)
         assertFalse(layer.backToChat(reel))
+    }
+
+    @Test
+    fun afterTheActivityIsRecreated_backOnTheReel_opensTheChatAnew() {
+        // A hidden layer isn't saved; its chat's address is.
+        val layer = openAt(chat)
+        layer.onLeave(reel, chat) { loaded += it }
+        layer.reelShown()
+        val saved = with(MessagesLayerState.Saver) { androidx.compose.runtime.saveable.SaverScope { true }.save(layer) }!!
+        val restored = MessagesLayerState.Saver.restore(saved)!!
+        assertFalse(restored.isOpen)
+
+        assertTrue(restored.backToChat(reel))
+        assertTrue(restored.isShown)
+        assertEquals(chat, restored.url)
+    }
+
+    @Test
+    fun openingMessagesAgain_showsTheHiddenChat() {
+        val layer = openAt(chat)
+        layer.onLeave(reel, chat) { loaded += it }
+        layer.reelShown()
+        layer.open(chat)
+        assertTrue(layer.isShown)
     }
 
     @Test
