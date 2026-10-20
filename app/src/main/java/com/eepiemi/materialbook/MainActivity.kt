@@ -1,7 +1,5 @@
 package com.eepiemi.materialbook
 
-import android.app.Activity
-import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
@@ -21,12 +19,9 @@ import android.util.Log
 import android.util.Rational
 import android.view.WindowManager
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
@@ -54,33 +49,22 @@ import com.eepiemi.materialbook.notifications.AppVisibility
 import com.eepiemi.materialbook.notifications.FacebookCountsWorker
 import com.eepiemi.materialbook.ui.screens.AppLockScreen
 import com.eepiemi.materialbook.ui.screens.MaterialbookWebView
-import com.eepiemi.materialbook.utils.AppLock
-import com.eepiemi.materialbook.utils.canUseAppLock
 import com.eepiemi.materialbook.utils.isAppLockEnabled
 import com.eepiemi.materialbook.utils.locksOnScreenOff
 import com.eepiemi.materialbook.utils.startPageUrl
-import com.eepiemi.materialbook.utils.ShareMedia
 import com.eepiemi.materialbook.utils.shareStartPageUrl
-import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
-import com.eepiemi.materialbook.utils.copySharedMedia
-import com.eepiemi.materialbook.utils.sharedUris
 import com.eepiemi.materialbook.utils.isWebViewTooOld
 import com.eepiemi.materialbook.ui.components.WebViewUpdateDialog
 import androidx.webkit.WebViewCompat
 import com.eepiemi.materialbook.ui.screens.ShareMediaRequest
-import com.eepiemi.materialbook.utils.shouldLockOnReturn
 import com.eepiemi.materialbook.ui.screens.OpenLinkRequest
-import com.eepiemi.materialbook.utils.appLinkUrl
 import com.eepiemi.materialbook.utils.appOrientation
-import com.eepiemi.materialbook.utils.facebookShareUrl
 import com.eepiemi.materialbook.utils.publishAppShortcuts
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
 import com.google.common.util.concurrent.ListenableFuture
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TAG = "AstryxbookPiP"
 private const val ACTION_PIP_TOGGLE = "com.astryx.book.PIP_TOGGLE_PLAYBACK"
@@ -92,7 +76,8 @@ private const val HANDOFF_READ_TIMEOUT_MS = 300L
 // How recently a video must have been playing to count as "playing when PiP started".
 private const val PIP_RECENTLY_PLAYING_MS = 3000L
 
-// A FragmentActivity (a ComponentActivity) because BiometricPrompt needs one.
+// A FragmentActivity (a ComponentActivity) because app lock's BiometricPrompt needs one
+// (AppLockController).
 class MainActivity : FragmentActivity() {
 
     // Shared with the composable tree below (passed explicitly rather than
@@ -197,7 +182,7 @@ class MainActivity : FragmentActivity() {
             // App lock: "Lock when the screen turns off" locks on the next start, whatever the
             // grace period (see onStart).
             if (locksOnScreenOff(settingsVM.appLock.value, settingsVM.appLockOnScreenOff.value)) {
-                lockOnNextStart = true
+                appLockController.lockOnNextStart = true
             }
             // Observed order on the device spike (SM-A566B, Android 16): the
             // page gets visibilitychange -> hidden first, Facebook pauses the
@@ -321,84 +306,14 @@ class MainActivity : FragmentActivity() {
     }
     // ---- end lock-screen audio ----
 
-    // ---- app lock ----
-    // While locked, AppLockScreen covers the page and the system prompt asks for the
-    // fingerprint/face or the screen lock. The page keeps running underneath (PiP and
-    // lock-screen audio are unaffected). Locks on every cold start, and on coming back
-    // after being out of sight for the setting's grace period (see shouldLockOnReturn).
-    private var isAppLocked by mutableStateOf(false)
-    // When the activity was last stopped, on the monotonic clock; null while visible.
-    private var hiddenAt: Long? = null
-    // The screen turned off with "Lock when the screen turns off" on (screenOffReceiver).
-    private var lockOnNextStart = false
-    // The prompt (or the screen-lock confirmation, which is an activity of its own) is up:
-    // the stop/start it causes doesn't count as leaving the app.
-    private var isAuthenticating = false
-    private lateinit var biometricPrompt: BiometricPrompt
-
-    // Android 8.x: the system's screen-lock confirmation (BiometricPrompt's own fallback
-    // there is a fingerprint-only dialog).
-    private val confirmDeviceCredential =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            isAuthenticating = false
-            if (result.resultCode == Activity.RESULT_OK) isAppLocked = false
-        }
-
-    private fun createBiometricPrompt() = BiometricPrompt(
-        this,
-        ContextCompat.getMainExecutor(this),
-        object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                isAuthenticating = false
-                isAppLocked = false
-            }
-
-            // Cancelled or failed for good: stay locked; AppLockScreen's button retries.
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                isAuthenticating = false
-            }
-        }
-    )
-
-    private fun lockIfEnabled() {
-        if (isAppLockEnabled(settingsVM.appLock.value) && canUseAppLock(this)) isAppLocked = true
-    }
-
-    private fun authenticate() {
-        if (!isAppLocked || isAuthenticating) return
-        // The screen lock was removed since the app locked: nothing could unlock it.
-        if (!canUseAppLock(this)) {
-            isAppLocked = false
-            return
-        }
-        isAuthenticating = true
-        val title = getString(R.string.app_lock_prompt_title, getString(R.string.app_name))
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            biometricPrompt.authenticate(
-                BiometricPrompt.PromptInfo.Builder()
-                    .setTitle(title)
-                    .setAllowedAuthenticators(AppLock.AUTHENTICATORS)
-                    .build()
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            val intent = getSystemService(KeyguardManager::class.java)
-                ?.createConfirmDeviceCredentialIntent(title, null)
-            if (intent == null) {
-                isAuthenticating = false
-                isAppLocked = false
-            } else {
-                confirmDeviceCredential.launch(intent)
-            }
-        }
-    }
+    // ---- app lock (AppLockController) ----
+    private val appLockController = AppLockController(this) { settingsVM.appLock.value }
 
     override fun onStop() {
         super.onStop()
         AppVisibility.onScreen = false
-        if (!isAuthenticating && !isChangingConfigurations) hiddenAt = SystemClock.elapsedRealtime()
+        appLockController.onStop(isChangingConfigurations)
     }
-    // ---- end app lock ----
 
     // An app's Play Store page (the Play Store app, or the site without it).
     private fun openStorePage(packageName: String) {
@@ -449,16 +364,15 @@ class MainActivity : FragmentActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        biometricPrompt = createBiometricPrompt()
-        lockIfEnabled()
+        appLockController.onCreate()
 
         // Read once: the page the app starts on (a link it was opened with, or Home/Feeds).
         // A share that opens a mobile page starts there (Home's composer, the profile, the groups);
         // stories and reels open in the layer over the usual start page.
         val mediaTarget = mediaShareTarget(intent)
         val startUrl = mediaTarget?.let { shareStartPageUrl(it) }
-            ?: startPageUrl(if (mediaTarget == null) linkUrl(intent) else null, settingsVM.startOnFeeds.value)
-        mediaTarget?.let { receiveSharedMedia(intent, it) }
+            ?: startPageUrl(if (mediaTarget == null) linkUrl(this, intent) else null, settingsVM.startOnFeeds.value)
+        mediaTarget?.let { receiveSharedMedia(this, intent, it, ::onSharedMediaReady) }
 
         // An Android System WebView too old for the page scripts (before Chrome 80): asked to
         // update it, once per app start (not again when the activity is recreated).
@@ -484,12 +398,12 @@ class MainActivity : FragmentActivity() {
                         shareMediaRequest = shareMediaRequest,
                         onPipHandoffRead = ::onPipHandoffRead,
                         onPipPageVisible = { runOnUiThread { handBack("page visible") } },
-                        isAppLocked = isAppLocked,
+                        isAppLocked = appLockController.isLocked,
                         onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
                             updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
                         }
                     )
-                    if (isAppLocked) AppLockScreen(onUnlock = ::authenticate)
+                    if (appLockController.isLocked) AppLockScreen(onUnlock = appLockController::authenticate)
                     var askWebViewUpdate by remember { mutableStateOf(outdatedWebView != null) }
                     if (askWebViewUpdate && outdatedWebView != null) {
                         WebViewUpdateDialog(
@@ -539,65 +453,18 @@ class MainActivity : FragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         mediaShareTarget(intent)?.let {
-            receiveSharedMedia(intent, it)
+            receiveSharedMedia(this, intent, it, ::onSharedMediaReady)
             return
         }
-        val url = linkUrl(intent) ?: return
+        val url = linkUrl(this, intent) ?: return
         openLinkRequest = OpenLinkRequest((openLinkRequest?.seq ?: 0) + 1, url)
     }
 
-    /** The target of photos or videos shared through one of the share entries, if this is one. */
-    private fun mediaShareTarget(intent: Intent?): ShareTarget? {
-        if (intent?.action != Intent.ACTION_SEND && intent?.action != Intent.ACTION_SEND_MULTIPLE) return null
-        return ShareMedia.targetOf(intent.component?.className)
+    // The shared items are copied (IncomingIntents.kt): the WebView opens Facebook's composer.
+    private fun onSharedMediaReady(target: ShareTarget) {
+        shareMediaRequest = ShareMediaRequest((shareMediaRequest?.seq ?: 0) + 1, target)
     }
 
-    /**
-     * Copies the shared items the target takes into the cache (off the main thread; the sharing
-     * app's permission to read them lasts only while this activity has the intent), then has the
-     * WebView open Facebook's composer for them. Says so when some or all were left out.
-     */
-    private fun receiveSharedMedia(intent: Intent, target: ShareTarget) {
-        val uris = sharedUris(intent)
-        val type = intent.type
-        lifecycleScope.launch {
-            val (files, skipped) = withContext(Dispatchers.IO) {
-                copySharedMedia(this@MainActivity, target, uris, type)
-            }
-            if (files.isEmpty()) {
-                val nothing = when (target) {
-                    ShareTarget.FEED -> R.string.share_media_nothing_feed
-                    ShareTarget.STORY -> R.string.share_media_nothing_story
-                    ShareTarget.PROFILE_PICTURE, ShareTarget.GROUP -> R.string.share_media_nothing_photos
-                    ShareTarget.REEL -> R.string.share_media_nothing_reel
-                }
-                Toast.makeText(this@MainActivity, nothing, Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            if (skipped > 0) {
-                Toast.makeText(
-                    this@MainActivity,
-                    resources.getQuantityString(R.plurals.share_media_skipped, skipped, skipped),
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            ShareMediaQueue.start(target, files)
-            shareMediaRequest = ShareMediaRequest((shareMediaRequest?.seq ?: 0) + 1, target)
-        }
-    }
-
-    /**
-     * The page an intent asks for: a link shared from another app opens Facebook's share
-     * dialog (shared text without a link can't be shared to Facebook's web share, so the app
-     * just opens); a link or launcher shortcut opens its page if it's a Facebook one.
-     */
-    private fun linkUrl(intent: Intent?): String? = if (intent?.action == Intent.ACTION_SEND) {
-        facebookShareUrl(intent.getStringExtra(Intent.EXTRA_TEXT)).also {
-            if (it == null) Toast.makeText(this, R.string.share_only_links, Toast.LENGTH_LONG).show()
-        }
-    } else {
-        appLinkUrl(intent?.data?.toString())
-    }
 
     // Handback signals besides the page's own visibilitychange: the activity
     // becoming visible again (unlock while in PiP, or back to full screen).
@@ -606,19 +473,13 @@ class MainActivity : FragmentActivity() {
         AppVisibility.onScreen = true
         FacebookCountsWorker.onAppShown(this)
         handBack("onStart")
-        if (!isAuthenticating && (lockOnNextStart ||
-                shouldLockOnReturn(settingsVM.appLock.value, hiddenAt, SystemClock.elapsedRealtime()))
-        ) {
-            lockIfEnabled()
-        }
-        hiddenAt = null
-        lockOnNextStart = false
+        appLockController.onStart()
     }
 
     override fun onResume() {
         super.onResume()
         handBack("onResume")
-        if (isAppLocked && !isInPictureInPictureMode) authenticate()
+        appLockController.onResume(isInPictureInPictureMode)
     }
 
     override fun onDestroy() {
