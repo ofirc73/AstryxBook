@@ -166,7 +166,8 @@ fun MessagesLayer(
     val loadingState = state.loadingState
     LaunchedEffect(loadingState, userScripts) {
         if (loadingState is LoadingState.Finished && userScripts != null) {
-            navigator.evaluateJavaScript(userScripts) {}
+            // Marks the page as the layer's for the scripts that differ there (pinch_to_zoom.js).
+            navigator.evaluateJavaScript("window.__astryxMessagesLayer = true;\n$userScripts") {}
         }
     }
 
@@ -255,6 +256,14 @@ fun MessagesLayer(
                 if (isStoryCreatePage(url) || isReelCreatePage(url)) {
                     state.webSettings.androidWebSettings.useWideViewPort = true
                     webView.settings.loadWithOverviewMode = true
+                }
+                // Pinch to zoom, as in the main view: the desktop photo viewer shows a photo sent in a
+                // chat small at phone width and has no zoom of its own for fingers (seen on a Galaxy
+                // A56). Not in the creators, whose editors follow finger drags.
+                if (!isStoryCreatePage(url) && !isReelCreatePage(url)) {
+                    webView.settings.setSupportZoom(true)
+                    webView.settings.builtInZoomControls = true
+                    webView.settings.displayZoomControls = false
                 }
                 CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
                 state.webSettings.apply {
