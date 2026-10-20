@@ -480,7 +480,13 @@ separate layer was added on top.
   second), and only a chat counts as the page to go back to: the share link did, so Back opened
   it again, and the reel, on every press. The chat's layer is then kept, out of sight, behind the
   reel (stepped back to the chat in its own history), so Back shows the same chat where it was:
-  opened anew at its address, an end-to-end encrypted chat landed on the chat list.
+  opened anew at its address, an end-to-end encrypted chat landed on the chat list. While it's out
+  of sight it paints nothing and sits under the main view (it painted its page colour over the
+  reel: a black screen in dark mode).
+- Back in the Messages layer goes as the desktop site does at phone width: a photo closes, a chat
+  goes back to the chat list (the chat header's own Back button), the chat list closes the layer,
+  and other pages (a profile opened from a chat) step back a page. Stepping back a page from a
+  chat left "No chats selected".
   Covered by `MessagesDesktopTest` and `MessagesLayerReelTest`.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
