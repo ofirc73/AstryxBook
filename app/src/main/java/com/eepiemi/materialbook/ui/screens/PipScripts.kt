@@ -681,3 +681,40 @@ internal fun pipHandbackJs(positionMs: Long?, play: Boolean, rearm: Boolean): St
   return 'ok';
 })();
 """ + PIP_HANDOFF_DISARM_JS + (if (rearm) PIP_HANDOFF_ARM_JS else "")
+
+// Runs right after PIP_FOCUS_MODE_JS (and kept separate from it, see CLAUDE.md). Facebook's reels
+// scroller can re-wrap the PiP video after focus mode marked its ancestors: the new wrappers carry
+// no keep mark, so focus mode's stylesheet hid them and the video collapsed to 0x0, a black PiP
+// window (seen on a Galaxy A56 with v1.32.6, on every PiP). While PiP is on, this marks any
+// unmarked ancestor of the PiP video and forces it visible the way focus mode does (restore undoes
+// both). Stops by itself once focus mode is restored.
+internal const val PIP_KEEP_CHAIN_JS = """
+(function() {
+  if (window.__astryxKeepChain) clearInterval(window.__astryxKeepChain);
+  function keepChain() {
+    if (!document.body.hasAttribute('data-astryx-pip-active')) {
+      clearInterval(window.__astryxKeepChain);
+      window.__astryxKeepChain = null;
+      return;
+    }
+    var v = document.querySelector('[data-astryx-pip-video]');
+    if (!v) return;
+    for (var el = v; el && el !== document.body; el = el.parentElement) {
+      if (!el.hasAttribute('data-astryx-pip-keep')) {
+        el.setAttribute('data-astryx-pip-keep', 'true');
+        if (window.__astryxKeepVisibleObserver) {
+          window.__astryxKeepVisibleObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+        }
+      }
+      if (getComputedStyle(el).display === 'none') {
+        if (!el.hasAttribute('data-astryx-orig-style')) {
+          el.setAttribute('data-astryx-orig-style', el.getAttribute('style') || '');
+        }
+        el.style.setProperty('display', 'block', 'important');
+      }
+    }
+  }
+  keepChain();
+  window.__astryxKeepChain = setInterval(keepChain, 250);
+})();
+"""

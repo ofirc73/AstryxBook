@@ -559,6 +559,11 @@ leaving the app while a Facebook video or Reel is playing.
   stopped. The hand-off now uses the MP4 that Facebook's player carries in
   `data-video-url` (the same file video downloads use), which is the SD
   version.
+- The PiP window went black every time (seen with v1.32.6 on a Galaxy A56): Facebook's reels scroller
+  re-wraps the video after PiP's focus mode has marked the video's boxes to keep, and the new,
+  unmarked wrappers were hidden with the rest of the page, so the video collapsed to nothing. While
+  PiP is on, a separate script (`PIP_KEEP_CHAIN_JS`) now marks any new box around the video and
+  keeps it visible; it stops when PiP ends. Covered by `PipFocusModeJsTest`.
 - Lock-screen audio from PiP: a long lock ended the video on the lock screen (the player stopped
   at its end); on unlock the page's video was set to its very end, which Facebook takes for a
   finished video, so it closed the viewer: the PiP window went black, the sound stopped, and
