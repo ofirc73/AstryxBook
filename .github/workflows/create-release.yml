@@ -122,14 +122,6 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       version_name: ${{ needs.resolve-version.outputs.version }}
-      coverage: false
-
-  # The coverage report runs next to the release job instead of inside ci,
-  # so publishing doesn't wait for it; it gates nothing.
-  coverage:
-    needs: ci
-    if: ${{ !cancelled() && needs.ci.result == 'success' }}
-    uses: ./.github/workflows/coverage.yml
 
   release:
     needs: [ci, resolve-version]
