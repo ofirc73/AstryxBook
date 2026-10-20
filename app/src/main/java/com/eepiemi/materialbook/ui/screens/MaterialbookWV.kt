@@ -48,16 +48,11 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.audio.PipHandback
-import com.eepiemi.materialbook.notifications.FacebookCounts
-import com.eepiemi.materialbook.notifications.FacebookCountsWorker
 import com.eepiemi.materialbook.ui.components.ExternalLinkDialog
 import com.eepiemi.materialbook.ui.components.MessengerLinkDialog
 import com.eepiemi.materialbook.ui.components.NetworkErrorDialog
@@ -71,7 +66,6 @@ import com.eepiemi.materialbook.utils.FEEDS_PAGE_URL
 import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.HOME_PAGE_URL
 import com.eepiemi.materialbook.utils.KeepScreenOn
-import com.eepiemi.materialbook.utils.REEL_CREATE_URL
 import com.eepiemi.materialbook.utils.STORY_CREATE_URL
 import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
@@ -108,7 +102,6 @@ import com.eepiemi.materialbook.utils.openInCustomTab
 import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
 import com.eepiemi.materialbook.utils.rendererRecoveryUrl
-import com.eepiemi.materialbook.utils.shareStartPageUrl
 import com.eepiemi.materialbook.utils.shareablePageUrl
 import com.eepiemi.materialbook.utils.shouldKeepScreenOn
 import com.multiplatform.webview.web.LoadingState
@@ -121,25 +114,9 @@ private const val HOME_URL = HOME_PAGE_URL
 
 // A reel opened from a chat: the longest the chat stays on screen while the reel loads.
 private const val LAYER_CLOSE_WAIT_MS = 8000L
-// A shared photo's page: how long to wait for a fresh load before using the page showing.
-private const val SHARE_LOAD_WAIT_MS = 2000L
 
 /** A link the running app was sent (onNewIntent); [seq] tells two taps on the same link apart. */
 data class OpenLinkRequest(val seq: Int, val url: String)
-
-/** Photos or videos shared into the app for [target]; [seq] tells two shares apart. */
-data class ShareMediaRequest(val seq: Int, val target: ShareTarget)
-
-/** share_media.js for [target], with the target it's run for. */
-internal fun shareMediaScript(resources: android.content.res.Resources, target: ShareTarget): String {
-    val script = resources.openRawResource(R.raw.share_media).bufferedReader().use { it.readText() }
-    // The note shown while Facebook prepares the photos (share_media.js showAdding).
-    val count = ShareMediaQueue.remaining(target)
-    val adding = if (count > 1) resources.getString(R.string.share_media_adding_several, count)
-    else resources.getString(R.string.share_media_adding_one)
-    return "window.__astryxShareTarget = '${target.key}';\n" +
-        "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
-}
 
 @Composable
 fun MaterialbookWebView(
@@ -559,40 +536,7 @@ fun MaterialbookWebView(
         onDispose { hostView.keepScreenOn = false }
     }
 
-    // "Clear cache when leaving" (Settings): the HTTP cache (the photos, videos and pages
-    // Facebook sent, shared by every WebView in the app) is emptied each time the app goes out
-    // of sight. The login, site data and copied images stay: a copied image may be pasted in
-    // the app the user just switched to.
-    val clearCacheOnLeave by settingsVM.clearCacheOnLeave.collectAsState()
-    val currentClearCacheOnLeave by rememberUpdatedState(clearCacheOnLeave)
-    // "Facebook notifications" (Settings): the counts the user leaves the app with are the ones
-    // background checks compare against, read from the page's tab bar (no network), or fetched
-    // once if the page has none (Feeds, a profile).
-    val facebookNotifications by settingsVM.facebookNotifications.collectAsState()
-    val currentFacebookNotifications by rememberUpdatedState(facebookNotifications)
-    val lifecycle = (activity as? LifecycleOwner)?.lifecycle
-    DisposableEffect(lifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event != Lifecycle.Event.ON_STOP) return@LifecycleEventObserver
-            val webView = runCatching { state.nativeWebView }.getOrNull()
-            if (currentFacebookNotifications) {
-                if (webView != null && state.loadingState is LoadingState.Finished) {
-                    webView.evaluateJavascript(FacebookCounts.TAB_LABELS_JS) { result ->
-                        val labels = runCatching {
-                            val array = org.json.JSONArray(result)
-                            List(array.length()) { array.getString(it) }
-                        }.getOrNull()
-                        FacebookCountsWorker.onAppHidden(context, labels)
-                    }
-                } else {
-                    FacebookCountsWorker.onAppHidden(context, null)
-                }
-            }
-            if (currentClearCacheOnLeave) webView?.clearCache(true)
-        }
-        lifecycle?.addObserver(observer)
-        onDispose { lifecycle?.removeObserver(observer) }
-    }
+    AppLeaveEffects(settingsVM = settingsVM, state = state)
 
     // The Messages tab hook, whenever Messages in desktop mode is on. userScripts only picks up
     // settings on "Apply immediately?" or a restart; without the hook the tab still reaches the
@@ -928,59 +872,16 @@ fun MaterialbookWebView(
     var layerGeneration by remember { mutableIntStateOf(0) }
     var lastLayerRendererLossAt by remember { mutableStateOf<Long?>(null) }
 
-    // Photos and videos shared from another app (ShareMedia): a mobile page in the main view (the
-    // feed's composer on Home, the profile, the groups), or a desktop creator in the layer
-    // (stories, reels); share_media.js hands them to Facebook's page. A main-view share's script
-    // waits for a fresh load of the page it asked for (a page already showing, or the one before,
-    // could be gone a moment later).
-    var pageShareTarget by remember { mutableStateOf<ShareTarget?>(null) }
-    var pageShareLoadSeen by remember { mutableStateOf(false) }
-    LaunchedEffect(shareMediaRequest?.seq) {
-        val request = shareMediaRequest ?: return@LaunchedEffect
-        val pageUrl = shareStartPageUrl(request.target)
-        if (pageUrl != null) {
-            messagesLayerUrl = null
-            pageShareTarget = request.target
-            pageShareLoadSeen = false
-            navigator.loadUrl(pageUrl)
-        } else {
-            messagesLayerUrl = if (request.target == ShareTarget.REEL) REEL_CREATE_URL else STORY_CREATE_URL
+    MainViewShareEffects(
+        shareMediaRequest = shareMediaRequest,
+        navigator = navigator,
+        loadingState = loadingState,
+        onOpenLayer = { layerUrl ->
+            messagesLayerUrl = layerUrl
             layerGeneration++
-        }
-    }
-    // A share that starts the app (a cold start from a gallery) can come while the first page is
-    // loading: its own load then merges with that one and no fresh load is seen, so the script
-    // never ran and the share ended on the feed (seen on a Galaxy A56). When no load starts within
-    // SHARE_LOAD_WAIT_MS of the request, the page showing counts as the share's page.
-    LaunchedEffect(pageShareTarget, pageShareLoadSeen) {
-        val target = pageShareTarget ?: return@LaunchedEffect
-        if (pageShareLoadSeen) return@LaunchedEffect
-        delay(SHARE_LOAD_WAIT_MS)
-        if (!pageShareLoadSeen && loadingState is LoadingState.Finished && ShareMediaQueue.pending(target)) {
-            pageShareLoadSeen = true
-            navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
-        }
-    }
-    LaunchedEffect(loadingState, pageShareTarget) {
-        val target = pageShareTarget ?: return@LaunchedEffect
-        if (loadingState is LoadingState.Loading) {
-            pageShareLoadSeen = true
-        } else if (loadingState is LoadingState.Finished && pageShareLoadSeen) {
-            // The script runs again on every page that finishes loading until it has taken the
-            // files: the share's page can be replaced right after it loads, taking the script with
-            // it (on a cold start m.facebook.com redirects its first load to "/?wtsid=…", and a
-            // share that opens the app ended on the feed). Up to SHARE_PAGE_MS; a group share
-            // waits while the user picks the group (opening one can be a full load), for up to
-            // GROUP_PICK_MS. share_media.js runs only once per page.
-            val wait = if (target == ShareTarget.GROUP) ShareMediaQueue.GROUP_PICK_MS else ShareMediaQueue.SHARE_PAGE_MS
-            if (ShareMediaQueue.olderThan(wait)) ShareMediaQueue.clear()
-            if (ShareMediaQueue.pending(target)) {
-                navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
-            } else {
-                pageShareTarget = null
-            }
-        }
-    }
+        },
+        onCloseLayer = { messagesLayerUrl = null },
+    )
     messagesLayerUrl?.let { layerUrl ->
         // A new Messages link while the layer is open (a notification, say) recreates it, and
         // so does a lost renderer (onRendererGone), at the page it was showing.
