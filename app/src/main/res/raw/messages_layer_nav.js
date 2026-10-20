@@ -47,6 +47,10 @@
       var b = buttons[i], r = b.getBoundingClientRect();
       if (r.width < 20 || r.width > 56 || r.left < 0 || r.left > 80 || r.top < 56 || r.top > 200) continue;
       if (!b.querySelector('svg')) continue;
+      // On screen, not just laid out: with the chat list showing, the chat's header is still there
+      // underneath, its call buttons where the Back button would be (one of them was pressed).
+      var hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (!hit || !b.contains(hit)) continue;
       for (var j = 0; j < links.length; j++) {
         var l = links[j].getBoundingClientRect();
         var middle = l.top + l.height / 2;
