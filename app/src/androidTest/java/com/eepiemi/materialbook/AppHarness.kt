@@ -26,19 +26,37 @@ class AppHarness {
     val context: Context = ApplicationProvider.getApplicationContext()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
+    /**
+     * Starts (or, as Android does for this singleTask activity, brings back) MainActivity with
+     * [intent] and waits until it's on screen.
+     */
     fun start(intent: Intent = Intent(context, MainActivity::class.java)) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        assertTrue("MainActivity never came up", waitFor(15_000) { activity() != null })
+        assertTrue("MainActivity never came up", waitFor(15_000) { activity()?.let { !it.isFinishing } == true })
     }
 
-    /** Finishes every activity the test left, so the next test starts the app afresh. */
+    private fun anyMainActivity(): Boolean {
+        var any = false
+        instrumentation.runOnMainSync {
+            val registry = ActivityLifecycleMonitorRegistry.getInstance()
+            any = listOf(Stage.PRE_ON_CREATE, Stage.CREATED, Stage.STARTED, Stage.RESUMED, Stage.PAUSED, Stage.STOPPED)
+                .any { stage -> registry.getActivitiesInStage(stage).any { it is MainActivity } }
+        }
+        return any
+    }
+
+    /**
+     * Finishes every activity the test left and waits until they're destroyed, so the next test
+     * starts the app afresh (a finishing activity still found by [activity] handed the next test
+     * the old WebView).
+     */
     fun finish() {
         instrumentation.runOnMainSync {
             for (stage in listOf(Stage.RESUMED, Stage.PAUSED, Stage.STOPPED, Stage.STARTED, Stage.CREATED)) {
                 ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage).forEach { it.finish() }
             }
         }
-        waitFor(5_000) { activity() == null }
+        waitFor(10_000) { !anyMainActivity() }
     }
 
     fun activity(): MainActivity? {
@@ -46,7 +64,7 @@ class AppHarness {
         instrumentation.runOnMainSync {
             val registry = ActivityLifecycleMonitorRegistry.getInstance()
             found = (registry.getActivitiesInStage(Stage.RESUMED) + registry.getActivitiesInStage(Stage.PAUSED))
-                .firstOrNull { it is MainActivity }
+                .filter { it is MainActivity }.let { list -> list.firstOrNull { !it.isFinishing } ?: list.firstOrNull() }
         }
         return found as MainActivity?
     }
@@ -72,6 +90,58 @@ class AppHarness {
 
     fun mainWebView(): WebView = webViews().first()
 
+    /** The Messages layer's WebView, once it's open. */
+    fun layerWebView(): WebView? = webViews().getOrNull(1)
+
+    /**
+     * Loads [html] into [webView] as if it came from [url] (a Facebook address, so the app's
+     * scripts and effects treat it as Facebook's), and waits for the app's scripts to have run.
+     * With [asHistory] the WebView also reports [url] as its address (WebView.url), as the app's
+     * Back handling reads it; a reload then fetches the real page.
+     */
+    fun loadPage(url: String, html: String, webView: WebView = mainWebView(), asHistory: Boolean = false) {
+        // Whatever the WebView was loading (the start page, a page the app opened) finishes
+        // first: a load still under way replaced the test page with the real one at its address.
+        waitFor(20_000) { onActivity { webView.progress } == 100 }
+        Thread.sleep(1000)
+        var loaded = false
+        for (attempt in 1..3) {
+            instrumentation.runOnMainSync {
+                webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", url.takeIf { asHistory })
+            }
+            loaded = waitFor {
+                eval("location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
+            }
+            if (loaded) break
+            waitFor(20_000) { onActivity { webView.progress } == 100 }
+        }
+        assertTrue("the test page never loaded (the WebView shows ${eval("location.href + ' ' + document.readyState", webView)})", loaded)
+        Thread.sleep(1500) // the app's scripts run once the page has finished loading
+    }
+
+    /** The page tells the app a video is playing, as pip_video_detector.js does for a real one. */
+    fun reportPlaying(webView: WebView = mainWebView()) {
+        eval(
+            "window.AstryxPage.postMessage(JSON.stringify({ call: 'videoState', playing: true, width: 720, height: 1280, why: '' })); 1",
+            webView
+        )
+        Thread.sleep(500)
+    }
+
+    /** MainActivity is alive but in the background (Home, or Back leaving the app). */
+    fun isInBackground(): Boolean {
+        var stopped = false
+        instrumentation.runOnMainSync {
+            stopped = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.STOPPED)
+                .any { it is MainActivity && !it.isFinishing }
+        }
+        return stopped
+    }
+
+    fun pressBack() {
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+    }
+
     fun url(webView: WebView): String = onActivity { webView.url.orEmpty() }
 
     /** [js]'s value as evaluateJavascript gives it (JSON: strings quoted, "null" for none). */
@@ -79,7 +149,7 @@ class AppHarness {
         var result: String? = null
         val latch = CountDownLatch(1)
         instrumentation.runOnMainSync { webView.evaluateJavascript(js) { result = it; latch.countDown() } }
-        assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
+        assertTrue("evaluateJavascript never returned", latch.await(20, TimeUnit.SECONDS))
         return result ?: "null"
     }
 
@@ -100,7 +170,9 @@ class AppHarness {
     }
 
     fun pressHome() {
-        instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME")
+        ).use { it.readBytes() }
     }
 
     // Back to full screen the way a tap on the PiP window's expand does: the activity to the front.

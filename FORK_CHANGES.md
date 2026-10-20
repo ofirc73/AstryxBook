@@ -399,11 +399,28 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
 Facebook's own player behavior (the re-pause limitation below) is
 deliberately out of scope — external, unfixable from here.
 
-App-level tests (`MainActivityPipTest`, with `AppHarness`) start the real `MainActivity`, load a
-reel-like test page into its WebView and enter and leave real picture-in-picture: focus mode
-applied and restored, a wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP), a
-pinch-zoomed page shown whole in PiP with its zoom back afterwards. They catch the wiring between
-the activity, the effects and the scripts, which the script tests on their own can't.
+App-level regression tests (with `AppHarness`) start the real `MainActivity` and drive it as a
+user would, with test pages at Facebook addresses in its WebViews (no login, so they run in CI).
+They catch the wiring between the activity, the effects and the scripts, which the script tests
+on their own can't:
+
+- `MainActivityPipTest`: Home with a playing video enters PiP (not with PiP off); focus mode
+  applied and restored; the keep-playing guard only in PiP; leaving PiP keeps the page; a
+  wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP); a pinch-zoomed page shown
+  whole in PiP and zoomed back after; PiP from the Messages layer acting on the layer; PiP on the
+  WebView that replaces a crashed renderer; lock and unlock in PiP keeping the window, the page
+  and the sound.
+- `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
+- `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
+  Groups, profile picture) taking the files in and opening its page in the right view.
+- `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
+  unlocked with the PIN; locking again on coming back; the grace period letting a quick return
+  in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
+- `LinksTest`: a Facebook link opening in the app, also while it runs (the same instance) and
+  when shared as text; a link to another site leaving for the browser with the page kept.
+- `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
+  on Feeds opening the menu, Back on the first page leaving the app to the background, closing
+  the app stopping its page.
 
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
@@ -434,12 +451,17 @@ separate layer was added on top.
   `m.me`, `messenger.com`, `fb-messenger://`, `intent://`) opens the layer. Links that
   point at a conversation keep it (`/messages/t/<id>`, `m.me/<name>`,
   `messenger.com/t/<id>`, `fb-messenger://user/<id>`); anything else opens the inbox.
-- Facebook pages opened from a chat (a shared reel, a profile) open in the layer too, on
-  the desktop site, which plays shared reels and opens profiles without pushing the
-  Facebook app; Back returns to the chat. Handing them to the mobile view instead lost the
-  feed position and broke on Facebook's mobile redirects (shared reels landed on the home
-  feed, profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
+- Facebook pages opened from a chat (a profile, a post) open in the layer too, on the desktop
+  site, which opens profiles without pushing the Facebook app; Back returns to the chat.
+  Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile
+  redirects (profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
   non-Facebook links go to the system as in the main view.
+- A reel shared in a chat opens in the main view's mobile reel player
+  (`m.facebook.com/reel/<id>`): on the desktop reel page in the layer it was drawn small in the
+  phone-wide layout, couldn't be enlarged, and played without sound even when unmuted (seen on a
+  Galaxy A56). Back on the reel reopens the chat it came from. Facebook's share link for a reel
+  (`/share/r/…`) still opens in the layer first and leaves once it reaches the reel's page.
+  Covered by `MessagesDesktopTest` and `MessagesLayerReelTest`.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
   Reels tab and the like open their mobile page in the main view
@@ -591,6 +613,10 @@ leaving the app while a Facebook video or Reel is playing.
   enlarging it showed the feed instead of the video (seen on a Galaxy A56, 260 s video). The
   lock-screen player now loops the video, and the hand-back starts the page's video over rather
   than at its very end. Covered by `PipHandoffJsTest`.
+- Closing the app's screen for good (it finishing, or Android destroying it while the app stays in
+  memory) left its page running: a video there went on playing, with its sound, in the
+  background. The page is now destroyed with the screen. Found by the app-level tests, where
+  every closed test screen kept its page; covered by `PagesAndSettingsTest`.
 - The app could crash when the PiP window closed (or the app was closed) while the page was still
   reporting the video's state: Android refuses PiP settings for an activity that is going away.
   Those updates are now skipped then. Found by the live-Facebook checks (`LiveFacebookCanaryTest`).

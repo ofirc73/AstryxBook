@@ -5,6 +5,7 @@ import com.eepiemi.materialbook.utils.intentFallbackUrl
 import com.eepiemi.materialbook.utils.isDesktopMessagesUrl
 import com.eepiemi.materialbook.utils.isFacebookWebUrl
 import com.eepiemi.materialbook.utils.isMessagesLink
+import com.eepiemi.materialbook.utils.isMobileReelPage
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
 import com.eepiemi.materialbook.utils.messagesLayerExit
 import com.eepiemi.materialbook.utils.messagesLayerRoute
@@ -87,8 +88,7 @@ class MessagesDesktopTest {
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/groups/feed/"), messagesLayerExit("https://www.facebook.com/groups/feed/"))
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/reel/?s=tab"), messagesLayerExit("https://www.facebook.com/reel/?s=tab"))
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/watch/"), messagesLayerExit("https://www.facebook.com/watch/"))
-        // What a chat links to stays in the layer: a reel, a video, a group, a profile, a post.
-        assertNull(messagesLayerExit("https://www.facebook.com/reel/123456/"))
+        // What a chat links to stays in the layer: a video, a group, a profile, a post.
         assertNull(messagesLayerExit("https://www.facebook.com/watch/?v=123"))
         assertNull(messagesLayerExit("https://www.facebook.com/groups/somegroup/"))
         assertNull(messagesLayerExit("https://www.facebook.com/marketplace/item/1/"))
@@ -98,6 +98,36 @@ class MessagesDesktopTest {
         assertNull(messagesLayerExit("https://www.facebook.com/messages/t/1"))
         assertNull(messagesLayerExit("https://example.com/"))
         assertNull(messagesLayerExit("https://l.facebook.com/l.php?u=x"))
+    }
+
+    @Test
+    fun aReelSharedInAChat_opensInTheMainViewsReelPlayer() {
+        // The desktop reel page drew it small, with no way to enlarge it, and silent.
+        val reel = "https://www.facebook.com/reel/1360854416127071"
+        val mobileReel = "https://m.facebook.com/reel/1360854416127071/"
+        assertEquals(MessagesLayerRoute.Leave(mobileReel), messagesLayerExit(reel))
+        assertEquals(MessagesLayerRoute.Leave(mobileReel), messagesLayerExit("$reel/"))
+        assertEquals(MessagesLayerRoute.Leave(mobileReel), messagesLayerExit("$reel/?s=chat&fs=e"))
+        // A full load of it (the request interceptor) and an in-page move to it alike.
+        assertEquals(MessagesLayerRoute.Leave(mobileReel), messagesLayerRoute(reel, true))
+        // Facebook's share link for it still opens in the layer first, then redirects to the reel.
+        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute("https://www.facebook.com/share/r/1AbCdEf/", true))
+        // Not a reel's own page: the Reels tab (a section), and things that only look like one.
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/reel/"), messagesLayerExit("https://www.facebook.com/reel/"))
+        assertNull(messagesLayerExit("https://www.facebook.com/reel/abc"))
+        assertNull(messagesLayerExit("https://www.facebook.com/reel/123/comments"))
+    }
+
+    @Test
+    fun theMobileReelPage_isWhatBackReturnsToTheChatFrom() {
+        assertTrue(isMobileReelPage("https://m.facebook.com/reel/1360854416127071/"))
+        assertTrue(isMobileReelPage("https://m.facebook.com/reel/1360854416127071"))
+        assertTrue(isMobileReelPage("https://m.facebook.com/reel/1360854416127071/?referral_source=x"))
+        assertFalse(isMobileReelPage("https://www.facebook.com/reel/1360854416127071"))
+        assertFalse(isMobileReelPage("https://m.facebook.com/reel/"))
+        assertFalse(isMobileReelPage("https://m.facebook.com/reels/"))
+        assertFalse(isMobileReelPage("https://m.facebook.com/profile.php?id=1"))
+        assertFalse(isMobileReelPage(null))
     }
 
     @Test

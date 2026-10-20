@@ -84,7 +84,14 @@ class LiveFacebookCanaryTest {
     @Test
     fun aReel_keepsPlayingInPip() {
         open("https://m.facebook.com/reels/")
-        assertTrue("no reel played on /reels/", app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" })
+        var playing = app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" }
+        if (!playing) {
+            // Facebook's autoplay may not start on a slow emulator (GitHub's draws in software):
+            // started as a tap would, then given time again.
+            eval("(function (v) { if (v) { v.muted = true; var p = v.play(); if (p && p.catch) p.catch(function () {}); } })(document.querySelector('video')); 1")
+            playing = app.waitFor(30_000) { eval(PLAYING_JS) == "true" }
+        }
+        assertTrue("no reel played on /reels/ (${eval(VIDEO_STATE_JS)})", playing)
         assertTrue(
             "the reels' containers (div.vertically-snappable, adblock.js) are gone",
             eval("!!document.querySelector('div.vertically-snappable')") == "true"
@@ -183,6 +190,13 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
+        // What the page's videos are doing, for a failure message: a reel that doesn't play on one
+        // device only (an emulator without the codec, an error from Facebook's server) shows here.
+        private const val VIDEO_STATE_JS =
+            "(function () { var v = document.querySelectorAll('video'); if (!v.length) return location.pathname + ': no video';" +
+                " return location.pathname + ': ' + Array.prototype.slice.call(v, 0, 3).map(function (e) {" +
+                " return 'paused=' + e.paused + ' ready=' + e.readyState + ' net=' + e.networkState +" +
+                " ' error=' + (e.error ? e.error.code : 'none') + ' src=' + (e.currentSrc || '').slice(0, 12); }).join('; '); })()"
         private const val PLAYING_JS =
             "(function (v) { return !!v && !v.paused && v.readyState >= 2; })(document.querySelector('video'))"
     }

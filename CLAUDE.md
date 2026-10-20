@@ -31,7 +31,10 @@ user-visible change.
   only and never distributable. The published APK is re-signed with the release keystore by
   `create-release.yml` (GitHub secrets); that's also why a local release build can't update a phone
   that has an official one.
-- App-level tests drive the real `MainActivity` through `AppHarness` (androidTest). The live
+- App-level tests drive the real `MainActivity` through `AppHarness` (androidTest; one class per
+  feature, listed in FORK_CHANGES' Testing). Test pages loaded with `loadPage` have no WebView
+  history (`asHistory` gives them one, but a reload then fetches the real page). The lock-screen
+  and app-lock tests need the screen lock's PIN: `-e pin 1234` on the emulator. The live
   checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
@@ -73,8 +76,9 @@ user-visible change.
 - Messages in desktop mode opens `MessagesLayer` (`ui/screens/MessagesLayer.kt`), a
   second WebView with the desktop user agent over the main one. The main view never
   switches user agent for Messages; Facebook pages opened from a chat stay in the layer
-  (`messagesLayerRoute`), but Facebook's own sections (Home, Friends, the Reels tab…) close
-  the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
+  (`messagesLayerRoute`), but Facebook's own sections (Home, Friends, the Reels tab…) and a
+  reel's own page (`/reel/<id>`, as a reel shared in a chat opens; Back on it reopens the chat,
+  `layerReturnUrl`) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
   DevTools target. PiP effects act on
   `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on
