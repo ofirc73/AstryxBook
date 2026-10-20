@@ -150,6 +150,47 @@ class PipFocusModeJsTest {
         )
     }
 
+    @Test
+    fun keepChain_keepsAWrapperFacebookAddsAfterFocusMode() {
+        // Facebook's reels scroller re-wrapped the PiP video after focus mode had marked its
+        // ancestors: the unmarked wrapper was hidden and the video went 0x0 (black PiP window).
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="scroller">
+                <div id="slot"><video id="myVideo" muted style="width:100px;height:100px"></video></div>
+              </div>
+              <div id="other">other</div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+        h.eval(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS)
+        // Facebook re-wraps the video in a new box.
+        h.eval(
+            "var v = document.getElementById('myVideo'); var w = document.createElement('div'); w.id = 'newWrap';" +
+                " v.parentElement.insertBefore(w, v); w.appendChild(v); 1"
+        )
+        Thread.sleep(600)
+
+        assertEquals("true", h.eval("document.getElementById('newWrap').hasAttribute('data-astryx-pip-keep')"))
+        assertFalse(h.eval("getComputedStyle(document.getElementById('newWrap')).display").unquoted() == "none")
+        // None of the video's ancestors is hidden (one hidden box takes the whole video with it).
+        assertEquals(
+            "0",
+            h.eval("(function () { var n = 0; for (var e = document.getElementById('myVideo'); e && e !== document.body; e = e.parentElement) if (getComputedStyle(e).display === 'none') n++; return n; })()")
+        )
+        // The rest of the page stays hidden.
+        assertEquals("\"none\"", h.eval("getComputedStyle(document.getElementById('other')).display"))
+
+        // Restore: the chain stops and the marks go.
+        h.eval(PIP_RESTORE_MODE_JS)
+        Thread.sleep(400)
+        assertEquals("null", h.eval("window.__astryxKeepChain"))
+        assertEquals("false", h.eval("document.getElementById('newWrap').hasAttribute('data-astryx-pip-keep')"))
+    }
+
     // ── Video must fill exactly the visible area ────────────────────────────
     // Neither 100vw (too small when wide reel wrappers zoom the page out) nor
     // 100% (full-screen-sized for feed videos, whose fixed containing block

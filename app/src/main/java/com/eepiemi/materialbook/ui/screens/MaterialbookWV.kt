@@ -393,7 +393,7 @@ fun MaterialbookWebView(
             } else if (isFullscreen) {
                 Log.d("AstryxbookPiP", "PiP entered while fullscreen: skipping focus mode")
             } else {
-                pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS) {}
+                pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS) {}
             }
         }
     }
@@ -423,7 +423,7 @@ fun MaterialbookWebView(
         if (!isFullscreen && isInPipMode && pipState.loadingState is LoadingState.Finished) {
             Log.d("AstryxbookPiP", "fullscreen ended during PiP: applying focus mode")
             fullscreenEndedInPip = true
-            pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS) {}
+            pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS) {}
         }
     }
 
