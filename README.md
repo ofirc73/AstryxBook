@@ -161,13 +161,19 @@ Astryxbook requires Android 8.0 (API level 26) or newer.
     ✅ Testing
 </h2>
 
-Covers the rebrand and default-behavior changes in this fork — defaults (Material You/AMOLED off), theme colors, app identity/strings, launcher icon, applicationId, and the pinned scripts source.
+Unit tests, tests of the scripts the app adds to Facebook's pages, and app-level tests that drive the real app (picture-in-picture, sharing, the Messages layer, app lock, links). A daily check also runs the app against the live Facebook site to catch changes on Facebook's side.
 
 *  **Unit tests** (no device/emulator needed): `./gradlew test`
 *  **Android lint** (no device/emulator needed): `./gradlew :app:lintDebug`
 *  **Instrumented tests** (needs a connected device or running emulator): `./gradlew connectedAndroidTest`
 
 GitHub Actions runs all three checks. Android lint reports are uploaded as a workflow artifact for every run. The lint gate treats dependency-update notices as advisory while still failing on actionable Android findings.
+
+<h2 align="middle">
+    🤝 Contributing
+</h2>
+
+Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Security problems: please report them privately, as described in [SECURITY.md](.github/SECURITY.md).
 
 <h2 align="middle">
     💗 Acknowledgement:
