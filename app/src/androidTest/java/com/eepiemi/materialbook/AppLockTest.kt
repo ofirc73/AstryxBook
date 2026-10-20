@@ -50,11 +50,15 @@ class AppLockTest {
             .use { it.readBytes() }
     }
 
-    // The system's prompt is up: the screen lock's PIN, as the user types it.
+    // The system's prompt is up: the screen lock's PIN, as the user types it (again if the prompt
+    // wasn't up yet the first time).
     private fun unlockWithPin() {
-        Thread.sleep(2000)
-        shell("input text $pin")
-        shell("input keyevent KEYCODE_ENTER")
+        for (attempt in 1..3) {
+            Thread.sleep(2000)
+            shell("input text $pin")
+            shell("input keyevent KEYCODE_ENTER")
+            if (app.waitFor(5_000) { !locked() }) return
+        }
     }
 
     @Test

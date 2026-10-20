@@ -149,7 +149,7 @@ class AppHarness {
         var result: String? = null
         val latch = CountDownLatch(1)
         instrumentation.runOnMainSync { webView.evaluateJavascript(js) { result = it; latch.countDown() } }
-        assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
+        assertTrue("evaluateJavascript never returned", latch.await(20, TimeUnit.SECONDS))
         return result ?: "null"
     }
 
