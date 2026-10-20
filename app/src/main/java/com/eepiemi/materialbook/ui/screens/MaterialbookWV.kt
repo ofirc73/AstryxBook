@@ -1003,8 +1003,13 @@ fun MaterialbookWebView(
                 webViewGeneration++
             }),
             captureBackPresses = false,
-            // Only a WebView whose renderer is gone is destroyed here, once it's out of the layout.
-            onDispose = { webView -> if (deadWebViews.remove(webView)) webView.destroy() },
+            // A WebView whose renderer is gone is destroyed once it's out of the layout, and so is
+            // the page when the activity goes (not for a configuration change, which the activity
+            // handles itself anyway): left alive, a finished activity's page went on playing its
+            // video, with its sound, in the background.
+            onDispose = { webView ->
+                if (deadWebViews.remove(webView) || activity?.isChangingConfigurations != true) webView.destroy()
+            },
             onCreated = { webView ->
                 hardenWebView(state, webView)
                 pageZoomPercent = textZoomPercent

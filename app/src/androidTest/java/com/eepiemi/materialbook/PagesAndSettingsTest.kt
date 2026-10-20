@@ -91,6 +91,20 @@ class PagesAndSettingsTest {
         assertTrue("Back on the first page never left the app", app.waitFor { app.isInBackground() })
     }
 
+    @Test
+    fun closingTheApp_stopsItsPage() {
+        // A finished activity's WebView lived on, playing its video in the background.
+        startOnPage()
+        val webView = app.mainWebView()
+        app.eval("window.__alive = setInterval(function () {}, 1000); 1")
+        app.finish()
+        var url: String? = "unread"
+        assertTrue("the closed app's page is still alive", app.waitFor {
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync { url = webView.url }
+            url == null
+        })
+    }
+
     companion object {
         private const val FEED_URL = "https://m.facebook.com/home.php"
         // A feed with a stories tray as the mobile site marks it (hide_stories.js).

@@ -419,7 +419,8 @@ on their own can't:
 - `LinksTest`: a Facebook link opening in the app, also while it runs (the same instance) and
   when shared as text; a link to another site leaving for the browser with the page kept.
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
-  on Feeds opening the menu, Back on the first page leaving the app to the background.
+  on Feeds opening the menu, Back on the first page leaving the app to the background, closing
+  the app stopping its page.
 
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
@@ -612,6 +613,10 @@ leaving the app while a Facebook video or Reel is playing.
   enlarging it showed the feed instead of the video (seen on a Galaxy A56, 260 s video). The
   lock-screen player now loops the video, and the hand-back starts the page's video over rather
   than at its very end. Covered by `PipHandoffJsTest`.
+- Closing the app's screen for good (it finishing, or Android destroying it while the app stays in
+  memory) left its page running: a video there went on playing, with its sound, in the
+  background. The page is now destroyed with the screen. Found by the app-level tests, where
+  every closed test screen kept its page; covered by `PagesAndSettingsTest`.
 - The app could crash when the PiP window closed (or the app was closed) while the page was still
   reporting the video's state: Android refuses PiP settings for an activity that is going away.
   Those updates are now skipped then. Found by the live-Facebook checks (`LiveFacebookCanaryTest`).

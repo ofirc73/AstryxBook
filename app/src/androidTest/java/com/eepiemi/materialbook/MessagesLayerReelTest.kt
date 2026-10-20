@@ -61,8 +61,9 @@ class MessagesLayerReelTest {
         assertTrue("the main view never opened the reel", app.waitFor(15_000) {
             app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/") && it.contains(REEL_ID) }
         })
-        app.waitFor(20_000) { app.eval("document.readyState") == "\"complete\"" }
-        Thread.sleep(2000)
+        // Not asked of the page itself: a real reel playing can keep it too busy to answer.
+        val webView = app.mainWebView()
+        app.waitFor(30_000) { app.onActivity { webView.progress } == 100 }
     }
 
     @Test
