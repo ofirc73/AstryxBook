@@ -412,8 +412,7 @@ on their own can't:
   wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP); a pinch-zoomed page shown
   whole in PiP and zoomed back after; PiP from the Messages layer acting on the layer; PiP on the
   WebView that replaces a crashed renderer; lock and unlock in PiP keeping the window, the page
-  and the sound; the PiP window closing when its video leaves the page (staying with the setting
-  off).
+  and the sound; the PiP window closing when its video leaves the page.
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view.
@@ -649,13 +648,12 @@ leaving the app while a Facebook video or Reel is playing.
 - The app could crash when the PiP window closed (or the app was closed) while the page was still
   reporting the video's state: Android refuses PiP settings for an activity that is going away.
   Those updates are now skipped then. Found by the live-Facebook checks (`LiveFacebookCanaryTest`).
-- "Close PiP when its video is gone" (on by default, shown under the PiP settings): Facebook can
-  take the PiP video off the page (a reel left paused with the screen off for minutes went, the
+- An empty PiP window closes: Facebook can take the PiP video off the page (a reel left paused with the screen off for minutes went, the
   page back at Home), which left a black PiP window with nothing to play (seen on a Galaxy A56,
   Android 17). With PiP on, a separate script (`PIP_VIDEO_GONE_WATCH_JS`, after focus mode) watches
   the video focus mode marked; once it has been off the page for 3 seconds (Facebook re-wraps it
   for a moment at times), the page tells the app (`pipVideoGone`) and the PiP window closes, the app
-  staying in the background where it was. Turned off, the window stays as before. Covered by
+  staying in the background where it was. PiP doesn't move on to the next reel. Covered by
   `PipVideoGoneJsTest` and `MainActivityPipTest`.
 
 ## Sharing, text size, shortcuts and developer options

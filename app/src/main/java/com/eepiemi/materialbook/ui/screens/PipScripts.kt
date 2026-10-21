@@ -730,12 +730,12 @@ internal const val PIP_PINCH_RATIO_JS = """
 })();
 """
 
-// Runs right after focus mode (kept separate from it, see CLAUDE.md). With "Close PiP when its
-// video is gone" on: Facebook can take the PiP video off the page (a reel left paused while the
-// screen was off for minutes went, the page back at Home), which left a black PiP window with
-// nothing to play (seen on a Galaxy A56). Once the video focus mode marked has been gone from the
-// page for PIP_VIDEO_GONE_MS (Facebook re-wraps it for a moment at times), the page tells the app,
-// which closes the PiP window. Only for a video focus mode found: none marked, nothing happens.
+// Runs right after focus mode (kept separate from it, see CLAUDE.md). Facebook can take the PiP
+// video off the page (a reel left paused while the screen was off for minutes went, the page back
+// at Home), and PiP doesn't move on to another video, which left a black PiP window with nothing to
+// play (seen on a Galaxy A56). Once the video focus mode marked has been gone from the page for
+// GONE_MS (Facebook re-wraps it for a moment at times), the page tells the app, which closes the
+// PiP window. Only for a video focus mode found: none marked, nothing happens.
 // Stops when PiP ends (focus mode restored).
 internal const val PIP_VIDEO_GONE_WATCH_JS = """
 (function() {

@@ -294,10 +294,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    // "Close PiP when its video is gone": the PiP window closes, as when it's swiped away, the
-    // app staying where it was in the background. Facebook took the video off the page.
+    // Facebook took the PiP video off the page, and PiP doesn't move on to another video: the
+    // empty, black PiP window closes, as when it's swiped away, the app staying where it was.
     private fun closeEmptyPip() {
-        if (!isInPictureInPictureMode || !settingsVM.pipCloseWhenVideoGone.value) return
+        if (!isInPictureInPictureMode) return
         Log.d(TAG, "PiP video gone from the page: closing the PiP window")
         moveTaskToBack(true)
     }

@@ -342,7 +342,6 @@ fun MaterialbookWebView(
     var isFullscreen by remember { mutableStateOf(false) }
 
     val pipLockscreenAudio by settingsVM.pipLockscreenAudio.collectAsState()
-    val pipCloseWhenVideoGone by settingsVM.pipCloseWhenVideoGone.collectAsState()
     PipEffects(
         pipNavigator = pipNavigator,
         pipState = pipState,
@@ -352,7 +351,6 @@ fun MaterialbookWebView(
         pipEnteringTrigger = pipEnteringTrigger,
         pipStartedWhilePlaying = pipStartedWhilePlaying,
         pipLockscreenAudio = pipLockscreenAudio,
-        pipCloseWhenVideoGone = pipCloseWhenVideoGone,
         pipHandoffReadTrigger = pipHandoffReadTrigger,
         onPipHandoffRead = onPipHandoffRead,
         pipHandback = pipHandback,

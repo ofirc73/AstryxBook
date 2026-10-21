@@ -49,7 +49,7 @@ class PipBridge(
     }
 
     // Called by PIP_VIDEO_GONE_WATCH_JS when the PiP video has been gone from the page for a
-    // while ("Close PiP when its video is gone"). Runs on the JS bridge thread on old WebViews.
+    // while: the app closes the empty PiP window. Runs on the JS bridge thread on old WebViews.
     @JavascriptInterface
     fun onPipVideoGone() {
         Log.d(TAG, "PipBridge.onPipVideoGone")

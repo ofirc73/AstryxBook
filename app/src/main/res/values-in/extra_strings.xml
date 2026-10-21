@@ -107,6 +107,4 @@
     <string name="webview_update_later">Nanti</string>
     <string name="share_media_adding_one">Menambahkan foto Anda…</string>
     <string name="share_media_adding_several">Menambahkan %1$d foto…</string>
-    <string name="pip_close_when_video_gone_title">Tutup PiP saat videonya hilang</string>
-    <string name="pip_close_when_video_gone_summary">Jika Facebook menghapus video dari halaman (bisa terjadi setelah jeda lama), jendela PiP yang kosong ditutup alih-alih tetap hitam</string>
 </resources>

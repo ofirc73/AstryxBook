@@ -14,8 +14,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * PIP_VIDEO_GONE_WATCH_JS ("Close PiP when its video is gone"): after focus mode, tells the app
- * once the marked PiP video has been off the page for a while, and only then.
+ * PIP_VIDEO_GONE_WATCH_JS: after focus mode, tells the app (which closes the PiP window) once the marked PiP video has been off the page for a while, and only then.
  */
 @RunWith(AndroidJUnit4::class)
 class PipVideoGoneJsTest {

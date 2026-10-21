@@ -121,6 +121,4 @@
     <string name="webview_update_later">ليس الآن</string>
     <string name="share_media_adding_one">جارٍ إضافة صورتك…</string>
     <string name="share_media_adding_several">جارٍ إضافة الصور (%1$d)…</string>
-    <string name="pip_close_when_video_gone_title">إغلاق PiP عند اختفاء الفيديو</string>
-    <string name="pip_close_when_video_gone_summary">إذا أزال فيسبوك الفيديو من الصفحة (قد يحدث بعد إيقاف مؤقت طويل)، تُغلق نافذة PiP الفارغة بدلًا من أن تبقى سوداء</string>
 </resources>
