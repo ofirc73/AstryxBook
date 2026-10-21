@@ -176,11 +176,19 @@ GitHub Actions runs all three checks. Android lint reports are uploaded as a wor
 Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](.github/CONTRIBUTING.md) and the [Code of Conduct](.github/CODE_OF_CONDUCT.md). Security problems: please report them privately, as described in [SECURITY.md](.github/SECURITY.md).
 
 <h2 align="middle">
-    💗 Acknowledgement:
+    💗 Acknowledgement
 </h2>
 
 *  This is a fork of [Materialbook](https://github.com/eepiemi/Materialbook) by eepiemi, itself a fork of [Nobook](https://github.com/ycngmn/Nobook) by ycngmn
 *  [@KevinnZou/compose-webview-multiplatform](https://github.com/KevinnZou/compose-webview-multiplatform)
+
+<h2 align="middle">
+    👥 Contributors
+</h2>
+
+<a href="https://github.com/ofirc73/AstryxBook/graphs/contributors">
+  <img alt="Contributors" src="https://contrib.rocks/image?repo=ofirc73/AstryxBook" width="100%"/>
+</a>
 
 <h2 align="middle">
     ⚖️ License
