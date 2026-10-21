@@ -1,4 +1,4 @@
-# Additional terms (GPL-3.0, section 7)
+# Additional terms: name, logo and trademarks (GPL-3.0, section 7)
 
 Astryxbook is licensed under the [GNU General Public License v3.0](./LICENSE).
 As permitted by section 7 of that license, the following additional terms apply
