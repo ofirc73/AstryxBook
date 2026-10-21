@@ -125,6 +125,18 @@ some devices. Extreme detected landscape ratios are clamped to Android's support
 The page itself is hidden while in PiP so only the video shows, filling the window.
 Rotating the phone while a video is in PiP keeps the same video playing.
 
+The PiP window itself is Android's (Android 12 and newer):
+
+* one tap shows its controls (Play/Pause, settings, close);
+* a double tap switches between its current size and its largest size;
+* a pinch resizes it;
+* dragging it to the screen's edge tucks it away.
+
+The first PiP after the app opens starts at Android's default size, which is too small for the
+controls: a tap enlarges the window while they show, and it shrinks back a few seconds later.
+Android remembers a bigger size for the next videos. To keep the first one bigger too, double-tap
+or pinch it once. Apps can only choose the window's shape (the aspect ratio above), not its size.
+
 To keep listening with the screen locked, also turn on **Keep audio when screen locks**
 (shown under the PiP settings). Locking the screen while a video is in PiP then hands its
 audio to a native player, with media controls on the lock screen. Unlocking hands it back to

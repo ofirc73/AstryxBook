@@ -945,6 +945,10 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 
 ## Known limitations
 
+- The first PiP window after the app opens is Android's default size, too small for its controls:
+  a tap enlarges it while they show, then it shrinks back (Android's own PiP, seen on Android 16
+  and 17). Android keeps a bigger size for the next videos. Apps can only set the window's aspect
+  ratio, not its size; a double tap or a pinch makes the first one bigger.
 - Shared videos can only go to a story: m.facebook.com's post composer takes photos only. Several
   items shared to a story are offered one story at a time; Facebook's web story creator takes a
   single photo or video per story.
