@@ -183,14 +183,6 @@ Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](.github/
 *  [@KevinnZou/compose-webview-multiplatform](https://github.com/KevinnZou/compose-webview-multiplatform)
 
 <h2 align="middle">
-    👥 Contributors
-</h2>
-
-<a href="https://github.com/ofirc73/AstryxBook/graphs/contributors">
-  <img alt="Contributors" src="https://contrib.rocks/image?repo=ofirc73/AstryxBook" width="100%"/>
-</a>
-
-<h2 align="middle">
     ⚖️ License
 </h2>
 
