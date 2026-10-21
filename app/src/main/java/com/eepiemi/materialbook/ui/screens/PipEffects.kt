@@ -47,6 +47,7 @@ internal fun PipEffects(
     pipHandoffReadTrigger: Int,
     onPipHandoffRead: (String?) -> Unit,
     pipHandback: PipHandback?,
+    onPipVideoGone: () -> Unit = {},
 ) {
     // Fired from the PiP overlay's native Play/Pause button (see MainActivity's
     // pipActionReceiver) — the only reverse (native -> JS) channel we have,
@@ -84,13 +85,31 @@ internal fun PipEffects(
     // restyle the <video>) is skipped. Restore still always runs outside PiP:
     // it also unfreezes the active-video tracker that PIP_FREEZE_ACTIVE_VIDEO_JS
     // sets on every PiP attempt, fullscreen or not.
+    // A page that finishes loading during PiP, after focus mode ran on an earlier one, is a new
+    // page (Facebook reloads a page left alone for an hour or so as the screen comes back on): the
+    // PiP video went with the old one, and PiP doesn't move on to another video, so the window
+    // closes like when the video leaves the page (PIP_VIDEO_GONE_WATCH_JS, which went with the old
+    // page too). PIP_PAGE_IS_PIPS_JS tells it from the same page finishing an in-page navigation.
+    var focusModeInPip by remember(pipState) { mutableStateOf(false) }
+    val currentOnPipVideoGone by rememberUpdatedState(onPipVideoGone)
     LaunchedEffect(isInPipMode, pipState.loadingState) {
         if (pipState.loadingState is LoadingState.Finished) {
             if (!isInPipMode) {
+                focusModeInPip = false
                 pipNavigator.evaluateJavaScript(PIP_RESTORE_MODE_JS) {}
             } else if (isFullscreen) {
                 Log.d("AstryxbookPiP", "PiP entered while fullscreen: skipping focus mode")
+            } else if (focusModeInPip) {
+                pipNavigator.evaluateJavaScript(PIP_PAGE_IS_PIPS_JS) { same ->
+                    if (same == "true") {
+                        pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS + PIP_VIDEO_GONE_WATCH_JS) {}
+                    } else {
+                        Log.d("AstryxbookPiP", "a new page loaded in PiP: the PiP video is gone")
+                        currentOnPipVideoGone()
+                    }
+                }
             } else {
+                focusModeInPip = true
                 pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS + PIP_VIDEO_GONE_WATCH_JS) {}
             }
         }

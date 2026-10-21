@@ -184,6 +184,28 @@ class MainActivityPipTest {
         assertTrue("the app came to the front instead of staying in the background", app.isInBackground())
     }
 
+    @Test
+    fun aNewPageLoadedInPip_closesThePipWindow() {
+        // Facebook reloads a page left alone for an hour or so as the screen comes back on: the
+        // new page has no PiP video, and the window went black (v1.34.0 on a Galaxy A56).
+        loadReelPage()
+        app.enterPip()
+        assertTrue(app.waitFor { pipActive() })
+        // Not app.loadPage: it waits on the page through evaluateJavascript, which doesn't answer
+        // once the app is in the background. The page takes half a second to load, as a page from
+        // the network does: a page that loads within a frame is never seen loading by the app
+        // (its loading state goes back to finished before the next frame).
+        val slowPage = REEL_PAGE.replace(
+            "</body>", "<script>var t = Date.now(); while (Date.now() - t < 500) {}</script></body>"
+        )
+        val webView = app.mainWebView()
+        instrumentation.runOnMainSync {
+            webView.loadDataWithBaseURL(REEL_URL, slowPage, "text/html", "UTF-8", null)
+        }
+        assertTrue("the PiP window stayed open over a new page", app.waitFor(10_000) { !app.isInPip() })
+        assertTrue("the app came to the front instead of staying in the background", app.isInBackground())
+    }
+
     // ── which WebView ───────────────────────────────────────────────────────
 
     @Test

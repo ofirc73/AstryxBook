@@ -147,7 +147,7 @@ A video that was playing keeps playing when PiP starts, on the mobile and the de
 If it ever stops, tap the Play button on the PiP overlay to resume it.
 
 Facebook sometimes takes a video off the page, for example a reel left paused for a while with the
-screen off, and goes back to the feed. PiP doesn't move on to the next reel, so the window
+screen off, and goes back to the feed, or reloads the whole page. PiP doesn't move on to the next reel, so the window
 would stay black with nothing to play: it closes instead, and the app stays in the background
 where it was.
 
