@@ -424,6 +424,8 @@ on their own can't:
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
+- `AdsPixelBlockTest`: the main view's and the Messages layer's own WebView clients answering
+  Facebook's Google Ads pixel with an empty response.
 
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
@@ -767,6 +769,13 @@ with the window flag fullscreen video already sets.
 - **No third-party cookies**: embeds from other sites (ads, link previews) can't set or read
   their cookies inside the app, so they can't track you across pages. Facebook and
   Messenger themselves are unaffected.
+- **No Google Ads pixel**: every m.facebook.com page loaded two hidden frames
+  (`www.fbsbx.com/paid_ads_pixel/`) with Facebook's own Google Ads remarketing tag, which
+  pulled in Google's gtag.js and reported the visit to doubleclick.net and google.com (about 18%
+  of the feed's first-load data in a capture). The WebViews' client now answers those frames
+  with an empty response, so none of it loads; nothing on Facebook's pages depends on them.
+  Always on, in the main view and the Messages layer. Covered by `AdsPixelTest` and
+  `AdsPixelBlockTest`.
 - **Iframes can't open other apps.** Only the page itself can send a link out of the app;
   a navigation inside an ad or embed frame stays in that frame, so it can't open the
   browser or another app without a tap.

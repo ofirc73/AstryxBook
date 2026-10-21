@@ -97,6 +97,12 @@ user-visible change.
 - `MainActivity` is `singleTask`: a link sent while the app runs arrives in `onNewIntent`
   and reaches the WebView as `openLinkRequest`. Start links are checked with `appLinkUrl`
   (the start page skips the request interceptor); outgoing links with `externalLinkAction`.
+- Both WebViews share one `WebViewClient` (`RendererGoneClient`, built on `AdsPixelBlockingClient`
+  in `utils/AdsPixel.kt`), the only place requests are seen below navigations
+  (`shouldInterceptRequest`; it can't see WebSocket traffic, which carries the main view's feed
+  data). It answers Facebook's Google Ads pixel frames (`www.fbsbx.com/paid_ads_pixel/`) with an
+  empty 204. To see what a page requests, record `Network.*` events over DevTools from every
+  target (the page, its service worker, the layer's workers).
 - `state.nativeWebView` throws until the WebView exists (it's created during layout, which
   doesn't happen with the screen off): guard it in effects.
 - A lost renderer process (`RendererGoneClient`, `utils/RendererRecovery.kt`) replaces the

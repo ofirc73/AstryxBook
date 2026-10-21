@@ -3,7 +3,6 @@ package com.eepiemi.materialbook.utils
 import android.util.Log
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
-import com.multiplatform.webview.web.AccompanistWebViewClient
 
 /**
  * WebView draws pages in a separate renderer process. Android can kill it to reclaim memory
@@ -12,9 +11,10 @@ import com.multiplatform.webview.web.AccompanistWebViewClient
  * reports it instead, through [onGone] (on the main thread), and the screen replaces the
  * WebView: the one passed to [onGone] can't be used again, so only read its URL and destroy
  * it once it's out of the layout. Several WebViews can share one renderer (the main view and
- * the Messages layer), and each one that loses it gets its own call.
+ * the Messages layer), and each one that loses it gets its own call. It also blocks Facebook's
+ * Google Ads pixel ([AdsPixelBlockingClient]).
  */
-class RendererGoneClient(private val onGone: (WebView) -> Unit) : AccompanistWebViewClient() {
+class RendererGoneClient(private val onGone: (WebView) -> Unit) : AdsPixelBlockingClient() {
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
         Log.w(TAG, "WebView renderer gone (crashed: ${detail.didCrash()}), replacing the WebView")
         onGone(view)
