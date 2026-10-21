@@ -729,3 +729,40 @@ internal const val PIP_PINCH_RATIO_JS = """
   return window.innerWidth / vv.width;
 })();
 """
+
+// Runs right after focus mode (kept separate from it, see CLAUDE.md). With "Close PiP when its
+// video is gone" on: Facebook can take the PiP video off the page (a reel left paused while the
+// screen was off for minutes went, the page back at Home), which left a black PiP window with
+// nothing to play (seen on a Galaxy A56). Once the video focus mode marked has been gone from the
+// page for PIP_VIDEO_GONE_MS (Facebook re-wraps it for a moment at times), the page tells the app,
+// which closes the PiP window. Only for a video focus mode found: none marked, nothing happens.
+// Stops when PiP ends (focus mode restored).
+internal const val PIP_VIDEO_GONE_WATCH_JS = """
+(function() {
+  if (window.__astryxPipGoneWatch) clearInterval(window.__astryxPipGoneWatch);
+  var GONE_MS = 3000;
+  var seen = false;
+  var goneSince = 0;
+  function stop() {
+    clearInterval(window.__astryxPipGoneWatch);
+    window.__astryxPipGoneWatch = null;
+  }
+  function check() {
+    if (!document.body.hasAttribute('data-astryx-pip-active')) { stop(); return; }
+    var v = document.querySelector('[data-astryx-pip-video]');
+    if (v && v.isConnected) { seen = true; goneSince = 0; return; }
+    if (!seen) return;
+    var now = Date.now();
+    if (!goneSince) { goneSince = now; return; }
+    if (now - goneSince < GONE_MS) return;
+    stop();
+    if (window.AstryxPage) {
+      window.AstryxPage.postMessage(JSON.stringify({ call: 'pipVideoGone' }));
+    } else if (window.PipBridge && window.PipBridge.onPipVideoGone) {
+      window.PipBridge.onPipVideoGone();
+    }
+  }
+  check();
+  window.__astryxPipGoneWatch = setInterval(check, 500);
+})();
+"""

@@ -73,6 +73,7 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
         }
         "pipAnomaly" -> bridges.pip?.logPipAnomaly(msg.optString("message")) ?: return false
         "pageVisible" -> bridges.pip?.onPageVisible() ?: return false
+        "pipVideoGone" -> bridges.pip?.onPipVideoGone() ?: return false
         "screenVideoPlaying" -> bridges.screen?.setVideoPlaying(msg.optBoolean("playing")) ?: return false
         "shareLink" -> {
             val share = bridges.share ?: return false

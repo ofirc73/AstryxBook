@@ -9,6 +9,7 @@ import com.eepiemi.materialbook.utils.AppLock
 import com.eepiemi.materialbook.utils.TextZoom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,6 +76,17 @@ class SettingsDefaultsTest {
         assertFalse(
             "pipLockscreenAudio should default to false",
             viewModel.pipLockscreenAudio.value
+        )
+    }
+
+    @Test
+    fun pipCloseWhenVideoGoneIsOnByDefault() {
+        // An empty PiP window, its video taken off the page by Facebook, is only a black square.
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val viewModel = SettingsViewModel(app)
+        assertTrue(
+            "pipCloseWhenVideoGone should default to true",
+            viewModel.pipCloseWhenVideoGone.value
         )
     }
 

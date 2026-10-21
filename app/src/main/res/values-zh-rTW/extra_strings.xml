@@ -98,4 +98,6 @@
     <string name="webview_update_later">稍後再說</string>
     <string name="share_media_adding_one">正在新增你的相片…</string>
     <string name="share_media_adding_several">正在新增 %1$d 張相片…</string>
+    <string name="pip_close_when_video_gone_title">影片消失時關閉子母畫面</string>
+    <string name="pip_close_when_video_gone_summary">若 Facebook 將影片從頁面移除（長時間暫停後可能發生），空白的子母畫面視窗會關閉，而不是保持黑色</string>
 </resources>

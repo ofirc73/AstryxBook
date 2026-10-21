@@ -51,11 +51,12 @@ class MainActivityPipTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
     }
 
-    private fun setSettings(pip: Boolean, pinch: Boolean, lockscreenAudio: Boolean) = runBlocking {
+    private fun setSettings(pip: Boolean, pinch: Boolean, lockscreenAudio: Boolean, closeWhenGone: Boolean = true) = runBlocking {
         val settings = SettingsDataStore(app.context)
         settings.setPipEnabled(pip)
         settings.setPinchToZoom(pinch)
         settings.setPipLockscreenAudio(lockscreenAudio)
+        settings.setPipCloseWhenVideoGone(closeWhenGone)
     }
 
     private fun eval(js: String, webView: android.webkit.WebView = app.mainWebView()) = app.eval(js, webView)
@@ -169,6 +170,34 @@ class MainActivityPipTest {
 
         app.leavePip()
         assertTrue("the zoom never came back", app.waitFor { eval("visualViewport.scale").toFloat() > 2f })
+    }
+
+    // ── its video gone ──────────────────────────────────────────────────────
+
+    @Test
+    fun aPipVideoTakenOffThePage_closesThePipWindow() {
+        // Facebook can drop a long-paused reel and go back to Home: an empty, black PiP window.
+        loadReelPage()
+        app.enterPip()
+        assertTrue(app.waitFor { pipActive() })
+        eval("document.getElementById('reel').remove(); 1")
+        assertTrue("the empty PiP window stayed open", app.waitFor(10_000) { !app.isInPip() })
+        assertTrue("the app came to the front instead of staying in the background", app.isInBackground())
+    }
+
+    @Test
+    fun withCloseWhenGoneOff_theEmptyPipWindowStays() {
+        app.finish()
+        setSettings(pip = true, pinch = true, lockscreenAudio = false, closeWhenGone = false)
+        app.start()
+        assertTrue(app.waitFor { app.webViews().isNotEmpty() })
+        loadReelPage()
+        app.enterPip()
+        assertTrue(app.waitFor { pipActive() })
+        eval("document.getElementById('reel').remove(); 1")
+        Thread.sleep(6000)
+        assertTrue("the PiP window closed with the setting off", app.isInPip())
+        app.leavePip()
     }
 
     // ── which WebView ───────────────────────────────────────────────────────

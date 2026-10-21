@@ -12,6 +12,7 @@ private const val TAG = "AstryxbookPiP"
 class PipBridge(
     private val onVideoStateChanged: (Boolean, Int, Int) -> Unit,
     private val onPageVisibleCallback: () -> Unit = {},
+    private val onVideoGoneCallback: () -> Unit = {},
 ) {
     @JavascriptInterface
     fun setVideoPlaying(isPlaying: Boolean) {
@@ -45,5 +46,13 @@ class PipBridge(
     fun onPageVisible() {
         Log.d(TAG, "PipBridge.onPageVisible")
         onPageVisibleCallback()
+    }
+
+    // Called by PIP_VIDEO_GONE_WATCH_JS when the PiP video has been gone from the page for a
+    // while ("Close PiP when its video is gone"). Runs on the JS bridge thread on old WebViews.
+    @JavascriptInterface
+    fun onPipVideoGone() {
+        Log.d(TAG, "PipBridge.onPipVideoGone")
+        onVideoGoneCallback()
     }
 }

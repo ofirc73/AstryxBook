@@ -61,6 +61,7 @@ Off by default (opt-in):
 *  Makes Messenger voice and video calls from Messages (the camera and microphone are asked for on the first call, for Facebook only)
 *  Supports Picture-in-Picture playback with selectable portrait-window ratios
 *  Keeps a Picture-in-Picture video's audio playing when the screen locks
+*  Closes the Picture-in-Picture window when Facebook takes its video off the page, instead of leaving it black (on by default once PiP is on)
 *  Keeps the screen on while a video plays, or whenever the app is open (Settings → *Keep screen on*)
 *  Locks the app with your fingerprint, face or screen lock, and hides it in Recents (Settings → *App lock*)
 *  Notifies you of new Facebook notifications, unread chats and friend requests while the app is closed, checking every 15 minutes (Settings → *Facebook notifications*)
@@ -145,6 +146,11 @@ a very long lock can stop; the video is still restored where it left off.
 
 A video that was playing keeps playing when PiP starts, on the mobile and the desktop site.
 If it ever stops, tap the Play button on the PiP overlay to resume it.
+
+Facebook sometimes takes a video off the page, for example a reel left paused for a while with the
+screen off, and goes back to the feed. The PiP window would then stay black, with nothing to play,
+so **Close PiP when its video is gone** (on by default, under the PiP settings) closes it. The
+app stays in the background where it was. PiP doesn't move on to the next reel.
 
 If PiP does not appear, confirm that the video is actively playing with volume above zero
 and that both the app and Android system PiP permissions are enabled.

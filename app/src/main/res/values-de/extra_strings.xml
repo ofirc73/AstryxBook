@@ -103,4 +103,6 @@
     <string name="webview_update_later">Jetzt nicht</string>
     <string name="share_media_adding_one">Dein Foto wird hinzugefügt …</string>
     <string name="share_media_adding_several">%1$d Fotos werden hinzugefügt …</string>
+    <string name="pip_close_when_video_gone_title">PiP schließen, wenn das Video weg ist</string>
+    <string name="pip_close_when_video_gone_summary">Entfernt Facebook das Video von der Seite (nach einer langen Pause möglich), wird das leere PiP-Fenster geschlossen, statt schwarz zu bleiben</string>
 </resources>

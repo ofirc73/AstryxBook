@@ -120,4 +120,6 @@
     <string name="webview_update_later">לא עכשיו</string>
     <string name="share_media_adding_one">מוסיף את התמונה…</string>
     <string name="share_media_adding_several">מוסיף %1$d תמונות…</string>
+    <string name="pip_close_when_video_gone_title">סגירת PiP כשהסרטון נעלם</string>
+    <string name="pip_close_when_video_gone_summary">אם פייסבוק מסירה את הסרטון מהדף (זה קורה אחרי הפסקה ארוכה), חלון ה-PiP הריק נסגר במקום להישאר שחור</string>
 </resources>

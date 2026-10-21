@@ -94,6 +94,7 @@ fun MessagesLayer(
     onPipTarget: (PipTarget?) -> Unit = {},
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
     onPipPageVisible: () -> Unit = {},
+    onPipVideoGone: () -> Unit = {},
     trackVideoPlaying: Boolean = false,
     onScreenVideoPlayingChanged: (Boolean) -> Unit = {},
     onLeave: (mainUrl: String?, fromUrl: String?) -> Unit = { _, _ -> onClose() },
@@ -321,7 +322,8 @@ fun MessagesLayer(
                             theme = ThemeChange { currentOnThemeColor(Color(it)) },
                             pip = PipBridge(
                                 { playing, width, height -> currentOnVideoPlayingChanged(playing, width, height) },
-                                onPipPageVisible
+                                onPipPageVisible,
+                                onPipVideoGone
                             ),
                             screen = ScreenBridge { currentOnScreenVideoPlayingChanged(it) },
                             layer = LayerBridge { newUrl ->

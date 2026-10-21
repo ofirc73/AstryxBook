@@ -29,6 +29,7 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.MESSAGES_
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.OPEN_LINKS_IN_APP
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PINCH_TO_ZOOM
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_ENABLED
+import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_CLOSE_WHEN_VIDEO_GONE
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_LOCKSCREEN_AUDIO
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_PORTRAIT_RATIO
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.REMOVE_ADS
@@ -149,6 +150,11 @@ class SettingsViewModel(
     val pipLockscreenAudio = dataStore.pipLockscreenAudio.stateIn(
         scope = viewModelScope,
         initialValue = initialPrefs[PIP_LOCKSCREEN_AUDIO] ?: false,
+        started = SharingStarted.WhileSubscribed()
+    )
+    val pipCloseWhenVideoGone = dataStore.pipCloseWhenVideoGone.stateIn(
+        scope = viewModelScope,
+        initialValue = initialPrefs[PIP_CLOSE_WHEN_VIDEO_GONE] ?: true,
         started = SharingStarted.WhileSubscribed()
     )
     val pipPortraitRatio = dataStore.pipPortraitRatio.stateIn(
@@ -326,6 +332,12 @@ class SettingsViewModel(
     fun setPipLockscreenAudio(enabled: Boolean) {
         viewModelScope.launch {
             dataStore.setPipLockscreenAudio(enabled)
+        }
+    }
+
+    fun setPipCloseWhenVideoGone(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.setPipCloseWhenVideoGone(enabled)
         }
     }
 

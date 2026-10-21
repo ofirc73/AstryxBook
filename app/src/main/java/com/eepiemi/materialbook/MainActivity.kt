@@ -242,6 +242,7 @@ class MainActivity : FragmentActivity() {
                         shareMediaRequest = shareMediaRequest,
                         onPipHandoffRead = lockScreenAudio::onPageRead,
                         onPipPageVisible = { runOnUiThread { lockScreenAudio.handBack("page visible") } },
+                        onPipVideoGone = { runOnUiThread { closeEmptyPip() } },
                         isAppLocked = appLockController.isLocked,
                         onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
                             updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
@@ -291,6 +292,14 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    // "Close PiP when its video is gone": the PiP window closes, as when it's swiped away, the
+    // app staying where it was in the background. Facebook took the video off the page.
+    private fun closeEmptyPip() {
+        if (!isInPictureInPictureMode || !settingsVM.pipCloseWhenVideoGone.value) return
+        Log.d(TAG, "PiP video gone from the page: closing the PiP window")
+        moveTaskToBack(true)
     }
 
     override fun onNewIntent(intent: Intent) {

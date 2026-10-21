@@ -36,6 +36,7 @@ class SettingsDataStore(private val context: Context) {
         val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
         val PIP_PORTRAIT_RATIO = stringPreferencesKey("pip_portrait_ratio")
         val PIP_LOCKSCREEN_AUDIO = booleanPreferencesKey("pip_lockscreen_audio")
+        val PIP_CLOSE_WHEN_VIDEO_GONE = booleanPreferencesKey("pip_close_when_video_gone")
         val KEEP_SCREEN_ON = stringPreferencesKey("keep_screen_on")
         val APP_LOCK = stringPreferencesKey("app_lock")
         val TEXT_ZOOM = stringPreferencesKey("text_zoom")
@@ -168,6 +169,12 @@ class SettingsDataStore(private val context: Context) {
     val pipLockscreenAudio = context.dataStore.data.map { it[PIP_LOCKSCREEN_AUDIO] ?: false }
     suspend fun setPipLockscreenAudio(enabled: Boolean) {
         context.dataStore.edit { it[PIP_LOCKSCREEN_AUDIO] = enabled }
+    }
+
+    // On by default: a PiP window whose video Facebook took off the page is only a black square.
+    val pipCloseWhenVideoGone = context.dataStore.data.map { it[PIP_CLOSE_WHEN_VIDEO_GONE] ?: true }
+    suspend fun setPipCloseWhenVideoGone(enabled: Boolean) {
+        context.dataStore.edit { it[PIP_CLOSE_WHEN_VIDEO_GONE] = enabled }
     }
 
     // Default "4:7" is the empirically safe portrait ratio on Samsung A56 (and similar OEMs)

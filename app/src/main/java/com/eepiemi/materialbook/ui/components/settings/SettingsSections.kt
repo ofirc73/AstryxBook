@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.outlined.Subject
 import androidx.compose.material.icons.automirrored.outlined.WrapText
 import androidx.compose.material.icons.filled.Padding
 import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.CancelPresentation
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.CleaningServices
@@ -207,6 +208,7 @@ internal fun VideoSettings(
     val pipEnabled = viewModel.pipEnabled.collectAsState()
     val pipPortraitRatio = viewModel.pipPortraitRatio.collectAsState()
     val pipLockscreenAudio = viewModel.pipLockscreenAudio.collectAsState()
+    val pipCloseWhenVideoGone = viewModel.pipCloseWhenVideoGone.collectAsState()
     val keepScreenOn = viewModel.keepScreenOn.collectAsState()
     val keepScreenOnLabels = KeepScreenOn.ALL.associateWith { keepScreenOnLabel(it) }
     SettingsHeading(stringResource(R.string.settings_section_video))
@@ -249,6 +251,15 @@ internal fun VideoSettings(
                         supportingText = stringResource(R.string.pip_lockscreen_audio_summary),
                         isActive = pipLockscreenAudio.value,
                         onClick = { viewModel.setPipLockscreenAudio(!pipLockscreenAudio.value) }
+                    )
+                )
+                add(
+                    SettingsItem(
+                        icon = Icons.Outlined.CancelPresentation,
+                        title = stringResource(R.string.pip_close_when_video_gone_title),
+                        supportingText = stringResource(R.string.pip_close_when_video_gone_summary),
+                        isActive = pipCloseWhenVideoGone.value,
+                        onClick = { viewModel.setPipCloseWhenVideoGone(!pipCloseWhenVideoGone.value) }
                     )
                 )
             }
