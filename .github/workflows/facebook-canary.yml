@@ -11,7 +11,8 @@ name: Daily Facebook check
 
 on:
   schedule:
-    - cron: '0 6 * * *' # 09:00 in Israel in summer, 08:00 in winter
+    # Off the full hour, when GitHub delays (or drops) the most scheduled runs.
+    - cron: '37 5 * * *' # 08:37 in Israel in summer, 07:37 in winter
   workflow_dispatch:
 
 permissions:
