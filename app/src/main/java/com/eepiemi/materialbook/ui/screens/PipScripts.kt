@@ -739,6 +739,7 @@ internal const val PIP_PINCH_RATIO_JS = """
 // Stops when PiP ends (focus mode restored).
 internal const val PIP_VIDEO_GONE_WATCH_JS = """
 (function() {
+  window.__astryxPipPage = true;
   if (window.__astryxPipGoneWatch) clearInterval(window.__astryxPipGoneWatch);
   var GONE_MS = 3000;
   var seen = false;
@@ -766,3 +767,7 @@ internal const val PIP_VIDEO_GONE_WATCH_JS = """
   window.__astryxPipGoneWatch = setInterval(check, 500);
 })();
 """
+
+// Whether the page PiP shows is still the one focus mode ran on in this PiP session (marked by
+// PIP_VIDEO_GONE_WATCH_JS); a new page has no mark. See PipEffects.
+internal const val PIP_PAGE_IS_PIPS_JS = "window.__astryxPipPage === true"

@@ -354,6 +354,7 @@ fun MaterialbookWebView(
         pipHandoffReadTrigger = pipHandoffReadTrigger,
         onPipHandoffRead = onPipHandoffRead,
         pipHandback = pipHandback,
+        onPipVideoGone = onPipVideoGone,
     )
 
     // allow exiting while scrolling to top.
