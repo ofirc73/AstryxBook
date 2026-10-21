@@ -242,6 +242,7 @@ class MainActivity : FragmentActivity() {
                         shareMediaRequest = shareMediaRequest,
                         onPipHandoffRead = lockScreenAudio::onPageRead,
                         onPipPageVisible = { runOnUiThread { lockScreenAudio.handBack("page visible") } },
+                        onPipVideoGone = { runOnUiThread { closeEmptyPip() } },
                         isAppLocked = appLockController.isLocked,
                         onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
                             updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
@@ -291,6 +292,14 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    // Facebook took the PiP video off the page, and PiP doesn't move on to another video: the
+    // empty, black PiP window closes, as when it's swiped away, the app staying where it was.
+    private fun closeEmptyPip() {
+        if (!isInPictureInPictureMode) return
+        Log.d(TAG, "PiP video gone from the page: closing the PiP window")
+        moveTaskToBack(true)
     }
 
     override fun onNewIntent(intent: Intent) {

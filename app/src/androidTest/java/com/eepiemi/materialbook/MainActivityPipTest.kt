@@ -171,6 +171,19 @@ class MainActivityPipTest {
         assertTrue("the zoom never came back", app.waitFor { eval("visualViewport.scale").toFloat() > 2f })
     }
 
+    // ── its video gone ──────────────────────────────────────────────────────
+
+    @Test
+    fun aPipVideoTakenOffThePage_closesThePipWindow() {
+        // Facebook can drop a long-paused reel and go back to Home: an empty, black PiP window.
+        loadReelPage()
+        app.enterPip()
+        assertTrue(app.waitFor { pipActive() })
+        eval("document.getElementById('reel').remove(); 1")
+        assertTrue("the empty PiP window stayed open", app.waitFor(10_000) { !app.isInPip() })
+        assertTrue("the app came to the front instead of staying in the background", app.isInBackground())
+    }
+
     // ── which WebView ───────────────────────────────────────────────────────
 
     @Test

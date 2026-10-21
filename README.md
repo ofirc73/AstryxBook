@@ -146,6 +146,11 @@ a very long lock can stop; the video is still restored where it left off.
 A video that was playing keeps playing when PiP starts, on the mobile and the desktop site.
 If it ever stops, tap the Play button on the PiP overlay to resume it.
 
+Facebook sometimes takes a video off the page, for example a reel left paused for a while with the
+screen off, and goes back to the feed. PiP doesn't move on to the next reel, so the window
+would stay black with nothing to play: it closes instead, and the app stays in the background
+where it was.
+
 If PiP does not appear, confirm that the video is actively playing with volume above zero
 and that both the app and Android system PiP permissions are enabled.
 

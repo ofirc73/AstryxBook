@@ -144,6 +144,7 @@ fun MaterialbookWebView(
     shareMediaRequest: ShareMediaRequest? = null,
     onPipHandoffRead: (String?) -> Unit = {},
     onPipPageVisible: () -> Unit = {},
+    onPipVideoGone: () -> Unit = {},
     isAppLocked: Boolean = false,
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> }
 ) {
@@ -828,7 +829,7 @@ fun MaterialbookWebView(
                         PageBridges(
                             settings = MaterialbookSettings { settingsToggle = true },
                             theme = ThemeChange { if (!settingsToggle) viewModel.setThemeColor(Color(it)) },
-                            pip = PipBridge(onVideoPlayingChanged, onPipPageVisible),
+                            pip = PipBridge(onVideoPlayingChanged, onPipPageVisible, onPipVideoGone),
                             screen = ScreenBridge { mainVideoPlaying = it },
                             layer = LayerBridge { pageUrl ->
                                 if (isStoryCreatePage(pageUrl)) messagesLayer.open(pageUrl)
@@ -902,6 +903,7 @@ fun MaterialbookWebView(
                 onPipTarget = { layerPipTarget = it },
                 onVideoPlayingChanged = onVideoPlayingChanged,
                 onPipPageVisible = onPipPageVisible,
+                onPipVideoGone = onPipVideoGone,
                 trackVideoPlaying = trackVideoPlaying,
                 textZoom = textZoomPercent,
                 onScreenVideoPlayingChanged = { layerVideoPlaying = it },

@@ -15,7 +15,7 @@ class PageBridgeTest {
     private val bridges = PageBridges(
         settings = MaterialbookSettings { calls += "settings" },
         theme = ThemeChange { calls += "theme $it" },
-        pip = PipBridge({ playing, w, h -> calls += "video $playing ${w}x$h" }, { calls += "visible" }),
+        pip = PipBridge({ playing, w, h -> calls += "video $playing ${w}x$h" }, { calls += "visible" }, { calls += "gone" }),
         screen = ScreenBridge { calls += "screen $it" },
         layer = LayerBridge { calls += "layer $it" },
     )
@@ -27,6 +27,7 @@ class PageBridgeTest {
         assertTrue(dispatchPageMessage("""{"call":"videoState","playing":true,"width":1280,"height":720}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"pipAnomaly","message":"div#x"}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"pageVisible"}""", bridges))
+        assertTrue(dispatchPageMessage("""{"call":"pipVideoGone"}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"screenVideoPlaying","playing":true}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"layerUrl","url":"https://www.facebook.com/friends/"}""", bridges))
         assertEquals(
@@ -35,6 +36,7 @@ class PageBridgeTest {
                 "theme ${0xFFFF0000.toInt()}",
                 "video true 1280x720",
                 "visible",
+                "gone",
                 "screen true",
                 "layer https://www.facebook.com/friends/",
             ),
@@ -56,6 +58,7 @@ class PageBridgeTest {
         val mainView = PageBridges(settings = MaterialbookSettings { calls += "settings" })
         assertFalse(dispatchPageMessage("""{"call":"layerUrl","url":"https://www.facebook.com/"}""", mainView))
         assertFalse(dispatchPageMessage("""{"call":"pageVisible"}""", mainView))
+        assertFalse(dispatchPageMessage("""{"call":"pipVideoGone"}""", mainView))
         assertTrue(calls.isEmpty())
     }
 
