@@ -771,3 +771,9 @@ internal const val PIP_VIDEO_GONE_WATCH_JS = """
 // Whether the page PiP shows is still the one focus mode ran on in this PiP session (marked by
 // PIP_VIDEO_GONE_WATCH_JS); a new page has no mark. See PipEffects.
 internal const val PIP_PAGE_IS_PIPS_JS = "window.__astryxPipPage === true"
+
+// Before the page is reloaded for the full window after an empty PiP window (MaterialbookWV's
+// relayoutTrigger): m.facebook.com's client then sends the device's details, screen size included,
+// again (it does once per session, noting when here), so Facebook lays the page out for the screen
+// instead of the PiP window. Checked live on a Galaxy A56.
+internal const val RELAYOUT_PAGE_JS = "sessionStorage.removeItem('sharedprefs.web.last_device_info'); true"

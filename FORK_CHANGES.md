@@ -668,6 +668,14 @@ leaving the app while a Facebook video or Reel is playing.
   unlock Android started the app again inside the PiP window it left, at its start page, with no
   video (so with the default 16:9 window). An app that starts inside a PiP window now closes it and
   stays in the background. Covered by `MainActivityPipTest`.
+- After the app closed an empty PiP window, opening it showed the feed laid out a third of the
+  screen wide (the PiP window's width), and reloads and Home didn't help; only a force stop did
+  (v1.35.2 on a Galaxy A56). m.facebook.com's client sends the device's details, screen size
+  included, once per session and notes when in sessionStorage
+  (`sharedprefs.web.last_device_info`), so pages loaded while the app was in PiP left Facebook with
+  the PiP window's width. Back from an empty PiP window, the app now drops that note and reloads the
+  page once the window is full size (checked live: the client sends the details again and the page
+  is laid out for the screen). Covered by `MainActivityPipTest`.
 
 ## Sharing, text size, shortcuts and developer options
 

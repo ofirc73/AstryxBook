@@ -177,11 +177,24 @@ class MainActivityPipTest {
     fun aPipVideoTakenOffThePage_closesThePipWindow() {
         // Facebook can drop a long-paused reel and go back to Home: an empty, black PiP window.
         loadReelPage()
+        eval("window.__beforePip = true; sessionStorage.setItem('sharedprefs.web.last_device_info', '1'); 1")
         app.enterPip()
         assertTrue(app.waitFor { pipActive() })
         eval("document.getElementById('reel').remove(); 1")
         assertTrue("the empty PiP window stayed open", app.waitFor(10_000) { !app.isInPip() })
         assertTrue("the app came to the front instead of staying in the background", app.isInBackground())
+        assertPageReloadedOnReturn()
+    }
+
+    // Back in front after closing an empty PiP window, the page is reloaded for the full window:
+    // what Facebook loaded meanwhile was laid out for the PiP window (a third of the screen).
+    private fun assertPageReloadedOnReturn() {
+        app.leavePip()
+        assertTrue("the page laid out for the PiP window was never reloaded", app.waitFor(10_000) {
+            eval("window.__beforePip === undefined && document.readyState === 'complete'") == "true"
+        })
+        // Facebook's client then sends the screen size again.
+        assertEquals("null", eval("sessionStorage.getItem('sharedprefs.web.last_device_info')"))
     }
 
     @Test
@@ -195,6 +208,10 @@ class MainActivityPipTest {
         app.onActivity { it.recreate() }
         assertTrue("the PiP window stayed open over the restarted app", app.waitFor(10_000) { !app.isInPip() })
         assertTrue("the app came to the front instead of staying in the background", app.waitFor { app.isInBackground() })
+        // The restarted app's page loaded at the PiP window's size.
+        app.leavePip()
+        val reloads = app.waitFor(10_000) { eval("document.readyState") == "\"complete\"" }
+        assertTrue(reloads)
     }
 
     @Test
