@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.utils
 
+import android.graphics.Bitmap
 import android.util.Log
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
@@ -14,7 +15,16 @@ import android.webkit.WebView
  * the Messages layer), and each one that loses it gets its own call. It also blocks Facebook's
  * Google Ads pixel ([AdsPixelBlockingClient]).
  */
-class RendererGoneClient(private val onGone: (WebView) -> Unit) : AdsPixelBlockingClient() {
+class RendererGoneClient(
+    private val onPageStarted: () -> Unit = {},
+    private val onGone: (WebView) -> Unit,
+) : AdsPixelBlockingClient() {
+    // A new page (not Facebook's in-page navigation, which doesn't start one); see PageStarts.
+    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+        super.onPageStarted(view, url, favicon)
+        onPageStarted()
+    }
+
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
         Log.w(TAG, "WebView renderer gone (crashed: ${detail.didCrash()}), replacing the WebView")
         onGone(view)

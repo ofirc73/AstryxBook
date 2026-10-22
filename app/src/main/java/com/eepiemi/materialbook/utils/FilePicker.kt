@@ -15,7 +15,9 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -28,6 +30,19 @@ import com.multiplatform.webview.web.PlatformWebViewParams
 // src: https://github.com/KevinnZou/compose-webview-multiplatform
 
 /**
+ * How many pages a WebView has started loading (new pages only: Facebook's in-page navigation
+ * starts none). Effects that act on each page once it has loaded key on it next to the loading
+ * state: a page that starts and finishes loading within one frame (a test page, a page from the
+ * cache) leaves the loading state at Finished, so without it they never ran on that page (the
+ * app's scripts, PiP, sharing).
+ */
+@Stable
+class PageStarts {
+    var count by mutableIntStateOf(0)
+        internal set
+}
+
+/**
  * The WebView clients every WebView in the app gets: file picker, fullscreen video and camera/
  * microphone requests (chrome client), and [onRendererGone] when the page's renderer process is
  * lost (see RendererGoneClient), after leaving fullscreen: its video view is gone with it.
@@ -35,11 +50,12 @@ import com.multiplatform.webview.web.PlatformWebViewParams
 @Composable
 fun appWebViewParams(
     fullscreen: FullscreenController,
+    pageStarts: PageStarts,
     onRendererGone: (WebView) -> Unit,
 ): PlatformWebViewParams {
     val currentOnRendererGone by rememberUpdatedState(onRendererGone)
-    val webViewClient = remember(fullscreen) {
-        RendererGoneClient { view ->
+    val webViewClient = remember(fullscreen, pageStarts) {
+        RendererGoneClient(onPageStarted = { pageStarts.count++ }) { view ->
             fullscreen.hide()
             currentOnRendererGone(view)
         }

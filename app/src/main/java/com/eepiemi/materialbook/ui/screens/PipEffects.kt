@@ -38,6 +38,8 @@ private const val PIP_PINCH_CHECK_DELAY_MS = 300L
 internal fun PipEffects(
     pipNavigator: WebViewNavigator,
     pipState: WebViewState,
+    // The pages pipState's WebView has started (see PageStarts), next to its loading state.
+    pipPageStarts: Int = 0,
     isInPipMode: Boolean,
     isFullscreen: Boolean,
     pipToggleTrigger: Int,
@@ -71,7 +73,7 @@ internal fun PipEffects(
     }
 
     // Keep-playing guard (see pipKeepPlayingActivateJs): active only while PiP is engaged.
-    LaunchedEffect(isInPipMode, pipState.loadingState) {
+    LaunchedEffect(isInPipMode, pipState.loadingState, pipPageStarts) {
         if (pipState.loadingState is LoadingState.Finished) {
             pipNavigator.evaluateJavaScript(
                 if (isInPipMode) pipKeepPlayingActivateJs(pipStartedWhilePlaying)
@@ -92,7 +94,7 @@ internal fun PipEffects(
     // page too). PIP_PAGE_IS_PIPS_JS tells it from the same page finishing an in-page navigation.
     var focusModeInPip by remember(pipState) { mutableStateOf(false) }
     val currentOnPipVideoGone by rememberUpdatedState(onPipVideoGone)
-    LaunchedEffect(isInPipMode, pipState.loadingState) {
+    LaunchedEffect(isInPipMode, pipState.loadingState, pipPageStarts) {
         if (pipState.loadingState is LoadingState.Finished) {
             if (!isInPipMode) {
                 focusModeInPip = false
@@ -173,7 +175,7 @@ internal fun PipEffects(
 
     // Separate from focus mode on purpose (see PIP_PIN_SCREEN_JS): keeps
     // rotation during PiP from making Facebook drop the reel.
-    LaunchedEffect(isInPipMode, pipState.loadingState) {
+    LaunchedEffect(isInPipMode, pipState.loadingState, pipPageStarts) {
         if (pipState.loadingState is LoadingState.Finished) {
             pipNavigator.evaluateJavaScript(
                 if (isInPipMode) PIP_PIN_SCREEN_JS else PIP_UNPIN_SCREEN_JS
@@ -224,7 +226,7 @@ internal fun PipEffects(
     // navigator replays just its last event to a WebView that isn't attached
     // yet, so an unconditional evaluate at startup would replace the initial
     // loadUrl and the page would never load.
-    LaunchedEffect(isInPipMode, pipLockscreenAudio, pipState.loadingState) {
+    LaunchedEffect(isInPipMode, pipLockscreenAudio, pipState.loadingState, pipPageStarts) {
         if (pipState.loadingState is LoadingState.Finished) {
             pipNavigator.evaluateJavaScript(
                 if (isInPipMode && pipLockscreenAudio) PIP_HANDOFF_ARM_JS else PIP_HANDOFF_DISARM_JS

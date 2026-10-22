@@ -686,6 +686,13 @@ leaving the app while a Facebook video or Reel is playing.
 - Opening the app after that showed the narrow feed for a moment before the reload put it right.
   The app's loading screen now covers the page from the moment the empty PiP window closes until
   the reloaded page is ready (at most 8 seconds).
+- A page that started and finished loading within one frame (a page from the cache, say) never got
+  the app's scripts, PiP, Keep screen on or sharing: they ran when the app saw the page's loading
+  state change, and it hadn't changed. Each WebView now counts the pages it starts (`PageStarts`,
+  from the WebView client; Facebook's in-page navigation starts none), and those effects run on a
+  new page too. Found through a test that failed now and then in CI
+  (`theAppsScripts_runOnFacebooksPages`); covered by
+  `theAppsScripts_runOnEveryPage_evenOneThatLoadsWithinAFrame`, which failed every time before.
 
 ## Sharing, text size, shortcuts and developer options
 

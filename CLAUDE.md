@@ -37,7 +37,9 @@ user-visible change.
   that has an official one.
 - App-level tests drive the real `MainActivity` through `AppHarness` (androidTest; one class per
   feature, listed in FORK_CHANGES' Testing). Test pages loaded with `loadPage` have no WebView
-  history (`asHistory` gives them one, but a reload then fetches the real page). The lock-screen
+  history (`asHistory` gives them one, but a reload then fetches the real page). Loading a second
+  test page at the same address leaves `evaluateJavascript` unanswered: give each its own
+  (`?n=2`). The lock-screen
   and app-lock tests need the screen lock's PIN: `-e pin 1234` on the emulator. The live
   checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
@@ -104,6 +106,9 @@ user-visible change.
   data). It answers Facebook's Google Ads pixel frames (`www.fbsbx.com/paid_ads_pixel/`) with an
   empty 204. To see what a page requests, record `Network.*` events over DevTools from every
   target (the page, its service worker, the layer's workers).
+- Effects that act on each new page key on `pageStarts` (`PageStarts`, counted by the WebView
+  client) next to `loadingState`: a page that starts and finishes within one frame leaves the
+  loading state at Finished, and an effect keyed on it alone never runs on that page.
 - `state.nativeWebView` throws until the WebView exists (it's created during layout, which
   doesn't happen with the screen off): guard it in effects.
 - A lost renderer process (`RendererGoneClient`, `utils/RendererRecovery.kt`) replaces the
