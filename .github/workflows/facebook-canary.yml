@@ -10,12 +10,17 @@ name: Daily Facebook check
 # closes it. "Facebook session expired" in the issue means the cookies need replacing.
 
 on:
+  # GitHub starts scheduled runs late or not at all (in this repo about half of them), so the
+  # check is scheduled three times a day and the later runs stand down once one has run (the
+  # due job). Off the full hour, when GitHub delays the most runs.
   schedule:
-    # Off the full hour, when GitHub delays (or drops) the most scheduled runs.
     - cron: '37 5 * * *' # 08:37 in Israel in summer, 07:37 in winter
+    - cron: '37 8 * * *'
+    - cron: '37 11 * * *'
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   issues: write
 
@@ -24,7 +29,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  due:
+    runs-on: ubuntu-26.04
+    outputs:
+      run: ${{ steps.today.outputs.run }}
+    steps:
+      - name: Has today's check run?
+        id: today
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # A run started by hand always runs the checks.
+          if [ "$EVENT" != schedule ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Today's (UTC) other runs on this branch whose checks got to a result, passing or
+          # failing; one that was cancelled, timed out or stood down doesn't count.
+          for ID in $(gh api -X GET "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs" \
+              -f branch="$GITHUB_REF_NAME" -f created=">=$(date -u +%F)" -F per_page=20 \
+              -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID) | .id"); do
+            RESULT=$(gh api "repos/$GH_REPO/actions/runs/$ID/jobs" \
+              -q '.jobs[] | select(.name == "canary") | .conclusion')
+            if [ "$RESULT" = success ] || [ "$RESULT" = failure ]; then
+              echo "Today's check already ran: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$ID"
+              echo run=false >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo run=true >> "$GITHUB_OUTPUT"
+
   canary:
+    needs: due
+    if: needs.due.outputs.run == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
