@@ -156,6 +156,10 @@ user-visible change.
   rewrites the viewport `<meta>`s and Facebook's `vpd` cookie (the viewport its server lays pages
   out for). Page scripts that read `visualViewport.scale` must count from
   `__astryxPageZoomScale()`, not 1. Zooming out needs `useWideViewPort`.
+- m.facebook.com's client sends the device's details (screen size included) once per session and
+  notes when in `sessionStorage` (`sharedprefs.web.last_device_info`); pages loaded while the app is
+  in PiP leave Facebook laying pages out for the PiP window's width, even after reloads. Removing that
+  key and reloading makes it send them again (`RELAYOUT_PAGE_JS`, after an empty PiP window closes).
 - A feed memory ("5 years ago") opens each photo alone (`photo.php?fbid=…`, "1 of 1"; even with
   `set=`, a full load is always 1 of 1). `memory_photos.js` (main view) catches a photo opened from
   a card with several photo tiles (the tap is kept in `sessionStorage`: soon after the feed loads,

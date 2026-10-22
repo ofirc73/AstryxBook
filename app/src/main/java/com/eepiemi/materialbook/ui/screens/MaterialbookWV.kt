@@ -139,6 +139,7 @@ fun MaterialbookWebView(
     isInPipMode: Boolean = false,
     pipStartedWhilePlaying: Boolean = false,
     pipHandoffReadTrigger: Int = 0,
+    relayoutTrigger: Int = 0,
     pipHandback: PipHandback? = null,
     openLinkRequest: OpenLinkRequest? = null,
     shareMediaRequest: ShareMediaRequest? = null,
@@ -326,6 +327,29 @@ fun MaterialbookWebView(
             )
         }
         if (state.loadingState is LoadingState.Finished) navigator.reload()
+    }
+
+    // After the app closed an empty PiP window (MainActivity.closeEmptyPip): Facebook had loaded
+    // pages while the app was in PiP and kept laying them out for the PiP window's width, a third
+    // of the screen, even after reloads (seen on a Galaxy A56); only a fresh app start helped.
+    // m.facebook.com's client sends the device's details (screen size included) once per session
+    // and notes when in sessionStorage (RELAYOUT_PAGE_JS); without that note it sends them again.
+    // Once the window has its full size again, the note goes and the page is reloaded, with the
+    // viewport cookie set ahead as above.
+    LaunchedEffect(relayoutTrigger) {
+        if (relayoutTrigger == 0) return@LaunchedEffect
+        delay(PIP_EXIT_SETTLE_MS)
+        val webView = runCatching { state.nativeWebView }.getOrNull() ?: return@LaunchedEffect
+        if (webView.width > 0 && webView.height > 0) {
+            CookieManager.getInstance().setCookie(
+                "https://m.facebook.com",
+                TextZoom.viewportCookie(
+                    webView.width, webView.height, resources.displayMetrics.density, textZoomPercent
+                )
+            )
+        }
+        Log.d("AstryxbookPiP", "back from an empty PiP window: reloading the page for the full window")
+        navigator.evaluateJavaScript(RELAYOUT_PAGE_JS) { navigator.reload() }
     }
 
     // PiP follows the page on screen: the Messages layer's while it's open (it reports its
