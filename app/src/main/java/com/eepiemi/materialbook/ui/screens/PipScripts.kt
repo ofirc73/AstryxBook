@@ -743,7 +743,7 @@ internal const val PIP_VIDEO_GONE_WATCH_JS = """
   window.__astryxPipPage = true;
   if (window.__astryxPipGoneWatch) clearInterval(window.__astryxPipGoneWatch);
   var GONE_MS = 3000;
-  var EMPTY_MS = 1000;
+  var EMPTY_MS = 300;
   var seen = false;
   var goneSince = 0;
   function stop() {
