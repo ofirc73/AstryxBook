@@ -412,7 +412,8 @@ on their own can't:
   wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP); a pinch-zoomed page shown
   whole in PiP and zoomed back after; PiP from the Messages layer acting on the layer; PiP on the
   WebView that replaces a crashed renderer; lock and unlock in PiP keeping the window, the page
-  and the sound; the PiP window closing when its video leaves the page or a new page loads.
+  and the sound; the PiP window closing when its video leaves the page, a new page loads or the app starts again
+  inside it.
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view.
@@ -662,6 +663,11 @@ leaving the app while a Facebook video or Reel is playing.
   check above went with the old page. A page that finishes loading during PiP, after focus mode
   ran on an earlier one, now closes the window too; the same page finishing an in-page
   navigation (it still carries the mark focus mode left) doesn't. Covered by `MainActivityPipTest`.
+- After a long lock in PiP, the PiP window showed the whole Reels page, in landscape (v1.35.1 on a
+  Galaxy A56): Samsung's memory cleanup had killed the app's process during the lock, and on
+  unlock Android started the app again inside the PiP window it left, at its start page, with no
+  video (so with the default 16:9 window). An app that starts inside a PiP window now closes it and
+  stays in the background. Covered by `MainActivityPipTest`.
 
 ## Sharing, text size, shortcuts and developer options
 
