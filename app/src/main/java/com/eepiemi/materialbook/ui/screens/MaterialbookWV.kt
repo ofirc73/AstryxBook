@@ -68,6 +68,7 @@ import com.eepiemi.materialbook.utils.HOME_PAGE_URL
 import com.eepiemi.materialbook.utils.KeepScreenOn
 import com.eepiemi.materialbook.utils.TextZoom
 import com.eepiemi.materialbook.utils.appOrientation
+import com.eepiemi.materialbook.utils.PageStarts
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.clearWebData
 import com.eepiemi.materialbook.utils.deadWebViewUrl
@@ -359,10 +360,12 @@ fun MaterialbookWebView(
     // own videos through PipBridge too), else this view's. Everything below acts on that
     // page; the PiP scripts themselves are the same for both.
     var layerPipTarget by remember { mutableStateOf<PipTarget?>(null) }
+    val mainPageStarts = remember { PageStarts() }
     // Not the layer kept out of sight behind a reel (MessagesLayerState.hidden).
     val shownLayerPipTarget = layerPipTarget?.takeUnless { messagesLayer.hidden }
     val pipNavigator = shownLayerPipTarget?.navigator ?: navigator
     val pipState = shownLayerPipTarget?.state ?: state
+    val pipPageStarts = (shownLayerPipTarget?.pageStarts ?: mainPageStarts).count
 
     // Set by FullscreenController's host below while an HTML5 fullscreen
     // custom view is showing.
@@ -372,6 +375,7 @@ fun MaterialbookWebView(
     PipEffects(
         pipNavigator = pipNavigator,
         pipState = pipState,
+        pipPageStarts = pipPageStarts,
         isInPipMode = isInPipMode,
         isFullscreen = isFullscreen,
         pipToggleTrigger = pipToggleTrigger,
@@ -531,6 +535,8 @@ fun MaterialbookWebView(
 
     val userScripts by viewModel.scripts
     val loadingState = state.loadingState
+    // Next to loadingState in the effects below: see PageStarts.
+    val pageStarts = mainPageStarts.count
 
     val pipEnabled by settingsVM.pipEnabled.collectAsState()
 
@@ -539,7 +545,7 @@ fun MaterialbookWebView(
     // when it waited on the other scripts (then fetched over the network), the
     // very first PiP attempt after a fresh install or app-cache clear did not
     // trigger PiP at all, since PipBridge never reported isVideoPlaying in time.
-    LaunchedEffect(loadingState, pipEnabled) {
+    LaunchedEffect(loadingState, pageStarts, pipEnabled) {
         if (loadingState is LoadingState.Finished && pipEnabled) {
             val detectorScript = context.resources.openRawResource(R.raw.pip_video_detector)
                 .bufferedReader().use { it.readText() }
@@ -554,7 +560,7 @@ fun MaterialbookWebView(
     val trackVideoPlaying = keepScreenOnMode == KeepScreenOn.WHILE_VIDEO
     var mainVideoPlaying by remember { mutableStateOf(false) }
     var layerVideoPlaying by remember { mutableStateOf(false) }
-    LaunchedEffect(loadingState, trackVideoPlaying) {
+    LaunchedEffect(loadingState, pageStarts, trackVideoPlaying) {
         if (loadingState is LoadingState.Loading) mainVideoPlaying = false
         if (loadingState is LoadingState.Finished && trackVideoPlaying) {
             val script = resources.openRawResource(R.raw.video_playing)
@@ -576,7 +582,7 @@ fun MaterialbookWebView(
     // layer through its fb-messenger:// link, but Facebook then leaves its "Get the Messenger
     // app" page on the page underneath. Bundled like the PiP detector; the script guards
     // against running twice, so the copy in userScripts is harmless.
-    LaunchedEffect(loadingState, messagesDesktopSetting) {
+    LaunchedEffect(loadingState, pageStarts, messagesDesktopSetting) {
         if (loadingState is LoadingState.Finished && messagesDesktopSetting) {
             val tabHook = resources.openRawResource(R.raw.messages_tab)
                 .bufferedReader().use { it.readText() }
@@ -589,7 +595,7 @@ fun MaterialbookWebView(
     // have dropped the #astryx-feeds mark from the URL by then; __astryxFeedsForce stands in.
     var openFeedsPending by remember { mutableStateOf(url == FEEDS_PAGE_URL) }
     var openFeedsAtDocumentStart by remember { mutableStateOf(true) }
-    LaunchedEffect(loadingState) {
+    LaunchedEffect(loadingState, pageStarts) {
         if (loadingState is LoadingState.Finished && openFeedsPending) {
             openFeedsPending = false
             if (!openFeedsAtDocumentStart) {
@@ -600,7 +606,7 @@ fun MaterialbookWebView(
         }
     }
 
-    LaunchedEffect(loadingState, userScripts) {
+    LaunchedEffect(loadingState, pageStarts, userScripts) {
         if (loadingState is LoadingState.Finished) {
             userScripts?.let { scripts ->
                 navigator.evaluateJavaScript(scripts) {
@@ -720,7 +726,7 @@ fun MaterialbookWebView(
     // on behind the chat, and note its scroll position. On close: once the screen is back in
     // portrait (a landscape layout reflows the feed and moves it), scroll it back there.
     val isMessagesLayerOpen = messagesLayer.isShown
-    LaunchedEffect(messagesLayer.closeOnReel, state.loadingState) {
+    LaunchedEffect(messagesLayer.closeOnReel, state.loadingState, mainPageStarts.count) {
         if (!messagesLayer.closeOnReel) return@LaunchedEffect
         val onReel = state.loadingState is LoadingState.Finished &&
             isMobileReelPage(runCatching { state.nativeWebView.url }.getOrNull())
@@ -811,7 +817,7 @@ fun MaterialbookWebView(
             modifier = pageModifier,
             state = state,
             navigator = navigator,
-            platformWebViewParams = appWebViewParams(fullscreen, onRendererGone = { dead ->
+            platformWebViewParams = appWebViewParams(fullscreen, mainPageStarts, onRendererGone = { dead ->
                 val now = SystemClock.elapsedRealtime()
                 pendingRecoveryUrl = rendererRecoveryUrl(
                     deadWebViewUrl(dead) ?: state.lastLoadedUrl, HOME_URL, lastRendererLossAt, now
@@ -915,6 +921,7 @@ fun MaterialbookWebView(
         shareMediaRequest = shareMediaRequest,
         navigator = navigator,
         loadingState = loadingState,
+        pageStarts = pageStarts,
         onOpenLayer = { layerUrl ->
             messagesLayer.open(layerUrl)
             messagesLayer.generation++

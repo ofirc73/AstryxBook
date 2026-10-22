@@ -3,6 +3,7 @@ package com.eepiemi.materialbook.ui.screens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,6 +47,7 @@ internal fun MainViewShareEffects(
     shareMediaRequest: ShareMediaRequest?,
     navigator: WebViewNavigator,
     loadingState: LoadingState,
+    pageStarts: Int = 0,
     onOpenLayer: (String) -> Unit,
     onCloseLayer: () -> Unit,
 ) {
@@ -57,6 +59,7 @@ internal fun MainViewShareEffects(
     // could be gone a moment later).
     var pageShareTarget by remember { mutableStateOf<ShareTarget?>(null) }
     var pageShareLoadSeen by remember { mutableStateOf(false) }
+    var shareStartsAt by remember { mutableIntStateOf(0) }
     LaunchedEffect(shareMediaRequest?.seq) {
         val request = shareMediaRequest ?: return@LaunchedEffect
         val pageUrl = shareStartPageUrl(request.target)
@@ -64,6 +67,7 @@ internal fun MainViewShareEffects(
             onCloseLayer()
             pageShareTarget = request.target
             pageShareLoadSeen = false
+            shareStartsAt = pageStarts
             navigator.loadUrl(pageUrl)
         } else {
             onOpenLayer(if (request.target == ShareTarget.REEL) REEL_CREATE_URL else STORY_CREATE_URL)
@@ -82,11 +86,11 @@ internal fun MainViewShareEffects(
             navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
         }
     }
-    LaunchedEffect(loadingState, pageShareTarget) {
+    LaunchedEffect(loadingState, pageStarts, pageShareTarget) {
         val target = pageShareTarget ?: return@LaunchedEffect
-        if (loadingState is LoadingState.Loading) {
-            pageShareLoadSeen = true
-        } else if (loadingState is LoadingState.Finished && pageShareLoadSeen) {
+        // A load that started and finished within one frame shows only as a new page (PageStarts).
+        if (loadingState is LoadingState.Loading || pageStarts != shareStartsAt) pageShareLoadSeen = true
+        if (loadingState is LoadingState.Finished && pageShareLoadSeen) {
             // The script runs again on every page that finishes loading until it has taken the
             // files: the share's page can be replaced right after it loads, taking the script with
             // it (on a cold start m.facebook.com redirects its first load to "/?wtsid=…", and a

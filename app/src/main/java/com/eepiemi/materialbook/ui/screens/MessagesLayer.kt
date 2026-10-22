@@ -29,6 +29,7 @@ import com.eepiemi.materialbook.utils.FullscreenController
 import com.eepiemi.materialbook.utils.MessagesLayerRoute
 import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
+import com.eepiemi.materialbook.utils.PageStarts
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.eepiemi.materialbook.utils.deadWebViewUrl
 import com.eepiemi.materialbook.utils.hardenWebView
@@ -75,7 +76,7 @@ import org.json.JSONObject
  *   open a new layer there (by default the layer closes).
  */
 /** The page PiP acts on (see MaterialbookWebView): the Messages layer's while it's open. */
-class PipTarget(val navigator: WebViewNavigator, val state: WebViewState)
+class PipTarget(val navigator: WebViewNavigator, val state: WebViewState, val pageStarts: PageStarts)
 
 @Composable
 fun MessagesLayer(
@@ -113,6 +114,7 @@ fun MessagesLayer(
 
     // The user agent is applied by the library when it creates the WebView, before the
     // first load (setting it is idempotent, so doing it on every composition is fine).
+    val layerPageStarts = remember { PageStarts() }
     val state = rememberWebViewState(url).also {
         it.webSettings.customUserAgentString = DESKTOP_USER_AGENT
     }
@@ -194,7 +196,9 @@ fun MessagesLayer(
 
     // Same page scripts as the main view (download hook, theme, ...).
     val loadingState = state.loadingState
-    LaunchedEffect(loadingState, userScripts) {
+    // Next to loadingState in the effects below: see PageStarts.
+    val pageStarts = layerPageStarts.count
+    LaunchedEffect(loadingState, pageStarts, userScripts) {
         if (loadingState is LoadingState.Finished && userScripts != null) {
             // Marks the page as the layer's for the scripts that differ there (pinch_to_zoom.js).
             navigator.evaluateJavaScript("window.__astryxMessagesLayer = true;\n$userScripts") {}
@@ -204,7 +208,7 @@ fun MessagesLayer(
     // A story share (ShareMedia): the desktop story creator takes the shared files one at a time,
     // laid out like the Facebook app's story editor (story_layout.js). A reel share: the reels
     // page's Create reel takes the shared video.
-    LaunchedEffect(loadingState) {
+    LaunchedEffect(loadingState, pageStarts) {
         if (loadingState !is LoadingState.Finished) return@LaunchedEffect
         val page = state.lastLoadedUrl
         if (isStoryCreatePage(page)) {
@@ -225,7 +229,7 @@ fun MessagesLayer(
 
     // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), and
     // its photo viewer laid out for a phone (layer_photo_viewer.js).
-    LaunchedEffect(loadingState) {
+    LaunchedEffect(loadingState, pageStarts) {
         if (loadingState is LoadingState.Finished) {
             val script = listOf(R.raw.messages_layer_nav, R.raw.layer_photo_viewer).joinToString("\n") { id ->
                 resources.openRawResource(id).bufferedReader().use { it.readText() }
@@ -238,7 +242,7 @@ fun MessagesLayer(
     // main view reports them (AstryxPage, or PipBridge on old WebViews), and while the layer is open PiP acts on its
     // page. When it closes, its videos are gone: say so, or leaving the app afterwards would
     // still count as "video playing".
-    LaunchedEffect(loadingState, pipEnabled) {
+    LaunchedEffect(loadingState, pageStarts, pipEnabled) {
         if (loadingState is LoadingState.Finished && pipEnabled) {
             val detector = resources.openRawResource(R.raw.pip_video_detector)
                 .bufferedReader().use { it.readText() }
@@ -247,7 +251,7 @@ fun MessagesLayer(
     }
     // "Keep screen on: while a video plays" (see MaterialbookWebView).
     val currentOnScreenVideoPlayingChanged by rememberUpdatedState(onScreenVideoPlayingChanged)
-    LaunchedEffect(loadingState, trackVideoPlaying) {
+    LaunchedEffect(loadingState, pageStarts, trackVideoPlaying) {
         if (loadingState is LoadingState.Loading) currentOnScreenVideoPlayingChanged(false)
         if (loadingState is LoadingState.Finished && trackVideoPlaying) {
             val script = resources.openRawResource(R.raw.video_playing)
@@ -259,7 +263,7 @@ fun MessagesLayer(
     val currentOnPipTarget by rememberUpdatedState(onPipTarget)
     val currentOnVideoPlayingChanged by rememberUpdatedState(onVideoPlayingChanged)
     DisposableEffect(navigator, state) {
-        currentOnPipTarget(PipTarget(navigator, state))
+        currentOnPipTarget(PipTarget(navigator, state, layerPageStarts))
         onDispose {
             currentOnPipTarget(null)
             currentOnVideoPlayingChanged(false, 0, 0)
@@ -276,7 +280,7 @@ fun MessagesLayer(
             navigator = navigator,
             // The WebView can't be used once its renderer is gone (see RendererGoneClient):
             // the caller replaces the layer, and onDispose below destroys this one.
-            platformWebViewParams = appWebViewParams(fullscreen, onRendererGone = { dead ->
+            platformWebViewParams = appWebViewParams(fullscreen, layerPageStarts, onRendererGone = { dead ->
                 currentOnRendererGone(deadWebViewUrl(dead) ?: state.lastLoadedUrl)
             }),
             captureBackPresses = false,

@@ -55,6 +55,20 @@ class PagesAndSettingsTest {
     }
 
     @Test
+    fun theAppsScripts_runOnEveryPage_evenOneThatLoadsWithinAFrame() {
+        // A page that starts and finishes loading within one frame (these test pages, a page from
+        // the cache) left the app's loading state at Finished, so its scripts never ran on it: the
+        // test above failed now and then in CI (see PageStarts).
+        startOnPage()
+        for (n in 1..5) {
+            app.loadPage("$FEED_URL?n=$n", FEED_PAGE.replace("</body>", "<script>window.__n = $n;</script></body>"))
+            assertTrue("the app's scripts never ran on page $n", app.waitFor(5_000) {
+                app.eval("window.__n === $n && typeof window.backHandlerNB") == "\"function\""
+            })
+        }
+    }
+
+    @Test
     fun hideStories_hidesTheStoriesTray() {
         // Settings apply their scripts on the next page load (Settings reloads the page on close).
         runBlocking { SettingsDataStore(app.context).setHideStories(true) }
