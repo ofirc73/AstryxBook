@@ -17,6 +17,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
@@ -60,13 +61,37 @@ class LiveFacebookCanaryTest {
 
     private fun eval(js: String) = app.eval(js)
 
+    // The video PiP would take plays on for [ms], by pip_video_detector.js's idea of playing.
+    private fun playsOnFor(ms: Long): Boolean {
+        val before = eval(DETECTED_PLAYING_TIME_JS).toDoubleOrNull() ?: return false
+        if (before < 0) return false
+        Thread.sleep(ms)
+        return (eval(DETECTED_PLAYING_TIME_JS).toDoubleOrNull() ?: return false) > before
+    }
+
+    // The app's log lines under [tag], without the line prefixes.
+    private fun logLines(tag: String): List<String> {
+        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s $tag:D")
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
+            .filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
+    }
+
     // The app's last PiP log lines (AstryxbookPiP: video states, PiP params), for a failure message.
     private fun pipLog(): String = runCatching {
-        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s AstryxbookPiP:D")
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
-            .filter { "AstryxbookPiP" in it }.takeLast(8)
-            .joinToString(" | ") { it.substringAfter("AstryxbookPiP: ") }
+        logLines("AstryxbookPiP").takeLast(8).joinToString(" | ")
     }.getOrDefault("unreadable")
+
+    // What the app has on screen, for a failure message when the page can't be read: its WebViews
+    // and whether it lost a renderer (RendererGoneClient). Nothing of the page or the account.
+    private fun appState(): String {
+        val webViews = runCatching { app.webViews().size.toString() }.getOrElse { it.javaClass.simpleName }
+        val activity = app.activity()?.let { if (it.isFinishing) "finishing" else "on screen" } ?: "none in front"
+        val renderer = runCatching { logLines("Astryxbook").filter { "renderer gone" in it } }.getOrDefault(emptyList())
+        return "webViews=$webViews activity=$activity renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
+    }
+
+    // The page's shape, or the app's state when there's no page to read.
+    private fun pageShape(): String = runCatching { eval(PAGE_SHAPE_JS) }.getOrElse { "no page (${appState()})" }
 
     // The session cookies ("c_user=...; xs=...; ..."), base64-encoded, into the app's WebView.
     private fun logIn(encoded: String) {
@@ -105,7 +130,7 @@ class LiveFacebookCanaryTest {
             eval("(function (v) { if (v) { v.muted = true; var p = v.play(); if (p && p.catch) p.catch(function () {}); } })(document.querySelector('video')); 1")
             playing = app.waitFor(30_000) { eval(PLAYING_JS) == "true" }
         }
-        assertTrue("no reel played on /reels/ (${eval(VIDEO_STATE_JS)}; ${eval(PAGE_SHAPE_JS)})", playing)
+        if (!playing) fail("no reel played on /reels/ (${runCatching { eval(VIDEO_STATE_JS) }.getOrDefault("")}; ${pageShape()})")
         assertTrue(
             "the reels' containers (div.vertically-snappable, adblock.js) are gone",
             eval("!!document.querySelector('div.vertically-snappable')") == "true"
@@ -116,7 +141,13 @@ class LiveFacebookCanaryTest {
         assertTrue("pip_video_detector.js never found the playing reel", app.waitFor(30_000) {
             eval("!!window.__astryxLastActiveVideo && !window.__astryxLastActiveVideo.paused") == "true"
         })
-        Thread.sleep(1000)
+        // Unmuted, the reel buffers for a moment (readyState 2, seen on GitHub's emulator), which
+        // pip_video_detector.js counts as not playing: the app turns PiP's auto-enter off and a Home
+        // then opens no PiP. Home waits until the reel has played on, as the detector counts it.
+        if (!app.waitFor(30_000) { playsOnFor(1000) }) {
+            fail("the reel never played on after it was unmuted (buffering, paused or muted again), so Home " +
+                "was never pressed (${eval(VIDEO_STATE_JS)}; the app's PiP log: ${pipLog()})")
+        }
 
         // Home, as the user leaves the app: Android 12+ enters PiP by itself (auto-enter).
         app.pressHome()
@@ -182,12 +213,15 @@ class LiveFacebookCanaryTest {
                 """.trimIndent()
             ) == "true"
         }
-        val clicked = app.waitFor(30_000) { tapCreateStory() }
-        assertTrue("no Create story card on Home (scripts.js isCreateStoryCard) (${eval(PAGE_SHAPE_JS)})", clicked)
+        // On GitHub the app has twice had no WebView here, after Home had loaded: the tap couldn't
+        // run, so the message says what the app had instead.
+        if (!app.waitFor(30_000) { tapCreateStory() }) {
+            fail("no Create story card on Home (scripts.js isCreateStoryCard) (${pageShape()})")
+        }
         val creatorOpen = { app.webViews().drop(1).any { app.url(it).contains("/stories/create") } }
         // A tap before the page listens to taps is lost on a slow emulator: tapped once more.
         val opened = app.waitFor(15_000) { creatorOpen() } || (tapCreateStory() && app.waitFor(20_000) { creatorOpen() })
-        assertTrue("Create story never opened the story creator in the Messages layer", opened)
+        if (!opened) fail("Create story never opened the story creator in the Messages layer (${appState()})")
     }
 
     @Test
@@ -196,7 +230,7 @@ class LiveFacebookCanaryTest {
         val pressed = app.waitFor(30_000) {
             eval("window.__astryxFeeds === true && location.pathname === '/'") == "true"
         }
-        assertTrue("open_feeds.js never found the menu's Feeds entry (its icon or label) (${eval(PAGE_SHAPE_JS)})", pressed)
+        if (!pressed) fail("open_feeds.js never found the menu's Feeds entry (its icon or label) (${pageShape()})")
     }
 
     @Test
@@ -230,5 +264,10 @@ class LiveFacebookCanaryTest {
                 " ' error=' + (e.error ? e.error.code : 'none') + ' src=' + (e.currentSrc || '').slice(0, 12); }).join('; '); })()"
         private const val PLAYING_JS =
             "(function (v) { return !!v && !v.paused && v.readyState >= 2; })(document.querySelector('video'))"
+        // The detector's video's playback time while it counts as playing (getActiveVideo in
+        // pip_video_detector.js), -1 otherwise.
+        private const val DETECTED_PLAYING_TIME_JS =
+            "(function (v) { return v && !v.paused && !v.ended && v.readyState > 2 && !v.muted && v.volume > 0" +
+                " ? v.currentTime : -1; })(window.__astryxLastActiveVideo)"
     }
 }

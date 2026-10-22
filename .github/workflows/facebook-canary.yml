@@ -171,8 +171,9 @@ jobs:
             if [ -n "$OPEN" ]; then gh issue close "$OPEN" --comment "Passing again: $RUN_URL"; fi
             exit 0
           fi
-          # The failing checks and their messages, without stack traces.
-          FAILED=$(grep -E '^(Error in |[0-9]+\) |java\.lang\.[A-Za-z]+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)' canary.txt 2>/dev/null || true)
+          # The failing checks and their messages (any exception's, java.util's too), without stack
+          # traces.
+          FAILED=$(grep -E '^(Error in |[0-9]+\) |[a-z][a-z0-9_]*(\.[A-Za-z0-9_$]+)+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)' canary.txt 2>/dev/null || true)
           [ -n "$FAILED" ] || FAILED="The checks couldn't run (outcome: $OUTCOME); see the run."
           BODY=$(printf '**%s** at %s:\n\n```\n%s\n```\n\n%s' "$(date -u '+%Y-%m-%d %H:%M UTC')" "${GITHUB_SHA::7}" "$FAILED" "$RUN_URL")
           if [ -n "$OPEN" ]; then gh issue comment "$OPEN" --body "$BODY"
