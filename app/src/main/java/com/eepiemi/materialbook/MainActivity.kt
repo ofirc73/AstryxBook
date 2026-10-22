@@ -90,9 +90,10 @@ class MainActivity : FragmentActivity() {
     // into the WebView (the reverse direction of PipBridge, which only goes
     // JS -> native).
     private var pipToggleTrigger by mutableIntStateOf(0)
-    // The page is reloaded for the full window the next time the app shows (see closeEmptyPip).
+    // The page is reloaded for the full window the next time the app shows (see closeEmptyPip);
+    // until then the loading screen covers it.
     private var relayoutTrigger by mutableIntStateOf(0)
-    private var relayoutOnResume = false
+    private var relayoutPending by mutableStateOf(false)
 
     // Drives the CSS-injection focus mode (hide page chrome, make the video
     // fill the viewport) on PiP enter/exit.
@@ -244,6 +245,7 @@ class MainActivity : FragmentActivity() {
                         pipStartedWhilePlaying = pipStartedWhilePlaying,
                         pipHandoffReadTrigger = lockScreenAudio.readTrigger,
                         relayoutTrigger = relayoutTrigger,
+                        relayoutPending = relayoutPending,
                         pipHandback = lockScreenAudio.handback,
                         openLinkRequest = openLinkRequest,
                         shareMediaRequest = shareMediaRequest,
@@ -308,7 +310,7 @@ class MainActivity : FragmentActivity() {
         Log.d(TAG, "PiP video gone from the page: closing the PiP window")
         moveTaskToBack(true)
         // Whatever Facebook loaded meanwhile was laid out for the PiP window.
-        relayoutOnResume = true
+        relayoutPending = true
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -342,7 +344,7 @@ class MainActivity : FragmentActivity() {
                 Log.d(TAG, "started inside a PiP window: closing it")
                 moveTaskToBack(true)
                 // Its start page loads at the PiP window's size.
-                relayoutOnResume = true
+                relayoutPending = true
             }
         }
         AppVisibility.onScreen = true
@@ -353,8 +355,8 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (relayoutOnResume) {
-            relayoutOnResume = false
+        if (relayoutPending) {
+            relayoutPending = false
             relayoutTrigger++
         }
         lockScreenAudio.handBack("onResume")
