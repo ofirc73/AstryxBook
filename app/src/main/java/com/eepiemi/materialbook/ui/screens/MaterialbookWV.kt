@@ -126,6 +126,8 @@ private const val RESUME_UNDER_LAYER_JS = "(function () {" +
 
 // A reel opened from a chat: the longest the chat stays on screen while the reel loads.
 private const val LAYER_CLOSE_WAIT_MS = 8000L
+// Longest the loading screen covers the page for the relayout after an empty PiP window.
+private const val RELAYOUT_COVER_MAX_MS = 8000L
 
 /** A link the running app was sent (onNewIntent); [seq] tells two taps on the same link apart. */
 data class OpenLinkRequest(val seq: Int, val url: String)
@@ -140,6 +142,7 @@ fun MaterialbookWebView(
     pipStartedWhilePlaying: Boolean = false,
     pipHandoffReadTrigger: Int = 0,
     relayoutTrigger: Int = 0,
+    relayoutPending: Boolean = false,
     pipHandback: PipHandback? = null,
     openLinkRequest: OpenLinkRequest? = null,
     shareMediaRequest: ShareMediaRequest? = null,
@@ -678,6 +681,18 @@ fun MaterialbookWebView(
             originalColor.value = themeColor
             viewModel.setThemeColor(colorScheme.background)
         }
+    }
+
+    // Back from an empty PiP window, the page is laid out for the PiP window until the relayout
+    // reload (relayoutTrigger): the loading screen covers it from the moment the window closes,
+    // and goes when the reloaded page's scripts have run, as on a start. Never left up for long.
+    LaunchedEffect(relayoutPending) {
+        if (relayoutPending) isLoading = true
+    }
+    LaunchedEffect(relayoutTrigger) {
+        if (relayoutTrigger == 0) return@LaunchedEffect
+        delay(RELAYOUT_COVER_MAX_MS)
+        isLoading = false
     }
 
     if (isLoading) {

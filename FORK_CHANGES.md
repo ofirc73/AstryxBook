@@ -676,6 +676,13 @@ leaving the app while a Facebook video or Reel is playing.
   the PiP window's width. Back from an empty PiP window, the app now drops that note and reloads the
   page once the window is full size (checked live: the client sends the details again and the page
   is laid out for the screen). Covered by `MainActivityPipTest`.
+- The empty PiP window now closes about a second after its video goes when the page has no video
+  left at all (Facebook back at Home), instead of after 3 seconds; seen live on a Galaxy A56, the
+  window was black for those 3 seconds. With another video still on the page (Facebook may be
+  swapping the player) it still waits 3 seconds. Covered by `PipVideoGoneJsTest`.
+- Opening the app after that showed the narrow feed for a moment before the reload put it right.
+  The app's loading screen now covers the page from the moment the empty PiP window closes until
+  the reloaded page is ready (at most 8 seconds).
 
 ## Sharing, text size, shortcuts and developer options
 

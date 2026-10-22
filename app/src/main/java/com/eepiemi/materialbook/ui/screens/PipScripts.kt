@@ -734,14 +734,16 @@ internal const val PIP_PINCH_RATIO_JS = """
 // video off the page (a reel left paused while the screen was off for minutes went, the page back
 // at Home), and PiP doesn't move on to another video, which left a black PiP window with nothing to
 // play (seen on a Galaxy A56). Once the video focus mode marked has been gone from the page for
-// GONE_MS (Facebook re-wraps it for a moment at times), the page tells the app, which closes the
-// PiP window. Only for a video focus mode found: none marked, nothing happens.
+// GONE_MS (Facebook re-wraps it for a moment at times), or EMPTY_MS when the page has no video at
+// all (Facebook went back to Home: the window was black for the whole wait), the page tells the
+// app, which closes the PiP window. Only for a video focus mode found: none marked, nothing happens.
 // Stops when PiP ends (focus mode restored).
 internal const val PIP_VIDEO_GONE_WATCH_JS = """
 (function() {
   window.__astryxPipPage = true;
   if (window.__astryxPipGoneWatch) clearInterval(window.__astryxPipGoneWatch);
   var GONE_MS = 3000;
+  var EMPTY_MS = 1000;
   var seen = false;
   var goneSince = 0;
   function stop() {
@@ -755,7 +757,8 @@ internal const val PIP_VIDEO_GONE_WATCH_JS = """
     if (!seen) return;
     var now = Date.now();
     if (!goneSince) { goneSince = now; return; }
-    if (now - goneSince < GONE_MS) return;
+    var wait = document.querySelector('video') ? GONE_MS : EMPTY_MS;
+    if (now - goneSince < wait) return;
     stop();
     if (window.AstryxPage) {
       window.AstryxPage.postMessage(JSON.stringify({ call: 'pipVideoGone' }));
@@ -764,7 +767,7 @@ internal const val PIP_VIDEO_GONE_WATCH_JS = """
     }
   }
   check();
-  window.__astryxPipGoneWatch = setInterval(check, 500);
+  window.__astryxPipGoneWatch = setInterval(check, 250);
 })();
 """
 

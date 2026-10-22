@@ -79,9 +79,33 @@ class PipVideoGoneJsTest {
     fun aVideoBackOnThePageSoon_isNotReported() {
         // Facebook re-wraps the player at times: the video leaves the page for a moment.
         startPip()
-        eval("var v = document.getElementById('reel'); v.remove(); setTimeout(function() { document.body.appendChild(v); }, 1000); 1")
+        eval("var v = document.getElementById('reel'); v.remove(); setTimeout(function() { document.body.appendChild(v); }, 300); 1")
         Thread.sleep(5000)
         assertEquals(0, gone.get())
+    }
+
+    @Test
+    fun withNoVideoLeftOnThePage_itIsReportedWithinASecondOrSo() {
+        // Facebook went back to Home: the window is black until the app closes it.
+        startPip()
+        val removedAt = System.currentTimeMillis()
+        eval("document.getElementById('reel').remove(); 1")
+        while (gone.get() == 0 && System.currentTimeMillis() - removedAt < 5000) Thread.sleep(50)
+        assertEquals(1, gone.get())
+        val took = System.currentTimeMillis() - removedAt
+        assertTrue("took $took ms", took < 2000)
+    }
+
+    @Test
+    fun withAnotherVideoOnThePage_itWaitsLonger() {
+        // Facebook may be swapping the player: the longer wait.
+        startPip()
+        eval("document.body.appendChild(document.createElement('video')); document.getElementById('reel').remove(); 1")
+        Thread.sleep(1800)
+        assertEquals(0, gone.get())
+        val until = System.currentTimeMillis() + 5000
+        while (gone.get() == 0 && System.currentTimeMillis() < until) Thread.sleep(100)
+        assertEquals(1, gone.get())
     }
 
     @Test
