@@ -185,6 +185,19 @@ class MainActivityPipTest {
     }
 
     @Test
+    fun theAppStartedAgainInsideThePipWindow_closesIt() {
+        // Android restarts an app whose process it killed in PiP inside the same PiP window: the
+        // fresh start page showed whole in the window (v1.35.1 on a Galaxy A56). recreate() starts
+        // the activity again in the window the same way.
+        loadReelPage()
+        app.enterPip()
+        assertTrue(app.waitFor { pipActive() })
+        app.onActivity { it.recreate() }
+        assertTrue("the PiP window stayed open over the restarted app", app.waitFor(10_000) { !app.isInPip() })
+        assertTrue("the app came to the front instead of staying in the background", app.waitFor { app.isInBackground() })
+    }
+
+    @Test
     fun aNewPageLoadedInPip_closesThePipWindow() {
         // Facebook reloads a page left alone for an hour or so as the screen comes back on: the
         // new page has no PiP video, and the window went black (v1.34.0 on a Galaxy A56).

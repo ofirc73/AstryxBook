@@ -94,6 +94,8 @@ class MainActivity : FragmentActivity() {
     // Drives the CSS-injection focus mode (hide page chrome, make the video
     // fill the viewport) on PiP enter/exit.
     private var isInPipMode by mutableStateOf(false)
+    // Created inside a PiP window (see onStart).
+    private var createdInPip = false
 
     // Whether a video was playing when PiP started (drives the keep-playing
     // guard), and when one was last reported playing: Facebook pauses it as
@@ -209,6 +211,7 @@ class MainActivity : FragmentActivity() {
         )
 
         appLockController.onCreate()
+        createdInPip = isInPictureInPictureMode
 
         // Read once: the page the app starts on (a link it was opened with, or Home/Feeds).
         // A share that opens a mobile page starts there (Home's composer, the profile, the groups);
@@ -323,6 +326,17 @@ class MainActivity : FragmentActivity() {
     // becoming visible again (unlock while in PiP, or back to full screen).
     override fun onStart() {
         super.onStart()
+        // Android starts the app again inside the PiP window it left when it killed the app's
+        // process (Samsung's memory cleanup during a long lock): the new page, with no video,
+        // showed whole in the small window (seen on a Galaxy A56). A fresh start has nothing to
+        // play in PiP, so the window closes, the app staying in the background.
+        if (createdInPip) {
+            createdInPip = false
+            if (isInPictureInPictureMode) {
+                Log.d(TAG, "started inside a PiP window: closing it")
+                moveTaskToBack(true)
+            }
+        }
         AppVisibility.onScreen = true
         FacebookCountsWorker.onAppShown(this)
         lockScreenAudio.handBack("onStart")
