@@ -435,8 +435,11 @@ Start on Feeds finding the menu entry, and the notification counts read from the
 needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
-a "Daily Facebook check failed" issue when a check fails (closed by the next passing run).
-`tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
+a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
+drops many scheduled runs, so it's scheduled three times a day and the later runs stand down once
+one has run. The reel check presses Home only once the reel plays on as the app's PiP detector
+counts playing: unmuted, a reel buffers for a moment on GitHub's emulator, and a Home then rightly
+opens no PiP. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
 stop at the open editors.
 
 ## Messages in desktop mode
