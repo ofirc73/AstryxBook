@@ -42,8 +42,9 @@ user-visible change.
   checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
-  `facebook-canary.yml` runs them daily on GitHub (08:37 Israel), logged in to a Facebook test
-  account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64), and reports failures
+  `facebook-canary.yml` runs them daily on GitHub (08:37 Israel; GitHub drops many scheduled
+  runs, so it's also scheduled 3 and 6 hours later, and those stand down once one has run),
+  logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64), and reports failures
   in one "Daily Facebook check failed" issue. Never put a personal account's cookies there.
 - Release builds are minified (R8 full mode); debug builds and the tests aren't. A class or
   constructor something creates by reflection needs a keep rule in `proguard-rules.pro` (v1.25.1
