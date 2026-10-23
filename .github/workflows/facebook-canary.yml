@@ -10,13 +10,12 @@ name: Daily Facebook check
 # closes it. "Facebook session expired" in the issue means the cookies need replacing.
 
 on:
-  # GitHub starts scheduled runs late or not at all (in this repo about half of them), so the
-  # check is scheduled three times a day and the later runs stand down once one has run (the
-  # due job). Off the full hour, when GitHub delays the most runs.
+  # GitHub starts scheduled runs hours late or not at all (in this repo about half of them;
+  # three slots a day still missed whole days), so the check is scheduled every 2 hours from
+  # 05:37 to 17:37 UTC and the later runs stand down once one has run (the due job). Off the
+  # full hour, when GitHub delays the most runs.
   schedule:
-    - cron: '37 5 * * *' # 08:37 in Israel in summer, 07:37 in winter
-    - cron: '37 8 * * *'
-    - cron: '37 11 * * *'
+    - cron: '37 5-17/2 * * *' # from 08:37 in Israel in summer, 07:37 in winter
   workflow_dispatch:
 
 permissions:
