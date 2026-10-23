@@ -44,12 +44,17 @@ jobs:
           # A run started by hand always runs the checks.
           if [ "$EVENT" != schedule ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
           # Today's (UTC) other runs on this branch whose checks got to a result, passing or
-          # failing; one that was cancelled, timed out or stood down doesn't count.
-          for ID in $(gh api -X GET "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs" \
-              -f branch="$GITHUB_REF_NAME" -f created=">=$(date -u +%F)" -F per_page=20 \
-              -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID) | .id"); do
+          # failing; one that was cancelled, timed out or stood down doesn't count. The latest
+          # runs are filtered here: the API's own branch= and created= filters once returned
+          # nothing for a run that day, and the late slot ran the checks a second time.
+          TODAY=$(date -u +%F)
+          IDS=$(gh api "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs?per_page=30" \
+            -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and .head_branch == \"$GITHUB_REF_NAME\"
+              and (.created_at | startswith(\"$TODAY\"))) | .id") ||
+            { echo "::warning::Couldn't list today's runs: running the checks"; IDS=""; }
+          for ID in $IDS; do
             RESULT=$(gh api "repos/$GH_REPO/actions/runs/$ID/jobs" \
-              -q '.jobs[] | select(.name == "canary") | .conclusion')
+              -q '.jobs[] | select(.name == "canary") | .conclusion') || continue
             if [ "$RESULT" = success ] || [ "$RESULT" = failure ]; then
               echo "Today's check already ran: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$ID"
               echo run=false >> "$GITHUB_OUTPUT"
@@ -164,7 +169,9 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           TITLE="Daily Facebook check failed"
-          OPEN=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
+          # The open issues listed and matched here, not with --search: search once missed an
+          # issue opened hours before, so a passing run didn't close it.
+          OPEN=$(gh issue list --state open --limit 200 --json number,title \
             -q ".[] | select(.title == \"$TITLE\") | .number" | head -1)
           if [ "$OUTCOME" = success ]; then
             echo "All live checks passed"
