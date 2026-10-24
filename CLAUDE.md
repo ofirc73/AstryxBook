@@ -46,10 +46,13 @@ user-visible change.
   brings up the PIN pad. Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
   never returned"); `adb emu kill` and start it again (minimized: a windowed start may not come
   up), which quick-boots the saved snapshot with older APKs, so reinstall both before testing. The live
-  checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
+  checks against real Facebook (`LiveFacebookCanaryTest`; "canary" in file, class and argument names
+  means these, and docs call them live checks) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
-  `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
+  Every test added or changed goes with the live checks: add or adjust the live check for what it
+  covers, or say in FORK_CHANGES' Testing why it has none (it doesn't depend on Facebook's page, or
+  can't be checked live). The fixed-page tests keep passing when Facebook changes. `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
   runs, so it's scheduled every 2 hours until 17:37 UTC, and the later runs stand down once one
   has run),
   logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64; the Messages

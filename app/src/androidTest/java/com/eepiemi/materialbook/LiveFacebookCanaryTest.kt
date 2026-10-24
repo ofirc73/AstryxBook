@@ -20,6 +20,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.eepiemi.materialbook.notifications.FacebookCounts
 import com.eepiemi.materialbook.notifications.FacebookCountsWorker
+import com.eepiemi.materialbook.utils.TextZoom
+import com.eepiemi.materialbook.utils.adsPixelBlocks
+import com.eepiemi.materialbook.utils.lookUpPhotoPost
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -29,8 +32,10 @@ import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
+import org.json.JSONObject
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The app against today's real Facebook, logged in: catches Facebook changing the pages our
@@ -218,21 +223,27 @@ class LiveFacebookCanaryTest {
         assertTrue("focus mode was never restored", app.waitFor { eval("document.body.hasAttribute('data-astryx-pip-active')") == "false" })
     }
 
-    @Test
-    fun sharingAPhotoToFeed_opensTheComposerWithIt() {
+    // A plain picture of [width] x [height] shared to the app's [alias] (ShareToFeed, ...), as the
+    // share sheet would: served through the app's own FileProvider.
+    private fun sharePicture(alias: String, width: Int = 64, height: Int = 64) {
         val dir = File(app.context.cacheDir, "clipboard_images").apply { mkdirs() }
         val file = File(dir, "canary.png")
-        val bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30, 120, 200)) }
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30, 120, 200)) }
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         val uri = FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
 
         app.start(
             Intent(Intent.ACTION_SEND)
-                .setComponent(ComponentName(app.context.packageName, "com.eepiemi.materialbook.ShareToFeed"))
+                .setComponent(ComponentName(app.context.packageName, "com.eepiemi.materialbook.$alias"))
                 .setType("image/png")
                 .putExtra(Intent.EXTRA_STREAM, uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         )
+    }
+
+    @Test
+    fun sharingAPhotoToFeed_opensTheComposerWithIt() {
+        sharePicture("ShareToFeed")
         assertTrue("the composer never opened (share_media.js, FEED_COMPOSER_PAGE_URL)", app.waitFor(45_000) {
             app.url(app.mainWebView()).contains("/composer")
         })
@@ -492,6 +503,206 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun backInAChat_goesToTheChatList_andThenClosesTheLayer() {
+        val chat = testChat() ?: return
+        val layer = openChatInTheLayer(chat)
+        app.pressBack()
+        assertTrue(
+            "Back in the chat didn't go to the chat list (messages_layer_nav.js chatBackButton: the header's Back " +
+                "button, right beside the chat's name) (${layerShape(layer)})",
+            app.waitFor(10_000) { !layerOpen() || app.eval(chatListShownJs(chat), layer) == "true" }
+        )
+        assertTrue("Back in the chat closed the Messages layer (no Back button found in the chat's header)", layerOpen())
+        app.pressBack()
+        assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(10_000) { !layerOpen() })
+    }
+
+    @Test
+    fun sharingAPhotoToAGroup_opensItsComposerWithIt() {
+        sharePicture("ShareToGroup")
+        assertTrue("the share never opened the groups (GROUPS_PAGE_URL) (${appState()})", app.waitFor(45_000) {
+            app.url(app.mainWebView()).contains("/groups")
+        })
+        Thread.sleep(3000)
+        // The user picks the group: the public test group the test account joined.
+        eval("location.href = '$TEST_GROUP_URL'; 1")
+        assertTrue(
+            "the photo never reached the group's composer (share_media.js groupPhotoButton: the Photo button, a " +
+                "data-action-id container on a group's page) (${pageShape()})",
+            app.waitFor(60_000) { eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true" }
+        )
+    }
+
+    @Test
+    fun sharingAPhotoToYourStory_laysOutTheStoryEditor() {
+        sharePicture("ShareToStory", 720, 1280)
+        assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
+            app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
+        })
+        val layer = app.layerWebView()!!
+        var shape = ""
+        val laidOut = app.waitFor(60_000) {
+            shape = app.eval(STORY_LAYOUT_JS, layer).trim('"')
+            shape.startsWith("ok ")
+        }
+        if (!laidOut) {
+            fail("story_layout.js never laid out the story editor with the shared photo (found by role: the " +
+                "preview, the tools sidebar, Discard / Share): $shape")
+        }
+    }
+
+    @Test
+    fun theFeed_hasItsAdsPixelBlocked() {
+        // Every full m.facebook.com load adds Facebook's Google Ads pixel frames
+        // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
+        val before = adsPixelBlocks.get()
+        open("https://m.facebook.com/")
+        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
+            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
+        })
+        Thread.sleep(5000) // the pixel's frames come after the feed
+        val frames = eval(FRAMES_JS).trim('"')
+        val blocked = adsPixelBlocks.get() - before
+        if (GOOGLE_ADS_FRAME.containsMatchIn(frames)) {
+            fail("the feed has frames from Google's ad hosts: AdsPixelBlockingClient (isAdsPixelUrl) no longer " +
+                "catches Facebook's ads pixel. Frames: $frames")
+        }
+        if (blocked == 0) {
+            if ("paid_ads_pixel" in frames) {
+                fail("the ads pixel's frames are on the feed but AdsPixelBlockingClient answered none of their " +
+                    "requests (isAdsPixelUrl). Frames: $frames")
+            }
+            note("no ads pixel on the feed: Facebook no longer adds www.fbsbx.com/paid_ads_pixel/ frames, or " +
+                "moved them. Frames: ${frames.ifEmpty { "none" }}")
+        }
+    }
+
+    @Test
+    fun aPhotosDesktopPage_namesThePostItsTilesShow() {
+        // memory_photos.js opens a memory's photo in its post, which PhotoPost reads from the
+        // desktop photo page's tracking data (top_level_post_id, photo_attachments_list). Checked
+        // on a public post with three photos, memories being rare.
+        val reply = AtomicReference<String>()
+        lookUpPhotoPost(PUBLIC_POST_PHOTO) { reply.set(it) }
+        if (!app.waitFor(45_000) { reply.get() != null }) {
+            val log = runCatching { logLines("Astryxbook").filter { "Photo post of" in it }.takeLast(3) }.getOrDefault(emptyList())
+            fail("the desktop photo page no longer names its post (PhotoPost: top_level_post_id, " +
+                "content_owner_id_new, photo_attachments_list): a memory's photos open one at a time. " +
+                "The app's log: ${log.joinToString(" | ").replace(Regex("\\d{6,}"), "N").ifEmpty { "nothing" }}")
+        }
+        val post = JSONObject(reply.get())
+        assertTrue("PhotoPost named another post: ${post.getString("url").replace(Regex("\\d{6,}"), "N")}",
+            post.getString("url").endsWith("/posts/$PUBLIC_POST/"))
+        assertEquals("PhotoPost put the photo at the wrong tile", PUBLIC_POST_PHOTO_INDEX, post.getInt("index"))
+    }
+
+    @Test
+    fun aReel_showsNoOpenAppButton() {
+        openPlayingReel()
+        Thread.sleep(3000)
+        val parts = eval(OPEN_APP_JS).trim('"').split('|')
+        val shown = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val hidden = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        if (shown > 0) {
+            fail("Facebook's Open app button shows on the reel: scripts.js hideOpenAppButtons no longer finds it " +
+                "(by its icon, U+F196C in div.fl.ac span). The button: ${parts.getOrElse(2) { "" }}")
+        }
+        if (hidden == 0) note("no Open app button on the reel: hideOpenAppButtons had nothing to hide")
+    }
+
+    @Test
+    fun theFeed_isLaidOutAsTextWrapExpects() {
+        // text_wrap.js (Wrap text when zoomed) relies on the server's layout: text blocks are
+        // white-space: pre with the line breaks in the text, inside boxes of a fixed inline height.
+        open("https://m.facebook.com/")
+        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
+            eval("document.querySelectorAll('div.native-text').length > 0") == "true"
+        })
+        eval("window.scrollBy(0, window.innerHeight); 1")
+        Thread.sleep(2000)
+        val counts = eval(TEXT_LAYOUT_JS).trim('"').split('|').map { it.toIntOrNull() ?: 0 }
+        val blocks = counts.getOrElse(0) { 0 }
+        val pre = counts.getOrElse(1) { 0 }
+        val broken = counts.getOrElse(2) { 0 }
+        val sized = counts.getOrElse(3) { 0 }
+        assertTrue("no text blocks (div.native-text) on the feed (${pageShape()})", blocks > 0)
+        assertTrue("the feed's text blocks are no longer white-space: pre ($pre of $blocks): text_wrap.js joins " +
+            "and re-wraps only server-broken text", pre * 2 >= blocks)
+        assertTrue("no feed text block sits in a box of a fixed inline height ($sized of $blocks): text_wrap.js " +
+            "grows those boxes as the text wraps", sized > 0)
+        if (broken == 0) note("no feed text block had the server's line breaks in it ($pre white-space: pre blocks)")
+    }
+
+    @Test
+    fun pageZoom_laysTheFeedOutForTheZoomedWidth() {
+        runBlocking { SettingsDataStore(app.context).setTextZoom(PAGE_ZOOM) }
+        try {
+            open("https://m.facebook.com/")
+            assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
+                eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
+            })
+            // The server lays a page out for the vpd cookie written as the page before it loaded.
+            eval("location.reload(); 1")
+            Thread.sleep(3000)
+            assertTrue("the feed never loaded again (${pageShape()})", app.waitFor(30_000) {
+                eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
+            })
+            Thread.sleep(2000)
+            val parts = eval(ZOOM_STATE_JS).trim('"').split('|')
+            val z = parts.take(4).map { it.toDoubleOrNull() ?: 0.0 }
+            val outer = z.getOrElse(0) { 0.0 }
+            val inner = z.getOrElse(1) { 0.0 }
+            val scale = z.getOrElse(2) { 0.0 }
+            val laidOut = z.getOrElse(3) { 0.0 }
+            val vpdWidths = parts.getOrElse(4) { "" }.split(',').filter { it.isNotEmpty() }
+            val zoom = PAGE_ZOOM.toInt() / 100.0
+            val expected = Math.round(outer / zoom).toDouble()
+            assertTrue(
+                "page_zoom.js's viewport no longer takes: the page is ${inner.toInt()} px wide at " +
+                    "${"%.2f".format(scale)}x, not ${expected.toInt()} px at ${zoom}x",
+                Math.abs(inner - expected) <= 2 && Math.abs(scale - zoom) < 0.05
+            )
+            assertTrue(
+                "no vpd cookie reports the zoomed width (${vpdWidths.joinToString().ifEmpty { "no vpd" }} px, not " +
+                    "${expected.toInt()}): Facebook no longer writes it as vpd=v1;<height>x<width>x<density> (page_zoom.js)",
+                vpdWidths.any { w -> w.toDoubleOrNull()?.let { Math.abs(it - expected) <= 2 } == true }
+            )
+            // A host-only vpd that PiP left on m.facebook.com shadows the app's (CLAUDE.md).
+            vpdWidths.filter { w -> w.toDoubleOrNull()?.let { it < expected * 0.6 } == true }.takeIf { it.isNotEmpty() }?.let {
+                note("a PiP-narrow vpd cookie (${it.joinToString()} px wide) sits beside the zoomed one")
+            }
+            assertTrue(
+                "m.facebook.com laid the feed out ${laidOut.toInt()} px wide in a ${inner.toInt()} px viewport: its " +
+                    "server no longer follows the vpd cookie",
+                laidOut <= inner + 4
+            )
+        } finally {
+            // Facebook writes the window's own size into vpd again as the next page loads.
+            runBlocking { SettingsDataStore(app.context).setTextZoom(TextZoom.DEFAULT) }
+            app.finish()
+            app.start()
+            app.waitFor(30_000) { app.webViews().isNotEmpty() && eval("document.readyState") == "\"complete\"" }
+        }
+    }
+
+    @Test
+    fun theFeed_showsNoGetTheAppSheet() {
+        // Facebook's "Facebook is better on the app" sheet comes up over the feed now and then;
+        // scripts.js (dismissAppPrompt) presses it away.
+        open("https://m.facebook.com/")
+        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
+            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
+        })
+        Thread.sleep(8000)
+        val sheet = eval(APP_SHEET_JS).trim('"')
+        if (sheet.isNotEmpty()) {
+            fail("Facebook's \"better on the app\" sheet stayed over the feed: scripts.js dismissAppPrompt no longer " +
+                "presses it away (a .dialog-screen .bottom.fixed-container with one h1, two buttons and a picture). " +
+                "The sheet: $sheet")
+        }
+    }
+
+    @Test
     fun startOnFeeds_pressesTheMenusFeedsEntry() {
         open("https://m.facebook.com/bookmarks/#astryx-feeds")
         val pressed = app.waitFor(30_000) {
@@ -510,6 +721,121 @@ class LiveFacebookCanaryTest {
     companion object {
         // The run's tests share one process: the missing chat is noted by the first check only.
         private var notedNoChat = false
+
+        // The public test group the test account joined ("Android Developer With Android Studio",
+        // 2026-10-15) for group shares. Nothing is ever posted there.
+        private const val TEST_GROUP_URL = "https://m.facebook.com/groups/355723031242469/"
+
+        // A public post of NASA's with three photos, and its second photo (tiles count from 0).
+        private const val PUBLIC_POST = "1658876782274358"
+        private const val PUBLIC_POST_PHOTO = "1658876718941031"
+        private const val PUBLIC_POST_PHOTO_INDEX = 1
+
+        // The zoom the Page zoom check uses (Settings' 130%).
+        private const val PAGE_ZOOM = "130"
+
+        // The page's frames, as host and path (no query: the pixel's carries ids).
+        private const val FRAMES_JS =
+            "Array.prototype.map.call(document.querySelectorAll('iframe'), function (f) {" +
+                " var a = document.createElement('a'); a.href = f.src || 'about:blank';" +
+                " return a.hostname + a.pathname; }).join(',')"
+        private val GOOGLE_ADS_FRAME =
+            Regex("doubleclick|googletagmanager|googlesyndication|googleadservices|google\\.[a-z.]+/(?:pagead|ads)")
+
+        // The reel page's Open app buttons, found by their label ("Open app"; the test account uses
+        // Facebook in English) independently of scripts.js's icon: "shown|hidden|shape" (the last
+        // shown one's shape: its spans' tag and class chain, no text).
+        private const val OPEN_APP_JS = """
+            (function () {
+              var shown = 0, hidden = 0, shape = '';
+              var buttons = document.querySelectorAll('div[role="button"]');
+              for (var i = 0; i < buttons.length; i++) {
+                var b = buttons[i];
+                var t = (b.textContent || '').replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uE000-\uF8FF]/g, '')
+                  .replace(/\s+/g, ' ').trim().toLowerCase();
+                if (t !== 'open app') continue;
+                var r = b.getBoundingClientRect();
+                if (b.style.display === 'none' || !r.width || !r.height) { hidden++; continue; }
+                shown++;
+                var spans = b.querySelectorAll('span'), chain = [];
+                for (var s = 0; s < spans.length && chain.length < 3; s++) {
+                  var p = spans[s].parentElement;
+                  chain.push((p ? p.tagName.toLowerCase() + '.' + String(p.className).trim().replace(/\s+/g, '.') + ' > ' : '') +
+                    'span.' + String(spans[s].className).trim().replace(/\s+/g, '.'));
+                }
+                shape = chain.join(', ');
+              }
+              return [shown, hidden, shape].join('|');
+            })()
+        """
+
+        // The feed's text blocks (div.native-text), the white-space: pre ones, those holding line
+        // breaks and those inside a box with a fixed inline px height (up to 6 levels up):
+        // "blocks|pre|broken|sized".
+        private const val TEXT_LAYOUT_JS = """
+            (function () {
+              var blocks = document.querySelectorAll('div.native-text'), pre = 0, broken = 0, sized = 0;
+              for (var i = 0; i < blocks.length; i++) {
+                var b = blocks[i];
+                if (getComputedStyle(b).whiteSpace === 'pre') {
+                  pre++;
+                  if (/\n/.test(b.textContent || '')) broken++;
+                }
+                for (var e = b, n = 0; e && n < 6; e = e.parentElement, n++) {
+                  if (/px$/.test(e.style.height)) { sized++; break; }
+                }
+              }
+              return [blocks.length, pre, broken, sized].join('|');
+            })()
+        """
+
+        // The window's width, the page's (layout) width and scale, the width the page is laid out
+        // to and the widths in the vpd cookies ("v1;<height>x<width>x<density>"; a host-only one
+        // PiP left can sit beside the .facebook.com one): "outer|inner|scale|scrollWidth|w1,w2".
+        private const val ZOOM_STATE_JS = """
+            (function () {
+              var widths = document.cookie.split('; ').filter(function (c) { return c.indexOf('vpd=') === 0; })
+                .map(function (c) { var m = decodeURIComponent(c.slice(4)).match(/^v1;(\d+)x(\d+)x/); return m ? m[2] : '?'; });
+              return [window.outerWidth, window.innerWidth, window.visualViewport.scale,
+                document.documentElement.scrollWidth, widths.join(',')].join('|');
+            })()
+        """
+
+        // The "better on the app" sheet, if one shows: "" or its shape (no text).
+        private const val APP_SHEET_JS = """
+            (function () {
+              var all = document.querySelectorAll('h1, div, span');
+              for (var i = 0; i < all.length; i++) {
+                var e = all[i];
+                if (e.children.length > 2) continue;
+                if ((e.textContent || '').replace(/\s+/g, ' ').trim() !== 'Facebook is better on the app') continue;
+                var r = e.getBoundingClientRect();
+                if (!r.width || !r.height) continue;
+                var sheet = document.querySelector('.dialog-screen .bottom.fixed-container');
+                return 'title=' + e.tagName.toLowerCase() + ' sheet=' + !!sheet +
+                  (sheet ? ' buttons=' + sheet.querySelectorAll('[role="button"]').length + ' h1s=' +
+                    sheet.querySelectorAll('h1').length + ' imgs=' + sheet.querySelectorAll('img').length : '');
+              }
+              return '';
+            })()
+        """
+
+        // The story editor as story_layout.js tags it: "ok ..." once it has the preview (as wide as
+        // the screen), the tools sidebar with two or more tools and the Discard / Share row, else
+        // what it has.
+        private const val STORY_LAYOUT_JS = """
+            (function () {
+              function count(v) { return document.querySelectorAll('[data-astryx-story="' + v + '"]').length; }
+              var main = document.querySelector('[data-astryx-story="main"]');
+              var r = main ? main.getBoundingClientRect() : null;
+              var shape = 'main=' + count('main') + ' tools=' + count('tools') + ' tool=' + count('tool') +
+                ' actions=' + count('actions') + ' mainWidth=' + (r ? Math.round(r.width) : 0) + '/' + window.innerWidth +
+                ' error=' + !!window.__astryxStoryLayoutError;
+              var ok = count('main') === 1 && count('tools') === 1 && count('tool') >= 2 && count('actions') === 1 &&
+                !window.__astryxStoryLayoutError && r && r.width >= window.innerWidth * 0.9;
+              return (ok ? 'ok ' : '') + shape;
+            })()
+        """
 
         // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
@@ -761,6 +1087,16 @@ class LiveFacebookCanaryTest {
             require(Regex("^(e2ee/)?t/[A-Za-z0-9._-]+$").matches(full)) { "FB_TEST_CHAT isn't a chat: $full" }
             return full
         }
+
+        // Whether the layer shows the chat list: the chat's row on screen, and no message box.
+        private fun chatListShownJs(chat: String) = """
+            (function () {
+              function shown(e) { var r = e && e.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; }
+              var boxes = document.querySelectorAll('[role="textbox"][contenteditable="true"]');
+              for (var i = 0; i < boxes.length; i++) { if (shown(boxes[i])) return false; }
+              return shown(document.querySelector('a[href="/messages/$chat/"]'));
+            })()
+        """
 
         // Whether the chat at [chat] (chatPath's) shows in the layer: its message box is on screen.
         // While the chat list shows instead, the chat's row is tapped (at most every 3 s).

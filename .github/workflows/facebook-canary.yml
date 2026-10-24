@@ -148,7 +148,7 @@ jobs:
           script: echo "Generated AVD snapshot for caching."
 
       # Installed with adb rather than connectedAndroidTest: that runs every test class and
-      # can't pass the canary's arguments.
+      # can't pass the live checks' arguments.
       - name: Run the live checks
         id: checks
         continue-on-error: true
