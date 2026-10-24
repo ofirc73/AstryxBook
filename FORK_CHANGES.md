@@ -561,7 +561,8 @@ separate layer was added on top.
   paused like the rest. A post shared in an end-to-end encrypted chat opens in the layer, and Back
   from it opened the chat anew at its address, which shows the chat list: the chat on screen is
   kept as the post opens (`sessionStorage`; the post is a new page load) and its row is tapped on
-  the way back. Seen on the phone, with v1.35.14. Covered by `MessagesLayerStateTest`,
+  the way back, then the post's link is scrolled back into view (opened anew, the chat showed its
+  latest messages; v1.35.15 on the phone). Seen on the phone, with v1.35.14. Covered by `MessagesLayerStateTest`,
   `MessagesLayerReelTest` and `MessagesLayerBackJsTest`, and live by the chat checks.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the

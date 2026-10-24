@@ -28,7 +28,7 @@ class MessagesLayerBackJsTest {
 
     private lateinit var webView: WebView
 
-    private fun load(html: String, returnChat: String? = null) {
+    private fun load(html: String, returnChat: String? = null, returnLink: String? = null) {
         val latch = CountDownLatch(1)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -49,6 +49,7 @@ class MessagesLayerBackJsTest {
             .openRawResource(R.raw.messages_layer_nav).bufferedReader().use { it.readText() }
         eval("window.LayerBridge = { onUrlChanged: function () {} }; sessionStorage.clear(); 1")
         returnChat?.let { eval("sessionStorage.setItem('astryxReturnChat', '$it'); 1") }
+        returnLink?.let { eval("sessionStorage.setItem('astryxReturnLink', '$it'); 1") }
         eval(script)
     }
 
@@ -107,6 +108,24 @@ class MessagesLayerBackJsTest {
     }
 
     @Test
+    fun backAtAChatLeftForAPost_showsThePostAgain() {
+        // Opened anew, the chat shows its latest messages: the post, far up, is scrolled to.
+        load(CHAT_FAR_UP_POST, returnChat = CHAT, returnLink = POST)
+        assertTrue("the shared post was never scrolled into view", waitFor {
+            eval("(function () { var r = document.getElementById('post').getBoundingClientRect();" +
+                " return r.top >= 0 && r.bottom <= window.innerHeight; })()") == "true"
+        })
+        assertEquals("the link to show outlived its use", "null", eval("sessionStorage.getItem('astryxReturnLink')"))
+    }
+
+    @Test
+    fun aLinkTappedInTheChat_isKeptForTheWayBack() {
+        load(page(NAME_HEADING + "<a id='post' href='$POST' onclick='return false'>post</a>", BOX_SHOWN))
+        eval("document.getElementById('post').click(); 1")
+        assertEquals("\"$POST\"", eval("sessionStorage.getItem('astryxReturnLink')"))
+    }
+
+    @Test
     fun theChatOnScreen_isKeptWhenThePageGoes() {
         load(page(NAME_HEADING, BOX_SHOWN))
         pageGoes()
@@ -131,6 +150,18 @@ class MessagesLayerBackJsTest {
 
     private companion object {
         const val CHAT = "/messages/e2ee/t/1/"
+        const val POST = "https://www.facebook.com/share/p/1/"
+        // The chat list (its row), and the chat its row opens: a message box and, far up the
+        // conversation, the shared post (the page starts scrolled to the bottom, like a chat).
+        const val CHAT_FAR_UP_POST =
+            "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
+                "<body style='margin:0;height:6000px'>" +
+                "<a href='$CHAT' onclick=\"document.getElementById('box').style.width = '135px'; return false\" " +
+                "style='position:absolute;left:24px;top:5800px;width:284px;height:72px'>Name</a>" +
+                "<a id='post' href='$POST' style='position:absolute;left:24px;top:200px;width:200px;height:100px'>post</a>" +
+                "<div id='box' role='textbox' contenteditable='true' " +
+                "style='position:absolute;left:150px;top:5900px;width:0;height:23px'></div>" +
+                "<script>window.scrollTo(0, 6000);</script></body></html>"
         // The chat's row on the chat list (the list keeps the chat's address).
         const val ROW = "<a href='$CHAT' onclick=\"window.__pressed = 'row'; return false\" " +
             "style='position:absolute;left:24px;top:165px;width:284px;height:72px'>Name</a>"
