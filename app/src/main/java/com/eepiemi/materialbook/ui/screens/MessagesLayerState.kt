@@ -51,6 +51,13 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      */
     var hidden by mutableStateOf(false)
 
+    /**
+     * Where the main view was when a chat sent it the reel: Back to the chat takes the main view
+     * back there too. Otherwise every reel opened from a chat stayed in the main view under
+     * Messages, and once Messages closed, each Back showed one of them again.
+     */
+    var mainBeforeReel: MainPlace? = null
+
     /** The layer exists (shown or hidden). */
     val isOpen: Boolean get() = url != null
 
@@ -71,10 +78,12 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
 
     /**
      * Back in the main view, at [mainUrl]: on the reel a chat opened, opens that chat again and
-     * returns true. Either way the chat is forgotten (Back on another page leaves it).
+     * returns true (the caller takes the main view back to [mainBeforeReel], read first).
+     * Either way the chat is forgotten (Back on another page leaves it).
      */
     fun backToChat(mainUrl: String?): Boolean {
         val onReel = isMobileReelPage(mainUrl)
+        mainBeforeReel = null
         if (hidden) {
             if (onReel) {
                 hidden = false
@@ -103,9 +112,10 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
     /**
      * The layer's page left for the main view ([mainUrl], which [loadMain] opens there; null for
      * Home), from [fromUrl] (the last chat). A reel keeps the chat on screen until it has loaded
-     * ([reelShown]); anything else closes the layer at once.
+     * ([reelShown]); anything else closes the layer at once. [mainPlace]: where the main view is
+     * now ([mainBeforeReel]).
      */
-    fun onLeave(mainUrl: String?, fromUrl: String?, loadMain: (String) -> Unit) {
+    fun onLeave(mainUrl: String?, fromUrl: String?, mainPlace: MainPlace? = null, loadMain: (String) -> Unit) {
         // A story was shared and Facebook moved on (to its feed): the next shared file gets the
         // story creator again instead.
         if (ShareMediaQueue.pending(ShareTarget.STORY)) {
@@ -117,6 +127,7 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         if (url != null && !closeOnReel) {
             if (isMobileReelPage(mainUrl)) {
                 returnUrl = fromUrl
+                mainBeforeReel = mainPlace
                 closeOnReel = true
             } else {
                 close()
@@ -147,6 +158,9 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         )
     }
 }
+
+/** A place in the main view: its history's current [index] and the page's [url]. */
+internal data class MainPlace(val index: Int, val url: String?)
 
 @Composable
 internal fun rememberMessagesLayerState(): MessagesLayerState =

@@ -474,8 +474,10 @@ live check guards:
   logged in by cookies alone, gets its restore prompt instead of its messages:
   `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt` (`layer_photo_viewer.js`,
   `LayerPhotoViewerJsTest`), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
-  (`MessagesLayerReelTest`) and `backInAChat_goesToTheChatList_andThenClosesTheLayer`
-  (`messages_layer_nav.js`, `MessagesLayerBackJsTest`).
+  (`MessagesLayerReelTest`; the main view also leaves the reel),
+  `aPostSharedInAChat_opensInTheLayer_andBackShowsTheChat` and
+  `backInAChat_goesToTheChatList_andThenClosesTheLayer` (`messages_layer_nav.js`,
+  `MessagesLayerBackJsTest`).
 
 Not checked live: the `intent://` fallback for a full profile load (Facebook didn't redirect the
 test account's loads on 2026-10-24, so there was nothing to check), the PiP window's own behaviour
@@ -551,6 +553,16 @@ separate layer was added on top.
   closed the whole layer (found by the live checks on the test account's chat with itself). A
   heading next to the button now counts while the chat's message box is on screen.
   Covered by `MessagesLayerBackJsTest`.
+- **Reels and posts opened from a chat no longer pile up.** Back on a reel a chat opened showed the
+  chat again but left the reel in the main view under it: once Messages closed, the main view
+  showed that reel as if it were the feed, and each Back went through every reel opened from the
+  chat. The main view now goes back to where it was before the reel (the page loaded anew when the
+  reel took its place in the main view's history), and a page it loads under the chat is kept
+  paused like the rest. A post shared in an end-to-end encrypted chat opens in the layer, and Back
+  from it opened the chat anew at its address, which shows the chat list: the chat on screen is
+  kept as the post opens (`sessionStorage`; the post is a new page load) and its row is tapped on
+  the way back. Seen on the phone, with v1.35.14. Covered by `MessagesLayerStateTest`,
+  `MessagesLayerReelTest` and `MessagesLayerBackJsTest`, and live by the chat checks.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
   Reels tab and the like open their mobile page in the main view
