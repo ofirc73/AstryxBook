@@ -143,11 +143,15 @@ jobs:
       # Compile the app and test APKs before the emulator starts: the emulator
       # renders in software (swiftshader) and competing with it for the CPUs
       # made compiling take most of this job. connectedAndroidTest below then
-      # finds them up to date and only installs and runs the tests.
-      - name: Build App and Test APKs
+      # finds them up to date and only installs and runs the tests. The build runs
+      # in the background while the emulator and the AVD cache (2 GB) come in, and
+      # "Wait for the APK build" joins it before the emulator starts.
+      - name: Start the App and Test APK Build
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug assembleDebugAndroidTest --build-cache --stacktrace
+          mkdir -p "$RUNNER_TEMP/apk-build"
+          nohup bash -c './gradlew assembleDebug assembleDebugAndroidTest --build-cache --stacktrace \
+            > "$RUNNER_TEMP/apk-build/log" 2>&1; echo $? > "$RUNNER_TEMP/apk-build/exit"' > /dev/null 2>&1 &
 
       # GitHub-hosted Ubuntu runners support nested virtualization but need
       # KVM permissions opened up explicitly for the emulator to use it.
@@ -166,11 +170,13 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
-          VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
-            grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
-            awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
+          # Read from the packages themselves: a second sdkmanager run (--list_installed) took
+          # about 20 s. Same versions, so the same cache key.
+          revision() { sed -n 's/^Pkg\.Revision=//p' "$1/source.properties" | tr -d '[:space:]'; }
+          VERSIONS="$(revision "$ANDROID_HOME/emulator")-$(revision "$ANDROID_HOME/system-images/android-34/google_apis/x86_64")"
           echo "Installed versions: $VERSIONS"
-          echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
+          case "$VERSIONS" in -*|*-) echo "::error::no emulator or system image version"; exit 1;; esac
+          echo "key=$VERSIONS" >> "$GITHUB_OUTPUT"
 
       # Caches the AVD image + boot snapshot, so a cache hit restores from the
       # snapshot instead of cold-booting. Not hashed on source: the AVD only
@@ -183,6 +189,13 @@ jobs:
             ~/.android/avd/*
             ~/.android/adb*
           key: avd-34-google_apis-x86_64-pixel_6-${{ steps.avd-versions.outputs.key }}
+
+      - name: Wait for the APK build
+        timeout-minutes: 20
+        run: |
+          while [ ! -f "$RUNNER_TEMP/apk-build/exit" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/apk-build/log"
+          exit "$(cat "$RUNNER_TEMP/apk-build/exit")"
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -205,7 +218,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
           disable-animations: true
           script: ./gradlew connectedAndroidTest --build-cache -Pandroid.testInstrumentationRunnerArguments.numShards=4 -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }} --stacktrace
 
@@ -251,11 +264,13 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
-          VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
-            grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
-            awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
+          # Read from the packages themselves: a second sdkmanager run (--list_installed) took
+          # about 20 s. Same versions, so the same cache key.
+          revision() { sed -n 's/^Pkg\.Revision=//p' "$1/source.properties" | tr -d '[:space:]'; }
+          VERSIONS="$(revision "$ANDROID_HOME/emulator")-$(revision "$ANDROID_HOME/system-images/android-34/google_apis/x86_64")"
           echo "Installed versions: $VERSIONS"
-          echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
+          case "$VERSIONS" in -*|*-) echo "::error::no emulator or system image version"; exit 1;; esac
+          echo "key=$VERSIONS" >> "$GITHUB_OUTPUT"
 
       # Caches the AVD image + boot snapshot, so a cache hit restores from the
       # snapshot instead of cold-booting. Not hashed on source: the AVD only
@@ -290,7 +305,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
           disable-animations: true
           script: bash .github/scripts/release-smoke-test.sh release-apk/app-release.apk
 
