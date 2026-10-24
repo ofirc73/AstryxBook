@@ -289,9 +289,12 @@ class LiveFacebookCanaryTest {
                 "grey span.f5 in div.native-text.rslh, hiding the post's div[data-dcm-id=\"1\"][data-mcomponent=MContainer]). " +
                 "The label: ${ads.missedShape}")
         }
+        // The test account has no friends, so its feed may hold no posts at all (suggestions only):
+        // no post boxes is noted, not failed. An ad left showing fails above either way.
         if (ads.posts == 0) {
-            fail("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]): " +
-                "it can't hide a feed ad (${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")})")
+            note("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) " +
+                "in $FEED_SCREENS screens (${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")})")
+            return
         }
         if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
             fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
@@ -384,10 +387,14 @@ class LiveFacebookCanaryTest {
     }
 
     // The chat the Messages layer checks open (FB_TEST_CHAT, passed as -e fbChat): one of the
-    // test account's chats with a photo and a shared reel in it. Null, with a note, when unset.
+    // test account's chats with a photo and a shared reel in it. Null when unset (the test account
+    // has no chats yet), noted once per run.
     private fun testChat(): String? {
         val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }
-        if (chat == null) note("FB_TEST_CHAT isn't set: the Messages layer checks didn't run")
+        if (chat == null && !notedNoChat) {
+            notedNoChat = true
+            note("FB_TEST_CHAT isn't set: the Messages layer checks didn't run")
+        }
         return chat
     }
 
@@ -464,6 +471,9 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
+        // The run's tests share one process: the missing chat is noted by the first check only.
+        private var notedNoChat = false
+
         // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
         private const val NOTE_STATUS = 3

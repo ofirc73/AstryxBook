@@ -439,7 +439,10 @@ can fetch (what downloads and the lock-screen audio hand-off play), m.facebook.c
 `sharedprefs.web.last_device_info` in `sessionStorage` (what the re-layout after an empty PiP window
 removes), and, in a chat named by the `FB_TEST_CHAT` secret (one with a photo and a shared reel), the
 Messages layer's photo viewer laid out for the phone and closed by Back, and the shared reel opening
-in the main view with Back returning to the chat (skipped with a note while the secret isn't set). It
+in the main view with Back returning to the chat (skipped with a note while the secret isn't set: the
+test account has no friends or chats yet). The test account's feed may hold no posts at all, so the
+feed-ads check only notes when it finds none of the boxes `adblock.js` hides; an ad label left
+showing fails it. It
 needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
