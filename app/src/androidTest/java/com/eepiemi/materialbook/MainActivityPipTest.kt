@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
+import com.eepiemi.materialbook.ui.screens.PIP_EXIT_SETTLE_MS
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -160,6 +161,26 @@ class MainActivityPipTest {
         assertEquals("the window lost the size it was pinched to", pinched.width(), after.width())
         assertEquals("the window lost the size it was pinched to", pinched.height(), after.height())
         app.leavePip()
+    }
+
+    @Test
+    fun aZoomThePageTookInPip_isUndoneOnLeavingIt() {
+        // Resizing the PiP window of one of Facebook's video pages (shown zoomed out there, at
+        // its full-screen width) left the page at scale 1 in the window, and Chromium kept the
+        // window's visible width on the way out: the page came back zoomed in (x1.94, Galaxy A56).
+        // Same end state here: the page zoomed while in PiP.
+        loadReelPage()
+        app.enterPip()
+        assertTrue(app.waitFor { pipActive() })
+        Thread.sleep(1000)
+        val webView = app.mainWebView()
+        instrumentation.runOnMainSync { webView.zoomBy(2f) }
+        assertTrue("the page never zoomed in PiP", app.waitFor { eval("visualViewport.scale").toFloat() > 1.5f })
+
+        app.leavePip()
+        Thread.sleep(PIP_EXIT_SETTLE_MS + 1500)
+        val ratio = eval("window.innerWidth / visualViewport.width").toFloat()
+        assertTrue("the page came back zoomed x$ratio", ratio in 0.95f..1.05f)
     }
 
     private fun reportVideo(playing: Boolean, width: Int, height: Int) {
