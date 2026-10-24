@@ -272,17 +272,9 @@ class LiveFacebookCanaryTest {
     @Test
     fun removeAds_hidesTheFeedsAds() {
         open("https://m.facebook.com/")
-        // The first screen can hold only the composer and the stories: the posts come below.
-        var found = app.waitFor(20_000) { feedAds().posts > 0 }
-        for (screen in 1..5) {
-            if (found) break
-            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
-            found = app.waitFor(4_000) { feedAds().posts > 0 }
-        }
-        if (!found) {
-            fail("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) " +
-                "(${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")}; ${pageShape()})")
-        }
+        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
+            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
+        })
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
         var ads = feedAds()
@@ -293,8 +285,13 @@ class LiveFacebookCanaryTest {
             ads = feedAds()
         }
         if (ads.missed > 0) {
-            fail("${ads.missed} of ${ads.posts} feed posts kept a Sponsored label on the feed: adblock.js no longer " +
-                "finds it (its colour, span.f5 or div.native-text.rslh changed). The label: ${ads.missedShape}")
+            fail("${ads.missed} Sponsored labels stayed on the feed: adblock.js no longer finds feed ads (by its " +
+                "grey span.f5 in div.native-text.rslh, hiding the post's div[data-dcm-id=\"1\"][data-mcomponent=MContainer]). " +
+                "The label: ${ads.missedShape}")
+        }
+        if (ads.posts == 0) {
+            fail("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]): " +
+                "it can't hide a feed ad (${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")})")
         }
         if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
             fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
@@ -523,9 +520,11 @@ class LiveFacebookCanaryTest {
             }
         """
 
-        // The feed's posts in the boxes adblock.js hides (top-level ones), the ones it hid (hidden,
-        // with the grey label it looks for inside) and the visible ones still showing a Sponsored
-        // label, counted across scrolls: "posts|hidden|missed|shape".
+        // The feed's posts in the boxes adblock.js hides (top-level ones) and the ones it hid
+        // (hidden, with the grey label it looks for inside), and the Sponsored labels still showing
+        // anywhere on the feed (leaf elements; found by their text, not as adblock.js finds them),
+        // counted across scrolls: "posts|hidden|missed|shape". A missed label's shape names the
+        // Facebook boxes around it (data-mcomponent, #data-dcm-id), for fixing adblock.js.
         private const val FEED_ADS_JS = """
             (function () {
               $AD_LABEL_FNS
@@ -536,13 +535,20 @@ class LiveFacebookCanaryTest {
               for (var i = 0; i < all.length; i++) {
                 var p = all[i];
                 if (!p.__canarySeen && !(p.parentElement && p.parentElement.closest(sel))) { p.__canarySeen = true; s.posts++; }
-                if (p.style.display === 'none') {
-                  if (!p.__canaryHidden && p.querySelector(grey)) { p.__canaryHidden = true; s.hidden++; }
-                  continue;
+                if (p.style.display === 'none' && !p.__canaryHidden && p.querySelector(grey)) { p.__canaryHidden = true; s.hidden++; }
+              }
+              var els = document.body.querySelectorAll('*');
+              for (var j = 0; j < els.length; j++) {
+                var e = els[j];
+                if (e.children.length || e.__canaryLabel || canaryText(e) !== 'sponsored' || !e.getClientRects().length) continue;
+                e.__canaryLabel = true;
+                s.missed++;
+                var chain = [];
+                for (var a = e.parentElement, n = 0; a && n < 15; a = a.parentElement, n++) {
+                  var m = a.getAttribute('data-mcomponent');
+                  if (m) chain.push(m + (a.hasAttribute('data-dcm-id') ? '#' + a.getAttribute('data-dcm-id') : ''));
                 }
-                if (p.__canaryMissed) continue;
-                var label = canaryLabelIn(p, ['sponsored']);
-                if (label) { p.__canaryMissed = true; s.missed++; s.shape = canaryShape(label); }
+                s.shape = canaryShape(e) + ' boxes=' + (chain.join('<') || 'none');
               }
               return [s.posts, s.hidden, s.missed, s.shape].join('|');
             })()
