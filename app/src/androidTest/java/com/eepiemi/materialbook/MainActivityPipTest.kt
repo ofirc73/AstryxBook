@@ -458,18 +458,24 @@ class MainActivityPipTest {
         app.leavePip()
     }
 
-    // Wakes the screen and unlocks it: a swipe up and the PIN when it has one.
+    // Wakes the screen and unlocks it: a swipe up and the PIN when it has one. Tried a few times: a
+    // single try that missed (the PIN pad not up yet) left the emulator locked for every test after
+    // this one, the tear-down's unlock missing the same way (API 36 image, 2026-10-24). The swipe
+    // goes through the touchscreen source: a plain `input swipe` at times didn't bring up the pad.
     private fun unlock(keyguard: KeyguardManager, pin: String?) {
-        shell("input keyevent KEYCODE_WAKEUP")
-        shell("wm dismiss-keyguard")
-        Thread.sleep(1000)
-        if (!keyguard.isKeyguardLocked || pin == null) return
         val metrics = app.context.resources.displayMetrics
         val x = metrics.widthPixels / 2
-        shell("input swipe $x ${metrics.heightPixels * 3 / 4} $x ${metrics.heightPixels / 6} 200")
-        Thread.sleep(1000)
-        shell("input text $pin")
-        shell("input keyevent KEYCODE_ENTER")
+        repeat(3) {
+            shell("input keyevent KEYCODE_WAKEUP")
+            shell("wm dismiss-keyguard")
+            Thread.sleep(1000)
+            if (!keyguard.isKeyguardLocked || pin == null) return
+            shell("input touchscreen swipe $x ${metrics.heightPixels * 3 / 4} $x ${metrics.heightPixels / 6} 300")
+            Thread.sleep(1500)
+            shell("input text $pin")
+            shell("input keyevent KEYCODE_ENTER")
+            if (app.waitFor(4000) { !keyguard.isKeyguardLocked }) return
+        }
     }
 
     // Waits for the command to finish (executeShellCommand itself returns at once).
