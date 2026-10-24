@@ -3,6 +3,9 @@ package com.eepiemi.materialbook
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
@@ -118,6 +121,103 @@ class MainActivityPipTest {
         Thread.sleep(1500)
         assertEquals("the page was reloaded or left", "42", eval("window.__samePage"))
         assertEquals("\"$REEL_URL\"", eval("location.href"))
+    }
+
+    // ── resizing the window ─────────────────────────────────────────────────
+
+    @Test
+    fun aPinchedPipWindow_keepsItsSize_forAPortraitReel() = pinchedWindowKeepsItsSize(720, 1280)
+
+    @Test
+    fun aPinchedPipWindow_keepsItsSize_forALandscapeVideo() = pinchedWindowKeepsItsSize(1280, 720)
+
+    // The user pinches the PiP window bigger; the Play/Pause updates the app then sends the window
+    // (the page reporting a pause and a play) must leave the user's size alone.
+    private fun pinchedWindowKeepsItsSize(videoWidth: Int, videoHeight: Int) {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        loadReelPage()
+        reportVideo(true, videoWidth, videoHeight)
+        app.pressHome()
+        assertTrue("a playing video never went to PiP on Home", app.waitFor { app.isInPip() })
+        assertTrue(app.waitFor { pipActive() })
+        Thread.sleep(1000)
+        val entered = pipWindow()
+        assertEquals("the window doesn't have the video's shape", videoWidth > videoHeight, entered.width() > entered.height())
+
+        pinchOut(entered)
+        assumeTrue(
+            "this Android's PiP doesn't resize on an injected pinch",
+            app.waitFor { pipWindow().width() > entered.width() * 1.1 }
+        )
+        Thread.sleep(1000)
+        val pinched = pipWindow()
+
+        reportVideo(false, 0, 0)
+        Thread.sleep(800)
+        reportVideo(true, videoWidth, videoHeight)
+        Thread.sleep(2000)
+        val after = pipWindow()
+        assertEquals("the window lost the size it was pinched to", pinched.width(), after.width())
+        assertEquals("the window lost the size it was pinched to", pinched.height(), after.height())
+        app.leavePip()
+    }
+
+    private fun reportVideo(playing: Boolean, width: Int, height: Int) {
+        eval(
+            "window.AstryxPage.postMessage(JSON.stringify({ call: 'videoState', playing: $playing," +
+                " width: $width, height: $height, why: '' })); 1"
+        )
+        Thread.sleep(300)
+    }
+
+    // The PiP window's bounds on the screen.
+    private fun pipWindow(): android.graphics.Rect = app.onActivity {
+        val view = it.window.decorView
+        val at = IntArray(2).also(view::getLocationOnScreen)
+        android.graphics.Rect(at[0], at[1], at[0] + view.width, at[1] + view.height)
+    }
+
+    // Two fingers along the window's longer side, moving apart to 1.5 times their distance.
+    private fun pinchOut(window: android.graphics.Rect) {
+        val horizontal = window.width() > window.height()
+        val from = maxOf(window.width(), window.height()) / 6f
+        val to = from * 1.5f
+        val cx = window.exactCenterX()
+        val cy = window.exactCenterY()
+        val properties = Array(2) { i ->
+            MotionEvent.PointerProperties().apply { id = i; toolType = MotionEvent.TOOL_TYPE_FINGER }
+        }
+        val downAt = SystemClock.uptimeMillis()
+        var now = downAt
+        fun send(action: Int, pointers: Int, distance: Float) {
+            val coords = Array(2) { i ->
+                val sign = if (i == 0) -1 else 1
+                MotionEvent.PointerCoords().apply {
+                    x = if (horizontal) cx + sign * distance else cx
+                    y = if (horizontal) cy else cy + sign * distance
+                    pressure = 1f
+                    size = 1f
+                }
+            }
+            val event = MotionEvent.obtain(
+                downAt, now, action, pointers, properties, coords, 0, 0, 1f, 1f, 0, 0,
+                InputDevice.SOURCE_TOUCHSCREEN, 0
+            )
+            instrumentation.uiAutomation.injectInputEvent(event, true)
+            event.recycle()
+        }
+        val second = 1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT
+        send(MotionEvent.ACTION_DOWN, 1, from)
+        send(MotionEvent.ACTION_POINTER_DOWN or second, 2, from)
+        for (step in 1..20) {
+            Thread.sleep(16)
+            now += 16
+            send(MotionEvent.ACTION_MOVE, 2, from + (to - from) * step / 20)
+        }
+        Thread.sleep(300)
+        now += 300
+        send(MotionEvent.ACTION_POINTER_UP or second, 2, to)
+        send(MotionEvent.ACTION_UP, 1, to)
     }
 
     // ── the effects around focus mode ───────────────────────────────────────

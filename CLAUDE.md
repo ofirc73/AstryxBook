@@ -201,6 +201,11 @@ user-visible change.
   item or pass several files; serve test files through the app's own FileProvider instead.
 - "Keep screen on" uses the host view's `keepScreenOn`, not the window flag the fullscreen
   host adds and clears.
+- A PiP window stops growing at Android's largest PiP size (longest side about the screen's width
+  less margins, every app alike): a 4:7 reel's window at about half the screen's width. The app's
+  `setPictureInPictureParams` updates don't undo a user's resize (One UI 9 logs, `PipBoundsState`
+  in SystemUI's `setBounds` lines). On the phone `sendevent` is denied, so pinch the PiP window in
+  tests with `UiAutomation.injectInputEvent` (`MainActivityPipTest.pinchOut`).
 - Facebook's video viewer re-lays out only on a real fullscreen transition
   (`fullscreenchange`), not on `resize`/`orientationchange`, and writes its
   widths into inline styles. Chromium ends HTML5 fullscreen by itself when
