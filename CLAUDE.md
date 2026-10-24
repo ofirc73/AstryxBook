@@ -62,9 +62,10 @@ user-visible change.
   characters themselves (lint `BidiSpoofing` fails the build on literal bidi marks).
 - Pushing to `main` runs `create-release.yml` (which calls `ci.yml`); it
   auto-versions from conventional commits (`feat:` = minor bump) and
-  publishes a release. A push touching only docs or repo tooling (`*.md`,
-  `LICENSE`, `fastlane/`, `assets/`, `.github/`, `.gitignore`, `lint.xml`)
-  skips it via `paths-ignore`. So does a push whose commits since the last release are all
+  publishes a release (every commit type bumps at least the patch, `test:` too). A push
+  touching only docs, tests or repo tooling (`*.md`, `LICENSE`, `fastlane/`, `assets/`,
+  `app/src/test/`, `app/src/androidTest/`, `.github/`, `.gitignore`, `lint.xml`)
+  skips it via `paths-ignore`; those commits go out with the next release. So does a push whose commits since the last release are all
   Dependabot's (`compute-version`'s check; its security updates touch the Gradle files): they go
   out with the next real release.
 
