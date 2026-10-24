@@ -15,6 +15,7 @@ import com.multiplatform.webview.web.LoadingState
 import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.WebViewState
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 // Leaving PiP: how long the window takes to get its full size back, and how many zoom-out steps
 // (x0.8 each) can bring a page from the PiP window's width back.
@@ -25,6 +26,19 @@ internal const val MAX_ZOOM_OUT_STEPS = 20
 private const val PINCH_RATIO_MIN = 1.05f
 private const val PINCH_RATIO_MAX = 100f
 private const val PIP_PINCH_CHECK_DELAY_MS = 300L
+// Leaving PiP: a page within 5% of the zoom it should have is left alone.
+private const val PIP_EXIT_ZOOM_TOLERANCE = 0.05f
+
+/**
+ * What to zoom the page by (WebView.zoomBy) on leaving PiP so it shows at [wanted] (the user's
+ * pinch zoom from before PiP, 1 for none) instead of [current] (both the page's width over the
+ * width the window shows); null when it already does.
+ */
+internal fun pipExitZoomBy(current: Float, wanted: Float): Float? {
+    if (!(current > 0f) || !(wanted > 0f)) return null
+    val by = wanted / current
+    return if (abs(by - 1f) < PIP_EXIT_ZOOM_TOLERANCE) null else by.coerceIn(0.02f, 50f)
+}
 
 /**
  * MaterialbookWebView's picture-in-picture effects: what runs on the page PiP shows
@@ -150,12 +164,18 @@ internal fun PipEffects(
     // part of the page, the video cropped in a corner with Facebook's labels around it (seen on a
     // Galaxy A56). In PiP the page is zoomed all the way out, which fits its whole width as a
     // PiP window normally does; checked on entering PiP and again after each return from the lock
-    // screen (the hand-back), which can bring the zoom back. Leaving PiP puts the user's zoom back
-    // once the window is full size again. Separate from focus mode, like the effects around it.
+    // screen (the hand-back), which can bring the zoom back. Leaving PiP puts the page back at the
+    // user's zoom (none, or that pinch zoom) once the window is full size again, whatever zoom it
+    // took in PiP: a video page Facebook keeps at its full-screen width shows zoomed out in the
+    // PiP window, a resize of the window left it at scale 1 there, and Chromium kept the window's
+    // visible width on the way out, the page zoomed in x1.94 (Galaxy A56). Separate from focus
+    // mode, like the effects around it.
     var pipPinchRatio by remember { mutableFloatStateOf(1f) }
+    var pipZoomToRestore by remember { mutableStateOf(false) }
     LaunchedEffect(isInPipMode, pipHandback) {
         val webView = runCatching { pipState.nativeWebView }.getOrNull() ?: return@LaunchedEffect
         if (isInPipMode) {
+            pipZoomToRestore = true
             if (isFullscreen || pipState.loadingState !is LoadingState.Finished) return@LaunchedEffect
             delay(PIP_PINCH_CHECK_DELAY_MS) // the window's resize first
             pipNavigator.evaluateJavaScript(PIP_PINCH_RATIO_JS) { raw ->
@@ -165,11 +185,17 @@ internal fun PipEffects(
                 if (pipPinchRatio <= 1f) pipPinchRatio = minOf(ratio, PINCH_RATIO_MAX)
                 repeat(MAX_ZOOM_OUT_STEPS) { if (!webView.zoomOut()) return@evaluateJavaScript }
             }
-        } else if (pipPinchRatio > 1f) {
-            val ratio = pipPinchRatio
+        } else if (pipZoomToRestore) {
+            pipZoomToRestore = false
+            val wanted = pipPinchRatio
             pipPinchRatio = 1f
             delay(PIP_EXIT_SETTLE_MS)
-            webView.zoomBy(ratio)
+            pipNavigator.evaluateJavaScript(PIP_PINCH_RATIO_JS) { raw ->
+                val current = raw?.removeSurrounding("\"")?.toFloatOrNull() ?: return@evaluateJavaScript
+                val by = pipExitZoomBy(current, wanted) ?: return@evaluateJavaScript
+                Log.d("AstryxbookPiP", "left PiP zoomed x$current, wanted x$wanted: zooming by $by")
+                webView.zoomBy(by)
+            }
         }
     }
 

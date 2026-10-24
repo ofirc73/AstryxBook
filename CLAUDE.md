@@ -205,7 +205,16 @@ user-visible change.
   less margins, every app alike): a 4:7 reel's window at about half the screen's width. The app's
   `setPictureInPictureParams` updates don't undo a user's resize (One UI 9 logs, `PipBoundsState`
   in SystemUI's `setBounds` lines). On the phone `sendevent` is denied, so pinch the PiP window in
-  tests with `UiAutomation.injectInputEvent` (`MainActivityPipTest.pinchOut`).
+  tests with `UiAutomation.injectInputEvent` (`MainActivityPipTest.pinchOut`); on the emulator
+  `adb emu event send` with `ABS_MT_*` codes pinches too (positions 0-32767).
+- A zoom the page takes in PiP outlives it: Chromium keeps the width the window showed when the
+  window grows back. Leaving PiP resets the zoom (`PipEffects`, `pipExitZoomBy`). Facebook's
+  `/videos/` pages (the phone's Reels tab) show zoomed out in PiP; the emulator account's open as
+  `/reel/` and don't, so that case was only seen on the phone.
+- In PiP Facebook can write the PiP window's size into a host-only session `vpd` cookie on
+  `m.facebook.com`, which shadows the `.facebook.com` one, so later pages are laid out PiP-narrow
+  (seen on the emulator after the PiP tests; WebView keeps session cookies across restarts).
+  Delete it over DevTools (`Network.deleteCookies`) to get the emulator's normal layout back.
 - Facebook's video viewer re-lays out only on a real fullscreen transition
   (`fullscreenchange`), not on `resize`/`orientationchange`, and writes its
   widths into inline styles. Chromium ends HTML5 fullscreen by itself when

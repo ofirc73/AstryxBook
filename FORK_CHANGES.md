@@ -703,6 +703,12 @@ leaving the app while a Facebook video or Reel is playing.
   Known limitations). The 1.5-second hold is gone; the window's button shows a pause at once again.
   `MainActivityPipTest` now pinches the PiP window of a portrait reel and of a landscape video
   bigger and checks it keeps that size through the app's Play/Pause updates.
+- A video opened from the Reels tab came back zoomed in (about 2x) after its PiP window had been
+  resized. Facebook keeps such a video page at its full-screen width, so the PiP window shows it
+  zoomed out; a resize left it at normal scale in the small window, and on the way out Chromium
+  kept the narrow width the window had shown. Leaving PiP now puts the page back at the zoom it
+  had before (none, or the user's own pinch zoom). Covered by
+  `aZoomThePageTookInPip_isUndoneOnLeavingIt` and `PipExitZoomTest`.
 
 ## Sharing, text size, shortcuts and developer options
 
