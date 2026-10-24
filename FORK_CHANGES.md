@@ -441,7 +441,8 @@ drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 U
 runs stand down once one has run. The reel check presses Home only once the reel plays on as the app's PiP detector
 counts playing: unmuted, a reel buffers for a moment on GitHub's emulator. When the app's last PiP
 params had auto-enter off before Home anyway (a stall longer than the detector's 2 s grace), the
-check plays it again and presses Home once more. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
+check plays it again and presses Home once more, and says so: a "Live check note" warning on the
+run (and in the failure issue when the run fails), from a `CANARY NOTE:` line in the test's output. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
 stop at the open editors.
 
 ## Messages in desktop mode

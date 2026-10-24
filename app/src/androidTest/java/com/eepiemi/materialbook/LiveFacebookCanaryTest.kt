@@ -1,10 +1,13 @@
 package com.eepiemi.materialbook
 
+import android.app.Instrumentation
 import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.Bundle
 import android.util.Base64
+import android.util.Log
 import android.webkit.CookieManager
 import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -74,6 +77,16 @@ class LiveFacebookCanaryTest {
         val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s $tag:D")
         return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
             .filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
+    }
+
+    // A note in the run's output for a check that passed only after working around something:
+    // am instrument prints a status's stream text (the workflow turns these into warnings), and
+    // logcat has it under AstryxbookCanary.
+    private fun note(message: String) {
+        Log.w("AstryxbookCanary", message)
+        InstrumentationRegistry.getInstrumentation().sendStatus(NOTE_STATUS, Bundle().apply {
+            putString(Instrumentation.REPORT_KEY_STREAMRESULT, "\n$NOTE_PREFIX$message\n")
+        })
     }
 
     // The app's last PiP log lines (AstryxbookPiP: video states, PiP params), for a failure message.
@@ -148,20 +161,23 @@ class LiveFacebookCanaryTest {
         assertTrue("pip_video_detector.js never found the playing reel", app.waitFor(30_000) {
             eval("!!window.__astryxLastActiveVideo && !window.__astryxLastActiveVideo.paused") == "true"
         })
-        // Unmuted, the reel buffers for a moment (readyState 2, seen on GitHub's emulator), which
-        // pip_video_detector.js counts as not playing: the app turns PiP's auto-enter off and a Home
-        // then opens no PiP. Home waits until the reel has played on, as the detector counts it.
+        // Unmuted, the reel buffers for a moment (readyState 2, seen on GitHub's emulator), and
+        // pip_video_detector.js counts a buffering video as playing only for 2 s after it last
+        // played. Home waits until the reel has played on, as the detector counts it.
         if (!app.waitFor(30_000) { playsOnFor(1000) }) {
             fail("the reel never played on after it was unmuted (buffering, paused or muted again), so Home " +
                 "was never pressed (${eval(VIDEO_STATE_JS)}; the app's PiP log: ${pipLog()})")
         }
 
         // Home, as the user leaves the app: Android 12+ enters PiP by itself (auto-enter). The reel
-        // can still buffer in the instant before Home (issue 66): the app then turns auto-enter off
-        // and rightly opens no PiP, and gets one more try. A Home with auto-enter on and no PiP fails.
+        // can still stop in the instant before Home, or buffer past the detector's 2 s (issue 66):
+        // the app then turns auto-enter off and rightly opens no PiP, and gets one more try, noted in
+        // the run's output. A Home with auto-enter on and no PiP fails.
         app.pressHome()
         var inPip = app.waitFor { app.isInPip() }
         if (!inPip && lastAutoEnter() == false) {
+            note("Home needed a retry: the app had turned PiP's auto-enter off just before Home (the reel " +
+                "stopped or buffered). The app's PiP log: ${pipLog()}")
             app.start()
             eval(PLAY_DETECTED_JS)
             if (!app.waitFor(30_000) { playsOnFor(1000) }) {
@@ -262,6 +278,9 @@ class LiveFacebookCanaryTest {
 
     companion object {
         // A public reel (shared with Public), for when the Reels tab has nothing for the account.
+        // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
+        private const val NOTE_PREFIX = "CANARY NOTE: "
+        private const val NOTE_STATUS = 3
         private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of
         // the account's: the address without values, the title, counts, and the ids of Facebook's
