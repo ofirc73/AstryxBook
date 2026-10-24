@@ -113,6 +113,28 @@ class MessagesLayerReelTest {
     }
 
     @Test
+    fun aPostOpenedFromAChat_opensInTheMainView_andBackShowsTheSameChat() {
+        // A main view page with history, so a step back has somewhere to land.
+        app.loadPage("$MAIN_URL?n=4", PAGE, asHistory = true)
+        val layer = openChat()
+        moveTo(layer, "/share/p/14zVaXX6eBS/")
+        assertTrue("the post stayed in the layer", app.waitFor { !layerOpen() })
+        assertTrue("the main view never opened the post", app.waitFor(15_000) {
+            app.url(app.mainWebView()).contains("/share/p/14zVaXX6eBS")
+        })
+        val webView = app.mainWebView()
+        app.waitFor(30_000) { app.onActivity { webView.progress } == 100 }
+
+        app.pressBack()
+        assertTrue("Back on the post never showed the chat again", app.waitFor { layerOpen() })
+        assertSame("Back opened a new layer instead of the chat kept behind the post", layer, app.layerWebView())
+        assertEquals("the chat's page was reloaded", "true", app.eval("!!window.__testPage", layer))
+        assertTrue("the main view stayed on the post under the chat (${app.url(app.mainWebView())})", app.waitFor(10_000) {
+            !app.url(app.mainWebView()).contains("/share/p/")
+        })
+    }
+
+    @Test
     fun backOnTheReel_takesTheMainViewBackOffIt() {
         // A main view page with history, so a step back has somewhere to land (its real address,
         // kept off the network: see openChat).

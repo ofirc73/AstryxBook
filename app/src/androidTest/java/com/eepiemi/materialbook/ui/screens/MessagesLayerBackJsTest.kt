@@ -119,9 +119,12 @@ class MessagesLayerBackJsTest {
     }
 
     @Test
-    fun aLinkTappedInTheChat_isKeptForTheWayBack() {
+    fun aLinkTappedInTheChat_isKeptForTheWayBack_whenThePageGoes() {
         load(page(NAME_HEADING + "<a id='post' href='$POST' onclick='return false'>post</a>", BOX_SHOWN))
         eval("document.getElementById('post').click(); 1")
+        // A link that left nothing (a reel, shown in the main view) isn't kept.
+        assertEquals("null", eval("sessionStorage.getItem('astryxReturnLink')"))
+        pageGoes()
         assertEquals("\"$POST\"", eval("sessionStorage.getItem('astryxReturnLink')"))
     }
 

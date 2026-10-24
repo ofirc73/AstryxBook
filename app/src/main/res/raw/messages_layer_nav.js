@@ -105,19 +105,26 @@
       window.LayerBridge.onUrlChanged(last);
     }
   }
-  // A link tapped in a chat on screen: shown again if the chat comes back (reopenChat).
+  // The last link tapped in a chat on screen: shown again if the chat comes back (reopenChat).
+  // Kept only when the page goes, with the chat: a link that left nothing (a reel, which the main
+  // view shows) mustn't move the chat later.
+  var tappedLink = null;
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a || !chatOpen() || !chatPathOf(location.href)) return;
     var href = a.getAttribute('href');
-    if (href.indexOf('/messages') !== 0) store(RETURN_LINK, href);
+    if (href.indexOf('/messages') !== 0) tappedLink = href;
   }, true);
 
-  // A shared post opens as a new page load (its link opens a new window, which the app loads in
-  // the layer), which no URL watching sees: the chat on screen is kept as the page goes.
+  // A page opened from a chat in the layer (a profile) is a new page load (its link opens a new
+  // window, which the app loads in the layer), which no URL watching sees: the chat on screen is
+  // kept as the page goes.
   window.addEventListener('pagehide', function () {
     check();
-    if (shownChat && shownChat === chatPathOf(location.href)) setReturnChat(shownChat);
+    if (shownChat && shownChat === chatPathOf(location.href)) {
+      setReturnChat(shownChat);
+      store(RETURN_LINK, tappedLink);
+    }
   });
   // Loaded anew at the chat it left.
   var startPath = chatPathOf(location.href);

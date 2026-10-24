@@ -506,25 +506,68 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
-    fun aPostSharedInAChat_opensInTheLayer_andBackShowsTheChat() {
+    fun aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
         if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) {
             fail("no shared post (a link to /share/p/) in the test chat (${layerShape(layer)})")
         }
-        assertTrue("the shared post never opened in the Messages layer (${layerShape(layer)})", app.waitFor(30_000) {
-            layerOpen() && !app.eval("location.pathname", layer).startsWith("\"/messages")
-        })
+        // Like a reel: the post in the main view (m.facebook.com shows it as Home, the post at the
+        // top), the chat kept out of sight behind it.
+        assertTrue("the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})",
+            app.waitFor(30_000) { !layerOpen() })
 
         app.pressBack()
-        // The chat itself, not the chat list an end-to-end encrypted chat opened anew shows
-        // (messages_layer_nav.js taps its row again).
+        assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
         assertTrue("Back from the shared post didn't show the chat (${layerShape(layer)})", app.waitFor(20_000) {
             app.eval(CHAT_OPEN_JS, layer) == "true"
         })
-        // At the post, as a reel's chat comes back, not at the chat's latest messages.
-        assertTrue("the chat came back without the shared post on screen (messages_layer_nav.js showReturnLink)",
+        // The same chat, where it was: not reloaded at its latest messages.
+        assertTrue("the chat came back without the shared post on screen",
             app.waitFor(10_000) { app.eval(CHAT_POST_ON_SCREEN_JS, layer) == "true" })
+    }
+
+    @Test
+    fun aPostThenAReelFromAChat_backEndsOnTheFeed_withNothingLeftBehind() {
+        // The phone's sequence (2026-10-25): each Back after Messages closed played the reel again.
+        val chat = testChat()
+        val layer = openChatInTheLayer(chat)
+        val main = app.mainWebView()
+        val start = app.onActivity { main.copyBackForwardList().currentIndex }
+        val backToTheChat = { what: String ->
+            app.pressBack()
+            assertTrue("Back on the $what never showed the chat again", app.waitFor(15_000) {
+                layerOpen() && app.eval(CHAT_OPEN_JS, layer) == "true"
+            })
+        }
+
+        if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
+        assertTrue("the shared post didn't leave the Messages layer", app.waitFor(30_000) { !layerOpen() })
+        backToTheChat("post")
+        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
+        assertTrue("the reel didn't leave the Messages layer", app.waitFor(30_000) {
+            !layerOpen() && app.url(main).startsWith("https://m.facebook.com/reel/")
+        })
+        backToTheChat("reel")
+        assertTrue("the main view didn't go back to where it was before the post and the reel", app.waitFor(10_000) {
+            app.onActivity { main.copyBackForwardList().currentIndex } <= start
+        })
+
+        app.pressBack()
+        assertTrue("Back in the chat didn't show the chat list", app.waitFor(10_000) {
+            layerOpen() && app.eval(chatListShownJs(chat), layer) == "true"
+        })
+        app.pressBack()
+        assertTrue("Back on the chat list didn't close Messages", app.waitFor(10_000) { !layerOpen() })
+        Thread.sleep(2000)
+        // Nothing the chat opened is left in the main view, on screen or behind it.
+        val pages = app.onActivity {
+            val history = main.copyBackForwardList()
+            (0..history.currentIndex).map { history.getItemAtIndex(it).url }
+        }
+        val left = pages.filter { "/reel/" in it || "/share/p/" in it || "/posts/" in it }
+        assertTrue("the main view kept what the chat opened: ${left.map { it.replace(Regex("\\d{6,}"), "N").substringBefore('?') }}",
+            left.isEmpty())
     }
 
     @Test

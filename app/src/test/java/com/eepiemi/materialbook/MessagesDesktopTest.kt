@@ -5,6 +5,7 @@ import com.eepiemi.materialbook.utils.intentFallbackUrl
 import com.eepiemi.materialbook.utils.isDesktopMessagesUrl
 import com.eepiemi.materialbook.utils.isFacebookWebUrl
 import com.eepiemi.materialbook.utils.isMessagesLink
+import com.eepiemi.materialbook.utils.isMobilePostPage
 import com.eepiemi.materialbook.utils.isMobileReelPage
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
 import com.eepiemi.materialbook.utils.messagesLayerExit
@@ -88,16 +89,45 @@ class MessagesDesktopTest {
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/groups/feed/"), messagesLayerExit("https://www.facebook.com/groups/feed/"))
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/reel/?s=tab"), messagesLayerExit("https://www.facebook.com/reel/?s=tab"))
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/watch/"), messagesLayerExit("https://www.facebook.com/watch/"))
-        // What a chat links to stays in the layer: a video, a group, a profile, a post.
+        // What a chat links to stays in the layer: a video, a group, a profile (a post leaves,
+        // aPostSharedInAChat_opensInTheMainView).
         assertNull(messagesLayerExit("https://www.facebook.com/watch/?v=123"))
         assertNull(messagesLayerExit("https://www.facebook.com/groups/somegroup/"))
         assertNull(messagesLayerExit("https://www.facebook.com/marketplace/item/1/"))
         assertNull(messagesLayerExit("https://www.facebook.com/profile.php?id=1"))
-        assertNull(messagesLayerExit("https://www.facebook.com/someone/posts/1"))
+        assertNull(messagesLayerExit("https://www.facebook.com/groups/1/posts/2/"))
         // Messages itself, and anything that isn't Facebook, aren't exits.
         assertNull(messagesLayerExit("https://www.facebook.com/messages/t/1"))
         assertNull(messagesLayerExit("https://example.com/"))
         assertNull(messagesLayerExit("https://l.facebook.com/l.php?u=x"))
+    }
+
+    @Test
+    fun aPostSharedInAChat_opensInTheMainView() {
+        // Opened in the layer, Back reloaded the chat at its latest messages and then jumped back
+        // to the post: like a reel's, the chat is kept behind it instead.
+        val share = "https://www.facebook.com/share/p/14zVaXX6eBS/"
+        assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/share/p/14zVaXX6eBS/"), messagesLayerRoute(share, true))
+        assertEquals(
+            MessagesLayerRoute.Leave("https://m.facebook.com/YechielRiva/posts/pfbid0kSa8/"),
+            messagesLayerExit("https://www.facebook.com/YechielRiva/posts/pfbid0kSa8?rdid=x".substringBefore('?'))
+        )
+        assertEquals(
+            MessagesLayerRoute.Leave("https://m.facebook.com/permalink.php?story_fbid=1&id=2"),
+            messagesLayerExit("https://www.facebook.com/permalink.php?story_fbid=1&id=2")
+        )
+        assertEquals(
+            MessagesLayerRoute.Leave("https://m.facebook.com/story.php?story_fbid=1&id=2"),
+            messagesLayerExit("https://www.facebook.com/story.php?story_fbid=1&id=2")
+        )
+        // The pages it opens are the ones Back returns to the chat from.
+        assertTrue(isMobilePostPage("https://m.facebook.com/share/p/14zVaXX6eBS/"))
+        assertTrue(isMobilePostPage("https://m.facebook.com/YechielRiva/posts/pfbid0kSa8/"))
+        assertTrue(isMobilePostPage("https://m.facebook.com/permalink.php?story_fbid=1&id=2"))
+        assertFalse(isMobilePostPage("https://www.facebook.com/share/p/14zVaXX6eBS/"))
+        assertFalse(isMobilePostPage("https://m.facebook.com/"))
+        assertFalse(isMobilePostPage("https://m.facebook.com/reel/1360854416127071/"))
+        assertFalse(isMobilePostPage(null))
     }
 
     @Test

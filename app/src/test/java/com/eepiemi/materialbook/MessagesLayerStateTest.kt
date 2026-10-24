@@ -121,6 +121,29 @@ class MessagesLayerStateTest {
     }
 
     @Test
+    fun aPost_keepsTheChatBehindIt_andBackOnItShowsTheChat() {
+        val layer = openAt(chat)
+        val post = "https://m.facebook.com/share/p/14zVaXX6eBS/"
+        layer.onLeave(post, chat, MainPlace(3, "https://m.facebook.com/")) { loaded += it }
+        assertTrue("a post closed the chat instead of keeping it behind", layer.closeOnReel)
+        assertEquals(listOf(post), loaded)
+        layer.reelShown()
+        // m.facebook.com shows the post as Home, at Home's address: one step past where the main
+        // view was is the post.
+        assertTrue(layer.backToChat("https://m.facebook.com/", mainIndex = 4))
+        assertTrue(layer.isShown)
+    }
+
+    @Test
+    fun aPostLeftForAnotherPage_closesTheChatKeptBehindIt() {
+        val layer = openAt(chat)
+        layer.onLeave("https://m.facebook.com/share/p/1/", chat, MainPlace(3, "https://m.facebook.com/")) { loaded += it }
+        layer.reelShown()
+        assertFalse(layer.backToChat("https://m.facebook.com/profile.php?id=1", mainIndex = 5))
+        assertFalse(layer.isOpen)
+    }
+
+    @Test
     fun aSectionOrAPage_keepsNoMainViewPlace() {
         val layer = openAt(chat)
         layer.onLeave("https://m.facebook.com/friends/", chat, MainPlace(3, "https://m.facebook.com/")) { loaded += it }

@@ -390,12 +390,16 @@ fun MaterialbookWebView(
 
     // allow exiting while scrolling to top.
     var exitScroll by remember { mutableStateOf(false) }
+    // The main view's page starts when it loaded anew the page a chat's reel had replaced (see
+    // the history clean-up below); null otherwise.
+    var dropMainHistoryAfter by remember { mutableStateOf<Int?>(null) }
     // Leaving the app from the feed sends it to the background instead of finishing it, like
     // Home does: finishing dropped the WebView, so coming back reloaded the feed from the top.
     val leaveApp = { activity?.moveTaskToBack(true) }
     BackHandler {
         val mainBeforeReel = messagesLayer.mainBeforeReel
-        if (messagesLayer.backToChat(runCatching { state.nativeWebView.url }.getOrNull())) {
+        val mainIndex = runCatching { state.nativeWebView.copyBackForwardList().currentIndex }.getOrNull()
+        if (messagesLayer.backToChat(runCatching { state.nativeWebView.url }.getOrNull(), mainIndex)) {
             // Back on a reel opened from a chat: the chat again, with the main view back on the page
             // it showed before the reel (under the chat). When the reel took that page's place in
             // the main view's history (it loaded before that page was kept), that page anew.
@@ -406,6 +410,7 @@ fun MaterialbookWebView(
                     if (steps < 0 && webView.canGoBackOrForward(steps)) {
                         webView.goBackOrForward(steps)
                     } else if (place.url != null && place.url != webView.url) {
+                        dropMainHistoryAfter = mainPageStarts.count
                         navigator.loadUrl(place.url)
                     }
                 }
@@ -742,8 +747,12 @@ fun MaterialbookWebView(
     val isMessagesLayerOpen = messagesLayer.isShown
     LaunchedEffect(messagesLayer.closeOnReel, state.loadingState, mainPageStarts.count) {
         if (!messagesLayer.closeOnReel) return@LaunchedEffect
-        val onReel = state.loadingState is LoadingState.Finished &&
-            isMobileReelPage(runCatching { state.nativeWebView.url }.getOrNull())
+        // The reel's page, or the post's (shown at Home's address: the main view has moved on).
+        val before = messagesLayer.mainBeforeReel?.index
+        val onReel = state.loadingState is LoadingState.Finished && runCatching {
+            val webView = state.nativeWebView
+            isMobileReelPage(webView.url) || (before != null && webView.copyBackForwardList().currentIndex > before)
+        }.getOrDefault(false)
         if (!onReel) delay(LAYER_CLOSE_WAIT_MS)
         messagesLayer.reelShown()
     }
@@ -759,6 +768,16 @@ fun MaterialbookWebView(
             }
         }
     }
+    // The page loaded anew under the chat (the reel had taken its place in the main view's
+    // history): once it has loaded, the reel behind it leaves the history too. Otherwise Back,
+    // once Messages closed, showed the reel again.
+    LaunchedEffect(dropMainHistoryAfter, mainPageStarts.count, state.loadingState) {
+        val after = dropMainHistoryAfter ?: return@LaunchedEffect
+        if (mainPageStarts.count <= after || state.loadingState !is LoadingState.Finished) return@LaunchedEffect
+        dropMainHistoryAfter = null
+        runCatching { state.nativeWebView.clearHistory() }
+    }
+
     // A page the main view loads while the layer is over it (Back from a reel a chat opened takes
     // the main view back under the chat) is kept paused too.
     LaunchedEffect(mainPageStarts.count, state.loadingState) {
