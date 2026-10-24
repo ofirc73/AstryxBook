@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook
 
+import com.eepiemi.materialbook.ui.screens.MainPlace
 import com.eepiemi.materialbook.ui.screens.MessagesLayerState
 import com.eepiemi.materialbook.utils.STORY_CREATE_URL
 import com.eepiemi.materialbook.utils.ShareMediaQueue
@@ -104,6 +105,26 @@ class MessagesLayerStateTest {
         layer.reelShown()
         layer.open(chat)
         assertTrue(layer.isShown)
+    }
+
+    @Test
+    fun backOnTheReel_handsBackWhereTheMainViewWasBeforeIt() {
+        val layer = openAt(chat)
+        val feed = MainPlace(3, "https://m.facebook.com/")
+        layer.onLeave(reel, chat, feed) { loaded += it }
+        layer.reelShown()
+        // MaterialbookWebView reads it before backToChat and takes the main view back there.
+        assertEquals(feed, layer.mainBeforeReel)
+
+        assertTrue(layer.backToChat(reel))
+        assertNull("the main view's place outlived the Back that used it", layer.mainBeforeReel)
+    }
+
+    @Test
+    fun aSectionOrAPage_keepsNoMainViewPlace() {
+        val layer = openAt(chat)
+        layer.onLeave("https://m.facebook.com/friends/", chat, MainPlace(3, "https://m.facebook.com/")) { loaded += it }
+        assertNull(layer.mainBeforeReel)
     }
 
     @Test

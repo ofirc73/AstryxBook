@@ -394,8 +394,22 @@ fun MaterialbookWebView(
     // Home does: finishing dropped the WebView, so coming back reloaded the feed from the top.
     val leaveApp = { activity?.moveTaskToBack(true) }
     BackHandler {
+        val mainBeforeReel = messagesLayer.mainBeforeReel
         if (messagesLayer.backToChat(runCatching { state.nativeWebView.url }.getOrNull())) {
-            // Back on a reel opened from a chat: the chat again.
+            // Back on a reel opened from a chat: the chat again, with the main view back on the page
+            // it showed before the reel (under the chat). When the reel took that page's place in
+            // the main view's history (it loaded before that page was kept), that page anew.
+            mainBeforeReel?.let { place ->
+                runCatching {
+                    val webView = state.nativeWebView
+                    val steps = place.index - webView.copyBackForwardList().currentIndex
+                    if (steps < 0 && webView.canGoBackOrForward(steps)) {
+                        webView.goBackOrForward(steps)
+                    } else if (place.url != null && place.url != webView.url) {
+                        navigator.loadUrl(place.url)
+                    }
+                }
+            }
         } else if (exitScroll) {
             leaveApp()
         } else {
@@ -745,6 +759,13 @@ fun MaterialbookWebView(
             }
         }
     }
+    // A page the main view loads while the layer is over it (Back from a reel a chat opened takes
+    // the main view back under the chat) is kept paused too.
+    LaunchedEffect(mainPageStarts.count, state.loadingState) {
+        if (!isMessagesLayerOpen || state.loadingState !is LoadingState.Finished) return@LaunchedEffect
+        navigator.evaluateJavaScript(PAUSE_UNDER_LAYER_JS) {}
+    }
+
     LaunchedEffect(isMessagesLayerOpen) {
         if (state.loadingState !is LoadingState.Finished) return@LaunchedEffect
         if (isMessagesLayerOpen) {
@@ -955,7 +976,11 @@ fun MaterialbookWebView(
                 textZoom = textZoomPercent,
                 onScreenVideoPlayingChanged = { layerVideoPlaying = it },
                 onLeave = { mainUrl, fromUrl ->
-                    messagesLayer.onLeave(mainUrl, fromUrl) { navigator.loadUrl(it) }
+                    val mainPlace = runCatching {
+                        val webView = state.nativeWebView
+                        MainPlace(webView.copyBackForwardList().currentIndex, webView.url)
+                    }.getOrNull()
+                    messagesLayer.onLeave(mainUrl, fromUrl, mainPlace) { navigator.loadUrl(it) }
                 },
                 onOpenSettings = { settingsToggle = true },
                 onThemeColor = { layerThemeColor = it },

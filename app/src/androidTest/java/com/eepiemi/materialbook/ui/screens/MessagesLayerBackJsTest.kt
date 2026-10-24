@@ -18,18 +18,23 @@ import java.util.concurrent.TimeUnit
  * chat list it leaves the layer to the app. The fixtures are the desktop site's rows at phone width
  * as read from the emulator (2026-10-24): the Back button 36 px at (32, 84), the name 12 px to its
  * right, the message box at the bottom (laid out with no width while the chat list shows).
+ *
+ * It also brings a chat back after a page it opened in the layer (a shared post): opened again at
+ * its address, an end-to-end encrypted chat shows the chat list at phone width, so the chat's row
+ * is tapped then.
  */
 @RunWith(AndroidJUnit4::class)
 class MessagesLayerBackJsTest {
 
     private lateinit var webView: WebView
 
-    private fun load(html: String) {
+    private fun load(html: String, returnChat: String? = null) {
         val latch = CountDownLatch(1)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             webView = WebView(context).apply {
                 settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
                 layout(0, 0, 1080, 2000)
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String) {
@@ -42,7 +47,8 @@ class MessagesLayerBackJsTest {
         assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
         val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
             .openRawResource(R.raw.messages_layer_nav).bufferedReader().use { it.readText() }
-        eval("window.LayerBridge = { onUrlChanged: function () {} }; 1")
+        eval("window.LayerBridge = { onUrlChanged: function () {} }; sessionStorage.clear(); 1")
+        returnChat?.let { eval("sessionStorage.setItem('astryxReturnChat', '$it'); 1") }
         eval(script)
     }
 
@@ -58,6 +64,17 @@ class MessagesLayerBackJsTest {
 
     private fun back() = eval("window.__astryxLayerBack()")
     private fun pressed() = eval("window.__pressed || ''")
+    private fun returnChat() = eval("sessionStorage.getItem('astryxReturnChat')")
+    private fun pageGoes() = eval("window.dispatchEvent(new PageTransitionEvent('pagehide')); 1")
+
+    private fun waitFor(ms: Long = 5_000, check: () -> Boolean): Boolean {
+        val until = System.currentTimeMillis() + ms
+        while (System.currentTimeMillis() < until) {
+            if (check()) return true
+            Thread.sleep(100)
+        }
+        return false
+    }
 
     @Test
     fun aChat_namedByALink_goesBackToTheChatList() {
@@ -81,7 +98,42 @@ class MessagesLayerBackJsTest {
         assertEquals("\"\"", pressed())
     }
 
+    @Test
+    fun backAtAChatLeftForAPost_opensTheChat_notTheList() {
+        // Loaded anew at the chat it left: the chat list shows, the chat's row on it.
+        load(page(ROW + NAME_HEADING, BOX_HIDDEN), returnChat = CHAT)
+        assertTrue("the chat's row was never tapped", waitFor { pressed() == "\"row\"" })
+        assertEquals("the chat to go back to outlived its use", "null", returnChat())
+    }
+
+    @Test
+    fun theChatOnScreen_isKeptWhenThePageGoes() {
+        load(page(NAME_HEADING, BOX_SHOWN))
+        pageGoes()
+        assertEquals("\"$CHAT\"", returnChat())
+    }
+
+    @Test
+    fun theChatList_isNotKeptWhenThePageGoes() {
+        // Only a chat that was on screen comes back: the user had gone back to the list.
+        load(page(ROW + NAME_HEADING, BOX_HIDDEN))
+        pageGoes()
+        assertEquals("null", returnChat())
+        assertEquals("\"\"", pressed())
+    }
+
+    @Test
+    fun anotherChat_isNotOpenedForTheOneLeft() {
+        load(page(ROW + NAME_HEADING, BOX_HIDDEN), returnChat = "/messages/e2ee/t/2/")
+        Thread.sleep(1500)
+        assertEquals("\"\"", pressed())
+    }
+
     private companion object {
+        const val CHAT = "/messages/e2ee/t/1/"
+        // The chat's row on the chat list (the list keeps the chat's address).
+        const val ROW = "<a href='$CHAT' onclick=\"window.__pressed = 'row'; return false\" " +
+            "style='position:absolute;left:24px;top:165px;width:284px;height:72px'>Name</a>"
         const val BUTTON =
             "<div role='button' onclick=\"window.__pressed = 'back'\" " +
                 "style='position:absolute;left:32px;top:84px;width:36px;height:36px'><svg width='20' height='20'></svg></div>"

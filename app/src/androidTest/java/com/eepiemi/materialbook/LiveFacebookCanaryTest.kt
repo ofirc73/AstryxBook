@@ -499,6 +499,29 @@ class LiveFacebookCanaryTest {
         assertTrue("the layer came back somewhere other than the chat (${layerShape(layer)})", app.waitFor(15_000) {
             app.eval("location.pathname", layer).contains("/t/")
         })
+        // Under the chat, the main view goes back to where it was: each reel opened from a chat
+        // stayed there otherwise, and once Messages closed, every Back showed one of them again.
+        assertTrue("the main view stayed on the reel under the chat (MessagesLayerState.mainBeforeReel)",
+            app.waitFor(10_000) { !app.url(app.mainWebView()).startsWith("https://m.facebook.com/reel/") })
+    }
+
+    @Test
+    fun aPostSharedInAChat_opensInTheLayer_andBackShowsTheChat() {
+        val chat = testChat()
+        val layer = openChatInTheLayer(chat)
+        if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) {
+            fail("no shared post (a link to /share/p/) in the test chat (${layerShape(layer)})")
+        }
+        assertTrue("the shared post never opened in the Messages layer (${layerShape(layer)})", app.waitFor(30_000) {
+            layerOpen() && !app.eval("location.pathname", layer).startsWith("\"/messages")
+        })
+
+        app.pressBack()
+        // The chat itself, not the chat list an end-to-end encrypted chat opened anew shows
+        // (messages_layer_nav.js taps its row again).
+        assertTrue("Back from the shared post didn't show the chat (${layerShape(layer)})", app.waitFor(20_000) {
+            app.eval(CHAT_OPEN_JS, layer) == "true"
+        })
     }
 
     @Test
@@ -1074,6 +1097,25 @@ class LiveFacebookCanaryTest {
               return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
             })()
         """
+
+        // The chat's latest shared post (Facebook's /share/p/ link), scrolled into view, as tapIn's
+        // box; "" while there's none.
+        private const val CHAT_POST_BOX_JS = """
+            (function () {
+              var links = Array.prototype.filter.call(document.querySelectorAll('a[href*="/share/p/"]'),
+                function (a) { var r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+              if (!links.length) return '';
+              var link = links[links.length - 1];
+              link.scrollIntoView({ block: 'center' });
+              var r = link.getBoundingClientRect();
+              return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
+            })()
+        """
+
+        // A chat on screen: its message box has a size (the chat list keeps it with none).
+        private const val CHAT_OPEN_JS =
+            "Array.prototype.some.call(document.querySelectorAll('[role=\"textbox\"][contenteditable=\"true\"]')," +
+                " function (e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })"
 
         // What follows /messages/ in FB_TEST_CHAT's chat ("t/<id>", "e2ee/t/<id>"), given as its
         // address, that path or a bare id.

@@ -113,6 +113,24 @@ class MessagesLayerReelTest {
     }
 
     @Test
+    fun backOnTheReel_takesTheMainViewBackOffIt() {
+        // A main view page with history, so a step back has somewhere to land (its real address,
+        // kept off the network: see openChat).
+        app.loadPage("$MAIN_URL?n=2", PAGE, asHistory = true)
+        val layer = openChat()
+        moveTo(layer, "/reel/$REEL_ID")
+        reelOpenedInTheMainView()
+
+        app.pressBack()
+        assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        // Otherwise each reel opened from a chat stayed under Messages, and once Messages closed
+        // every Back showed one of them again.
+        assertTrue("the main view stayed on the reel under the chat (${app.url(app.mainWebView())})", app.waitFor(10_000) {
+            !app.url(app.mainWebView()).contains(REEL_ID)
+        })
+    }
+
+    @Test
     fun backWithAPhotoOpen_closesThePhoto_notTheChat() {
         // The desktop photo viewer isn't a page of its own: stepping back left the chat for
         // "No chats selected".
@@ -140,17 +158,21 @@ class MessagesLayerReelTest {
     }
 
     @Test
-    fun backToTheChat_keepsTheReelBehindItPaused() {
-        // Facebook's reel player starts a paused reel again: it went on playing, with its sound,
-        // under the chat.
+    fun backToTheChat_keepsTheMainViewPaused() {
+        // Facebook's reel player starts a paused reel again: a reel went on playing, with its sound,
+        // under the chat. Back to the chat now takes the main view back off the reel, to a page
+        // that loads under the chat: that page is kept paused too.
         val layer = openChat()
         moveTo(layer, "/reel/$REEL_ID")
         reelOpenedInTheMainView()
         val main = app.mainWebView()
-        app.eval("document.body.insertAdjacentHTML('beforeend', \"<video id='reel' playsinline></video>\"); 1", main)
 
         app.pressBack()
         assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        assertTrue("the main view stayed on the reel", app.waitFor(10_000) { !app.url(main).contains(REEL_ID) })
+        // The page under the chat (a test page in place of the real one, kept off the network).
+        app.loadPage("$MAIN_URL?n=3", PAGE)
+        app.eval("document.body.insertAdjacentHTML('beforeend', \"<video id='reel' playsinline></video>\"); 1", main)
         Thread.sleep(1000)
         // The reel's player starts it again.
         app.eval("var v = document.getElementById('reel'); var p = v.play(); if (p && p.catch) p.catch(function () {}); 1", main)

@@ -6,15 +6,80 @@
   if (window.__astryxLayerNavInstalled || !(window.AstryxPage || window.LayerBridge)) return;
   window.__astryxLayerNavInstalled = true;
 
+  // A chat left for another page in the layer (a post shared in it), to show again on the way
+  // back: an end-to-end encrypted chat opened again at its address shows the chat list at phone
+  // width (Back from a shared post landed there). Kept in sessionStorage in case that page was a
+  // full load.
+  var RETURN_CHAT = 'astryxReturnChat';
+  var CHAT_PATH = /^\/messages\/(?:e2ee\/)?t\/[^\/]+/;
+  var shownChat = null;
+
+  function chatPathOf(href) {
+    var a = document.createElement('a');
+    a.href = href;
+    var m = CHAT_PATH.exec(a.pathname);
+    return m ? m[0] + '/' : null;
+  }
+
+  function returnChat() {
+    try { return sessionStorage.getItem(RETURN_CHAT); } catch (e) { return null; }
+  }
+
+  function setReturnChat(path) {
+    try {
+      if (path) sessionStorage.setItem(RETURN_CHAT, path); else sessionStorage.removeItem(RETURN_CHAT);
+    } catch (e) {}
+  }
+
+  // Back at the chat it left: while the list shows instead, its row is tapped (for up to 10 s).
+  function reopenChat(path) {
+    var until = Date.now() + 10000;
+    var tapped = 0;
+    (function poll() {
+      if (chatPathOf(location.href) !== path || chatOpen() || Date.now() > until) return;
+      var row = document.querySelector('a[href="' + path + '"]');
+      var r = row && row.getBoundingClientRect();
+      if (r && r.width > 0 && r.height > 0 && Date.now() - tapped > 3000) {
+        tapped = Date.now();
+        row.click();
+      }
+      setTimeout(poll, 250);
+    })();
+  }
+
   var last = location.href;
   function check() {
+    var path = chatPathOf(location.href);
+    // The chat itself on screen, not the list (which keeps the chat's address).
+    if (path) shownChat = chatOpen() ? path : null;
     if (location.href === last) return;
+    var from = chatPathOf(last);
     last = location.href;
+    if (from && from === shownChat && location.pathname.indexOf('/messages') !== 0) {
+      setReturnChat(from);
+    } else if (path && path === returnChat()) {
+      setReturnChat(null);
+      reopenChat(path);
+    } else if (location.pathname.indexOf('/messages') === 0) {
+      setReturnChat(null);
+    }
     if (window.AstryxPage) {
       window.AstryxPage.postMessage(JSON.stringify({ call: 'layerUrl', url: last }));
     } else {
       window.LayerBridge.onUrlChanged(last);
     }
+  }
+  // A shared post opens as a new page load (its link opens a new window, which the app loads in
+  // the layer), which no URL watching sees: the chat on screen is kept as the page goes.
+  window.addEventListener('pagehide', function () {
+    check();
+    if (shownChat && shownChat === chatPathOf(location.href)) setReturnChat(shownChat);
+  });
+  // Loaded anew at the chat it left.
+  var startPath = chatPathOf(location.href);
+  if (startPath && startPath === returnChat()) {
+    setReturnChat(null);
+    reopenChat(startPath);
   }
 
   ['pushState', 'replaceState'].forEach(function (name) {
