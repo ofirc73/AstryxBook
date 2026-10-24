@@ -56,10 +56,14 @@ user-visible change.
   runs, so it's scheduled every 2 hours until 17:37 UTC, and the later runs stand down once one
   has run),
   logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64; the Messages
-  layer checks open the chat in `FB_TEST_CHAT`, `-e fbChat`: its address, `e2ee/t/<id>` or a bare id; skipped without it), and reports failures
+  layer checks open the chat in `-e fbChat`: its address, `e2ee/t/<id>` or a bare id; skipped without
+  it), and reports failures
   in one "Daily Facebook check failed" issue; a check that passed only after a workaround (the reel
   check's second Home) prints a `CANARY NOTE:` line (`note()`), shown as a warning on the run. Never put a
-  personal account's cookies there.
+  personal account's cookies there. The Messages layer checks run only on the local emulator
+  (`tools/canary.ps1 -Chat e2ee/t/<id>`): the test account's chat is end-to-end encrypted, and
+  GitHub's emulator, logged in by cookies alone, gets its restore prompt instead of its messages
+  (tried 2026-10-24 with an `FB_TEST_CHAT` secret: all three failed). Leave that secret unset.
 - Release builds are minified (R8 full mode); debug builds and the tests aren't. A class or
   constructor something creates by reflection needs a keep rule in `proguard-rules.pro` (v1.25.1
   and v1.25.2 crashed at launch: WorkManager's Room database). The instrumented-tests job also
@@ -71,7 +75,7 @@ user-visible change.
   auto-versions from conventional commits (`feat:` = minor bump) and
   publishes a release (every commit type bumps at least the patch, `test:` too). A push
   touching only docs, tests or repo tooling (`*.md`, `LICENSE`, `fastlane/`, `assets/`,
-  `app/src/test/`, `app/src/androidTest/`, `.github/`, `.gitignore`, `lint.xml`)
+  `app/src/test/`, `app/src/androidTest/`, `.github/`, `.gitignore`, `lint.xml`, `tools/`)
   skips it via `paths-ignore`; those commits go out with the next release. So does a push whose commits since the last release are all
   Dependabot's (`compute-version`'s check; its security updates touch the Gradle files): they go
   out with the next real release.

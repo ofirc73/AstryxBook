@@ -400,17 +400,16 @@ class LiveFacebookCanaryTest {
         }
     }
 
-    // The chat the Messages layer checks open (FB_TEST_CHAT, passed as -e fbChat): one of the
-    // test account's chats with a photo and a shared reel in it, given as its address, what follows
-    // /messages/ in it ("e2ee/t/<id>" for an end-to-end encrypted chat) or a bare id. Returns that
-    // path ("t/<id>", "e2ee/t/<id>"); null when unset, noted once per run.
-    private fun testChat(): String? {
+    // The chat the Messages layer checks open (-e fbChat): one of the test account's chats with a
+    // photo and a shared reel in it, given as its address, what follows /messages/ in it
+    // ("e2ee/t/<id>" for an end-to-end encrypted chat) or a bare id. Returns that path ("t/<id>",
+    // "e2ee/t/<id>"); without it the check is skipped. Only a device that holds the chat's keys
+    // shows an end-to-end encrypted chat's messages: GitHub's emulator, logged in by cookies, gets
+    // the chat's restore prompt instead (2026-10-24), so these checks run on the local emulator.
+    private fun testChat(): String {
         val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }
-        if (chat == null && !notedNoChat) {
-            notedNoChat = true
-            note("FB_TEST_CHAT isn't set: the Messages layer checks didn't run")
-        }
-        return chat?.let { chatPath(it) }
+        assumeTrue("the Messages layer checks need a test chat (-e fbChat)", chat != null)
+        return chatPath(chat!!)
     }
 
     // Messages in desktop mode on, and the chat opened from the main view as a tap on a Messages
@@ -464,7 +463,7 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt() {
-        val chat = testChat() ?: return
+        val chat = testChat()
         val layer = openChatInTheLayer(chat)
         if (!app.waitFor(45_000) { app.eval(OPEN_CHAT_PHOTO_JS, layer) == "true" }) {
             fail("no photo to open in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
@@ -486,7 +485,7 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
-        val chat = testChat() ?: return
+        val chat = testChat()
         val layer = openChatInTheLayer(chat)
         if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) {
             fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
@@ -504,7 +503,7 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun backInAChat_goesToTheChatList_andThenClosesTheLayer() {
-        val chat = testChat() ?: return
+        val chat = testChat()
         val layer = openChatInTheLayer(chat)
         app.pressBack()
         assertTrue(
@@ -719,9 +718,6 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
-        // The run's tests share one process: the missing chat is noted by the first check only.
-        private var notedNoChat = false
-
         // The public test group the test account joined ("Android Developer With Android Studio",
         // 2026-10-15) for group shares. Nothing is ever posted there.
         private const val TEST_GROUP_URL = "https://m.facebook.com/groups/355723031242469/"

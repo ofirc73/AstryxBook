@@ -468,8 +468,10 @@ live check guards:
   `sessionStorage`, which the re-layout after an empty PiP window removes.
 - `startOnFeeds_pressesTheMenusFeedsEntry`, `facebookNotifications_readTheCountsFromTheTabBar`:
   `open_feeds.js` (`OpenFeedsJsTest`) and the notification counts (`FacebookCountsNotificationTest`).
-- In a chat named by the `FB_TEST_CHAT` secret (`-e fbChat`: the chat's address, `e2ee/t/<id>` or a
-  bare id; skipped with a note while it isn't set), one with a photo and a shared reel:
+- In a chat named by `-e fbChat` (the chat's address, `e2ee/t/<id>` or a bare id; skipped without
+  it), one with a photo and a shared reel. These run only on the local emulator
+  (`tools/canary.ps1 -Chat`): the test account's chat is end-to-end encrypted, and GitHub's emulator,
+  logged in by cookies alone, gets its restore prompt instead of its messages:
   `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt` (`layer_photo_viewer.js`,
   `LayerPhotoViewerJsTest`), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
   (`MessagesLayerReelTest`) and `backInAChat_goesToTheChatList_andThenClosesTheLayer`
