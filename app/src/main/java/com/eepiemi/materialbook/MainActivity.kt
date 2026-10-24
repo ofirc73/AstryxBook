@@ -51,7 +51,7 @@ import com.eepiemi.materialbook.ui.screens.ShareMediaRequest
 import com.eepiemi.materialbook.ui.screens.OpenLinkRequest
 import com.eepiemi.materialbook.utils.appOrientation
 import com.eepiemi.materialbook.utils.PipWindowParams
-import com.eepiemi.materialbook.utils.pipParamsDelayMs
+import com.eepiemi.materialbook.utils.pipParamsNeedSending
 import com.eepiemi.materialbook.utils.steadyPipRatio
 import com.eepiemi.materialbook.utils.publishAppShortcuts
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
@@ -123,21 +123,14 @@ class MainActivity : FragmentActivity() {
     // then already B, not the A the aspect ratio was computed from.
     private var pipEnteringTrigger by mutableIntStateOf(0)
 
-    // What the PiP window was last sent, and a pause the page reported in PiP that waits to be
-    // sent (PipWindowParams.kt: each update can put a window the user resized back to its first
-    // size). Main thread only.
+    // What the PiP window was last sent (PipWindowParams.kt). Main thread only.
     private var sentPipParams: PipWindowParams? = null
     private val pipParamsHandler = Handler(Looper.getMainLooper())
-    private var pipParamsPending = false
-    private val sendPendingPipParams = Runnable { sendPlaybackPipParams() }
-    @Volatile
-    private var lastPipToggleAt = 0L
 
     private val pipActionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_PIP_TOGGLE) {
                 Log.d(TAG, "pipActionReceiver: toggle requested")
-                lastPipToggleAt = SystemClock.elapsedRealtime()
                 pipToggleTrigger++
             }
         }
@@ -381,7 +374,6 @@ class MainActivity : FragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        pipParamsHandler.removeCallbacks(sendPendingPipParams)
         unregisterReceiver(pipActionReceiver)
         unregisterReceiver(screenOffReceiver)
         lockScreenAudio.onDestroy()
@@ -399,12 +391,6 @@ class MainActivity : FragmentActivity() {
             Log.d(TAG, "onPictureInPictureModeChanged: startedWhilePlaying=$pipStartedWhilePlaying")
         }
         isInPipMode = isInPictureInPictureMode
-        // A pause held back in PiP is sent on leaving it: the next Home mustn't start PiP for a
-        // video that stopped.
-        if (!isInPictureInPictureMode && pipParamsPending) {
-            pipParamsHandler.removeCallbacks(sendPendingPipParams)
-            sendPlaybackPipParams()
-        }
 
         lockScreenAudio.onPipModeChanged(isInPictureInPictureMode)
 
@@ -507,34 +493,15 @@ class MainActivity : FragmentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // PipBridge reports from the JavaScript thread (old WebViews), AstryxPage on the main one.
-            if (Looper.myLooper() == Looper.getMainLooper()) schedulePlaybackPipParams()
-            else pipParamsHandler.post { schedulePlaybackPipParams() }
+            if (Looper.myLooper() == Looper.getMainLooper()) sendPlaybackPipParams()
+            else pipParamsHandler.post { sendPlaybackPipParams() }
         }
     }
 
-    // In PiP, sends only what changes the window and holds a pause the page reports (Facebook
-    // pauses after each resize, the keep-playing guard resumes): see PipWindowParams.kt.
-    private fun schedulePlaybackPipParams() {
-        pipParamsHandler.removeCallbacks(sendPendingPipParams)
-        pipParamsPending = false
-        val next = PipWindowParams(currentAspectRatio, isVideoPlaying)
-        val delayMs = pipParamsDelayMs(
-            isInPictureInPictureMode,
-            sentPipParams,
-            next,
-            SystemClock.elapsedRealtime() - lastPipToggleAt
-        ) ?: return
-        if (delayMs > 0) {
-            Log.d(TAG, "setPictureInPictureParams: pause held for ${delayMs}ms")
-            pipParamsPending = true
-            pipParamsHandler.postDelayed(sendPendingPipParams, delayMs)
-        } else {
-            sendPlaybackPipParams()
-        }
-    }
-
+    // In PiP, sends only what changes the window: see PipWindowParams.kt.
     private fun sendPlaybackPipParams() {
-        pipParamsPending = false
+        val next = PipWindowParams(currentAspectRatio, isVideoPlaying)
+        if (!pipParamsNeedSending(isInPictureInPictureMode, sentPipParams, next)) return
         val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
         Log.d(TAG, "setPictureInPictureParams: autoEnter=$autoEnter")
         applyPipParams(isVideoPlaying, autoEnter)

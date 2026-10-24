@@ -693,14 +693,16 @@ leaving the app while a Facebook video or Reel is playing.
   new page too. Found through a test that failed now and then in CI
   (`theAppsScripts_runOnFacebooksPages`); covered by
   `theAppsScripts_runOnEveryPage_evenOneThatLoadsWithinAFrame`, which failed every time before.
-- Resizing the PiP window (pinching it or dragging its corner; Android keeps the video's ratio)
-  now sticks: the window went back to its first size as soon as the fingers lifted. Facebook
-  pauses the video after every resize and the keep-playing guard resumes it, and the app sent the
-  window a Play button, then a Pause button, each an update that puts a resized window back.
-  While in PiP the app now sends only updates that change the window, holds a pause the page
-  reports for 1.5 seconds (a pause from the window's own button still shows at once), and keeps
-  the window's ratio when Facebook switches the video's quality (a ratio change under 2%).
-  Covered by `PipWindowParamsTest`.
+- While in PiP the app sends the window only updates that change it (its ratio or the Play/Pause
+  button), and keeps the window's ratio when Facebook switches the video's quality (a ratio change
+  under 2%, which would otherwise resize the window). Covered by `PipWindowParamsTest`.
+- Correction: v1.35.8 described this as the fix for a pinched PiP window "going back" when the
+  fingers lift, and also held a pause the page reported for 1.5 seconds. Neither was the cause:
+  logs on the phone (One UI 9) show the window keeping its size through every update. It stops at
+  Android's largest PiP size, which for a portrait reel is about half the screen's width (see
+  Known limitations). The 1.5-second hold is gone; the window's button shows a pause at once again.
+  `MainActivityPipTest` now pinches the PiP window of a portrait reel and of a landscape video
+  bigger and checks it keeps that size through the app's Play/Pause updates.
 
 ## Sharing, text size, shortcuts and developer options
 
@@ -1009,6 +1011,11 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   a tap enlarges it while they show, then it shrinks back (Android's own PiP, seen on Android 16
   and 17). Android keeps a bigger size for the next videos. Apps can only set the window's aspect
   ratio, not its size; a double tap or a pinch makes the first one bigger.
+- A PiP window can't grow past Android's largest PiP size: its longest side is about the screen's
+  width less the margins (978 pixels on a 1080-pixel-wide phone, every app alike). A portrait reel's
+  window (4:7) stops at about half the screen's width (557x974); pinched further, it springs back
+  to that when the fingers lift. A wider *PiP portrait ratio* in Settings (3:4) allows a wider
+  window, cropping more of the reel.
 - Shared videos can only go to a story: m.facebook.com's post composer takes photos only. Several
   items shared to a story are offered one story at a time; Facebook's web story creator takes a
   single photo or video per story.

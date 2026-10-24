@@ -2,7 +2,8 @@ package com.eepiemi.materialbook.utils
 
 import android.util.Rational
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -13,36 +14,29 @@ class PipWindowParamsTest {
     private val reel = Rational(9, 16)
     private val playing = PipWindowParams(reel, playing = true)
     private val paused = PipWindowParams(reel, playing = false)
-    private val longAgo = PIP_USER_TOGGLE_MS + 1
-
     @Test
-    fun outsidePip_everyUpdateIsSentAtOnce() {
-        assertEquals(0L, pipParamsDelayMs(inPip = false, sent = playing, next = playing, msSinceUserToggle = longAgo))
-        assertEquals(0L, pipParamsDelayMs(inPip = false, sent = playing, next = paused, msSinceUserToggle = longAgo))
+    fun outsidePip_everyUpdateIsSent() {
+        assertTrue(pipParamsNeedSending(inPip = false, sent = playing, next = playing))
+        assertTrue(pipParamsNeedSending(inPip = false, sent = playing, next = paused))
     }
 
     @Test
     fun inPip_anUnchangedUpdateIsNotSent() {
         // Facebook paused after a resize and the guard resumed it: the window still shows Pause.
-        assertNull(pipParamsDelayMs(inPip = true, sent = playing, next = playing, msSinceUserToggle = longAgo))
-        assertNull(pipParamsDelayMs(inPip = true, sent = playing, next = PipWindowParams(Rational(18, 32), true), msSinceUserToggle = longAgo))
+        assertFalse(pipParamsNeedSending(inPip = true, sent = playing, next = playing))
+        assertFalse(pipParamsNeedSending(inPip = true, sent = playing, next = PipWindowParams(Rational(18, 32), true)))
     }
 
     @Test
-    fun inPip_aPauseFromThePageIsHeld() {
-        assertEquals(PIP_PAUSE_SETTLE_MS, pipParamsDelayMs(inPip = true, sent = playing, next = paused, msSinceUserToggle = longAgo))
+    fun inPip_aPauseIsSentAtOnce() {
+        assertTrue(pipParamsNeedSending(inPip = true, sent = playing, next = paused))
     }
 
     @Test
-    fun inPip_aPauseAfterTheUsersTapIsSentAtOnce() {
-        assertEquals(0L, pipParamsDelayMs(inPip = true, sent = playing, next = paused, msSinceUserToggle = 400))
-    }
-
-    @Test
-    fun inPip_playAndANewRatioAreSentAtOnce() {
-        assertEquals(0L, pipParamsDelayMs(inPip = true, sent = paused, next = playing, msSinceUserToggle = longAgo))
-        assertEquals(0L, pipParamsDelayMs(inPip = true, sent = playing, next = PipWindowParams(Rational(16, 9), true), msSinceUserToggle = longAgo))
-        assertEquals(0L, pipParamsDelayMs(inPip = true, sent = null, next = playing, msSinceUserToggle = longAgo))
+    fun inPip_playAndANewRatioAreSent() {
+        assertTrue(pipParamsNeedSending(inPip = true, sent = paused, next = playing))
+        assertTrue(pipParamsNeedSending(inPip = true, sent = playing, next = PipWindowParams(Rational(16, 9), true)))
+        assertTrue(pipParamsNeedSending(inPip = true, sent = null, next = playing))
     }
 
     @Test
