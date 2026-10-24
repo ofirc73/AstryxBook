@@ -432,7 +432,10 @@ on their own can't:
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
 visible video, a photo shared to Feed reaching the composer, Create story opening the creator,
-Start on Feeds finding the menu entry, and the notification counts read from the tab bar. It
+Start on Feeds finding the menu entry, the notification counts read from the tab bar, Remove ads
+hiding the feed's and the reels' ads (an ad label it missed, found by its text, fails the check; a
+run that saw no ad says so in a note), and the reel player's `data-video-url` being an MP4 the page
+can fetch (what downloads and the lock-screen audio hand-off play). It
 needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens

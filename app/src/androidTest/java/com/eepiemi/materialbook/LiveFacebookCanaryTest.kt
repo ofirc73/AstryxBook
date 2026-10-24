@@ -134,11 +134,10 @@ class LiveFacebookCanaryTest {
         eval("location.href = '$url'; 1")
     }
 
-    @Test
-    fun aReel_keepsPlayingInPip() {
+    // The Reels tab with a reel playing. The test account on GitHub gets "Content not found" for
+    // the Reels tab (no reels for it there): a public reel, opened by its address, is used instead.
+    private fun openPlayingReel() {
         open("https://m.facebook.com/reels/")
-        // The test account on GitHub gets "Content not found" for the Reels tab (no reels for it
-        // there): a public reel, opened by its address, is checked instead.
         if (app.waitFor(20_000) { eval("document.title === 'Content not found'") == "true" }) {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
@@ -151,6 +150,11 @@ class LiveFacebookCanaryTest {
             playing = app.waitFor(30_000) { eval(PLAYING_JS) == "true" }
         }
         if (!playing) fail("no reel played on /reels/ (${runCatching { eval(VIDEO_STATE_JS) }.getOrDefault("")}; ${pageShape()})")
+    }
+
+    @Test
+    fun aReel_keepsPlayingInPip() {
+        openPlayingReel()
         assertTrue(
             "the reels' containers (div.vertically-snappable, adblock.js) are gone",
             eval("!!document.querySelector('div.vertically-snappable')") == "true"
@@ -261,6 +265,97 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun removeAds_hidesTheFeedsAds() {
+        open("https://m.facebook.com/")
+        if (!app.waitFor(30_000) { feedAds().posts > 0 }) {
+            fail("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) (${pageShape()})")
+        }
+        // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
+        // loads more posts as the page scrolls.
+        var ads = feedAds()
+        for (screen in 1..FEED_SCREENS) {
+            if (ads.hidden > 0 || ads.missed > 0) break
+            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+            Thread.sleep(2000)
+            ads = feedAds()
+        }
+        if (ads.missed > 0) {
+            fail("${ads.missed} of ${ads.posts} feed posts kept a Sponsored label on the feed: adblock.js no longer " +
+                "finds it (its colour, span.f5 or div.native-text.rslh changed). The label: ${ads.missedShape}")
+        }
+        if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
+            fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
+                "normal posts too")
+        }
+        if (ads.hidden == 0) note("no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
+    }
+
+    @Test
+    fun removeAds_emptiesTheReelsAds() {
+        openPlayingReel()
+        // Through the reels, one at a time, until adblock.js has emptied an ad or a label it missed
+        // shows up; Facebook adds reels as the user moves on.
+        var ads = reelAds()
+        var stuck = 0
+        for (reel in 1..REELS_TO_SEE) {
+            if (ads.hidden > 0 || ads.missed > 0 || stuck >= 3) break
+            val moved = eval(NEXT_REEL_JS) == "true"
+            Thread.sleep(2500)
+            stuck = if (moved) 0 else stuck + 1
+            ads = reelAds()
+        }
+        if (ads.missed > 0) {
+            fail("${ads.missed} of ${ads.posts} reels kept an ad label: adblock.js no longer finds it (a span " +
+                "holding just the label in div.vertically-snappable). The label: ${ads.missedShape}")
+        }
+        if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
+            fail("adblock.js emptied ${ads.hidden} of ${ads.posts} reels as ads")
+        }
+        if (ads.hidden == 0) note("no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
+    }
+
+    @Test
+    fun aReelsPlayer_hasItsMp4InDataVideoUrl() {
+        // Downloads (download_content.js) and the lock-screen audio hand-off (PIP_HANDOFF_ARM_JS)
+        // take a video's file from its player's data-video-url: the <video> itself plays a blob:.
+        openPlayingReel()
+        val started = eval(VIDEO_FILE_JS).trim('"')
+        if (started != "fetching") {
+            fail("the playing reel's player has no MP4 in data-video-url (download_content.js, " +
+                "PIP_HANDOFF_ARM_JS): $started (${pageShape()})")
+        }
+        var file = "pending"
+        assertTrue("data-video-url's file never answered", app.waitFor(30_000) {
+            file = eval("window.__canaryVideoFile").trim('"')
+            file != "pending"
+        })
+        assertTrue(
+            "data-video-url isn't an MP4 the page can fetch, as a download does: $file",
+            file.startsWith("status=200 ") && (" type=video/" in file || " box=ftyp" in file)
+        )
+    }
+
+    // What adblock.js did on the feed so far (FEED_ADS_JS).
+    private fun feedAds() = AdCount.parse(eval(FEED_ADS_JS))
+
+    // What adblock.js did on the reels so far (REEL_ADS_JS).
+    private fun reelAds() = AdCount.parse(eval(REEL_ADS_JS))
+
+    // Posts (or reels) seen, the ads adblock.js hid among them, the ones still showing an ad label
+    // and the last such label's shape (tag, class, colour: no text).
+    private data class AdCount(val posts: Int, val hidden: Int, val missed: Int, val missedShape: String) {
+        companion object {
+            fun parse(json: String): AdCount {
+                val parts = json.trim('"').split('|')
+                if (parts.size < 4) return AdCount(0, 0, 0, "")
+                return AdCount(
+                    parts[0].toIntOrNull() ?: 0, parts[1].toIntOrNull() ?: 0, parts[2].toIntOrNull() ?: 0, parts[3]
+                )
+            }
+        }
+    }
+
+    @Test
     fun startOnFeeds_pressesTheMenusFeedsEntry() {
         open("https://m.facebook.com/bookmarks/#astryx-feeds")
         val pressed = app.waitFor(30_000) {
@@ -277,10 +372,10 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
-        // A public reel (shared with Public), for when the Reels tab has nothing for the account.
         // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
         private const val NOTE_STATUS = 3
+        // A public reel (shared with Public), for when the Reels tab has nothing for the account.
         private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of
         // the account's: the address without values, the title, counts, and the ids of Facebook's
@@ -294,6 +389,135 @@ class LiveFacebookCanaryTest {
                 " ' login=' + !!document.querySelector('input[name=pass]') +" +
                 " ' feedsIcon=' + !!document.querySelector('img[src*=FTDJiLwLrcM]') + ' feedsLabel=' + !!document.querySelector('[aria-label=Feeds]') +" +
                 " ' icons=' + icons.join(','); })()"
+        // How far down the feed, and through how many reels, the Remove ads checks look for an ad.
+        private const val FEED_SCREENS = 15
+        private const val REELS_TO_SEE = 15
+
+        // An ad label found by its text alone ("Sponsored", "Ad"; the test account uses Facebook in
+        // English), independently of how adblock.js finds it: an element showing just the label,
+        // once icon glyphs, direction marks, spaces and separators are left out. Its shape, for a
+        // failure message: tag, class, colour and its parent's tag and class, no text.
+        private const val AD_LABEL_FNS = """
+            function canaryText(e) {
+              return (e.textContent || '').replace(/[\uE000-\uF8FF\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '')
+                .replace(/[\s\u00B7\u2022|:-]+/g, ' ').trim().toLowerCase();
+            }
+            function canaryLabelIn(root, words) {
+              var all = root.querySelectorAll('*');
+              for (var i = 0; i < all.length; i++) {
+                var e = all[i];
+                if (e.children.length > 2 || !e.getClientRects().length) continue;
+                var t = canaryText(e);
+                if (words.indexOf(t) < 0) continue;
+                // The innermost element showing it.
+                for (var deeper = true; deeper;) {
+                  deeper = false;
+                  for (var c = e.firstElementChild; c; c = c.nextElementSibling) {
+                    if (canaryText(c) === t) { e = c; deeper = true; break; }
+                  }
+                }
+                return e;
+              }
+              return null;
+            }
+            function canaryShape(e) {
+              var p = e.parentElement;
+              return e.tagName.toLowerCase() + '.' + String(e.className || '').trim().replace(/\s+/g, '.') +
+                ' color=' + (e.style.color || getComputedStyle(e).color) + ' in ' +
+                (p ? p.tagName.toLowerCase() + '.' + String(p.className || '').trim().replace(/\s+/g, '.') : 'none');
+            }
+        """
+
+        // The feed's posts in the boxes adblock.js hides (top-level ones), the ones it hid (hidden,
+        // with the grey label it looks for inside) and the visible ones still showing a Sponsored
+        // label, counted across scrolls: "posts|hidden|missed|shape".
+        private const val FEED_ADS_JS = """
+            (function () {
+              $AD_LABEL_FNS
+              var sel = 'div[data-dcm-id="1"][data-mcomponent="MContainer"]';
+              var grey = 'div.native-text.rslh > span.f5[style*="color:#8a8d91"]';
+              var s = window.__canaryFeed || (window.__canaryFeed = { posts: 0, hidden: 0, missed: 0, shape: '' });
+              var all = document.querySelectorAll(sel);
+              for (var i = 0; i < all.length; i++) {
+                var p = all[i];
+                if (!p.__canarySeen && !(p.parentElement && p.parentElement.closest(sel))) { p.__canarySeen = true; s.posts++; }
+                if (p.style.display === 'none') {
+                  if (!p.__canaryHidden && p.querySelector(grey)) { p.__canaryHidden = true; s.hidden++; }
+                  continue;
+                }
+                if (p.__canaryMissed) continue;
+                var label = canaryLabelIn(p, ['sponsored']);
+                if (label) { p.__canaryMissed = true; s.missed++; s.shape = canaryShape(label); }
+              }
+              return [s.posts, s.hidden, s.missed, s.shape].join('|');
+            })()
+        """
+
+        // The reels seen (div.vertically-snappable), the ones adblock.js emptied as ads and the ones
+        // still showing an ad label, counted as the user moves on: "reels|hidden|missed|shape".
+        private const val REEL_ADS_JS = """
+            (function () {
+              $AD_LABEL_FNS
+              var s = window.__canaryReels || (window.__canaryReels = { reels: 0, hidden: 0, missed: 0, shape: '' });
+              var all = document.querySelectorAll('div.vertically-snappable');
+              for (var i = 0; i < all.length; i++) {
+                var r = all[i];
+                if (!r.__canarySeen) { r.__canarySeen = true; s.reels++; }
+                if (r.dataset.adHidden === 'true') {
+                  if (!r.__canaryHidden) { r.__canaryHidden = true; s.hidden++; }
+                  continue;
+                }
+                if (r.__canaryMissed) continue;
+                var label = canaryLabelIn(r, ['ad', 'sponsored']);
+                if (label) { r.__canaryMissed = true; s.missed++; s.shape = canaryShape(label); }
+              }
+              return [s.reels, s.hidden, s.missed, s.shape].join('|');
+            })()
+        """
+
+        // Brings the next reel below the one on screen into view, as a swipe up would; false when
+        // there's none (yet).
+        private const val NEXT_REEL_JS =
+            "(function () { var all = document.querySelectorAll('div.vertically-snappable');" +
+                " for (var i = 0; i < all.length; i++) { if (all[i].getBoundingClientRect().top > 10) {" +
+                " all[i].scrollIntoView(); return true; } } return false; })()"
+
+        // Starts fetching the playing reel's data-video-url as download_content.js does (only its
+        // first bytes are read), the answer in window.__canaryVideoFile: "status=.. type=.. box=..".
+        // Returns "fetching", or why it couldn't (no address in the result: it carries a signature).
+        private const val VIDEO_FILE_JS = """
+            (function () {
+              var videos = document.querySelectorAll('video'), v = null;
+              for (var i = 0; i < videos.length; i++) { if (!videos[i].paused) { v = videos[i]; break; } }
+              v = v || videos[0];
+              if (!v) return 'no video';
+              var player = v.closest('[data-video-url]');
+              if (!player) {
+                var chain = [];
+                for (var e = v.parentElement; e && chain.length < 8; e = e.parentElement) {
+                  if (e.getAttribute('data-mcomponent')) chain.push(e.getAttribute('data-mcomponent'));
+                }
+                return 'no [data-video-url] around the video (its players: ' + (chain.join(',') || 'none') + ')';
+              }
+              var url = player.getAttribute('data-video-url') || '';
+              if (url.indexOf('https://') !== 0) return 'data-video-url is not https (' + url.slice(0, 6) + ')';
+              window.__canaryVideoFile = 'pending';
+              fetch(url).then(function (r) {
+                var type = r.headers.get('content-type') || '';
+                if (!r.body) { window.__canaryVideoFile = 'status=' + r.status + ' type=' + type + ' box=none'; return; }
+                var reader = r.body.getReader();
+                return reader.read().then(function (c) {
+                  reader.cancel();
+                  var b = c.value || new Uint8Array(0);
+                  var box = String.fromCharCode.apply(null, Array.prototype.slice.call(b.subarray(4, 8)));
+                  window.__canaryVideoFile = 'status=' + r.status + ' type=' + type + ' box=' + box +
+                    ' player=' + (player.getAttribute('data-mcomponent') || 'none');
+                });
+              }).catch(function (e) { window.__canaryVideoFile = 'error=' + e.name; });
+              return 'fetching';
+            })()
+        """
+
         // What the page's videos are doing, for a failure message: a reel that doesn't play on one
         // device only (an emulator without the codec, an error from Facebook's server) shows here.
         private const val VIDEO_STATE_JS =
