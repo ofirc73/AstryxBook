@@ -39,10 +39,22 @@
   // The chat header's Back button: an icon button below Facebook's own header bar (56 px), at the
   // left, with the chat's name (a link) right next to it on the same row. The name tells it from
   // the chat list's search icon, which sits there too (Back on the list pressed it, and the list
-  // stayed; seen on a Galaxy A56).
+  // stayed; seen on a Galaxy A56). In an end-to-end encrypted chat the name can be a plain heading
+  // (the account's chat with itself, 2026-10-24; Back closed the layer): a heading counts while a
+  // chat's message box is on screen, which the chat list never has.
+  function chatOpen() {
+    var boxes = document.querySelectorAll('[role="textbox"][contenteditable="true"]');
+    for (var i = 0; i < boxes.length; i++) {
+      var r = boxes[i].getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return true;
+    }
+    return false;
+  }
+
   function chatBackButton() {
     var buttons = document.querySelectorAll('[role="button"]');
-    var links = document.querySelectorAll('a[href], [role="link"]');
+    var names = 'a[href], [role="link"]' + (chatOpen() ? ', h1, h2, h3, [role="heading"]' : '');
+    var links = document.querySelectorAll(names);
     for (var i = 0; i < buttons.length; i++) {
       var b = buttons[i], r = b.getBoundingClientRect();
       if (r.width < 20 || r.width > 56 || r.left < 0 || r.left > 80 || r.top < 56 || r.top > 200) continue;

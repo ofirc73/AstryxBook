@@ -509,6 +509,10 @@ separate layer was added on top.
   and other pages (a profile opened from a chat) step back a page. Stepping back a page from a
   chat left "No chats selected".
   Covered by `MessagesDesktopTest` and `MessagesLayerReelTest`.
+  In an end-to-end encrypted chat the name can be a plain heading rather than a link: Back then
+  closed the whole layer (found by the live checks on the test account's chat with itself). A
+  heading next to the button now counts while the chat's message box is on screen.
+  Covered by `MessagesLayerBackJsTest`.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
   Reels tab and the like open their mobile page in the main view
