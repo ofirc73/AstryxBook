@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.eepiemi.materialbook.utils.STORY_CREATE_URL
 import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
+import com.eepiemi.materialbook.utils.isMobilePostPage
 import com.eepiemi.materialbook.utils.isMobileReelPage
 import com.eepiemi.materialbook.utils.rendererRecoveryUrl
 
@@ -77,12 +78,15 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
     }
 
     /**
-     * Back in the main view, at [mainUrl]: on the reel a chat opened, opens that chat again and
-     * returns true (the caller takes the main view back to [mainBeforeReel], read first).
-     * Either way the chat is forgotten (Back on another page leaves it).
+     * Back in the main view, at [mainUrl] ([mainIndex] in its history): on the reel or post a chat
+     * opened, opens that chat again and returns true (the caller takes the main view back to
+     * [mainBeforeReel], read first). Either way the chat is forgotten (Back on another page leaves it).
      */
-    fun backToChat(mainUrl: String?): Boolean {
-        val onReel = isMobileReelPage(mainUrl)
+    fun backToChat(mainUrl: String?, mainIndex: Int? = null): Boolean {
+        val place = mainBeforeReel
+        // A reel's page, or the main view one step past where it was: m.facebook.com shows a post
+        // as Home with the post at the top, at Home's address.
+        val onReel = isMobileReelPage(mainUrl) || (place != null && mainIndex == place.index + 1)
         mainBeforeReel = null
         if (hidden) {
             if (onReel) {
@@ -125,7 +129,7 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         }
         // Both the interceptor and the in-page watcher can report the same exit.
         if (url != null && !closeOnReel) {
-            if (isMobileReelPage(mainUrl)) {
+            if (isMobileReelPage(mainUrl) || isMobilePostPage(mainUrl)) {
                 returnUrl = fromUrl
                 mainBeforeReel = mainPlace
                 closeOnReel = true

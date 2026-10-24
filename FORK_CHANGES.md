@@ -475,7 +475,9 @@ live check guards:
   `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt` (`layer_photo_viewer.js`,
   `LayerPhotoViewerJsTest`), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
   (`MessagesLayerReelTest`; the main view also leaves the reel),
-  `aPostSharedInAChat_opensInTheLayer_andBackShowsTheChat` and
+  `aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt` (`messagesLayerExit`),
+  `aPostThenAReelFromAChat_backEndsOnTheFeed_withNothingLeftBehind` (a post, then a reel, then Back
+  out of Messages: the main view ends on the feed with neither left in its history) and
   `backInAChat_goesToTheChatList_andThenClosesTheLayer` (`messages_layer_nav.js`,
   `MessagesLayerBackJsTest`).
 
@@ -513,7 +515,7 @@ separate layer was added on top.
   `m.me`, `messenger.com`, `fb-messenger://`, `intent://`) opens the layer. Links that
   point at a conversation keep it (`/messages/t/<id>`, `m.me/<name>`,
   `messenger.com/t/<id>`, `fb-messenger://user/<id>`); anything else opens the inbox.
-- Facebook pages opened from a chat (a profile, a post) open in the layer too, on the desktop
+- Facebook pages opened from a chat (a profile; posts since v1.35.17 open like reels) open in the layer too, on the desktop
   site, which opens profiles without pushing the Facebook app; Back returns to the chat.
   Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile
   redirects (profiles redirected to the Facebook app). Routing is in `messagesLayerRoute`;
@@ -558,12 +560,24 @@ separate layer was added on top.
   showed that reel as if it were the feed, and each Back went through every reel opened from the
   chat. The main view now goes back to where it was before the reel (the page loaded anew when the
   reel took its place in the main view's history), and a page it loads under the chat is kept
-  paused like the rest. A post shared in an end-to-end encrypted chat opens in the layer, and Back
-  from it opened the chat anew at its address, which shows the chat list: the chat on screen is
-  kept as the post opens (`sessionStorage`; the post is a new page load) and its row is tapped on
-  the way back, then the post's link is scrolled back into view (opened anew, the chat showed its
-  latest messages; v1.35.15 on the phone). Seen on the phone, with v1.35.14. Covered by `MessagesLayerStateTest`,
-  `MessagesLayerReelTest` and `MessagesLayerBackJsTest`, and live by the chat checks.
+  paused like the rest. Seen on the phone, with v1.35.14.
+- **A post shared in a chat opens like a reel**: in the main view, on the mobile site (which shows
+  it as Home with the post at the top, at Home's address), with the chat kept out of sight behind
+  it, so Back shows the same chat at the same place (`messagesLayerExit`: its `/share/p/` link,
+  `/<page>/posts/<id>`, `permalink.php`, `story.php`). Opened in the layer, Back first landed on
+  the chat list (v1.35.15 tapped the chat's row again), then on the chat's latest messages with a
+  visible jump back to the post (v1.35.16 scrolled to it). Since the post's address is Home's, Back
+  counts the main view one step past where it was as the post. Other pages opened from a chat (a
+  profile) still open in the layer; for those the chat is kept as the page goes (`sessionStorage`)
+  and comes back at the link that was tapped.
+- **Back no longer replays a reel once Messages closes**: when the reel had taken the earlier
+  page's place in the main view's history (a reel loaded before that page was kept), the main view
+  loads that page again under the chat, and the reel used to stay behind it, so Back after
+  Messages closed showed the reel again; it leaves the history once the page has loaded. Reported
+  on the phone with v1.35.16 (a post, then a reel, from the same chat). Covered by
+  `MessagesLayerStateTest`, `MessagesDesktopTest`, `MessagesLayerReelTest` and
+  `MessagesLayerBackJsTest`, and live by the chat checks, which now also run the phone's whole
+  sequence.
 - **Leaving Messages for Facebook's own sections** closes the layer: Home (or the logo)
   returns to the main feed where you left it, and Friends, Groups, Watch, Marketplace, the
   Reels tab and the like open their mobile page in the main view
@@ -571,7 +585,7 @@ separate layer was added on top.
   the main one, so reels picked from there played in the desktop layout and its gear did
   nothing. The desktop site often changes pages in-page rather than loading them, so
   `messages_layer_nav.js` reports those URL changes (`LayerBridge`) as well. Pages a chat
-  links to (a reel, a video, a group, a profile, a post) still stay in the layer.
+  links to (a video, a group, a profile) still stay in the layer; reels and posts leave for the main view.
 - The gear the page scripts add to the desktop header opens the app's Settings from the
   layer too (it had no `SettingsBridge`).
 - The layer gets the same page scripts as the main view (download hook, theme and so on).

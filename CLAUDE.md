@@ -52,7 +52,11 @@ user-visible change.
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
   Every test added or changed goes with the live checks: add or adjust the live check for what it
   covers, or say in FORK_CHANGES' Testing why it has none (it doesn't depend on Facebook's page, or
-  can't be checked live). The fixed-page tests keep passing when Facebook changes. `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
+  can't be checked live). The fixed-page tests keep passing when Facebook changes. A change to the
+  Messages layer or to Back runs the whole live suite on the local emulator, with the chat
+  (`-e fbChat`), before it's merged: each check starts a fresh app, so only the sequence check
+  (`aPostThenAReelFromAChat_backEndsOnTheFeed_withNothingLeftBehind`) catches one flow breaking the
+  next (v1.35.16 shipped a reel that replayed on every Back that way). `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
   runs, so it's scheduled every 2 hours until 17:37 UTC, and the later runs stand down once one
   has run),
   logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64; the Messages
@@ -103,8 +107,10 @@ user-visible change.
   second WebView with the desktop user agent over the main one. The main view never
   switches user agent for Messages; Facebook pages opened from a chat stay in the layer
   (`messagesLayerRoute`), but Facebook's own sections (Home, Friends, the Reels tab…) and a
-  reel's own page (`/reel/<id>`, as a reel shared in a chat opens; the layer is then kept hidden
-  behind the reel and Back shows it again, `MessagesLayerState`) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
+  reel's or a post's own page (`/reel/<id>`, `/share/p/<id>`, `/<page>/posts/<id>`, as a chat
+  opens them; the layer is then kept hidden behind it and Back shows it again,
+  `MessagesLayerState`; m.facebook.com shows a post as Home at Home's address, so the post counts
+  by the main view's history position) close the layer and open in the main view (`messagesLayerExit`; the desktop site navigates
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
   DevTools target. The layer pinch-zooms (not in the creators) and runs the page scripts with
   `window.__astryxMessagesLayer` set (`pinch_to_zoom.js` leaves it zoomable); `layer_photo_viewer.js`

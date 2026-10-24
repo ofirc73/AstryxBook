@@ -71,15 +71,20 @@ private val SECTION_PATHS = setOf(
 // A reel's own page (www.facebook.com/reel/<id>), as a reel shared in a chat opens.
 private val REEL_PAGE_PATH = Regex("^/reel/\\d+$")
 
+// A post shared in a chat: its share link (/share/p/<id>, as the chat links it) or its own page.
+private val POST_PAGE_PATH = Regex("^/(?:share/p/[^/]+|[^/]+/posts/[^/]+|permalink\\.php|story\\.php)$")
+
 /**
  * Leaving Messages for one of Facebook's sections (Home, Friends, Watch, the Reels tab, ...)
  * from inside the layer: that belongs in the main view, on the mobile site. Kept in the layer,
  * the desktop feed looked just like the main one, and reels opened from it played in the
  * desktop layout. A reel opened from a chat leaves too: the desktop reel page drew it small in
  * the layer's phone-wide layout, with no way to enlarge it, and it played without sound (seen on
- * a Galaxy A56); the mobile site's reel player shows it full size, with sound and PiP. Returns
- * null for anything else, including other pages opened from a chat (a profile, a post), which
- * stay in the layer.
+ * a Galaxy A56); the mobile site's reel player shows it full size, with sound and PiP. A post
+ * shared in a chat leaves the same way, so the chat is kept behind it like a reel's: opened in the
+ * layer, Back reloaded the chat, which showed its latest messages and then jumped back to the
+ * post. Returns null for anything else, including other pages opened from a chat (a profile),
+ * which stay in the layer.
  */
 fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
     val uri = runCatching { URI(url) }.getOrNull() ?: return null
@@ -92,6 +97,9 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
         path.isEmpty() || path == "/home.php" -> MessagesLayerRoute.Leave(null)
         path == "/watch" && query?.contains("v=") == true -> null
         REEL_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave("https://m.facebook.com$path/")
+        POST_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave(
+            "https://m.facebook.com$path" + (if (path.endsWith(".php")) "" else "/") + (query?.let { "?$it" } ?: "")
+        )
         path in SECTION_PATHS || path.startsWith("/friends/") ->
             MessagesLayerRoute.Leave("https://m.facebook.com$path/" + (query?.let { "?$it" } ?: ""))
         else -> null
@@ -102,6 +110,15 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
 fun isMobileReelPage(url: String?): Boolean {
     val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
     return uri.host?.lowercase() == "m.facebook.com" && REEL_PAGE_PATH.matches((uri.rawPath ?: "").trimEnd('/'))
+}
+
+/**
+ * A post's page on the mobile site, as [messagesLayerExit] opens one (m.facebook.com then shows it
+ * as Home with the post at the top, at Home's address).
+ */
+fun isMobilePostPage(url: String?): Boolean {
+    val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
+    return uri.host?.lowercase() == "m.facebook.com" && POST_PAGE_PATH.matches((uri.rawPath ?: "").trimEnd('/'))
 }
 
 /** The desktop Messages page (the one loaded with the desktop user agent). */
