@@ -15,7 +15,8 @@ name: Create Release
 #  3. workflow_dispatch — manual override with an explicit tag.
 #
 # A main push that only touches docs (Markdown, the fastlane store listing,
-# README images) or repo tooling that doesn't change the APK (.github:
+# README images), tests (unit and instrumented: not in the APK; ci.yml still
+# runs them on the PR) or repo tooling that doesn't change the APK (.github:
 # workflows, issue templates, dependabot; .gitignore; lint.xml) doesn't
 # release. GitHub checks paths against the whole push, so a push mixing
 # those with code still releases, and the skipped commits count toward the
@@ -33,6 +34,8 @@ on:
       - 'LICENSE'
       - 'fastlane/**'
       - 'assets/**'
+      - 'app/src/test/**'
+      - 'app/src/androidTest/**'
       - '.github/**'
       - '**/.gitignore'
       - 'lint.xml'
