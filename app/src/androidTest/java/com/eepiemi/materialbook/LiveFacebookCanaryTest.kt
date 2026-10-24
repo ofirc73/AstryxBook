@@ -272,8 +272,16 @@ class LiveFacebookCanaryTest {
     @Test
     fun removeAds_hidesTheFeedsAds() {
         open("https://m.facebook.com/")
-        if (!app.waitFor(30_000) { feedAds().posts > 0 }) {
-            fail("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) (${pageShape()})")
+        // The first screen can hold only the composer and the stories: the posts come below.
+        var found = app.waitFor(20_000) { feedAds().posts > 0 }
+        for (screen in 1..5) {
+            if (found) break
+            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+            found = app.waitFor(4_000) { feedAds().posts > 0 }
+        }
+        if (!found) {
+            fail("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) " +
+                "(${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")}; ${pageShape()})")
         }
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
@@ -537,6 +545,27 @@ class LiveFacebookCanaryTest {
                 if (label) { p.__canaryMissed = true; s.missed++; s.shape = canaryShape(label); }
               }
               return [s.posts, s.hidden, s.missed, s.shape].join('|');
+            })()
+        """
+
+        // The feed's structure, for a failure message (no text): how many of Facebook's boxes there
+        // are, the commonest data-dcm-id values of its MContainers, the text blocks and grey spans
+        // adblock.js looks at, and how far the page scrolled.
+        private const val FEED_SHAPE_JS = """
+            (function () {
+              var ids = {};
+              var boxes = document.querySelectorAll('[data-mcomponent="MContainer"]');
+              for (var i = 0; i < boxes.length; i++) {
+                var id = boxes[i].getAttribute('data-dcm-id') || 'none';
+                ids[id] = (ids[id] || 0) + 1;
+              }
+              var top = Object.keys(ids).sort(function (a, b) { return ids[b] - ids[a]; }).slice(0, 5)
+                .map(function (k) { return k + ':' + ids[k]; }).join(',');
+              return 'components=' + document.querySelectorAll('[data-mcomponent]').length +
+                ' containers=' + boxes.length + ' dcmIds=' + (top || 'none') +
+                ' textBlocks=' + document.querySelectorAll('div.native-text.rslh').length +
+                ' greySpans=' + document.querySelectorAll('span.f5[style*="color:#8a8d91"]').length +
+                ' scrollY=' + Math.round(window.scrollY) + ' height=' + document.documentElement.scrollHeight;
             })()
         """
 
