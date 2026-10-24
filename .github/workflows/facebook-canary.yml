@@ -4,7 +4,10 @@ name: Daily Facebook check
 # changing the pages the app's scripts rely on (the CI checks run on fixed test pages and can't).
 # Logged in to a Facebook TEST account through its session cookies in the FB_TEST_COOKIES secret
 # ("c_user=...; xs=...; datr=..."), set by the repo owner (gh secret set FB_TEST_COOKIES); never
-# a personal account. Nothing is posted: the checks stop at open editors.
+# a personal account. Nothing is posted: the checks stop at open editors. The Messages layer checks
+# open one of that account's chats, with a photo and a shared reel in it, named by the FB_TEST_CHAT
+# secret: its address, what follows /messages/ in it (e2ee/t/<id> for an end-to-end encrypted chat)
+# or a bare id; without it they're skipped with a note.
 #
 # A failure opens (or comments on) one "Daily Facebook check failed" issue; the next passing run
 # closes it. "Facebook session expired" in the issue means the cookies need replacing.
@@ -71,6 +74,7 @@ jobs:
       - name: Check the secret
         env:
           FB_TEST_COOKIES: ${{ secrets.FB_TEST_COOKIES }}
+          FB_TEST_CHAT: ${{ secrets.FB_TEST_CHAT }}
         run: |
           if [ -z "$FB_TEST_COOKIES" ]; then
             echo "::error::The FB_TEST_COOKIES secret isn't set"
@@ -78,6 +82,12 @@ jobs:
           fi
           # The encoded form goes on the am instrument command line: hidden in the logs too.
           echo "::add-mask::$(printf %s "$FB_TEST_COOKIES" | base64 -w0)"
+          # The Messages layer checks' chat (FB_TEST_CHAT, optional): its id stays out of the logs.
+          if [ -n "$FB_TEST_CHAT" ]; then
+            echo "::add-mask::$FB_TEST_CHAT"
+            ID=$(printf %s "$FB_TEST_CHAT" | grep -oE '[0-9]{6,}' | head -n 1 || true)
+            if [ -n "$ID" ]; then echo "::add-mask::$ID"; fi
+          fi
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,6 +154,7 @@ jobs:
         continue-on-error: true
         env:
           FB_TEST_COOKIES: ${{ secrets.FB_TEST_COOKIES }}
+          FB_TEST_CHAT: ${{ secrets.FB_TEST_CHAT }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
@@ -156,7 +167,7 @@ jobs:
           script: |
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -e canary true -e fbCookies "$(printf %s "$FB_TEST_COOKIES" | base64 -w0)" -e class com.eepiemi.materialbook.LiveFacebookCanaryTest com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner | tee canary.txt
+            adb shell am instrument -w -e canary true -e fbCookies "$(printf %s "$FB_TEST_COOKIES" | base64 -w0)" ${FB_TEST_CHAT:+-e fbChat "$FB_TEST_CHAT"} -e class com.eepiemi.materialbook.LiveFacebookCanaryTest com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner | tee canary.txt
             grep -qE '^OK \([0-9]+ tests?\)' canary.txt
 
       - name: Report

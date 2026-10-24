@@ -52,7 +52,8 @@ user-visible change.
   `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
   runs, so it's scheduled every 2 hours until 17:37 UTC, and the later runs stand down once one
   has run),
-  logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64), and reports failures
+  logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64; the Messages
+  layer checks open the chat in `FB_TEST_CHAT`, `-e fbChat`: its address, `e2ee/t/<id>` or a bare id; skipped without it), and reports failures
   in one "Daily Facebook check failed" issue; a check that passed only after a workaround (the reel
   check's second Home) prints a `CANARY NOTE:` line (`note()`), shown as a warning on the run. Never put a
   personal account's cookies there.

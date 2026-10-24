@@ -6,9 +6,14 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
+import android.view.InputDevice
+import android.view.MotionEvent
+import android.view.View
 import android.webkit.CookieManager
+import android.webkit.WebView
 import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -59,7 +64,10 @@ class LiveFacebookCanaryTest {
     @After
     fun tearDown() {
         app.finish()
-        runBlocking { SettingsDataStore(app.context).setPipEnabled(false) }
+        runBlocking {
+            SettingsDataStore(app.context).setPipEnabled(false)
+            SettingsDataStore(app.context).setMessagesDesktop(false)
+        }
     }
 
     private fun eval(js: String) = app.eval(js)
@@ -134,11 +142,10 @@ class LiveFacebookCanaryTest {
         eval("location.href = '$url'; 1")
     }
 
-    @Test
-    fun aReel_keepsPlayingInPip() {
+    // The Reels tab with a reel playing. The test account on GitHub gets "Content not found" for
+    // the Reels tab (no reels for it there): a public reel, opened by its address, is used instead.
+    private fun openPlayingReel() {
         open("https://m.facebook.com/reels/")
-        // The test account on GitHub gets "Content not found" for the Reels tab (no reels for it
-        // there): a public reel, opened by its address, is checked instead.
         if (app.waitFor(20_000) { eval("document.title === 'Content not found'") == "true" }) {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
@@ -151,6 +158,11 @@ class LiveFacebookCanaryTest {
             playing = app.waitFor(30_000) { eval(PLAYING_JS) == "true" }
         }
         if (!playing) fail("no reel played on /reels/ (${runCatching { eval(VIDEO_STATE_JS) }.getOrDefault("")}; ${pageShape()})")
+    }
+
+    @Test
+    fun aReel_keepsPlayingInPip() {
+        openPlayingReel()
         assertTrue(
             "the reels' containers (div.vertically-snappable, adblock.js) are gone",
             eval("!!document.querySelector('div.vertically-snappable')") == "true"
@@ -261,6 +273,225 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun removeAds_hidesTheFeedsAds() {
+        open("https://m.facebook.com/")
+        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
+            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
+        })
+        // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
+        // loads more posts as the page scrolls.
+        var ads = feedAds()
+        for (screen in 1..FEED_SCREENS) {
+            if (ads.hidden > 0 || ads.missed > 0) break
+            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+            Thread.sleep(2000)
+            ads = feedAds()
+        }
+        if (ads.missed > 0) {
+            fail("${ads.missed} Sponsored labels stayed on the feed: adblock.js no longer finds feed ads (by its " +
+                "grey span.f5 in div.native-text.rslh, hiding the post's div[data-dcm-id=\"1\"][data-mcomponent=MContainer]). " +
+                "The label: ${ads.missedShape}")
+        }
+        // The test account has no friends, so its feed may hold no posts at all (suggestions only):
+        // no post boxes is noted, not failed. An ad left showing fails above either way.
+        if (ads.posts == 0) {
+            note("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) " +
+                "in $FEED_SCREENS screens (${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")})")
+            return
+        }
+        if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
+            fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
+                "normal posts too")
+        }
+        if (ads.hidden == 0) note("no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
+    }
+
+    @Test
+    fun removeAds_emptiesTheReelsAds() {
+        openPlayingReel()
+        // Through the reels, one at a time, until adblock.js has emptied an ad or a label it missed
+        // shows up; Facebook adds reels as the user moves on.
+        var ads = reelAds()
+        var stuck = 0
+        for (reel in 1..REELS_TO_SEE) {
+            if (ads.hidden > 0 || ads.missed > 0 || stuck >= 3) break
+            val moved = eval(NEXT_REEL_JS) == "true"
+            Thread.sleep(2500)
+            stuck = if (moved) 0 else stuck + 1
+            ads = reelAds()
+        }
+        if (ads.missed > 0) {
+            fail("${ads.missed} of ${ads.posts} reels kept an ad label: adblock.js no longer finds it (a span " +
+                "holding just the label in div.vertically-snappable). The label: ${ads.missedShape}")
+        }
+        if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
+            fail("adblock.js emptied ${ads.hidden} of ${ads.posts} reels as ads")
+        }
+        if (ads.hidden == 0) note("no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
+    }
+
+    @Test
+    fun aReelsPlayer_hasItsMp4InDataVideoUrl() {
+        // Downloads (download_content.js) and the lock-screen audio hand-off (PIP_HANDOFF_ARM_JS)
+        // take a video's file from its player's data-video-url: the <video> itself plays a blob:.
+        openPlayingReel()
+        val started = eval(VIDEO_FILE_JS).trim('"')
+        if (started != "fetching") {
+            fail("the playing reel's player has no MP4 in data-video-url (download_content.js, " +
+                "PIP_HANDOFF_ARM_JS): $started (${pageShape()})")
+        }
+        var file = "pending"
+        assertTrue("data-video-url's file never answered", app.waitFor(30_000) {
+            file = eval("window.__canaryVideoFile").trim('"')
+            file != "pending"
+        })
+        assertTrue(
+            "data-video-url isn't an MP4 the page can fetch, as a download does: $file",
+            file.startsWith("status=200 ") && (" type=video/" in file || " box=ftyp" in file)
+        )
+    }
+
+    // What adblock.js did on the feed so far (FEED_ADS_JS).
+    private fun feedAds() = AdCount.parse(eval(FEED_ADS_JS))
+
+    // What adblock.js did on the reels so far (REEL_ADS_JS).
+    private fun reelAds() = AdCount.parse(eval(REEL_ADS_JS))
+
+    // Posts (or reels) seen, the ads adblock.js hid among them, the ones still showing an ad label
+    // and the last such label's shape (tag, class, colour: no text).
+    private data class AdCount(val posts: Int, val hidden: Int, val missed: Int, val missedShape: String) {
+        companion object {
+            fun parse(json: String): AdCount {
+                val parts = json.trim('"').split('|')
+                if (parts.size < 4) return AdCount(0, 0, 0, "")
+                return AdCount(
+                    parts[0].toIntOrNull() ?: 0, parts[1].toIntOrNull() ?: 0, parts[2].toIntOrNull() ?: 0, parts[3]
+                )
+            }
+        }
+    }
+
+    @Test
+    fun theFeed_keepsTheDeviceInfoKeyTheRelayoutClears() {
+        // After an empty PiP window, RELAYOUT_PAGE_JS removes this key so that m.facebook.com sends
+        // the screen's size again and lays pages out for the full window, not the PiP one's.
+        open("https://m.facebook.com/")
+        val found = app.waitFor(30_000) {
+            eval("sessionStorage.getItem('$DEVICE_INFO_KEY') !== null") == "true"
+        }
+        if (!found) {
+            val keys = eval(
+                "Object.keys(sessionStorage).filter(function (k) { return k.indexOf('sharedprefs') === 0; }).join(',')"
+            ).trim('"')
+            fail("m.facebook.com no longer notes in sessionStorage when it sent the device's details " +
+                "($DEVICE_INFO_KEY): RELAYOUT_PAGE_JS can't make it lay pages out for the full window " +
+                "after an empty PiP window. Its keys now: ${keys.ifEmpty { "none" }}")
+        }
+    }
+
+    // The chat the Messages layer checks open (FB_TEST_CHAT, passed as -e fbChat): one of the
+    // test account's chats with a photo and a shared reel in it, given as its address, what follows
+    // /messages/ in it ("e2ee/t/<id>" for an end-to-end encrypted chat) or a bare id. Returns that
+    // path ("t/<id>", "e2ee/t/<id>"); null when unset, noted once per run.
+    private fun testChat(): String? {
+        val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }
+        if (chat == null && !notedNoChat) {
+            notedNoChat = true
+            note("FB_TEST_CHAT isn't set: the Messages layer checks didn't run")
+        }
+        return chat?.let { chatPath(it) }
+    }
+
+    // Messages in desktop mode on, and the chat opened from the main view as a tap on a Messages
+    // link would: in the Messages layer (messagesDesktopUrl keeps an e2ee/t/<id> path). An
+    // end-to-end encrypted chat opened at its address shows the chat list first at phone width
+    // (Facebook's): its row is tapped, as the user would. Returns the layer.
+    private fun openChatInTheLayer(chat: String): WebView {
+        runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        open("https://m.facebook.com/messages/$chat/")
+        assertTrue("a Messages link never opened the Messages layer (${appState()})", app.waitFor(30_000) {
+            app.layerWebView()?.let { app.url(it).contains("/messages/") } == true
+        })
+        val layer = app.layerWebView()!!
+        assertTrue("the test chat (FB_TEST_CHAT) never showed in the Messages layer (${layerShape(layer)})",
+            app.waitFor(45_000) { app.eval(chatShownJs(chat), layer) == "true" })
+        return layer
+    }
+
+    // A tap at the middle of the element [js] scrolls into view and gives the box of (CSS px in the
+    // visual viewport, and that viewport's width: "left,top,width,height,viewportWidth"; "" while
+    // there's none), a real touch: a link that opens a new window (target=_blank, as a shared
+    // reel's) ignores a click from a script.
+    private fun tapIn(webView: WebView, js: String): Boolean {
+        fun box() = app.eval(js, webView).trim('"').split(',').mapNotNull { it.toFloatOrNull() }
+        if (box().size < 5) return false
+        // Measured again once the scroll has settled.
+        Thread.sleep(800)
+        val box = box()
+        if (box.size < 5 || box[4] <= 0f) return false
+        val (x, y) = app.onActivity {
+            val at = IntArray(2).also { webView.getLocationOnScreen(it) }
+            val scale = webView.width / box[4]
+            Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
+        }
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val downAt = SystemClock.uptimeMillis()
+        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
+            if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
+            val event = MotionEvent.obtain(downAt, time, action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            automation.injectInputEvent(event, true)
+            event.recycle()
+        }
+        return true
+    }
+
+    // The layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
+    private fun layerOpen() = app.webViews().drop(1).any { webView -> app.onActivity { webView.visibility == View.VISIBLE } }
+
+    private fun layerShape(layer: WebView) = runCatching { app.eval(LAYER_SHAPE_JS, layer) }.getOrElse { "no layer page (${appState()})" }
+
+    @Test
+    fun aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt() {
+        val chat = testChat() ?: return
+        val layer = openChatInTheLayer(chat)
+        if (!app.waitFor(45_000) { app.eval(OPEN_CHAT_PHOTO_JS, layer) == "true" }) {
+            fail("no photo to open in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
+        }
+        assertTrue(
+            "the chat's photo viewer was never laid out for the phone (layer_photo_viewer.js: the photo " +
+                "between two arrow columns) (${app.eval(PHOTO_VIEWER_SHAPE_JS, layer)})",
+            app.waitFor(20_000) { app.eval(PHOTO_VIEWER_OPEN_JS, layer) == "true" }
+        )
+
+        app.pressBack()
+        assertTrue("Back didn't close the photo (window.__astryxClosePhotoViewer)", app.waitFor(10_000) {
+            app.eval(PHOTO_VIEWER_OPEN_JS, layer) == "false"
+        })
+        Thread.sleep(1500)
+        assertTrue("Back closed the Messages layer too", layerOpen())
+        assertTrue("Back left the chat (${layerShape(layer)})", app.eval("location.pathname", layer).contains("/t/"))
+    }
+
+    @Test
+    fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
+        val chat = testChat() ?: return
+        val layer = openChatInTheLayer(chat)
+        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) {
+            fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
+        }
+        assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
+            !layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
+        })
+
+        app.pressBack()
+        assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
+        assertTrue("the layer came back somewhere other than the chat (${layerShape(layer)})", app.waitFor(15_000) {
+            app.eval("location.pathname", layer).contains("/t/")
+        })
+    }
+
+    @Test
     fun startOnFeeds_pressesTheMenusFeedsEntry() {
         open("https://m.facebook.com/bookmarks/#astryx-feeds")
         val pressed = app.waitFor(30_000) {
@@ -277,10 +508,13 @@ class LiveFacebookCanaryTest {
     }
 
     companion object {
-        // A public reel (shared with Public), for when the Reels tab has nothing for the account.
+        // The run's tests share one process: the missing chat is noted by the first check only.
+        private var notedNoChat = false
+
         // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
         private const val NOTE_STATUS = 3
+        // A public reel (shared with Public), for when the Reels tab has nothing for the account.
         private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of
         // the account's: the address without values, the title, counts, and the ids of Facebook's
@@ -294,6 +528,256 @@ class LiveFacebookCanaryTest {
                 " ' login=' + !!document.querySelector('input[name=pass]') +" +
                 " ' feedsIcon=' + !!document.querySelector('img[src*=FTDJiLwLrcM]') + ' feedsLabel=' + !!document.querySelector('[aria-label=Feeds]') +" +
                 " ' icons=' + icons.join(','); })()"
+        // How far down the feed, and through how many reels, the Remove ads checks look for an ad.
+        private const val FEED_SCREENS = 15
+        private const val REELS_TO_SEE = 15
+
+        // An ad label found by its text alone ("Sponsored", "Ad"; the test account uses Facebook in
+        // English), independently of how adblock.js finds it: an element showing just the label,
+        // once icon glyphs, direction marks, spaces and separators are left out. Its shape, for a
+        // failure message: tag, class, colour and its parent's tag and class, no text.
+        private const val AD_LABEL_FNS = """
+            function canaryText(e) {
+              return (e.textContent || '').replace(/[\uE000-\uF8FF\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '')
+                .replace(/[\s\u00B7\u2022|:-]+/g, ' ').trim().toLowerCase();
+            }
+            function canaryLabelIn(root, words) {
+              var all = root.querySelectorAll('*');
+              for (var i = 0; i < all.length; i++) {
+                var e = all[i];
+                if (e.children.length > 2 || !e.getClientRects().length) continue;
+                var t = canaryText(e);
+                if (words.indexOf(t) < 0) continue;
+                // The innermost element showing it.
+                for (var deeper = true; deeper;) {
+                  deeper = false;
+                  for (var c = e.firstElementChild; c; c = c.nextElementSibling) {
+                    if (canaryText(c) === t) { e = c; deeper = true; break; }
+                  }
+                }
+                return e;
+              }
+              return null;
+            }
+            function canaryShape(e) {
+              var p = e.parentElement;
+              return e.tagName.toLowerCase() + '.' + String(e.className || '').trim().replace(/\s+/g, '.') +
+                ' color=' + (e.style.color || getComputedStyle(e).color) + ' in ' +
+                (p ? p.tagName.toLowerCase() + '.' + String(p.className || '').trim().replace(/\s+/g, '.') : 'none');
+            }
+        """
+
+        // The feed's posts in the boxes adblock.js hides (top-level ones) and the ones it hid
+        // (hidden, with the grey label it looks for inside), and the Sponsored labels still showing
+        // anywhere on the feed (leaf elements; found by their text, not as adblock.js finds them),
+        // counted across scrolls: "posts|hidden|missed|shape". A missed label's shape names the
+        // Facebook boxes around it (data-mcomponent, #data-dcm-id), for fixing adblock.js.
+        private const val FEED_ADS_JS = """
+            (function () {
+              $AD_LABEL_FNS
+              var sel = 'div[data-dcm-id="1"][data-mcomponent="MContainer"]';
+              var grey = 'div.native-text.rslh > span.f5[style*="color:#8a8d91"]';
+              var s = window.__canaryFeed || (window.__canaryFeed = { posts: 0, hidden: 0, missed: 0, shape: '' });
+              var all = document.querySelectorAll(sel);
+              for (var i = 0; i < all.length; i++) {
+                var p = all[i];
+                if (!p.__canarySeen && !(p.parentElement && p.parentElement.closest(sel))) { p.__canarySeen = true; s.posts++; }
+                if (p.style.display === 'none' && !p.__canaryHidden && p.querySelector(grey)) { p.__canaryHidden = true; s.hidden++; }
+              }
+              var els = document.body.querySelectorAll('*');
+              for (var j = 0; j < els.length; j++) {
+                var e = els[j];
+                if (e.children.length || e.__canaryLabel || canaryText(e) !== 'sponsored' || !e.getClientRects().length) continue;
+                e.__canaryLabel = true;
+                s.missed++;
+                var chain = [];
+                for (var a = e.parentElement, n = 0; a && n < 15; a = a.parentElement, n++) {
+                  var m = a.getAttribute('data-mcomponent');
+                  if (m) chain.push(m + (a.hasAttribute('data-dcm-id') ? '#' + a.getAttribute('data-dcm-id') : ''));
+                }
+                s.shape = canaryShape(e) + ' boxes=' + (chain.join('<') || 'none');
+              }
+              return [s.posts, s.hidden, s.missed, s.shape].join('|');
+            })()
+        """
+
+        // The feed's structure, for a failure message (no text): how many of Facebook's boxes there
+        // are, the commonest data-dcm-id values of its MContainers, the text blocks and grey spans
+        // adblock.js looks at, and how far the page scrolled.
+        private const val FEED_SHAPE_JS = """
+            (function () {
+              var ids = {};
+              var boxes = document.querySelectorAll('[data-mcomponent="MContainer"]');
+              for (var i = 0; i < boxes.length; i++) {
+                var id = boxes[i].getAttribute('data-dcm-id') || 'none';
+                ids[id] = (ids[id] || 0) + 1;
+              }
+              var top = Object.keys(ids).sort(function (a, b) { return ids[b] - ids[a]; }).slice(0, 5)
+                .map(function (k) { return k + ':' + ids[k]; }).join(',');
+              return 'components=' + document.querySelectorAll('[data-mcomponent]').length +
+                ' containers=' + boxes.length + ' dcmIds=' + (top || 'none') +
+                ' textBlocks=' + document.querySelectorAll('div.native-text.rslh').length +
+                ' greySpans=' + document.querySelectorAll('span.f5[style*="color:#8a8d91"]').length +
+                ' scrollY=' + Math.round(window.scrollY) + ' height=' + document.documentElement.scrollHeight;
+            })()
+        """
+
+        // The reels seen (div.vertically-snappable), the ones adblock.js emptied as ads and the ones
+        // still showing an ad label, counted as the user moves on: "reels|hidden|missed|shape".
+        private const val REEL_ADS_JS = """
+            (function () {
+              $AD_LABEL_FNS
+              var s = window.__canaryReels || (window.__canaryReels = { reels: 0, hidden: 0, missed: 0, shape: '' });
+              var all = document.querySelectorAll('div.vertically-snappable');
+              for (var i = 0; i < all.length; i++) {
+                var r = all[i];
+                if (!r.__canarySeen) { r.__canarySeen = true; s.reels++; }
+                if (r.dataset.adHidden === 'true') {
+                  if (!r.__canaryHidden) { r.__canaryHidden = true; s.hidden++; }
+                  continue;
+                }
+                if (r.__canaryMissed) continue;
+                var label = canaryLabelIn(r, ['ad', 'sponsored']);
+                if (label) { r.__canaryMissed = true; s.missed++; s.shape = canaryShape(label); }
+              }
+              return [s.reels, s.hidden, s.missed, s.shape].join('|');
+            })()
+        """
+
+        // Brings the next reel below the one on screen into view, as a swipe up would; false when
+        // there's none (yet).
+        private const val NEXT_REEL_JS =
+            "(function () { var all = document.querySelectorAll('div.vertically-snappable');" +
+                " for (var i = 0; i < all.length; i++) { if (all[i].getBoundingClientRect().top > 10) {" +
+                " all[i].scrollIntoView(); return true; } } return false; })()"
+
+        // Starts fetching the playing reel's data-video-url as download_content.js does (only its
+        // first bytes are read), the answer in window.__canaryVideoFile: "status=.. type=.. box=..".
+        // Returns "fetching", or why it couldn't (no address in the result: it carries a signature).
+        private const val VIDEO_FILE_JS = """
+            (function () {
+              var videos = document.querySelectorAll('video'), v = null;
+              for (var i = 0; i < videos.length; i++) { if (!videos[i].paused) { v = videos[i]; break; } }
+              v = v || videos[0];
+              if (!v) return 'no video';
+              var player = v.closest('[data-video-url]');
+              if (!player) {
+                var chain = [];
+                for (var e = v.parentElement; e && chain.length < 8; e = e.parentElement) {
+                  if (e.getAttribute('data-mcomponent')) chain.push(e.getAttribute('data-mcomponent'));
+                }
+                return 'no [data-video-url] around the video (its players: ' + (chain.join(',') || 'none') + ')';
+              }
+              var url = player.getAttribute('data-video-url') || '';
+              if (url.indexOf('https://') !== 0) return 'data-video-url is not https (' + url.slice(0, 6) + ')';
+              window.__canaryVideoFile = 'pending';
+              fetch(url).then(function (r) {
+                var type = r.headers.get('content-type') || '';
+                if (!r.body) { window.__canaryVideoFile = 'status=' + r.status + ' type=' + type + ' box=none'; return; }
+                var reader = r.body.getReader();
+                return reader.read().then(function (c) {
+                  reader.cancel();
+                  var b = c.value || new Uint8Array(0);
+                  var box = String.fromCharCode.apply(null, Array.prototype.slice.call(b.subarray(4, 8)));
+                  window.__canaryVideoFile = 'status=' + r.status + ' type=' + type + ' box=' + box +
+                    ' player=' + (player.getAttribute('data-mcomponent') || 'none');
+                });
+              }).catch(function (e) { window.__canaryVideoFile = 'error=' + e.name; });
+              return 'fetching';
+            })()
+        """
+
+        // sessionStorage's note that m.facebook.com sent the device's details (RELAYOUT_PAGE_JS).
+        private const val DEVICE_INFO_KEY = "sharedprefs.web.last_device_info"
+
+        // The Messages layer's page, for a failure message (no text, nothing of the account's): the
+        // address's shape, and counts of what the chat checks look for.
+        private const val LAYER_SHAPE_JS =
+            "(function () { var big = Array.prototype.filter.call(document.querySelectorAll('img'), function (i) {" +
+                " var r = i.getBoundingClientRect(); return r.width >= 100 && r.height >= 100; }).length;" +
+                " return location.pathname.replace(/\\d{3,}/g, 'N') + ' main=' + !!document.querySelector('[role=main]') +" +
+                " ' imgs=' + document.querySelectorAll('img').length + ' bigImgs=' + big +" +
+                " ' reelLinks=' + document.querySelectorAll('a[href*=\"/reel/\"], a[href*=\"/share/r/\"]').length +" +
+                " ' inputs=' + document.querySelectorAll('input').length + ' dialogs=' + document.querySelectorAll('[role=dialog]').length; })()"
+
+        // Opens the chat's largest photo (at least 100 px each way, not a shared reel's or post's picture) as
+        // a tap would; false while there's none.
+        private const val OPEN_CHAT_PHOTO_JS = """
+            (function () {
+              var root = document.querySelector('[role="main"]') || document.body;
+              var imgs = root.querySelectorAll('img'), best = null, area = 0;
+              for (var i = 0; i < imgs.length; i++) {
+                var r = imgs[i].getBoundingClientRect();
+                if (r.width < 100 || r.height < 100 || imgs[i].closest('a[href*="/reel/"], a[href*="/share/"], a[target="_blank"]')) continue;
+                if (r.width * r.height > area) { area = r.width * r.height; best = imgs[i]; }
+              }
+              if (!best) return false;
+              best.scrollIntoView({ block: 'center' });
+              (best.closest('[role="button"], a') || best).click();
+              return true;
+            })()
+        """
+
+        // The photo viewer laid out by layer_photo_viewer.js, on screen.
+        private const val PHOTO_VIEWER_OPEN_JS =
+            "Array.prototype.some.call(document.querySelectorAll('[data-astryx-photo-row]'), function (e) {" +
+                " return e.isConnected && e.getBoundingClientRect().width > 0; })"
+
+        // What layer_photo_viewer.js would have found, for a failure message: the photos shown
+        // with object-fit: contain and, for each, the child counts of its ancestors.
+        private const val PHOTO_VIEWER_SHAPE_JS = """
+            (function () {
+              var out = [];
+              var imgs = document.querySelectorAll('img');
+              for (var i = 0; i < imgs.length && out.length < 3; i++) {
+                if (getComputedStyle(imgs[i]).objectFit !== 'contain') continue;
+                var counts = [];
+                for (var e = imgs[i].parentElement, n = 0; e && n < 8; e = e.parentElement, n++) counts.push(e.children.length);
+                out.push(Math.round(imgs[i].getBoundingClientRect().width) + 'px kids=' + counts.join(','));
+              }
+              return 'contained photos: ' + (out.join('; ') || 'none');
+            })()
+        """
+
+        // The chat's latest shared reel (a link to a /reel/ page, or Facebook's share link for one),
+        // scrolled into view, as tapIn's box; "" while there's none.
+        private const val CHAT_REEL_BOX_JS = """
+            (function () {
+              var links = Array.prototype.filter.call(document.querySelectorAll('a[href*="/reel/"], a[href*="/share/r/"]'),
+                function (a) { var r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+              if (!links.length) return '';
+              var link = links[links.length - 1];
+              link.scrollIntoView({ block: 'center' });
+              var r = link.getBoundingClientRect();
+              return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
+            })()
+        """
+
+        // What follows /messages/ in FB_TEST_CHAT's chat ("t/<id>", "e2ee/t/<id>"), given as its
+        // address, that path or a bare id.
+        private fun chatPath(chat: String): String {
+            val path = chat.substringAfter("/messages/", chat).substringBefore('?').substringBefore('#').trim('/')
+            val full = if ('/' in path) path else "t/$path"
+            require(Regex("^(e2ee/)?t/[A-Za-z0-9._-]+$").matches(full)) { "FB_TEST_CHAT isn't a chat: $full" }
+            return full
+        }
+
+        // Whether the chat at [chat] (chatPath's) shows in the layer: its message box is on screen.
+        // While the chat list shows instead, the chat's row is tapped (at most every 3 s).
+        private fun chatShownJs(chat: String) = """
+            (function () {
+              function shown(e) { var r = e && e.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; }
+              var boxes = document.querySelectorAll('[role="textbox"][contenteditable="true"]');
+              for (var i = 0; i < boxes.length; i++) { if (shown(boxes[i])) return true; }
+              var row = document.querySelector('a[href="/messages/$chat/"]');
+              if (shown(row) && !(Date.now() - (window.__canaryRowTap || 0) < 3000)) {
+                window.__canaryRowTap = Date.now();
+                row.click();
+              }
+              return false;
+            })()
+        """
+
         // What the page's videos are doing, for a failure message: a reel that doesn't play on one
         // device only (an emulator without the codec, an error from Facebook's server) shows here.
         private const val VIDEO_STATE_JS =

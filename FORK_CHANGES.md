@@ -432,7 +432,17 @@ on their own can't:
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
 visible video, a photo shared to Feed reaching the composer, Create story opening the creator,
-Start on Feeds finding the menu entry, and the notification counts read from the tab bar. It
+Start on Feeds finding the menu entry, the notification counts read from the tab bar, Remove ads
+hiding the feed's and the reels' ads (an ad label it missed, found by its text, fails the check; a
+run that saw no ad says so in a note), the reel player's `data-video-url` being an MP4 the page
+can fetch (what downloads and the lock-screen audio hand-off play), m.facebook.com still keeping
+`sharedprefs.web.last_device_info` in `sessionStorage` (what the re-layout after an empty PiP window
+removes), and, in a chat named by the `FB_TEST_CHAT` secret (one with a photo and a shared reel), the
+Messages layer's photo viewer laid out for the phone and closed by Back, and the shared reel opening
+in the main view with Back returning to the chat (skipped with a note while the secret isn't set: the
+test account has no friends or chats yet). The test account's feed may hold no posts at all, so the
+feed-ads check only notes when it finds none of the boxes `adblock.js` hides; an ad label left
+showing fails it. It
 needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
