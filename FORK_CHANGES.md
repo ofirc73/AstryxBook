@@ -434,8 +434,12 @@ Facebook changing what the scripts rely on: a reel going to PiP from Home and pl
 visible video, a photo shared to Feed reaching the composer, Create story opening the creator,
 Start on Feeds finding the menu entry, the notification counts read from the tab bar, Remove ads
 hiding the feed's and the reels' ads (an ad label it missed, found by its text, fails the check; a
-run that saw no ad says so in a note), and the reel player's `data-video-url` being an MP4 the page
-can fetch (what downloads and the lock-screen audio hand-off play). It
+run that saw no ad says so in a note), the reel player's `data-video-url` being an MP4 the page
+can fetch (what downloads and the lock-screen audio hand-off play), m.facebook.com still keeping
+`sharedprefs.web.last_device_info` in `sessionStorage` (what the re-layout after an empty PiP window
+removes), and, in a chat named by the `FB_TEST_CHAT` secret (one with a photo and a shared reel), the
+Messages layer's photo viewer laid out for the phone and closed by Back, and the shared reel opening
+in the main view with Back returning to the chat (skipped with a note while the secret isn't set). It
 needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens

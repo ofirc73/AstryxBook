@@ -8,7 +8,9 @@ import android.graphics.Color
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
+import android.view.View
 import android.webkit.CookieManager
+import android.webkit.WebView
 import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -59,7 +61,10 @@ class LiveFacebookCanaryTest {
     @After
     fun tearDown() {
         app.finish()
-        runBlocking { SettingsDataStore(app.context).setPipEnabled(false) }
+        runBlocking {
+            SettingsDataStore(app.context).setPipEnabled(false)
+            SettingsDataStore(app.context).setMessagesDesktop(false)
+        }
     }
 
     private fun eval(js: String) = app.eval(js)
@@ -356,6 +361,88 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun theFeed_keepsTheDeviceInfoKeyTheRelayoutClears() {
+        // After an empty PiP window, RELAYOUT_PAGE_JS removes this key so that m.facebook.com sends
+        // the screen's size again and lays pages out for the full window, not the PiP one's.
+        open("https://m.facebook.com/")
+        val found = app.waitFor(30_000) {
+            eval("sessionStorage.getItem('$DEVICE_INFO_KEY') !== null") == "true"
+        }
+        if (!found) {
+            val keys = eval(
+                "Object.keys(sessionStorage).filter(function (k) { return k.indexOf('sharedprefs') === 0; }).join(',')"
+            ).trim('"')
+            fail("m.facebook.com no longer notes in sessionStorage when it sent the device's details " +
+                "($DEVICE_INFO_KEY): RELAYOUT_PAGE_JS can't make it lay pages out for the full window " +
+                "after an empty PiP window. Its keys now: ${keys.ifEmpty { "none" }}")
+        }
+    }
+
+    // The chat the Messages layer checks open (FB_TEST_CHAT, passed as -e fbChat): one of the
+    // test account's chats with a photo and a shared reel in it. Null, with a note, when unset.
+    private fun testChat(): String? {
+        val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }
+        if (chat == null) note("FB_TEST_CHAT isn't set: the Messages layer checks didn't run")
+        return chat
+    }
+
+    // Messages in desktop mode on, and the chat opened from the main view as a tap on a Messages
+    // link would: in the Messages layer. Returns the layer.
+    private fun openChatInTheLayer(chat: String): WebView {
+        runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        open("https://m.facebook.com/messages/t/$chat/")
+        assertTrue("a Messages link never opened the Messages layer (${appState()})", app.waitFor(30_000) {
+            app.layerWebView()?.let { app.url(it).contains("/messages/") } == true
+        })
+        return app.layerWebView()!!
+    }
+
+    // The layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
+    private fun layerOpen() = app.webViews().drop(1).any { webView -> app.onActivity { webView.visibility == View.VISIBLE } }
+
+    private fun layerShape(layer: WebView) = runCatching { app.eval(LAYER_SHAPE_JS, layer) }.getOrElse { "no layer page (${appState()})" }
+
+    @Test
+    fun aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt() {
+        val chat = testChat() ?: return
+        val layer = openChatInTheLayer(chat)
+        if (!app.waitFor(45_000) { app.eval(OPEN_CHAT_PHOTO_JS, layer) == "true" }) {
+            fail("no photo to open in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
+        }
+        assertTrue(
+            "the chat's photo viewer was never laid out for the phone (layer_photo_viewer.js: the photo " +
+                "between two arrow columns) (${app.eval(PHOTO_VIEWER_SHAPE_JS, layer)})",
+            app.waitFor(20_000) { app.eval(PHOTO_VIEWER_OPEN_JS, layer) == "true" }
+        )
+
+        app.pressBack()
+        assertTrue("Back didn't close the photo (window.__astryxClosePhotoViewer)", app.waitFor(10_000) {
+            app.eval(PHOTO_VIEWER_OPEN_JS, layer) == "false"
+        })
+        Thread.sleep(1500)
+        assertTrue("Back closed the Messages layer too", layerOpen())
+        assertTrue("Back left the chat (${layerShape(layer)})", app.eval("location.pathname", layer).contains("/t/"))
+    }
+
+    @Test
+    fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
+        val chat = testChat() ?: return
+        val layer = openChatInTheLayer(chat)
+        if (!app.waitFor(45_000) { app.eval(OPEN_CHAT_REEL_JS, layer) == "true" }) {
+            fail("no shared reel (a link to /reel/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
+        }
+        assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
+            !layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
+        })
+
+        app.pressBack()
+        assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
+        assertTrue("the layer came back somewhere other than the chat (${layerShape(layer)})", app.waitFor(15_000) {
+            app.eval("location.pathname", layer).contains("/t/")
+        })
+    }
+
+    @Test
     fun startOnFeeds_pressesTheMenusFeedsEntry() {
         open("https://m.facebook.com/bookmarks/#astryx-feeds")
         val pressed = app.waitFor(30_000) {
@@ -515,6 +602,71 @@ class LiveFacebookCanaryTest {
                 });
               }).catch(function (e) { window.__canaryVideoFile = 'error=' + e.name; });
               return 'fetching';
+            })()
+        """
+
+        // sessionStorage's note that m.facebook.com sent the device's details (RELAYOUT_PAGE_JS).
+        private const val DEVICE_INFO_KEY = "sharedprefs.web.last_device_info"
+
+        // The Messages layer's page, for a failure message (no text, nothing of the account's): the
+        // address's shape, and counts of what the chat checks look for.
+        private const val LAYER_SHAPE_JS =
+            "(function () { var big = Array.prototype.filter.call(document.querySelectorAll('img'), function (i) {" +
+                " var r = i.getBoundingClientRect(); return r.width >= 100 && r.height >= 100; }).length;" +
+                " return location.pathname.replace(/\\d{3,}/g, 'N') + ' main=' + !!document.querySelector('[role=main]') +" +
+                " ' imgs=' + document.querySelectorAll('img').length + ' bigImgs=' + big +" +
+                " ' reelLinks=' + document.querySelectorAll('a[href*=\"/reel/\"]').length +" +
+                " ' inputs=' + document.querySelectorAll('input').length + ' dialogs=' + document.querySelectorAll('[role=dialog]').length; })()"
+
+        // Opens the chat's largest photo (at least 100 px each way, not a shared reel's picture) as
+        // a tap would; false while there's none.
+        private const val OPEN_CHAT_PHOTO_JS = """
+            (function () {
+              var root = document.querySelector('[role="main"]') || document.body;
+              var imgs = root.querySelectorAll('img'), best = null, area = 0;
+              for (var i = 0; i < imgs.length; i++) {
+                var r = imgs[i].getBoundingClientRect();
+                if (r.width < 100 || r.height < 100 || imgs[i].closest('a[href*="/reel/"]')) continue;
+                if (r.width * r.height > area) { area = r.width * r.height; best = imgs[i]; }
+              }
+              if (!best) return false;
+              best.scrollIntoView({ block: 'center' });
+              (best.closest('[role="button"], a') || best).click();
+              return true;
+            })()
+        """
+
+        // The photo viewer laid out by layer_photo_viewer.js, on screen.
+        private const val PHOTO_VIEWER_OPEN_JS =
+            "Array.prototype.some.call(document.querySelectorAll('[data-astryx-photo-row]'), function (e) {" +
+                " return e.isConnected && e.getBoundingClientRect().width > 0; })"
+
+        // What layer_photo_viewer.js would have found, for a failure message: the photos shown
+        // with object-fit: contain and, for each, the child counts of its ancestors.
+        private const val PHOTO_VIEWER_SHAPE_JS = """
+            (function () {
+              var out = [];
+              var imgs = document.querySelectorAll('img');
+              for (var i = 0; i < imgs.length && out.length < 3; i++) {
+                if (getComputedStyle(imgs[i]).objectFit !== 'contain') continue;
+                var counts = [];
+                for (var e = imgs[i].parentElement, n = 0; e && n < 8; e = e.parentElement, n++) counts.push(e.children.length);
+                out.push(Math.round(imgs[i].getBoundingClientRect().width) + 'px kids=' + counts.join(','));
+              }
+              return 'contained photos: ' + (out.join('; ') || 'none');
+            })()
+        """
+
+        // Opens the chat's latest shared reel (a link to a /reel/ page) as a tap would; false while
+        // there's none.
+        private const val OPEN_CHAT_REEL_JS = """
+            (function () {
+              var links = document.querySelectorAll('a[href*="/reel/"]');
+              if (!links.length) return false;
+              var link = links[links.length - 1];
+              link.scrollIntoView({ block: 'center' });
+              link.click();
+              return true;
             })()
         """
 
