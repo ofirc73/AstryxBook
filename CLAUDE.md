@@ -46,7 +46,8 @@ user-visible change.
   brings up the PIN pad. Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
   never returned"); `adb emu kill` and start it again (minimized: a windowed start may not come
   up), which quick-boots the saved snapshot with older APKs, so reinstall both before testing. The live
-  checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
+  checks against real Facebook (`LiveFacebookCanaryTest`; "canary" in file, class and argument names
+  means these, and docs call them live checks) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
   Every test added or changed goes with the live checks: add or adjust the live check for what it

@@ -10,7 +10,7 @@
     2. wakes and unlocks it (the PIN in $env:ASTRYX_EMULATOR_PIN, if it has one),
     3. builds the debug app and its tests from origin/main in a separate worktree
        (../astryx-canary; the main checkout is left alone) and installs them,
-    4. runs the canary with `am instrument` (keeps the debug app's Facebook login),
+    4. runs the live checks with `am instrument` (keeps the debug app's Facebook login),
     5. on failure opens, or comments on, one "Daily Facebook check failed" issue; when the checks
        pass again it closes that issue.
   The debug app must be logged in to Facebook on the emulator (log in by hand once). Nothing is
