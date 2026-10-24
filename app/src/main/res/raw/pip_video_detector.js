@@ -7,14 +7,44 @@
   // another visible, paused reel by viewport area.
   window.__astryxLastActiveVideo = null;
 
+  // A video counts as playing once it can play on (readyState 3+), so one that hasn't loaded yet
+  // isn't picked. One that has played and stalls for data (readyState 2 or less, still not paused)
+  // keeps counting for STALL_GRACE_MS after it last played: Home during a brief buffering stall on
+  // a slow network opened no PiP (the daily live check, issues #59, #61 and #66). A paused or
+  // ended video stops counting at once.
+  var STALL_GRACE_MS = 2000;
+  var progress = new WeakMap(); // video -> { time: its currentTime, at: when it last played }
+
+  function notePlayback(v, now) {
+    var p = progress.get(v);
+    if (!p) {
+      p = { time: v.currentTime, at: 0 };
+      progress.set(v, p);
+    }
+    if (v.paused || v.ended || v.readyState === 0) {
+      p.at = 0;
+    } else if (v.readyState > 2 || v.currentTime !== p.time) {
+      p.at = now;
+    }
+    p.time = v.currentTime;
+    return p;
+  }
+
+  function isPlaying(v, now) {
+    var p = notePlayback(v, now);
+    if (v.paused || v.ended || v.muted || v.volume <= 0) return false;
+    return v.readyState > 2 || (p.at > 0 && now - p.at < STALL_GRACE_MS);
+  }
+
   function getActiveVideo() {
     var bestVideo = null;
     var bestScore = -1;
     var videos = document.querySelectorAll('video');
+    var now = Date.now();
 
     for (var i = 0; i < videos.length; i++) {
       var v = videos[i];
-      if (v.paused || v.ended || v.readyState <= 2 || v.muted || v.volume <= 0) {
+      if (!isPlaying(v, now)) {
         continue;
       }
 
@@ -67,8 +97,8 @@
     for (var i = 0; i < videos.length && i < 6; i++) {
       var v = videos[i];
       var r = v.getBoundingClientRect();
-      var why = v.paused ? 'paused' : v.ended ? 'ended' : v.readyState <= 2 ? 'ready' + v.readyState
-        : v.muted ? 'muted' : v.volume <= 0 ? 'volume0' : (r.width <= 0 || r.height <= 0) ? 'nosize'
+      var why = v.paused ? 'paused' : v.ended ? 'ended' : v.muted ? 'muted' : v.volume <= 0 ? 'volume0'
+        : !isPlaying(v, Date.now()) ? 'ready' + v.readyState : (r.width <= 0 || r.height <= 0) ? 'nosize'
         : (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) ? 'offscreen' : 'ok';
       out.push('v' + i + ':' + why);
     }
@@ -100,7 +130,7 @@
   }
 
   var trackedVideos = new WeakSet();
-  var EVENTS = ['play', 'pause', 'ended', 'volumechange', 'loadedmetadata', 'emptied'];
+  var EVENTS = ['play', 'pause', 'ended', 'volumechange', 'loadedmetadata', 'emptied', 'waiting', 'playing'];
 
   function trackVideo(v) {
     if (trackedVideos.has(v)) return;
