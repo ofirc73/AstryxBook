@@ -132,8 +132,8 @@ class MainActivityPipTest {
     @Test
     fun aPinchedPipWindow_keepsItsSize_forALandscapeVideo() = pinchedWindowKeepsItsSize(1280, 720)
 
-    // The user pinches the PiP window bigger; the Play/Pause updates the app then sends the window
-    // (the page reporting a pause and a play) must leave the user's size alone.
+    // The user resizes the PiP window; the Play/Pause updates the app then sends the window (the
+    // page reporting a pause and a play) must leave the user's size alone.
     private fun pinchedWindowKeepsItsSize(videoWidth: Int, videoHeight: Int) {
         assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
         loadReelPage()
@@ -145,11 +145,7 @@ class MainActivityPipTest {
         val entered = pipWindow()
         assertEquals("the window doesn't have the video's shape", videoWidth > videoHeight, entered.width() > entered.height())
 
-        pinchOut(entered)
-        assumeTrue(
-            "this Android's PiP doesn't resize on an injected pinch",
-            app.waitFor { pipWindow().width() > entered.width() * 1.1 }
-        )
+        resizePipWindow(entered)
         Thread.sleep(1000)
         val pinched = pipWindow()
 
@@ -183,6 +179,28 @@ class MainActivityPipTest {
         assertTrue("the page came back zoomed x$ratio", ratio in 0.95f..1.05f)
     }
 
+    @Test
+    fun aResizedPipWindow_showsThePageZoomedOutAgain() {
+        // The zoom a resize left the page at in PiP showed for a moment after leaving PiP, until
+        // the reset above: the page is zoomed out again after each resize instead.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        loadReelPage()
+        reportVideo(true, 720, 1280)
+        app.pressHome()
+        assertTrue("a playing video never went to PiP on Home", app.waitFor { app.isInPip() })
+        assertTrue(app.waitFor { pipActive() })
+        Thread.sleep(1000)
+        val webView = app.mainWebView()
+        instrumentation.runOnMainSync { webView.zoomBy(2f) }
+        assertTrue("the page never zoomed in PiP", app.waitFor { eval("visualViewport.scale").toFloat() > 1.5f })
+
+        resizePipWindow(pipWindow())
+        assertTrue("the resized PiP window still shows the page zoomed in", app.waitFor(3000) {
+            eval("window.innerWidth / visualViewport.width").toFloat() < 1.05f
+        })
+        app.leavePip()
+    }
+
     private fun reportVideo(playing: Boolean, width: Int, height: Int) {
         eval(
             "window.AstryxPage.postMessage(JSON.stringify({ call: 'videoState', playing: $playing," +
@@ -198,11 +216,22 @@ class MainActivityPipTest {
         android.graphics.Rect(at[0], at[1], at[0] + view.width, at[1] + view.height)
     }
 
-    // Two fingers along the window's longer side, moving apart to 1.5 times their distance.
-    private fun pinchOut(window: android.graphics.Rect) {
+    // Pinches the PiP window smaller, or bigger when it's already as small as it gets (Android keeps
+    // the size the last test left). Leaves PiP and skips the test when the window doesn't resize.
+    private fun resizePipWindow(window: android.graphics.Rect) {
+        pinch(window, 0.6f)
+        if (app.waitFor(3000) { pipWindow().width() < window.width() * 0.9 }) return
+        pinch(window, 1.6f)
+        if (app.waitFor(3000) { pipWindow().width() > window.width() * 1.1 }) return
+        app.leavePip()
+        assumeTrue("this Android's PiP doesn't resize on an injected pinch", false)
+    }
+
+    // Two fingers along the window's longer side, moving to [factor] times their distance.
+    private fun pinch(window: android.graphics.Rect, factor: Float) {
         val horizontal = window.width() > window.height()
-        val from = maxOf(window.width(), window.height()) / 6f
-        val to = from * 1.5f
+        val from = maxOf(window.width(), window.height()) / 5f
+        val to = from * factor
         val cx = window.exactCenterX()
         val cy = window.exactCenterY()
         val properties = Array(2) { i ->
