@@ -81,6 +81,13 @@ class LiveFacebookCanaryTest {
         logLines("AstryxbookPiP").takeLast(8).joinToString(" | ")
     }.getOrDefault("unreadable")
 
+    // Whether the PiP params the app sent last had auto-enter on (MainActivity logs each), null if
+    // it sent none.
+    private fun lastAutoEnter(): Boolean? = runCatching {
+        logLines("AstryxbookPiP").lastOrNull { "PictureInPictureParams: autoEnter=" in it || "reapplyPipParams: autoEnter=" in it }
+            ?.substringAfter("autoEnter=")?.startsWith("true")
+    }.getOrNull()
+
     // What the app has on screen, for a failure message when the page can't be read: its WebViews
     // and whether it lost a renderer (RendererGoneClient). Nothing of the page or the account.
     private fun appState(): String {
@@ -149,9 +156,22 @@ class LiveFacebookCanaryTest {
                 "was never pressed (${eval(VIDEO_STATE_JS)}; the app's PiP log: ${pipLog()})")
         }
 
-        // Home, as the user leaves the app: Android 12+ enters PiP by itself (auto-enter).
+        // Home, as the user leaves the app: Android 12+ enters PiP by itself (auto-enter). The reel
+        // can still buffer in the instant before Home (issue 66): the app then turns auto-enter off
+        // and rightly opens no PiP, and gets one more try. A Home with auto-enter on and no PiP fails.
         app.pressHome()
-        assertTrue("the playing reel never went to PiP on Home (the app's PiP log: ${pipLog()})", app.waitFor { app.isInPip() })
+        var inPip = app.waitFor { app.isInPip() }
+        if (!inPip && lastAutoEnter() == false) {
+            app.start()
+            eval(PLAY_DETECTED_JS)
+            if (!app.waitFor(30_000) { playsOnFor(1000) }) {
+                fail("the reel stopped before Home and never played on again (${eval(VIDEO_STATE_JS)}; " +
+                    "the app's PiP log: ${pipLog()})")
+            }
+            app.pressHome()
+            inPip = app.waitFor { app.isInPip() }
+        }
+        assertTrue("the playing reel never went to PiP on Home (the app's PiP log: ${pipLog()})", inPip)
         assertTrue("focus mode never ran", app.waitFor { eval("document.body.hasAttribute('data-astryx-pip-active')") == "true" })
         Thread.sleep(3000) // Facebook re-wraps and pauses the video in the first seconds of PiP
         assertEquals(
@@ -264,6 +284,11 @@ class LiveFacebookCanaryTest {
                 " ' error=' + (e.error ? e.error.code : 'none') + ' src=' + (e.currentSrc || '').slice(0, 12); }).join('; '); })()"
         private const val PLAYING_JS =
             "(function (v) { return !!v && !v.paused && v.readyState >= 2; })(document.querySelector('video'))"
+        // The detector's video played again, unmuted, as a tap would (Facebook may pause it in the
+        // background).
+        private const val PLAY_DETECTED_JS =
+            "(function (v) { if (v) { v.muted = false; var p = v.play(); if (p && p.catch) p.catch(function () {}); } })" +
+                "(window.__astryxLastActiveVideo || document.querySelector('video')); 1"
         // The detector's video's playback time while it counts as playing (getActiveVideo in
         // pip_video_detector.js), -1 otherwise.
         private const val DETECTED_PLAYING_TIME_JS =
