@@ -11,6 +11,8 @@ import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.util.Rational
@@ -48,6 +50,9 @@ import androidx.webkit.WebViewCompat
 import com.eepiemi.materialbook.ui.screens.ShareMediaRequest
 import com.eepiemi.materialbook.ui.screens.OpenLinkRequest
 import com.eepiemi.materialbook.utils.appOrientation
+import com.eepiemi.materialbook.utils.PipWindowParams
+import com.eepiemi.materialbook.utils.pipParamsDelayMs
+import com.eepiemi.materialbook.utils.steadyPipRatio
 import com.eepiemi.materialbook.utils.publishAppShortcuts
 import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
@@ -118,10 +123,21 @@ class MainActivity : FragmentActivity() {
     // then already B, not the A the aspect ratio was computed from.
     private var pipEnteringTrigger by mutableIntStateOf(0)
 
+    // What the PiP window was last sent, and a pause the page reported in PiP that waits to be
+    // sent (PipWindowParams.kt: each update can put a window the user resized back to its first
+    // size). Main thread only.
+    private var sentPipParams: PipWindowParams? = null
+    private val pipParamsHandler = Handler(Looper.getMainLooper())
+    private var pipParamsPending = false
+    private val sendPendingPipParams = Runnable { sendPlaybackPipParams() }
+    @Volatile
+    private var lastPipToggleAt = 0L
+
     private val pipActionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_PIP_TOGGLE) {
                 Log.d(TAG, "pipActionReceiver: toggle requested")
+                lastPipToggleAt = SystemClock.elapsedRealtime()
                 pipToggleTrigger++
             }
         }
@@ -365,6 +381,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        pipParamsHandler.removeCallbacks(sendPendingPipParams)
         unregisterReceiver(pipActionReceiver)
         unregisterReceiver(screenOffReceiver)
         lockScreenAudio.onDestroy()
@@ -382,6 +399,12 @@ class MainActivity : FragmentActivity() {
             Log.d(TAG, "onPictureInPictureModeChanged: startedWhilePlaying=$pipStartedWhilePlaying")
         }
         isInPipMode = isInPictureInPictureMode
+        // A pause held back in PiP is sent on leaving it: the next Home mustn't start PiP for a
+        // video that stopped.
+        if (!isInPictureInPictureMode && pipParamsPending) {
+            pipParamsHandler.removeCallbacks(sendPendingPipParams)
+            sendPlaybackPipParams()
+        }
 
         lockScreenAudio.onPipModeChanged(isInPictureInPictureMode)
 
@@ -394,12 +417,7 @@ class MainActivity : FragmentActivity() {
         if (isInPictureInPictureMode && isVideoPlaying) {
             isVideoPlaying = false
             Log.d(TAG, "onPictureInPictureModeChanged: immediate icon flip to Play")
-            applyPipParams(
-                pipParamsBuilder()
-                    .setAspectRatio(currentAspectRatio)
-                    .setActions(listOf(buildPlayPauseAction(false)))
-                    .build()
-            )
+            applyPipParams(playing = false)
         }
     }
 
@@ -417,9 +435,19 @@ class MainActivity : FragmentActivity() {
 
     // Android throws when the activity is already going (the PiP window dismissed, the app
     // closed) while a video-state report from the page is still on its way: the app crashed.
-    private fun applyPipParams(params: PictureInPictureParams) {
+    // The current ratio and a Play/Pause button for [playing]; [autoEnter] (Android 12+) left
+    // unset when null.
+    private fun applyPipParams(playing: Boolean, autoEnter: Boolean? = null) {
         if (isFinishing || isDestroyed) return
-        runCatching { setPictureInPictureParams(params) }
+        val ratio = currentAspectRatio
+        val builder = pipParamsBuilder()
+            .setAspectRatio(ratio)
+            .setActions(listOf(buildPlayPauseAction(playing)))
+        if (autoEnter != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(autoEnter)
+        }
+        runCatching { setPictureInPictureParams(builder.build()) }
+            .onSuccess { sentPipParams = PipWindowParams(ratio, playing) }
             .onFailure { Log.w(TAG, "setPictureInPictureParams failed", it) }
     }
 
@@ -458,13 +486,7 @@ class MainActivity : FragmentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
             Log.d(TAG, "reapplyPipParams: autoEnter=$autoEnter, ratio=$currentAspectRatio")
-            applyPipParams(
-                pipParamsBuilder()
-                    .setAspectRatio(currentAspectRatio)
-                    .setAutoEnterEnabled(autoEnter)
-                    .setActions(listOf(buildPlayPauseAction(isVideoPlaying)))
-                    .build()
-            )
+            applyPipParams(isVideoPlaying, autoEnter)
         }
     }
 
@@ -478,20 +500,44 @@ class MainActivity : FragmentActivity() {
         lastVideoWidth = videoWidth
         lastVideoHeight = videoHeight
         if (videoWidth > 0 && videoHeight > 0) {
-            currentAspectRatio = settingsVM.pipRationalForVideo(videoWidth, videoHeight)
+            val ratio = settingsVM.pipRationalForVideo(videoWidth, videoHeight)
+            currentAspectRatio = if (isInPictureInPictureMode) steadyPipRatio(currentAspectRatio, ratio) else ratio
         }
         Log.d(TAG, "updateVideoPlaybackState: isPlaying=$isPlaying, ${videoWidth}x$videoHeight, pipEnabled=${settingsVM.pipEnabled.value}, aspectRatio=$currentAspectRatio")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
-            Log.d(TAG, "setPictureInPictureParams: autoEnter=$autoEnter")
-            val pipParams = pipParamsBuilder()
-                .setAspectRatio(currentAspectRatio)
-                .setAutoEnterEnabled(autoEnter)
-                .setActions(listOf(buildPlayPauseAction(isPlaying)))
-                .build()
-            applyPipParams(pipParams)
+            // PipBridge reports from the JavaScript thread (old WebViews), AstryxPage on the main one.
+            if (Looper.myLooper() == Looper.getMainLooper()) schedulePlaybackPipParams()
+            else pipParamsHandler.post { schedulePlaybackPipParams() }
         }
+    }
+
+    // In PiP, sends only what changes the window and holds a pause the page reports (Facebook
+    // pauses after each resize, the keep-playing guard resumes): see PipWindowParams.kt.
+    private fun schedulePlaybackPipParams() {
+        pipParamsHandler.removeCallbacks(sendPendingPipParams)
+        pipParamsPending = false
+        val next = PipWindowParams(currentAspectRatio, isVideoPlaying)
+        val delayMs = pipParamsDelayMs(
+            isInPictureInPictureMode,
+            sentPipParams,
+            next,
+            SystemClock.elapsedRealtime() - lastPipToggleAt
+        ) ?: return
+        if (delayMs > 0) {
+            Log.d(TAG, "setPictureInPictureParams: pause held for ${delayMs}ms")
+            pipParamsPending = true
+            pipParamsHandler.postDelayed(sendPendingPipParams, delayMs)
+        } else {
+            sendPlaybackPipParams()
+        }
+    }
+
+    private fun sendPlaybackPipParams() {
+        pipParamsPending = false
+        val autoEnter = isVideoPlaying && settingsVM.pipEnabled.value
+        Log.d(TAG, "setPictureInPictureParams: autoEnter=$autoEnter")
+        applyPipParams(isVideoPlaying, autoEnter)
     }
 
     // Called right before the user leaves via Home or the recents switcher.
@@ -511,12 +557,15 @@ class MainActivity : FragmentActivity() {
         if (eligible) {
             pipEnteringTrigger++
             try {
+                val ratio = currentAspectRatio
+                val playing = isVideoPlaying
                 enterPictureInPictureMode(
                     pipParamsBuilder()
-                        .setAspectRatio(currentAspectRatio)
-                        .setActions(listOf(buildPlayPauseAction(isVideoPlaying)))
+                        .setAspectRatio(ratio)
+                        .setActions(listOf(buildPlayPauseAction(playing)))
                         .build()
                 )
+                sentPipParams = PipWindowParams(ratio, playing)
                 Log.d(TAG, "enterPictureInPictureMode called successfully")
             } catch (e: Exception) {
                 Log.e(TAG, "enterPictureInPictureMode failed", e)
