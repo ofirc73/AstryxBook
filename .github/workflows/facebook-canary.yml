@@ -168,6 +168,12 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           TITLE="Daily Facebook check failed"
+          # Checks that passed only after working around something (LiveFacebookCanaryTest's note(),
+          # e.g. a second Home): a warning on the run, passing or not.
+          NOTES=$(grep -o 'CANARY NOTE: .*' canary.txt 2>/dev/null | sed 's/^CANARY NOTE: //' || true)
+          while IFS= read -r NOTE; do
+            if [ -n "$NOTE" ]; then echo "::warning title=Live check note::${NOTE//%/%25}"; fi
+          done <<< "$NOTES"
           # The open issues listed and matched here, not with --search: search once missed an
           # issue opened hours before, so a passing run didn't close it.
           OPEN=$(gh issue list --state open --limit 200 --json number,title \
@@ -181,6 +187,7 @@ jobs:
           # traces.
           FAILED=$(grep -E '^(Error in |[0-9]+\) |[a-z][a-z0-9_]*(\.[A-Za-z0-9_$]+)+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)' canary.txt 2>/dev/null || true)
           [ -n "$FAILED" ] || FAILED="The checks couldn't run (outcome: $OUTCOME); see the run."
+          [ -z "$NOTES" ] || FAILED=$(printf '%s\n\nNotes:\n%s' "$FAILED" "$NOTES")
           BODY=$(printf '**%s** at %s:\n\n```\n%s\n```\n\n%s' "$(date -u '+%Y-%m-%d %H:%M UTC')" "${GITHUB_SHA::7}" "$FAILED" "$RUN_URL")
           if [ -n "$OPEN" ]; then gh issue comment "$OPEN" --body "$BODY"
           else gh issue create --title "$TITLE" --body "$BODY"; fi
