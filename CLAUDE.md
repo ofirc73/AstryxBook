@@ -40,7 +40,11 @@ user-visible change.
   history (`asHistory` gives them one, but a reload then fetches the real page). Loading a second
   test page at the same address leaves `evaluateJavascript` unanswered: give each its own
   (`?n=2`). The lock-screen
-  and app-lock tests need the screen lock's PIN: `-e pin 1234` on the emulator. The live
+  and app-lock tests need the screen lock's PIN: `-e pin 1234` on the emulator. An emulator stuck
+  on its lock screen (plain `input swipe` and `input text` ignored): `input touchscreen swipe`
+  brings up the PIN pad. Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
+  never returned"); `adb emu kill` and start it again (minimized: a windowed start may not come
+  up), which quick-boots the saved snapshot with older APKs, so reinstall both before testing. The live
   checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
