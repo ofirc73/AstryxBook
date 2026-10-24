@@ -111,6 +111,58 @@ class MainActivityPipTest {
     }
 
     @Test
+    fun aReelBufferingRightBeforeHome_stillGoesToPip() {
+        // The daily live check's reel stalled for data just before Home (issues #59, #61, #66),
+        // and the app had turned auto-enter off.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        loadReelPage()
+        reelPlays()
+
+        reelVideo("{ readyState: 2 }", "waiting")
+        Thread.sleep(500) // the detector checks again meanwhile (every 300 ms)
+        app.pressHome()
+
+        assertTrue("a reel buffering for a moment never went to PiP on Home", app.waitFor { app.isInPip() })
+        app.leavePip()
+    }
+
+    @Test
+    fun aPausedReel_homeLeavesNoPip() {
+        loadReelPage()
+        reelPlays()
+
+        reelVideo("{ paused: true }", "pause")
+        Thread.sleep(500)
+        app.pressHome()
+
+        assertTrue("the app never went to the background", app.waitFor { app.isInBackground() })
+        Thread.sleep(1500)
+        assertFalse("a paused reel went to PiP on Home", app.isInPip())
+    }
+
+    // The test reel's playback, faked on its <video> (it has no file): [state] (a JS object
+    // literal) changes it, then [event] fires so pip_video_detector.js reports at once.
+    private fun reelVideo(state: String, event: String) {
+        eval(
+            "(function (v) { if (!v.__s) { v.__s = { paused: true, ended: false, readyState: 0, currentTime: 0," +
+                " muted: false, volume: 1, videoWidth: 720, videoHeight: 1280 };" +
+                " Object.keys(v.__s).forEach(function (k) { Object.defineProperty(v, k," +
+                " { get: function () { return this.__s[k]; }, configurable: true }); }); }" +
+                " Object.assign(v.__s, $state); v.dispatchEvent(new Event('$event')); })" +
+                "(document.getElementById('reel')); 1"
+        )
+    }
+
+    // The test reel plays, and the app has heard it from pip_video_detector.js.
+    private fun reelPlays() {
+        reelVideo("{ paused: false, readyState: 4, currentTime: 1 }", "playing")
+        assertTrue("pip_video_detector.js never found the playing reel", app.waitFor {
+            eval("window.__astryxLastActiveVideo === document.getElementById('reel')") == "true"
+        })
+        Thread.sleep(500) // the report reaching MainActivity's PiP params
+    }
+
+    @Test
     fun leavingPip_keepsTheSamePage() {
         // Leaving PiP must come back to the video the user was on, not reload or navigate.
         loadReelPage()

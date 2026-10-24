@@ -407,7 +407,8 @@ user would, with test pages at Facebook addresses in its WebViews (no login, so 
 They catch the wiring between the activity, the effects and the scripts, which the script tests
 on their own can't:
 
-- `MainActivityPipTest`: Home with a playing video enters PiP (not with PiP off); focus mode
+- `MainActivityPipTest`: Home with a playing video enters PiP (not with PiP off, nor after a
+  pause), also while the reel buffers for a moment; focus mode
   applied and restored; the keep-playing guard only in PiP; leaving PiP keeps the page; a
   wrapper Facebook adds in PiP kept visible (the v1.32.6 black PiP); a pinch-zoomed page shown
   whole in PiP and zoomed back after; PiP from the Messages layer acting on the layer; PiP on the
@@ -438,9 +439,9 @@ to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` se
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
 drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 UTC and the later
 runs stand down once one has run. The reel check presses Home only once the reel plays on as the app's PiP detector
-counts playing: unmuted, a reel buffers for a moment on GitHub's emulator, and a Home then rightly
-opens no PiP. When it buffers in the instant before Home anyway (the app's last PiP params had
-auto-enter off), the check plays it again and presses Home once more. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
+counts playing: unmuted, a reel buffers for a moment on GitHub's emulator. When the app's last PiP
+params had auto-enter off before Home anyway (a stall longer than the detector's 2 s grace), the
+check plays it again and presses Home once more. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
 stop at the open editors.
 
 ## Messages in desktop mode
@@ -560,6 +561,13 @@ leaving the app while a Facebook video or Reel is playing.
   page are respected. It's switched on from `onPictureInPictureModeChanged`,
   because Android 12+ doesn't call `onUserLeaveHint` when PiP auto-enters.
   Verified on emulators running Android 16, 14, 11 and 8.0 (`PipKeepPlayingJsTest`).
+- A video buffering for a moment still goes to PiP: the PiP detector counted a reel that
+  stalled for data (not paused, `readyState` 2) as stopped, so Home during a brief buffering
+  stall on a slow network opened no PiP (seen in the daily live check, issues #59, #61 and #66).
+  A video that has played now keeps counting as playing for 2 s after it last played while it
+  buffers; one that hasn't played yet still has to load first, and a paused or ended video
+  stops counting at once, so Home after a pause opens no PiP. Covered by `PipVideoDetectorJsTest`
+  and `MainActivityPipTest`.
 - Desktop site (Desktop layout, or a reel opened in the Messages layer): reels
   paused in PiP and every Play was undone within a second, with the view
   jumping between sizes. Facebook's desktop player pauses any video whose
