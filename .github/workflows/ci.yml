@@ -140,19 +140,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      # Compile the app and test APKs before the emulator starts: the emulator
-      # renders in software (swiftshader) and competing with it for the CPUs
-      # made compiling take most of this job. connectedAndroidTest below then
-      # finds them up to date and only installs and runs the tests. The build runs
-      # in the background while the emulator and the AVD cache (2 GB) come in, and
-      # "Wait for the APK build" joins it before the emulator starts.
-      - name: Start the App and Test APK Build
-        run: |
-          chmod +x gradlew
-          mkdir -p "$RUNNER_TEMP/apk-build"
-          nohup bash -c './gradlew assembleDebug assembleDebugAndroidTest --build-cache --stacktrace \
-            > "$RUNNER_TEMP/apk-build/log" 2>&1; echo $? > "$RUNNER_TEMP/apk-build/exit"' > /dev/null 2>&1 &
-
       # GitHub-hosted Ubuntu runners support nested virtualization but need
       # KVM permissions opened up explicitly for the emulator to use it.
       - name: Enable KVM group perms
@@ -177,6 +164,20 @@ jobs:
           echo "Installed versions: $VERSIONS"
           case "$VERSIONS" in -*|*-) echo "::error::no emulator or system image version"; exit 1;; esac
           echo "key=$VERSIONS" >> "$GITHUB_OUTPUT"
+
+      # Compile the app and test APKs before the emulator starts: the emulator
+      # renders in software (swiftshader) and competing with it for the CPUs
+      # made compiling take most of this job. connectedAndroidTest below then
+      # finds them up to date and only installs and runs the tests. The build runs
+      # in the background while the AVD cache (2 GB) comes in, and "Wait for the
+      # APK build" joins it before the emulator starts. Not during the SDK install:
+      # next to sdkmanager, that step took twice as long.
+      - name: Start the App and Test APK Build
+        run: |
+          chmod +x gradlew
+          mkdir -p "$RUNNER_TEMP/apk-build"
+          nohup bash -c './gradlew assembleDebug assembleDebugAndroidTest --build-cache --stacktrace \
+            > "$RUNNER_TEMP/apk-build/log" 2>&1; echo $? > "$RUNNER_TEMP/apk-build/exit"' > /dev/null 2>&1 &
 
       # Caches the AVD image + boot snapshot, so a cache hit restores from the
       # snapshot instead of cold-booting. Not hashed on source: the AVD only
