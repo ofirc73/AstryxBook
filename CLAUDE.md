@@ -49,9 +49,9 @@ user-visible change.
   checks against real Facebook (`LiveFacebookCanaryTest`) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
   in `../astryx-canary` and runs them on the emulator (`-NoBuild` for the installed app).
-  A fix that depends on Facebook's page (its markup, URLs, cookies) gets a live check there, or a
-  line in FORK_CHANGES' Testing saying why it can't: the fixed-page tests keep passing when Facebook
-  changes. `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
+  Every test added or changed goes with the live checks: add or adjust the live check for what it
+  covers, or say in FORK_CHANGES' Testing why it has none (it doesn't depend on Facebook's page, or
+  can't be checked live). The fixed-page tests keep passing when Facebook changes. `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
   runs, so it's scheduled every 2 hours until 17:37 UTC, and the later runs stand down once one
   has run),
   logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64; the Messages
