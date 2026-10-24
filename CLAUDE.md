@@ -205,7 +205,8 @@ user-visible change.
   less margins, every app alike): a 4:7 reel's window at about half the screen's width. The app's
   `setPictureInPictureParams` updates don't undo a user's resize (One UI 9 logs, `PipBoundsState`
   in SystemUI's `setBounds` lines). On the phone `sendevent` is denied, so pinch the PiP window in
-  tests with `UiAutomation.injectInputEvent` (`MainActivityPipTest.pinchOut`); on the emulator
+  tests with `UiAutomation.injectInputEvent` (`MainActivityPipTest.resizePipWindow`: smaller, or
+  bigger when it can't shrink, since Android remembers the last size); on the emulator
   `adb emu event send` with `ABS_MT_*` codes pinches too (positions 0-32767).
 - A zoom the page takes in PiP outlives it: Chromium keeps the width the window showed when the
   window grows back. Leaving PiP resets the zoom (`PipEffects`, `pipExitZoomBy`). Facebook's

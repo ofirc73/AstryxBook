@@ -701,14 +701,18 @@ leaving the app while a Facebook video or Reel is playing.
   logs on the phone (One UI 9) show the window keeping its size through every update. It stops at
   Android's largest PiP size, which for a portrait reel is about half the screen's width (see
   Known limitations). The 1.5-second hold is gone; the window's button shows a pause at once again.
-  `MainActivityPipTest` now pinches the PiP window of a portrait reel and of a landscape video
-  bigger and checks it keeps that size through the app's Play/Pause updates.
+  `MainActivityPipTest` now resizes the PiP window of a portrait reel and of a landscape video
+  (a pinch) and checks it keeps that size through the app's Play/Pause updates.
 - A video opened from the Reels tab came back zoomed in (about 2x) after its PiP window had been
   resized. Facebook keeps such a video page at its full-screen width, so the PiP window shows it
   zoomed out; a resize left it at normal scale in the small window, and on the way out Chromium
   kept the narrow width the window had shown. Leaving PiP now puts the page back at the zoom it
   had before (none, or the user's own pinch zoom). Covered by
   `aZoomThePageTookInPip_isUndoneOnLeavingIt` and `PipExitZoomTest`.
+- That reset waited for the window to settle, so the video still showed zoomed in for about a
+  second. Each resize of the PiP window now zooms the page all the way out again right away, as
+  entering PiP does, so it comes back at its normal zoom (the reset stays as a backstop). Covered by
+  `aResizedPipWindow_showsThePageZoomedOutAgain`.
 
 ## Sharing, text size, shortcuts and developer options
 

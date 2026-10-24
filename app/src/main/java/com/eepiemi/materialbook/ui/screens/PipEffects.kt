@@ -3,6 +3,7 @@ package com.eepiemi.materialbook.ui.screens
 import android.util.Log
 import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -172,6 +173,7 @@ internal fun PipEffects(
     // mode, like the effects around it.
     var pipPinchRatio by remember { mutableFloatStateOf(1f) }
     var pipZoomToRestore by remember { mutableStateOf(false) }
+    var pipEntryZoomChecked by remember { mutableStateOf(false) }
     LaunchedEffect(isInPipMode, pipHandback) {
         val webView = runCatching { pipState.nativeWebView }.getOrNull() ?: return@LaunchedEffect
         if (isInPipMode) {
@@ -179,6 +181,7 @@ internal fun PipEffects(
             if (isFullscreen || pipState.loadingState !is LoadingState.Finished) return@LaunchedEffect
             delay(PIP_PINCH_CHECK_DELAY_MS) // the window's resize first
             pipNavigator.evaluateJavaScript(PIP_PINCH_RATIO_JS) { raw ->
+                pipEntryZoomChecked = true
                 val ratio = raw?.removeSurrounding("\"")?.toFloatOrNull() ?: return@evaluateJavaScript
                 if (ratio <= PINCH_RATIO_MIN) return@evaluateJavaScript
                 Log.d("AstryxbookPiP", "PiP shows the page zoomed x$ratio: zooming out")
@@ -187,6 +190,7 @@ internal fun PipEffects(
             }
         } else if (pipZoomToRestore) {
             pipZoomToRestore = false
+            pipEntryZoomChecked = false
             val wanted = pipPinchRatio
             pipPinchRatio = 1f
             delay(PIP_EXIT_SETTLE_MS)
@@ -196,6 +200,36 @@ internal fun PipEffects(
                 Log.d("AstryxbookPiP", "left PiP zoomed x$current, wanted x$wanted: zooming by $by")
                 webView.zoomBy(by)
             }
+        }
+    }
+
+    // The user resizing the PiP window can leave the page zoomed in the window (the video page
+    // above, at scale 1 instead of zoomed out); the reset on leaving PiP then showed the page
+    // zoomed in for about a second first. After each resize the page is zoomed all the way out
+    // again, as on entering PiP, so there's no zoom for Chromium to carry out of PiP. Only once
+    // the entry check has run (it notes the user's own zoom first).
+    DisposableEffect(isInPipMode, pipState) {
+        val webView = runCatching { pipState.nativeWebView }.getOrNull()
+        if (!isInPipMode || webView == null) return@DisposableEffect onDispose {}
+        val check = Runnable {
+            if (!pipEntryZoomChecked) return@Runnable
+            pipNavigator.evaluateJavaScript(PIP_PINCH_RATIO_JS) { raw ->
+                val ratio = raw?.removeSurrounding("\"")?.toFloatOrNull() ?: return@evaluateJavaScript
+                if (ratio <= PINCH_RATIO_MIN) return@evaluateJavaScript
+                Log.d("AstryxbookPiP", "the resized PiP window shows the page zoomed x$ratio: zooming out")
+                repeat(MAX_ZOOM_OUT_STEPS) { if (!webView.zoomOut()) return@evaluateJavaScript }
+            }
+        }
+        val resized = View.OnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+                webView.removeCallbacks(check)
+                webView.postDelayed(check, PIP_PINCH_CHECK_DELAY_MS)
+            }
+        }
+        webView.addOnLayoutChangeListener(resized)
+        onDispose {
+            webView.removeOnLayoutChangeListener(resized)
+            webView.removeCallbacks(check)
         }
     }
 
