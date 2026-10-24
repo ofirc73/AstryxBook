@@ -693,6 +693,14 @@ leaving the app while a Facebook video or Reel is playing.
   new page too. Found through a test that failed now and then in CI
   (`theAppsScripts_runOnFacebooksPages`); covered by
   `theAppsScripts_runOnEveryPage_evenOneThatLoadsWithinAFrame`, which failed every time before.
+- Resizing the PiP window (pinching it or dragging its corner; Android keeps the video's ratio)
+  now sticks: the window went back to its first size as soon as the fingers lifted. Facebook
+  pauses the video after every resize and the keep-playing guard resumes it, and the app sent the
+  window a Play button, then a Pause button, each an update that puts a resized window back.
+  While in PiP the app now sends only updates that change the window, holds a pause the page
+  reports for 1.5 seconds (a pause from the window's own button still shows at once), and keeps
+  the window's ratio when Facebook switches the video's quality (a ratio change under 2%).
+  Covered by `PipWindowParamsTest`.
 
 ## Sharing, text size, shortcuts and developer options
 
