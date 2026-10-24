@@ -28,7 +28,8 @@ user-visible change.
   four emulators (`instrumented-shard`, the runner's `numShards`/`shardIndex`) next to the release
   APK's launch check (`release-launch`, the build job's APK); the required `instrumented-tests`
   check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
-  `--build-cache`). Run CI by hand on a branch with
+  `--build-cache`). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
+  `main` and inside `create-release.yml` nothing is cancelled. Run CI by hand on a branch with
   `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) is its own
   workflow, started after each CI or release run that passed (`workflow_run`); it gates nothing.
 - A local release APK is signed with the **debug** key (`app/build.gradle.kts`): it's for testing

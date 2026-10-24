@@ -24,6 +24,13 @@ on:
         required: false
         default: ''
 
+# A newer run for the same PR (a push, or a reopen) cancels the older one. Only on pull requests:
+# called from create-release.yml (workflow_call) a cancelled run would skip a release, and a run by
+# hand stays as started; those get a group of their own (the run's id), so nothing waits either.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   android-lint:
     name: Android Lint
