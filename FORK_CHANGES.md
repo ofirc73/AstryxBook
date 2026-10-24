@@ -439,7 +439,8 @@ a "Daily Facebook check failed" issue when a check fails (closed by the next pas
 drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 UTC and the later
 runs stand down once one has run. The reel check presses Home only once the reel plays on as the app's PiP detector
 counts playing: unmuted, a reel buffers for a moment on GitHub's emulator, and a Home then rightly
-opens no PiP. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
+opens no PiP. When it buffers in the instant before Home anyway (the app's last PiP params had
+auto-enter off), the check plays it again and presses Home once more. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
 stop at the open editors.
 
 ## Messages in desktop mode
