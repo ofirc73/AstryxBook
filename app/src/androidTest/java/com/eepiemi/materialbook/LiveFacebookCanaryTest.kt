@@ -6,8 +6,11 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebView
@@ -387,26 +390,60 @@ class LiveFacebookCanaryTest {
     }
 
     // The chat the Messages layer checks open (FB_TEST_CHAT, passed as -e fbChat): one of the
-    // test account's chats with a photo and a shared reel in it. Null when unset (the test account
-    // has no chats yet), noted once per run.
+    // test account's chats with a photo and a shared reel in it, given as its address, what follows
+    // /messages/ in it ("e2ee/t/<id>" for an end-to-end encrypted chat) or a bare id. Returns that
+    // path ("t/<id>", "e2ee/t/<id>"); null when unset, noted once per run.
     private fun testChat(): String? {
         val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }
         if (chat == null && !notedNoChat) {
             notedNoChat = true
             note("FB_TEST_CHAT isn't set: the Messages layer checks didn't run")
         }
-        return chat
+        return chat?.let { chatPath(it) }
     }
 
     // Messages in desktop mode on, and the chat opened from the main view as a tap on a Messages
-    // link would: in the Messages layer. Returns the layer.
+    // link would: in the Messages layer (messagesDesktopUrl keeps an e2ee/t/<id> path). An
+    // end-to-end encrypted chat opened at its address shows the chat list first at phone width
+    // (Facebook's): its row is tapped, as the user would. Returns the layer.
     private fun openChatInTheLayer(chat: String): WebView {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
-        open("https://m.facebook.com/messages/t/$chat/")
+        open("https://m.facebook.com/messages/$chat/")
         assertTrue("a Messages link never opened the Messages layer (${appState()})", app.waitFor(30_000) {
             app.layerWebView()?.let { app.url(it).contains("/messages/") } == true
         })
-        return app.layerWebView()!!
+        val layer = app.layerWebView()!!
+        assertTrue("the test chat (FB_TEST_CHAT) never showed in the Messages layer (${layerShape(layer)})",
+            app.waitFor(45_000) { app.eval(chatShownJs(chat), layer) == "true" })
+        return layer
+    }
+
+    // A tap at the middle of the element [js] scrolls into view and gives the box of (CSS px in the
+    // visual viewport, and that viewport's width: "left,top,width,height,viewportWidth"; "" while
+    // there's none), a real touch: a link that opens a new window (target=_blank, as a shared
+    // reel's) ignores a click from a script.
+    private fun tapIn(webView: WebView, js: String): Boolean {
+        fun box() = app.eval(js, webView).trim('"').split(',').mapNotNull { it.toFloatOrNull() }
+        if (box().size < 5) return false
+        // Measured again once the scroll has settled.
+        Thread.sleep(800)
+        val box = box()
+        if (box.size < 5 || box[4] <= 0f) return false
+        val (x, y) = app.onActivity {
+            val at = IntArray(2).also { webView.getLocationOnScreen(it) }
+            val scale = webView.width / box[4]
+            Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
+        }
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val downAt = SystemClock.uptimeMillis()
+        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
+            if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
+            val event = MotionEvent.obtain(downAt, time, action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            automation.injectInputEvent(event, true)
+            event.recycle()
+        }
+        return true
     }
 
     // The layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
@@ -440,8 +477,8 @@ class LiveFacebookCanaryTest {
     fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
         val chat = testChat() ?: return
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { app.eval(OPEN_CHAT_REEL_JS, layer) == "true" }) {
-            fail("no shared reel (a link to /reel/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
+        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) {
+            fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
         }
         assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
             !layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
@@ -660,10 +697,10 @@ class LiveFacebookCanaryTest {
                 " var r = i.getBoundingClientRect(); return r.width >= 100 && r.height >= 100; }).length;" +
                 " return location.pathname.replace(/\\d{3,}/g, 'N') + ' main=' + !!document.querySelector('[role=main]') +" +
                 " ' imgs=' + document.querySelectorAll('img').length + ' bigImgs=' + big +" +
-                " ' reelLinks=' + document.querySelectorAll('a[href*=\"/reel/\"]').length +" +
+                " ' reelLinks=' + document.querySelectorAll('a[href*=\"/reel/\"], a[href*=\"/share/r/\"]').length +" +
                 " ' inputs=' + document.querySelectorAll('input').length + ' dialogs=' + document.querySelectorAll('[role=dialog]').length; })()"
 
-        // Opens the chat's largest photo (at least 100 px each way, not a shared reel's picture) as
+        // Opens the chat's largest photo (at least 100 px each way, not a shared reel's or post's picture) as
         // a tap would; false while there's none.
         private const val OPEN_CHAT_PHOTO_JS = """
             (function () {
@@ -671,7 +708,7 @@ class LiveFacebookCanaryTest {
               var imgs = root.querySelectorAll('img'), best = null, area = 0;
               for (var i = 0; i < imgs.length; i++) {
                 var r = imgs[i].getBoundingClientRect();
-                if (r.width < 100 || r.height < 100 || imgs[i].closest('a[href*="/reel/"]')) continue;
+                if (r.width < 100 || r.height < 100 || imgs[i].closest('a[href*="/reel/"], a[href*="/share/"], a[target="_blank"]')) continue;
                 if (r.width * r.height > area) { area = r.width * r.height; best = imgs[i]; }
               }
               if (!best) return false;
@@ -702,16 +739,42 @@ class LiveFacebookCanaryTest {
             })()
         """
 
-        // Opens the chat's latest shared reel (a link to a /reel/ page) as a tap would; false while
-        // there's none.
-        private const val OPEN_CHAT_REEL_JS = """
+        // The chat's latest shared reel (a link to a /reel/ page, or Facebook's share link for one),
+        // scrolled into view, as tapIn's box; "" while there's none.
+        private const val CHAT_REEL_BOX_JS = """
             (function () {
-              var links = document.querySelectorAll('a[href*="/reel/"]');
-              if (!links.length) return false;
+              var links = Array.prototype.filter.call(document.querySelectorAll('a[href*="/reel/"], a[href*="/share/r/"]'),
+                function (a) { var r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+              if (!links.length) return '';
               var link = links[links.length - 1];
               link.scrollIntoView({ block: 'center' });
-              link.click();
-              return true;
+              var r = link.getBoundingClientRect();
+              return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
+            })()
+        """
+
+        // What follows /messages/ in FB_TEST_CHAT's chat ("t/<id>", "e2ee/t/<id>"), given as its
+        // address, that path or a bare id.
+        private fun chatPath(chat: String): String {
+            val path = chat.substringAfter("/messages/", chat).substringBefore('?').substringBefore('#').trim('/')
+            val full = if ('/' in path) path else "t/$path"
+            require(Regex("^(e2ee/)?t/[A-Za-z0-9._-]+$").matches(full)) { "FB_TEST_CHAT isn't a chat: $full" }
+            return full
+        }
+
+        // Whether the chat at [chat] (chatPath's) shows in the layer: its message box is on screen.
+        // While the chat list shows instead, the chat's row is tapped (at most every 3 s).
+        private fun chatShownJs(chat: String) = """
+            (function () {
+              function shown(e) { var r = e && e.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; }
+              var boxes = document.querySelectorAll('[role="textbox"][contenteditable="true"]');
+              for (var i = 0; i < boxes.length; i++) { if (shown(boxes[i])) return true; }
+              var row = document.querySelector('a[href="/messages/$chat/"]');
+              if (shown(row) && !(Date.now() - (window.__canaryRowTap || 0) < 3000)) {
+                window.__canaryRowTap = Date.now();
+                row.click();
+              }
+              return false;
             })()
         """
 
