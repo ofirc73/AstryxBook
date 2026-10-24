@@ -176,11 +176,14 @@ class AppHarness {
     }
 
     // Back to full screen the way a tap on the PiP window's expand does: the activity to the front.
+    // On a busy CI emulator the first request now and then left the window in PiP (3 of about 8
+    // runs of aReelBufferingRightBeforeHome_stillGoesToPip, 2026-10-24): asked once more then.
     fun leavePip() {
-        context.startActivity(
-            Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        )
-        assertTrue("never left PiP", waitFor { !isInPip() })
+        val toFront = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        context.startActivity(toFront)
+        if (waitFor { !isInPip() }) return
+        context.startActivity(toFront)
+        assertTrue("never left PiP", waitFor(15_000) { !isInPip() })
     }
 }
