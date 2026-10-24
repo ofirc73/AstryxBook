@@ -430,20 +430,56 @@ on their own can't:
   Facebook's Google Ads pixel with an empty response.
 
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
-Facebook changing what the scripts rely on: a reel going to PiP from Home and playing there with a
-visible video, a photo shared to Feed reaching the composer, Create story opening the creator,
-Start on Feeds finding the menu entry, the notification counts read from the tab bar, Remove ads
-hiding the feed's and the reels' ads (an ad label it missed, found by its text, fails the check; a
-run that saw no ad says so in a note), the reel player's `data-video-url` being an MP4 the page
-can fetch (what downloads and the lock-screen audio hand-off play), m.facebook.com still keeping
-`sharedprefs.web.last_device_info` in `sessionStorage` (what the re-layout after an empty PiP window
-removes), and, in a chat named by the `FB_TEST_CHAT` secret (one with a photo and a shared reel), the
-Messages layer's photo viewer laid out for the phone and closed by Back, and the shared reel opening
-in the main view with Back returning to the chat (skipped with a note while the secret isn't set: the
-test account has no friends or chats yet). The test account's feed may hold no posts at all, so the
-feed-ads check only notes when it finds none of the boxes `adblock.js` hides; an ad label left
-showing fails it. It
-needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
+Facebook changing what the scripts rely on. The fixed-page tests above run each script on Facebook's
+markup as it was when the test was written, so they keep passing when Facebook changes it; a fix
+that depends on Facebook's page gets a live check here, or a reason below why it can't. What each
+live check guards:
+- `aReel_keepsPlayingInPip`: a reel going to PiP from Home and playing there with a visible video
+  (`pip_video_detector.js`, the keep-playing guard, focus mode; `PipKeepPlayingJsTest`,
+  `PipVideoDetectorJsTest`, `PipFocusModeJsTest`).
+- `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
+  shared photo reaching Home's composer, and a group's (the public group the test account joined;
+  `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
+- `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
+  story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
+  (`StoryLayoutJsTest`).
+- `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`). An
+  ad label it missed, found by its text, fails the check; a run that saw no ad says so in a note.
+  The test account's feed may hold no posts at all, so the feed check only notes when it finds none
+  of the boxes `adblock.js` hides.
+- `aReelsPlayer_hasItsMp4InDataVideoUrl`: the reel player's `data-video-url` being an MP4 the page
+  can fetch (downloads and the lock-screen audio hand-off; `MediaDownloadJsTest`,
+  `FileDownloadJsTest`, `PipHandoffJsTest`).
+- `aReel_showsNoOpenAppButton`: Reels' "Open app" button, found by its label, hidden by `scripts.js`
+  (`ReelsBarJsTest`).
+- `theFeed_showsNoGetTheAppSheet`: the "Facebook is better on the app" sheet pressed away
+  (`AppPromptJsTest`). It shows only now and then, so most runs pass without seeing it.
+- `theFeed_hasItsAdsPixelBlocked`: the feed's Google Ads pixel frames answered empty by
+  `AdsPixelBlockingClient` (`AdsPixelBlockTest`; the client counts what it blocked, `adsPixelBlocks`).
+- `aPhotosDesktopPage_namesThePostItsTilesShow`: the desktop photo page naming its post, which
+  memory photos open (`PhotoPost.kt`, `memory_photos.js`, `MemoryPhotosJsTest`), checked on a
+  public NASA post with three photos since memories are rare.
+- `theFeed_isLaidOutAsTextWrapExpects`: feed text still `white-space: pre` in boxes of a fixed
+  inline height, as `text_wrap.js` needs (`TextWrapJsTest`).
+- `pageZoom_laysTheFeedOutForTheZoomedWidth`: Page zoom at 130% giving the zoomed viewport, a `vpd`
+  cookie with the zoomed width and a feed laid out to fit it (`page_zoom.js`, `PageZoomJsTest`). A
+  PiP-narrow host-only `vpd` beside it is noted.
+- `theFeed_keepsTheDeviceInfoKeyTheRelayoutClears`: `sharedprefs.web.last_device_info` in
+  `sessionStorage`, which the re-layout after an empty PiP window removes.
+- `startOnFeeds_pressesTheMenusFeedsEntry`, `facebookNotifications_readTheCountsFromTheTabBar`:
+  `open_feeds.js` (`OpenFeedsJsTest`) and the notification counts (`FacebookCountsNotificationTest`).
+- In a chat named by the `FB_TEST_CHAT` secret (`-e fbChat`: the chat's address, `e2ee/t/<id>` or a
+  bare id; skipped with a note while it isn't set), one with a photo and a shared reel:
+  `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt` (`layer_photo_viewer.js`,
+  `LayerPhotoViewerJsTest`), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
+  (`MessagesLayerReelTest`) and `backInAChat_goesToTheChatList_andThenClosesTheLayer`
+  (`messages_layer_nav.js`, `MessagesLayerBackJsTest`).
+
+Not checked live: the `intent://` fallback for a full profile load (Facebook didn't redirect the
+test account's loads on 2026-10-24, so there was nothing to check), the PiP window's own behaviour
+(`PipVisibilityJsTest`, `PipVideoGoneJsTest`: the reel check covers PiP on the mobile site, not the
+desktop player's), and pinch-zooming a chat photo (`MessagesLayerZoomTest`: a test WebView can't
+pinch). The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
