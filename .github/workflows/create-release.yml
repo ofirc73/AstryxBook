@@ -39,6 +39,7 @@ on:
       - '.github/**'
       - '**/.gitignore'
       - 'lint.xml'
+      - 'tools/**'
     tags:
       - 'v*.*.*'
   workflow_dispatch:

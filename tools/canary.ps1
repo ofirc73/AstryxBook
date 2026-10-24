@@ -22,9 +22,14 @@
   Test the debug app already installed instead of building origin/main.
 .PARAMETER NoIssue
   Only log; don't open, comment on or close the GitHub issue.
+.PARAMETER Chat
+  The test account's chat for the Messages layer checks (-e fbChat): its address, e2ee/t/<id> or a
+  bare id. Without it they're skipped. They run only here: GitHub's emulator can't read the
+  end-to-end encrypted chat.
 #>
 param(
     [string]$Avd = 'astryx_api36',
+    [string]$Chat = '',
     [switch]$NoBuild,
     [switch]$NoIssue
 )
@@ -100,7 +105,8 @@ try {
     }
 
     # 4. The checks.
-    $output = & $adb shell am instrument -w -e canary true -e class com.eepiemi.materialbook.LiveFacebookCanaryTest `
+    $chatArgs = if ($Chat) { @('-e', 'fbChat', $Chat) } else { @() }
+    $output = & $adb shell am instrument -w -e canary true @chatArgs -e class com.eepiemi.materialbook.LiveFacebookCanaryTest `
         com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | Out-String
     Write-Host $output
     if ($output -notmatch 'OK \(\d+ tests?\)') {
