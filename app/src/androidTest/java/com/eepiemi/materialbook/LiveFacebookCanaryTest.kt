@@ -522,6 +522,9 @@ class LiveFacebookCanaryTest {
         assertTrue("Back from the shared post didn't show the chat (${layerShape(layer)})", app.waitFor(20_000) {
             app.eval(CHAT_OPEN_JS, layer) == "true"
         })
+        // At the post, as a reel's chat comes back, not at the chat's latest messages.
+        assertTrue("the chat came back without the shared post on screen (messages_layer_nav.js showReturnLink)",
+            app.waitFor(10_000) { app.eval(CHAT_POST_ON_SCREEN_JS, layer) == "true" })
     }
 
     @Test
@@ -1111,6 +1114,11 @@ class LiveFacebookCanaryTest {
               return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
             })()
         """
+
+        // The chat's shared post on screen.
+        private const val CHAT_POST_ON_SCREEN_JS =
+            "Array.prototype.some.call(document.querySelectorAll('a[href*=\"/share/p/\"]'), function (a) {" +
+                " var r = a.getBoundingClientRect(); return r.height > 0 && r.bottom > 0 && r.top < window.innerHeight; })"
 
         // A chat on screen: its message box has a size (the chat list keeps it with none).
         private const val CHAT_OPEN_JS =

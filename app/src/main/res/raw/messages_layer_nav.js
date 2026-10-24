@@ -11,6 +11,9 @@
   // width (Back from a shared post landed there). Kept in sessionStorage in case that page was a
   // full load.
   var RETURN_CHAT = 'astryxReturnChat';
+  // The link tapped in that chat (the shared post), shown again in the chat on the way back:
+  // opened anew, the chat shows its latest messages.
+  var RETURN_LINK = 'astryxReturnLink';
   var CHAT_PATH = /^\/messages\/(?:e2ee\/)?t\/[^\/]+/;
   var shownChat = null;
 
@@ -31,12 +34,45 @@
     } catch (e) {}
   }
 
-  // Back at the chat it left: while the list shows instead, its row is tapped (for up to 10 s).
+  function stored(key) {
+    try { return sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  function store(key, value) {
+    try {
+      if (value) sessionStorage.setItem(key, value); else sessionStorage.removeItem(key);
+    } catch (e) {}
+  }
+
+  // The link the chat left by, scrolled to the middle of the screen once the chat shows it: true
+  // when done. Again a moment later, in case the chat scrolls itself to its latest messages.
+  function showReturnLink() {
+    var href = stored(RETURN_LINK);
+    if (!href) return true;
+    var links = document.querySelectorAll('a[href]');
+    for (var i = links.length - 1; i >= 0; i--) {
+      var r = links[i].getBoundingClientRect();
+      if (links[i].getAttribute('href') !== href || !r.width || !r.height) continue;
+      var link = links[i];
+      store(RETURN_LINK, null);
+      link.scrollIntoView({ block: 'center' });
+      setTimeout(function () { link.scrollIntoView({ block: 'center' }); }, 800);
+      return true;
+    }
+    return false;
+  }
+
+  // Back at the chat it left: while the list shows instead, its row is tapped, and then the link
+  // it was left by is shown (for up to 10 s).
   function reopenChat(path) {
     var until = Date.now() + 10000;
     var tapped = 0;
     (function poll() {
-      if (chatPathOf(location.href) !== path || chatOpen() || Date.now() > until) return;
+      if (chatPathOf(location.href) !== path || Date.now() > until) return;
+      if (chatOpen()) {
+        if (!showReturnLink()) setTimeout(poll, 250);
+        return;
+      }
       var row = document.querySelector('a[href="' + path + '"]');
       var r = row && row.getBoundingClientRect();
       if (r && r.width > 0 && r.height > 0 && Date.now() - tapped > 3000) {
@@ -69,6 +105,14 @@
       window.LayerBridge.onUrlChanged(last);
     }
   }
+  // A link tapped in a chat on screen: shown again if the chat comes back (reopenChat).
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || !chatOpen() || !chatPathOf(location.href)) return;
+    var href = a.getAttribute('href');
+    if (href.indexOf('/messages') !== 0) store(RETURN_LINK, href);
+  }, true);
+
   // A shared post opens as a new page load (its link opens a new window, which the app loads in
   // the layer), which no URL watching sees: the chat on screen is kept as the page goes.
   window.addEventListener('pagehide', function () {
