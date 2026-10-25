@@ -516,6 +516,9 @@ class LiveFacebookCanaryTest {
         // top), the chat kept out of sight behind it.
         assertTrue("the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})",
             app.waitFor(30_000) { !layerOpen() })
+        // Shown as Home, with the post as a "From your link" card further down: scrolled to it.
+        assertTrue("the post opened from the chat isn't at the top of the main view (linked_post.js)",
+            app.waitFor(15_000) { eval(LINKED_POST_AT_TOP_JS) == "true" })
 
         app.pressBack()
         assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
@@ -1155,6 +1158,20 @@ class LiveFacebookCanaryTest {
               link.scrollIntoView({ block: 'center' });
               var r = link.getBoundingClientRect();
               return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
+            })()
+        """
+
+        // The "From your link" label (the test account's Facebook is in English), found by its
+        // text, independently of linked_post.js, in the top third of the screen.
+        private const val LINKED_POST_AT_TOP_JS = """
+            (function () {
+              var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
+              while ((n = w.nextNode())) {
+                if (n.nodeValue.trim() !== 'From your link') continue;
+                var r = n.parentElement.getBoundingClientRect();
+                return r.height > 0 && r.top >= 0 && r.top < window.innerHeight / 3;
+              }
+              return false;
             })()
         """
 

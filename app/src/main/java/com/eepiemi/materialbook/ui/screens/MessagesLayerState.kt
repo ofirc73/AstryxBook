@@ -42,6 +42,12 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      */
     var closeOnReel by mutableStateOf(false)
 
+    /**
+     * The page the layer left for is a post (m.facebook.com shows it as Home, the post further
+     * down as a "From your link" card): the main view scrolls to it once loaded (linked_post.js).
+     */
+    var leftForPost = false
+
     /** When the layer's renderer was last lost, for rendererRecoveryUrl. */
     var lastRendererLossAt: Long? = null
 
@@ -130,6 +136,7 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         // Both the interceptor and the in-page watcher can report the same exit.
         if (url != null && !closeOnReel) {
             if (isMobileReelPage(mainUrl) || isMobilePostPage(mainUrl)) {
+                leftForPost = isMobilePostPage(mainUrl)
                 returnUrl = fromUrl
                 mainBeforeReel = mainPlace
                 closeOnReel = true
