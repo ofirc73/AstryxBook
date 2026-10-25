@@ -477,7 +477,8 @@ live check guards:
   `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt` (`layer_photo_viewer.js`,
   `LayerPhotoViewerJsTest`), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
   (`MessagesLayerReelTest`; the main view also leaves the reel),
-  `aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt` (`messagesLayerExit`),
+  `aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt` (`messagesLayerExit`; the post
+  scrolled to the top, `linked_post.js`),
   `aPostThenAReelFromAChat_backEndsOnTheFeed_withNothingLeftBehind` (a post, then a reel, then Back
   out of Messages: the main view ends on the feed with neither left in its history) and
   `backInAChat_goesToTheChatList_andThenClosesTheLayer` (`messages_layer_nav.js`,
@@ -571,7 +572,19 @@ separate layer was added on top.
   visible jump back to the post (v1.35.16 scrolled to it). Since the post's address is Home's, Back
   counts the main view one step past where it was as the post. Other pages opened from a chat (a
   profile) still open in the layer; for those the chat is kept as the page goes (`sessionStorage`)
-  and comes back at the link that was tapped.
+  and comes back at the link that was tapped. Since v1.35.18 the post is also scrolled into view:
+  Home showed it as a "From your link" card under the feed's first post, further down the page;
+  `linked_post.js` finds that card by its shape (a feed card whose first row is a short text label
+  without a picture, in any language) and scrolls it to the top, under the bars, unless the user
+  has touched the page (`LinkedPostJsTest`).
+- **A reel whose share link comes back as a story opens its reel page.** For a reel posted as a
+  video in a post, Facebook answered its `/share/r/` link with an app link whose web fallback is
+  the story's address (`story.php?story_fbid=<the reel's id>&share_url=<the /share/r/ link>`), so
+  it opened as a post on Home while another reel in the same chat opened its reel page (seen on a
+  Galaxy A56 with v1.35.17, recorded over DevTools). `messagesLayerExit` sends such a story, one
+  whose `share_url` is a reel's share link, to `m.facebook.com/reel/<story_fbid>/` (`MessagesDesktopTest`,
+  with the address the phone got). No live check: the test account's reel links go to `/reel/<id>`
+  directly.
 - **Back no longer replays a reel once Messages closes**: when the reel had taken the earlier
   page's place in the main view's history (a reel loaded before that page was kept), the main view
   loads that page again under the chat, and the reel used to stay behind it, so Back after

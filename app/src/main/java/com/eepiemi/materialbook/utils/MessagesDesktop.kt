@@ -1,6 +1,7 @@
 package com.eepiemi.materialbook.utils
 
 import java.net.URI
+import java.net.URLDecoder
 
 const val MESSAGES_DESKTOP_URL = "https://www.facebook.com/messages/"
 
@@ -71,6 +72,24 @@ private val SECTION_PATHS = setOf(
 // A reel's own page (www.facebook.com/reel/<id>), as a reel shared in a chat opens.
 private val REEL_PAGE_PATH = Regex("^/reel/\\d+$")
 
+// A reel's share link (/share/r/<id>).
+private val SHARE_REEL_URL = Regex("^https?://(?:[a-z0-9-]+\\.)*facebook\\.com/share/r/", RegexOption.IGNORE_CASE)
+
+/**
+ * The reel behind a story's address: a reel's share link can come back as one
+ * (story.php?story_fbid=<the reel's id>&id=<its owner>&share_url=<the /share/r/ link>, the web
+ * fallback of an app link Facebook answered it with, for a reel posted as a video in a post; seen
+ * on a Galaxy A56, 2026-10-25), which the mobile site shows as Home with the reel as a post. Its
+ * own reel page instead, as a reel's share link that goes to /reel/<id> opens.
+ */
+private fun reelOfStory(path: String, query: String?): String? {
+    if (path != "/story.php" && path != "/permalink.php") return null
+    val params = query?.split('&')?.associate { it.substringBefore('=') to it.substringAfter('=', "") } ?: return null
+    val shareUrl = params["share_url"]?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() } ?: return null
+    if (!SHARE_REEL_URL.containsMatchIn(shareUrl)) return null
+    return params["story_fbid"]?.takeIf { id -> id.isNotEmpty() && id.all { it.isDigit() } }
+}
+
 // A post shared in a chat: its share link (/share/p/<id>, as the chat links it) or its own page.
 private val POST_PAGE_PATH = Regex("^/(?:share/p/[^/]+|[^/]+/posts/[^/]+|permalink\\.php|story\\.php)$")
 
@@ -97,6 +116,7 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
         path.isEmpty() || path == "/home.php" -> MessagesLayerRoute.Leave(null)
         path == "/watch" && query?.contains("v=") == true -> null
         REEL_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave("https://m.facebook.com$path/")
+        reelOfStory(path, query) != null -> MessagesLayerRoute.Leave("https://m.facebook.com/reel/${reelOfStory(path, query)}/")
         POST_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave(
             "https://m.facebook.com$path" + (if (path.endsWith(".php")) "" else "/") + (query?.let { "?$it" } ?: "")
         )

@@ -131,6 +131,32 @@ class MessagesDesktopTest {
     }
 
     @Test
+    fun aReelWhoseShareLinkComesBackAsAStory_opensItsReelPage() {
+        // A reel posted as a video in a post: its share link came back as an app link whose web
+        // fallback is the story's address (a Galaxy A56, 2026-10-25). Shown as Home with the reel
+        // as a post until then.
+        val story = "https://m.facebook.com/story.php?story_fbid=1427052772729171&id=61594936681030" +
+            "&mibextid=wwXIfr&rdid=tn6coCA8vWOJ5T3p&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fr%2F19ZswCuYt5" +
+            "%2F%3Fmibextid%3DwwXIfr&wtsid=rdr_0O3twjCOepRu9kjaq&from_intent_redirect=1"
+        val reel = MessagesLayerRoute.Leave("https://m.facebook.com/reel/1427052772729171/")
+        assertEquals(reel, messagesLayerExit(story))
+        assertEquals(reel, messagesLayerRoute(story, true))
+        // The app link itself first opens its web fallback in the layer (which then leaves as above).
+        val intent = "intent://story.php?story_fbid=1427052772729171#Intent;scheme=fb;package=com.facebook.katana;" +
+            "S.browser_fallback_url=" + java.net.URLEncoder.encode(story, "UTF-8") + ";end"
+        assertEquals(MessagesLayerRoute.Remap(story), messagesLayerRoute(intent, true))
+        // A story that isn't a reel's (no reel share link behind it) is a post.
+        assertEquals(
+            MessagesLayerRoute.Leave("https://m.facebook.com/story.php?story_fbid=1&id=2&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fp%2F1%2F"),
+            messagesLayerExit("https://www.facebook.com/story.php?story_fbid=1&id=2&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fp%2F1%2F")
+        )
+        assertEquals(
+            MessagesLayerRoute.Leave("https://m.facebook.com/story.php?story_fbid=1&id=2"),
+            messagesLayerExit("https://www.facebook.com/story.php?story_fbid=1&id=2")
+        )
+    }
+
+    @Test
     fun aReelSharedInAChat_opensInTheMainViewsReelPlayer() {
         // The desktop reel page drew it small, with no way to enlarge it, and silent.
         val reel = "https://www.facebook.com/reel/1360854416127071"
