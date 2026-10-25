@@ -207,7 +207,17 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          script: ./gradlew connectedAndroidTest --build-cache -Pandroid.testInstrumentationRunnerArguments.numShards=4 -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }} --stacktrace
+          # A failing part keeps the app's and the test runner's log (uploaded below): CI's emulator is
+          # the only place some failures show, e.g. MainActivityPipTest's "never left PiP" on API 34.
+          script: ./gradlew connectedAndroidTest --build-cache -Pandroid.testInstrumentationRunnerArguments.numShards=4 -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }} --stacktrace || { adb logcat -d -v time -s AstryxbookPiP:D Astryxbook:D TestRunner:I ActivityTaskManager:I WindowManager:W AndroidRuntime:E > instrumented-logcat.txt; exit 1; }
+
+      - name: Upload the Device Log of a Failed Part
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: instrumented-logcat-${{ matrix.shard }}
+          path: instrumented-logcat.txt
+          if-no-files-found: ignore
 
       - name: Upload Instrumented Test Coverage Data
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
