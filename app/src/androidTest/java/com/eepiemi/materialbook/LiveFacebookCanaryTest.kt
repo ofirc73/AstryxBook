@@ -516,6 +516,9 @@ class LiveFacebookCanaryTest {
         // top), the chat kept out of sight behind it.
         assertTrue("the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})",
             app.waitFor(30_000) { !layerOpen() })
+        // Shown as Home, with the post as a "From your link" card further down: scrolled to it.
+        assertTrue("the post opened from the chat isn't at the top of the main view (linked_post.js)",
+            app.waitFor(15_000) { eval(LINKED_POST_AT_TOP_JS) == "true" })
 
         app.pressBack()
         assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
@@ -568,6 +571,32 @@ class LiveFacebookCanaryTest {
         val left = pages.filter { "/reel/" in it || "/share/p/" in it || "/posts/" in it }
         assertTrue("the main view kept what the chat opened: ${left.map { it.replace(Regex("\\d{6,}"), "N").substringBefore('?') }}",
             left.isEmpty())
+    }
+
+    @Test
+    fun aReelThatComesBackAsAStory_opensItsReelPage() {
+        // Some reels' share links (a reel posted as a video in a post) come back as the story's
+        // address, which shows the reel as a post on Home (seen on a Galaxy A56, 2026-10-25; the
+        // test account's links go to /reel/<id> directly). Followed inside Messages, such a story
+        // opens the reel's own page in the main view (MessagesDesktop reelOfStory); this checks
+        // Facebook still shows the reel at /reel/<story_fbid>. No chat needed: Messages' inbox.
+        runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        open("https://m.facebook.com/messages/")
+        assertTrue("Messages never opened in the layer (${appState()})", app.waitFor(30_000) {
+            app.layerWebView()?.let { app.url(it).contains("/messages") } == true
+        })
+        val layer = app.layerWebView()!!
+        // Once the inbox has loaded: a move made while it still loads was lost to the page's own.
+        assertTrue("the Messages inbox never finished loading (${layerShape(layer)})", app.waitFor(30_000) {
+            app.onActivity { layer.progress } == 100 && app.eval("!!window.__astryxLayerNavInstalled", layer) == "true"
+        })
+        Thread.sleep(2000)
+        app.eval("location.href = '$STORY_OF_A_REEL'; 1", layer)
+        assertTrue("a reel's story didn't open the reel's page in the main view (MessagesDesktop reelOfStory) (${appState()})",
+            app.waitFor(30_000) { app.url(app.mainWebView()).startsWith("https://m.facebook.com/reel/$STORY_REEL_ID") })
+        assertTrue("Facebook no longer shows the reel at /reel/<story_fbid> (${pageShape()})", app.waitFor(30_000) {
+            eval("document.querySelectorAll('video').length > 0") == "true"
+        })
     }
 
     @Test
@@ -905,6 +934,12 @@ class LiveFacebookCanaryTest {
         // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
         private const val NOTE_STATUS = 3
+        // A public reel posted as a video in a post ("A Day With My Cat"), as the story address its
+        // share link came back as: story_fbid is the reel's id, share_url a reel share link (a
+        // made-up one: a real one names whoever shared it; only its shape counts).
+        private const val STORY_REEL_ID = "1427052772729171"
+        private const val STORY_OF_A_REEL = "https://m.facebook.com/story.php?story_fbid=$STORY_REEL_ID&id=61594936681030" +
+            "&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fr%2FAstryxCanary%2F"
         // A public reel (shared with Public), for when the Reels tab has nothing for the account.
         private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of
@@ -1155,6 +1190,20 @@ class LiveFacebookCanaryTest {
               link.scrollIntoView({ block: 'center' });
               var r = link.getBoundingClientRect();
               return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
+            })()
+        """
+
+        // The "From your link" label (the test account's Facebook is in English), found by its
+        // text, independently of linked_post.js, in the top third of the screen.
+        private const val LINKED_POST_AT_TOP_JS = """
+            (function () {
+              var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
+              while ((n = w.nextNode())) {
+                if (n.nodeValue.trim() !== 'From your link') continue;
+                var r = n.parentElement.getBoundingClientRect();
+                return r.height > 0 && r.top >= 0 && r.top < window.innerHeight / 3;
+              }
+              return false;
             })()
         """
 

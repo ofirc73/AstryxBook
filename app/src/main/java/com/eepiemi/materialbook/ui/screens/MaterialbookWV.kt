@@ -754,7 +754,14 @@ fun MaterialbookWebView(
             isMobileReelPage(webView.url) || (before != null && webView.copyBackForwardList().currentIndex > before)
         }.getOrDefault(false)
         if (!onReel) delay(LAYER_CLOSE_WAIT_MS)
+        val post = messagesLayer.leftForPost
+        messagesLayer.leftForPost = false
         messagesLayer.reelShown()
+        // A post: shown as Home, with the post further down; scrolled to it.
+        if (post && onReel) {
+            val showPost = resources.openRawResource(R.raw.linked_post).bufferedReader().use { it.readText() }
+            navigator.evaluateJavaScript(showPost) {}
+        }
     }
     LaunchedEffect(isMessagesLayerOpen) {
         // While fullscreen, the fullscreen host owns the orientation (and resets it on exit).
