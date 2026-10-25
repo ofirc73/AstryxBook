@@ -17,6 +17,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.util.Rational
 import android.view.WindowManager
+import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -370,6 +371,8 @@ class MainActivity : FragmentActivity() {
         }
         lockScreenAudio.handBack("onResume")
         appLockController.onResume(isInPictureInPictureMode)
+        // Also here: a PiP window entered and left within a moment can end with no PiP callback.
+        if (!isInPictureInPictureMode) dropPipViewportCookie()
     }
 
     override fun onDestroy() {
@@ -391,6 +394,7 @@ class MainActivity : FragmentActivity() {
             Log.d(TAG, "onPictureInPictureModeChanged: startedWhilePlaying=$pipStartedWhilePlaying")
         }
         isInPipMode = isInPictureInPictureMode
+        if (!isInPictureInPictureMode) dropPipViewportCookie()
 
         lockScreenAudio.onPipModeChanged(isInPictureInPictureMode)
 
@@ -404,6 +408,22 @@ class MainActivity : FragmentActivity() {
             isVideoPlaying = false
             Log.d(TAG, "onPictureInPictureModeChanged: immediate icon flip to Play")
             applyPipParams(playing = false)
+        }
+    }
+
+    // In PiP Facebook can write the PiP window's size into a host-only "vpd" cookie on
+    // m.facebook.com, which shadows its own .facebook.com one: later pages were laid out PiP-narrow,
+    // even after the app restarted (WebView keeps session cookies; seen on the emulator). The
+    // host-only one goes when PiP ends and whenever the app comes back out of PiP; Facebook writes
+    // the window's size again as pages load.
+    private fun dropPipViewportCookie() {
+        runCatching {
+            val cookies = CookieManager.getInstance()
+            // Secure or not (a non-secure write can't replace a secure cookie).
+            cookies.setCookie("https://m.facebook.com", "vpd=; Max-Age=0; Path=/; Secure")
+            cookies.setCookie("https://m.facebook.com", "vpd=; Max-Age=0; Path=/")
+            cookies.flush()
+            Log.d(TAG, "host-only vpd cookie expired")
         }
     }
 

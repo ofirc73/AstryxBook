@@ -241,7 +241,9 @@ user-visible change.
 - In PiP Facebook can write the PiP window's size into a host-only session `vpd` cookie on
   `m.facebook.com`, which shadows the `.facebook.com` one, so later pages are laid out PiP-narrow
   (seen on the emulator after the PiP tests; WebView keeps session cookies across restarts).
-  Delete it over DevTools (`Network.deleteCookies`) to get the emulator's normal layout back.
+  Since v1.35.19 the app expires that host-only cookie when PiP ends and whenever it comes back out
+  of PiP (`MainActivity.dropPipViewportCookie`; a PiP window entered and left within a moment can
+  end with no PiP callback). By hand: `Network.deleteCookies` over DevTools.
 - Facebook's video viewer re-lays out only on a real fullscreen transition
   (`fullscreenchange`), not on `resize`/`orientationchange`, and writes its
   widths into inline styles. Chromium ends HTML5 fullscreen by itself when

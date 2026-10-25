@@ -248,6 +248,11 @@ class LiveFacebookCanaryTest {
 
         app.leavePip()
         assertTrue("focus mode was never restored", app.waitFor { eval("document.body.hasAttribute('data-astryx-pip-active')") == "false" })
+        // In PiP Facebook can write the PiP window's size into a host-only vpd cookie, which laid
+        // later pages out PiP-narrow: the app drops it as it comes back (MainActivity.dropPipViewportCookie).
+        assertTrue("a PiP-narrow vpd cookie outlived PiP (${eval(VPD_WIDTHS_JS)})", app.waitFor(10_000) {
+            eval(NO_NARROW_VPD_JS) == "true"
+        })
     }
 
     // A plain picture of [width] x [height] shared to the app's [alias] (ShareToFeed, ...), as the
@@ -924,6 +929,14 @@ class LiveFacebookCanaryTest {
         private const val STORY_REEL_ID = "1427052772729171"
         private const val STORY_OF_A_REEL = "https://m.facebook.com/story.php?story_fbid=$STORY_REEL_ID&id=61594936681030" +
             "&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fr%2FAstryxCanary%2F"
+        // The widths in the page's vpd cookies ("v1;<height>x<width>x<density>").
+        private const val VPD_WIDTHS_JS =
+            "document.cookie.split('; ').filter(function (c) { return c.indexOf('vpd=') === 0; })" +
+                ".map(function (c) { var m = decodeURIComponent(c.slice(4)).match(/^v1;\d+x(\d+)x/); return m ? m[1] : '?'; }).join(',')"
+        // No vpd cookie narrower than 60% of the window (a PiP window's).
+        private const val NO_NARROW_VPD_JS =
+            "(function () { var w = $VPD_WIDTHS_JS.split(','); return w.every(function (x) {" +
+                " return !x || x === '?' || Number(x) >= window.outerWidth * 0.6; }); })()"
         // A public reel (shared with Public), for when the Reels tab has nothing for the account.
         private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of

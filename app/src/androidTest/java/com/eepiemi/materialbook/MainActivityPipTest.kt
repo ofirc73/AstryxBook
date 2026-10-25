@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.view.InputDevice
 import android.view.MotionEvent
+import android.webkit.CookieManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
@@ -85,6 +86,29 @@ class MainActivityPipTest {
         assertTrue("focus mode was never restored", app.waitFor { !pipActive() })
         assertEquals("false", eval("document.getElementById('reel').hasAttribute('data-astryx-pip-video')"))
         assertTrue(eval("getComputedStyle(document.getElementById('caption')).display") != "\"none\"")
+    }
+
+    @Test
+    fun comingBackToTheApp_dropsTheViewportCookiePipLeft() {
+        // In PiP Facebook can write the PiP window's size into a host-only "vpd" cookie on
+        // m.facebook.com, beside its own .facebook.com one, and later pages were laid out PiP-narrow.
+        // The app drops it when PiP ends and whenever it comes back out of PiP; this checks the
+        // second (a PiP window entered and left within a moment can end with no PiP callback, and
+        // that's also how a test's PiP went, now and then).
+        val cookies = CookieManager.getInstance()
+        val vpds = { cookies.getCookie("https://m.facebook.com").orEmpty().split(';').map { it.trim() }.filter { it.startsWith("vpd=") } }
+        app.pressHome()
+        assertTrue("the app never went to the background", app.waitFor { app.isInBackground() })
+        instrumentation.runOnMainSync {
+            cookies.setCookie("https://m.facebook.com", "vpd=v1%3B841x411x2.625; Domain=.facebook.com; Path=/; Secure")
+            cookies.setCookie("https://m.facebook.com", "vpd=v1%3B227x130x2.625; Path=/; Secure")
+        }
+        assertEquals("the test's two vpd cookies weren't both set", 2, vpds().size)
+
+        app.leavePip() // the activity to the front, as the PiP window's expand does
+        assertTrue("the PiP window's vpd cookie outlived the app's return (${vpds()})", app.waitFor {
+            vpds() == listOf("vpd=v1%3B841x411x2.625")
+        })
     }
 
     @Test
