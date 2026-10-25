@@ -60,6 +60,23 @@ class LiveFacebookCanaryTest {
         assertTrue("Not logged in to Facebook: log in in the debug app first", cookie?.contains("c_user=") == true)
         File(app.context.filesDir, "datastore").deleteRecursively()
         runBlocking { SettingsDataStore(app.context).setPipEnabled(true) }
+        dropPipNarrowViewportCookie()
+    }
+
+    // PiP can leave a host-only vpd cookie with the PiP window's size on m.facebook.com, which
+    // shadows the .facebook.com one and lays pages out PiP-narrow (CLAUDE.md): the app tests' PiP
+    // runs leave one on a shared emulator, and on the narrow Home the first story-sized card was
+    // someone's story, not Create story. Removed (only the host-only one), and noted, so the checks
+    // see Facebook's normal layout.
+    private fun dropPipNarrowViewportCookie() {
+        val manager = CookieManager.getInstance()
+        val vpds = manager.getCookie("https://m.facebook.com").orEmpty().split(';').count { it.trim().startsWith("vpd=") }
+        if (vpds < 2) return
+        note("a second (host-only) vpd cookie was on m.facebook.com, as PiP leaves: removed before the checks")
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            manager.setCookie("https://m.facebook.com", "vpd=; Max-Age=0; Path=/")
+            manager.flush()
+        }
     }
 
     @After
@@ -158,7 +175,10 @@ class LiveFacebookCanaryTest {
     // the Reels tab (no reels for it there): a public reel, opened by its address, is used instead.
     private fun openPlayingReel() {
         open("https://m.facebook.com/reels/")
-        if (app.waitFor(20_000) { eval("document.title === 'Content not found'") == "true" }) {
+        // A public reel when the tab has none to show, by 20 s: "Content not found" (which came
+        // later than that once, 2026-10-25, failing the check on /reels/), or no video yet.
+        app.waitFor(20_000) { eval("document.title === 'Content not found' || !!document.querySelector('video')") == "true" }
+        if (eval("!!document.querySelector('video')") != "true") {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
         }
