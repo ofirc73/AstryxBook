@@ -583,8 +583,9 @@ separate layer was added on top.
   it opened as a post on Home while another reel in the same chat opened its reel page (seen on a
   Galaxy A56 with v1.35.17, recorded over DevTools). `messagesLayerExit` sends such a story, one
   whose `share_url` is a reel's share link, to `m.facebook.com/reel/<story_fbid>/` (`MessagesDesktopTest`,
-  with the address the phone got). No live check: the test account's reel links go to `/reel/<id>`
-  directly.
+  with the address the phone got). The test account's reel links go to `/reel/<id>` directly, so
+  the live check `aReelThatComesBackAsAStory_opensItsReelPage` follows such a story address inside
+  Messages (its inbox, no chat needed) and checks the reel's page opens and plays.
 - **Back no longer replays a reel once Messages closes**: when the reel had taken the earlier
   page's place in the main view's history (a reel loaded before that page was kept), the main view
   loads that page again under the chat, and the reel used to stay behind it, so Back after
