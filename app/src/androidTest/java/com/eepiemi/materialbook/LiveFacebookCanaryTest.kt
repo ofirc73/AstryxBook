@@ -6,12 +6,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
-import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
-import android.view.InputDevice
-import android.view.MotionEvent
-import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.core.content.FileProvider
@@ -428,37 +424,6 @@ class LiveFacebookCanaryTest {
         return layer
     }
 
-    // A tap at the middle of the element [js] scrolls into view and gives the box of (CSS px in the
-    // visual viewport, and that viewport's width: "left,top,width,height,viewportWidth"; "" while
-    // there's none), a real touch: a link that opens a new window (target=_blank, as a shared
-    // reel's) ignores a click from a script.
-    private fun tapIn(webView: WebView, js: String): Boolean {
-        fun box() = app.eval(js, webView).trim('"').split(',').mapNotNull { it.toFloatOrNull() }
-        if (box().size < 5) return false
-        // Measured again once the scroll has settled.
-        Thread.sleep(800)
-        val box = box()
-        if (box.size < 5 || box[4] <= 0f) return false
-        val (x, y) = app.onActivity {
-            val at = IntArray(2).also { webView.getLocationOnScreen(it) }
-            val scale = webView.width / box[4]
-            Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
-        }
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        val downAt = SystemClock.uptimeMillis()
-        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
-            if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
-            val event = MotionEvent.obtain(downAt, time, action, x, y, 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            automation.injectInputEvent(event, true)
-            event.recycle()
-        }
-        return true
-    }
-
-    // The layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
-    private fun layerOpen() = app.webViews().drop(1).any { webView -> app.onActivity { webView.visibility == View.VISIBLE } }
-
     private fun layerShape(layer: WebView) = runCatching { app.eval(LAYER_SHAPE_JS, layer) }.getOrElse { "no layer page (${appState()})" }
 
     @Test
@@ -479,7 +444,7 @@ class LiveFacebookCanaryTest {
             app.eval(PHOTO_VIEWER_OPEN_JS, layer) == "false"
         })
         Thread.sleep(1500)
-        assertTrue("Back closed the Messages layer too", layerOpen())
+        assertTrue("Back closed the Messages layer too", app.layerOpen())
         assertTrue("Back left the chat (${layerShape(layer)})", app.eval("location.pathname", layer).contains("/t/"))
     }
 
@@ -487,15 +452,15 @@ class LiveFacebookCanaryTest {
     fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) {
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_REEL_BOX_JS) }) {
             fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
         }
         assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
-            !layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
+            !app.layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
         })
 
         app.pressBack()
-        assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
+        assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { app.layerOpen() })
         assertTrue("the layer came back somewhere other than the chat (${layerShape(layer)})", app.waitFor(15_000) {
             app.eval("location.pathname", layer).contains("/t/")
         })
@@ -509,19 +474,19 @@ class LiveFacebookCanaryTest {
     fun aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) {
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_POST_BOX_JS) }) {
             fail("no shared post (a link to /share/p/) in the test chat (${layerShape(layer)})")
         }
         // Like a reel: the post in the main view (m.facebook.com shows it as Home, the post at the
         // top), the chat kept out of sight behind it.
         assertTrue("the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})",
-            app.waitFor(30_000) { !layerOpen() })
+            app.waitFor(30_000) { !app.layerOpen() })
         // Shown as Home, with the post as a "From your link" card further down: scrolled to it.
         assertTrue("the post opened from the chat isn't at the top of the main view (linked_post.js)",
             app.waitFor(15_000) { eval(LINKED_POST_AT_TOP_JS) == "true" })
 
         app.pressBack()
-        assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
+        assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { app.layerOpen() })
         assertTrue("Back from the shared post didn't show the chat (${layerShape(layer)})", app.waitFor(20_000) {
             app.eval(CHAT_OPEN_JS, layer) == "true"
         })
@@ -540,16 +505,16 @@ class LiveFacebookCanaryTest {
         val backToTheChat = { what: String ->
             app.pressBack()
             assertTrue("Back on the $what never showed the chat again", app.waitFor(15_000) {
-                layerOpen() && app.eval(CHAT_OPEN_JS, layer) == "true"
+                app.layerOpen() && app.eval(CHAT_OPEN_JS, layer) == "true"
             })
         }
 
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
-        assertTrue("the shared post didn't leave the Messages layer", app.waitFor(30_000) { !layerOpen() })
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_POST_BOX_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
+        assertTrue("the shared post didn't leave the Messages layer", app.waitFor(30_000) { !app.layerOpen() })
         backToTheChat("post")
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_REEL_BOX_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
         assertTrue("the reel didn't leave the Messages layer", app.waitFor(30_000) {
-            !layerOpen() && app.url(main).startsWith("https://m.facebook.com/reel/")
+            !app.layerOpen() && app.url(main).startsWith("https://m.facebook.com/reel/")
         })
         backToTheChat("reel")
         assertTrue("the main view didn't go back to where it was before the post and the reel", app.waitFor(10_000) {
@@ -558,10 +523,10 @@ class LiveFacebookCanaryTest {
 
         app.pressBack()
         assertTrue("Back in the chat didn't show the chat list", app.waitFor(10_000) {
-            layerOpen() && app.eval(chatListShownJs(chat), layer) == "true"
+            app.layerOpen() && app.eval(chatListShownJs(chat), layer) == "true"
         })
         app.pressBack()
-        assertTrue("Back on the chat list didn't close Messages", app.waitFor(10_000) { !layerOpen() })
+        assertTrue("Back on the chat list didn't close Messages", app.waitFor(10_000) { !app.layerOpen() })
         Thread.sleep(2000)
         // Nothing the chat opened is left in the main view, on screen or behind it.
         val pages = app.onActivity {
@@ -607,11 +572,11 @@ class LiveFacebookCanaryTest {
         assertTrue(
             "Back in the chat didn't go to the chat list (messages_layer_nav.js chatBackButton: the header's Back " +
                 "button, right beside the chat's name) (${layerShape(layer)})",
-            app.waitFor(10_000) { !layerOpen() || app.eval(chatListShownJs(chat), layer) == "true" }
+            app.waitFor(10_000) { !app.layerOpen() || app.eval(chatListShownJs(chat), layer) == "true" }
         )
-        assertTrue("Back in the chat closed the Messages layer (no Back button found in the chat's header)", layerOpen())
+        assertTrue("Back in the chat closed the Messages layer (no Back button found in the chat's header)", app.layerOpen())
         app.pressBack()
-        assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(10_000) { !layerOpen() })
+        assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(10_000) { !app.layerOpen() })
     }
 
     @Test

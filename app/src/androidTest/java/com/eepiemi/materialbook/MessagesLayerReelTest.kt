@@ -69,13 +69,11 @@ class MessagesLayerReelTest {
         if (settle) Thread.sleep(1500) // messages_layer_nav.js checks every second besides pushState itself
     }
 
-    // A layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
-    private fun layerOpen() = app.webViews().drop(1).any { webView -> app.onActivity { webView.visibility == android.view.View.VISIBLE } }
 
     // The layer closed and the main view started loading the reel: let that load finish (the
     // real page, or wherever Facebook sends a logged-out view) before putting a test page there.
     private fun reelOpenedInTheMainView() {
-        assertTrue("the layer stayed open over the reel", app.waitFor { !layerOpen() })
+        assertTrue("the layer stayed open over the reel", app.waitFor { !app.layerOpen() })
         assertTrue("the main view never opened the reel", app.waitFor(15_000) {
             app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/") && it.contains(REEL_ID) }
         })
@@ -100,7 +98,7 @@ class MessagesLayerReelTest {
 
         val before = app.url(app.mainWebView())
         app.pressBack()
-        assertTrue("Back on the reel never reopened the chat (main view at $before)", app.waitFor { layerOpen() })
+        assertTrue("Back on the reel never reopened the chat (main view at $before)", app.waitFor { app.layerOpen() })
         // The same layer, back in Messages (opened anew, an encrypted chat landed on the chat list).
         // Which chat a step back lands on is the browser's: on these test pages one step from the
         // reel lands on the page's first address rather than the chat's (a test page quirk; on
@@ -118,7 +116,7 @@ class MessagesLayerReelTest {
         app.loadPage("$MAIN_URL?n=4", PAGE, asHistory = true)
         val layer = openChat()
         moveTo(layer, "/share/p/14zVaXX6eBS/")
-        assertTrue("the post stayed in the layer", app.waitFor { !layerOpen() })
+        assertTrue("the post stayed in the layer", app.waitFor { !app.layerOpen() })
         assertTrue("the main view never opened the post", app.waitFor(15_000) {
             app.url(app.mainWebView()).contains("/share/p/14zVaXX6eBS")
         })
@@ -126,7 +124,7 @@ class MessagesLayerReelTest {
         app.waitFor(30_000) { app.onActivity { webView.progress } == 100 }
 
         app.pressBack()
-        assertTrue("Back on the post never showed the chat again", app.waitFor { layerOpen() })
+        assertTrue("Back on the post never showed the chat again", app.waitFor { app.layerOpen() })
         assertSame("Back opened a new layer instead of the chat kept behind the post", layer, app.layerWebView())
         assertEquals("the chat's page was reloaded", "true", app.eval("!!window.__testPage", layer))
         assertTrue("the main view stayed on the post under the chat (${app.url(app.mainWebView())})", app.waitFor(10_000) {
@@ -144,7 +142,7 @@ class MessagesLayerReelTest {
         reelOpenedInTheMainView()
 
         app.pressBack()
-        assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        assertTrue("Back on the reel never reopened the chat", app.waitFor { app.layerOpen() })
         // Otherwise each reel opened from a chat stayed under Messages, and once Messages closed
         // every Back showed one of them again.
         assertTrue("the main view stayed on the reel under the chat (${app.url(app.mainWebView())})", app.waitFor(10_000) {
@@ -173,7 +171,7 @@ class MessagesLayerReelTest {
             app.eval("!!document.getElementById('viewer')", layer) == "false"
         })
         Thread.sleep(1000)
-        assertTrue("Back closed the chat too", layerOpen())
+        assertTrue("Back closed the chat too", app.layerOpen())
         assertTrue("Back left the chat", app.eval("location.pathname", layer).contains(CHAT_ID))
         // One Escape: Messenger's desktop page takes a second one as closing the chat too.
         assertEquals("1", app.eval("window.__escapes", layer))
@@ -190,7 +188,7 @@ class MessagesLayerReelTest {
         val main = app.mainWebView()
 
         app.pressBack()
-        assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        assertTrue("Back on the reel never reopened the chat", app.waitFor { app.layerOpen() })
         assertTrue("the main view stayed on the reel", app.waitFor(10_000) { !app.url(main).contains(REEL_ID) })
         // The page under the chat (a test page in place of the real one, kept off the network).
         app.loadPage("$MAIN_URL?n=3", PAGE)
@@ -209,12 +207,12 @@ class MessagesLayerReelTest {
         // Back reopened the link (so the reel) on every press.
         val layer = openChat()
         moveTo(layer, "/share/r/AbCdEf123/")
-        assertTrue("the share link left the layer", layerOpen())
+        assertTrue("the share link left the layer", app.layerOpen())
         moveTo(layer, "/reel/$REEL_ID")
         reelOpenedInTheMainView()
 
         app.pressBack()
-        assertTrue("Back on the reel never reopened the chat", app.waitFor { layerOpen() })
+        assertTrue("Back on the reel never reopened the chat", app.waitFor { app.layerOpen() })
         assertTrue("Back reopened something other than the chat (the share link?)", app.waitFor(15_000) {
             app.eval("location.pathname", layer).let { it.contains("/messages/t/") && !it.contains("/share/") }
         })
@@ -229,7 +227,7 @@ class MessagesLayerReelTest {
         var mainUrlWhenClosed: String? = null
         val main = app.mainWebView()
         assertTrue("the layer never closed", app.waitFor(15_000) {
-            val open = layerOpen()
+            val open = app.layerOpen()
             if (!open) mainUrlWhenClosed = app.url(main)
             !open
         })
@@ -254,7 +252,7 @@ class MessagesLayerReelTest {
             app.eval("window.__listShown === true", layer) == "true"
         })
         Thread.sleep(1000)
-        assertTrue("Back in a chat closed the layer", layerOpen())
+        assertTrue("Back in a chat closed the layer", app.layerOpen())
         assertEquals("Back in a chat stepped the page back", "true", app.eval("!!window.__testPage", layer))
     }
 
@@ -269,7 +267,7 @@ class MessagesLayerReelTest {
             layer
         )
         app.pressBack()
-        assertTrue("Back on the chat list didn't close the layer", app.waitFor { !layerOpen() })
+        assertTrue("Back on the chat list didn't close the layer", app.waitFor { !app.layerOpen() })
         assertEquals("Back pressed the chat list's search", "false", runCatching { app.eval("window.__searchPressed === true", layer) }.getOrDefault("false"))
     }
 
@@ -286,7 +284,7 @@ class MessagesLayerReelTest {
 
         app.pressBack()
         Thread.sleep(2000)
-        assertTrue("Back reopened the chat from a page that isn't the reel", !layerOpen())
+        assertTrue("Back reopened the chat from a page that isn't the reel", !app.layerOpen())
     }
 
     @Test
@@ -294,7 +292,7 @@ class MessagesLayerReelTest {
         val layer = openChat()
         moveTo(layer, "/profile.php?id=4")
         Thread.sleep(1000)
-        assertTrue("a profile opened from a chat left the layer", layerOpen())
+        assertTrue("a profile opened from a chat left the layer", app.layerOpen())
         assertEquals("the main view moved under the layer", "\"$MAIN_URL\"", app.eval("location.href"))
     }
 

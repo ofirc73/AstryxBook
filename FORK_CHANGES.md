@@ -348,6 +348,10 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
 ## Testing
 
+The fixed-page tests share one WebView setup, `PageFixture` (it replaced a copy in each of the 22
+`*JsTest` classes), and the app-level tests and the live checks share `AppHarness`'s
+`layerOpen` and `tapIn`.
+
 Added test coverage for the rebrand and default-behavior changes: settings
 defaults, theme colors, app identity/strings, launcher icon, applicationId,
 none of which existed upstream.
