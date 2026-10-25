@@ -119,6 +119,17 @@ class LiveFacebookCanaryTest {
         return "webViews=$webViews activity=$activity renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
 
+    // The feed on screen ([js] true), or a failure ([message]). Facebook's Home sometimes stays blank
+    // on GitHub's emulator for good (only its shell, at /?wtsid=…; three runs on 2026-10-25): reloaded
+    // once then, with a note, before the check fails.
+    private fun awaitFeed(message: String, js: String) {
+        if (app.waitFor(30_000) { eval(js) == "true" }) return
+        note("$message within 30 s (${pageShape()}): reloaded once")
+        eval("location.reload(); 1")
+        Thread.sleep(2000)
+        assertTrue("$message, even after a reload (${pageShape()})", app.waitFor(30_000) { eval(js) == "true" })
+    }
+
     // The page's shape, or the app's state when there's no page to read.
     private fun pageShape(): String = runCatching { eval(PAGE_SHAPE_JS) }.getOrElse { "no page (${appState()})" }
 
@@ -282,9 +293,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun removeAds_hidesTheFeedsAds() {
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
         var ads = feedAds()
@@ -619,9 +628,7 @@ class LiveFacebookCanaryTest {
         // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
         val before = adsPixelBlocks.get()
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
         Thread.sleep(5000) // the pixel's frames come after the feed
         val frames = eval(FRAMES_JS).trim('"')
         val blocked = adsPixelBlocks.get() - before
@@ -677,9 +684,7 @@ class LiveFacebookCanaryTest {
         // text_wrap.js (Wrap text when zoomed) relies on the server's layout: text blocks are
         // white-space: pre with the line breaks in the text, inside boxes of a fixed inline height.
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('div.native-text').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('div.native-text').length > 0")
         eval("window.scrollBy(0, window.innerHeight); 1")
         Thread.sleep(2000)
         val counts = eval(TEXT_LAYOUT_JS).trim('"').split('|').map { it.toIntOrNull() ?: 0 }
@@ -700,15 +705,11 @@ class LiveFacebookCanaryTest {
         runBlocking { SettingsDataStore(app.context).setTextZoom(PAGE_ZOOM) }
         try {
             open("https://m.facebook.com/")
-            assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-                eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-            })
+            awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
             // The server lays a page out for the vpd cookie written as the page before it loaded.
             eval("location.reload(); 1")
             Thread.sleep(3000)
-            assertTrue("the feed never loaded again (${pageShape()})", app.waitFor(30_000) {
-                eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-            })
+            awaitFeed("the feed never loaded again", "document.querySelectorAll('[data-mcomponent]').length > 0")
             Thread.sleep(2000)
             val parts = eval(ZOOM_STATE_JS).trim('"').split('|')
             val z = parts.take(4).map { it.toDoubleOrNull() ?: 0.0 }
@@ -752,9 +753,7 @@ class LiveFacebookCanaryTest {
         // Facebook's "Facebook is better on the app" sheet comes up over the feed now and then;
         // scripts.js (dismissAppPrompt) presses it away.
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
         Thread.sleep(8000)
         val sheet = eval(APP_SHEET_JS).trim('"')
         if (sheet.isNotEmpty()) {
