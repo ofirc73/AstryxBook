@@ -1,16 +1,12 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 // evaluateJavascript returns strings JSON-quoted.
 private fun String.unquoted() = removeSurrounding("\"")
@@ -24,47 +20,16 @@ private fun String.unquoted() = removeSurrounding("\"")
 class ReelAdsJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture(width = 1080, height = 2000)
 
         fun load(body: String) {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    layout(0, 0, 1080, 2000)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(
-                        "https://m.facebook.com/reel/1",
-                        "<html><body>$body</body></html>",
-                        "text/html", "UTF-8", null
-                    )
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load("https://m.facebook.com/reel/1", "<html><body>$body</body></html>")
             // The mobile site (scripts.js defines this for the page scripts).
             eval("window.isDesktopMode = () => false;")
-            val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            eval(resources.openRawResource(R.raw.adblock).bufferedReader().use { it.readText() })
+            page.run(R.raw.adblock)
         }
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
         fun hidden(vararg ids: String): String = eval(
             ids.joinToString(",", "[", "]") { "'$it'" } +

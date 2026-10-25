@@ -1,16 +1,13 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Tests for pip_video_detector.js's idea of a playing video (what the app's PiP auto-enter
@@ -22,28 +19,10 @@ import java.util.concurrent.TimeUnit
 class PipVideoDetectorJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture()
 
         fun load() {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(
-                        "https://m.facebook.com/",
-                        "<html><body><video id='reel'></video></body></html>",
-                        "text/html", "UTF-8", null
-                    )
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load("https://m.facebook.com/", "<html><body><video id='reel'></video></body></html>")
             // A test WebView isn't laid out: the video and the viewport get a size by hand.
             eval(
                 """
@@ -65,23 +44,10 @@ class PipVideoDetectorJsTest {
                 1
                 """.trimIndent()
             )
-            val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
-                .openRawResource(R.raw.pip_video_detector).bufferedReader().use { it.readText() }
-            eval(script)
+            page.run(R.raw.pip_video_detector)
         }
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
         // Changes the video's state ([state] a JS object literal) [laterMs] after the last change,
         // then fires [event] on it.

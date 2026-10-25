@@ -1,16 +1,12 @@
 package com.eepiemi.materialbook.ui.screens
 
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * layer_photo_viewer.js widens a chat photo in the desktop viewer (Messages layer). The fixture is
@@ -21,39 +17,15 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class LayerPhotoViewerJsTest {
 
-    private lateinit var webView: WebView
+    private val page = PageFixture(width = 1080, height = 2000)
 
     private fun load(url: String, html: String = VIEWER) {
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            webView = WebView(context).apply {
-                settings.javaScriptEnabled = true
-                layout(0, 0, 1080, 2000)
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, url: String) {
-                        latch.countDown()
-                    }
-                }
-                loadDataWithBaseURL(url, html, "text/html", "UTF-8", null)
-            }
-        }
-        assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
-        val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            .openRawResource(R.raw.layer_photo_viewer).bufferedReader().use { it.readText() }
-        eval(script)
+        page.load(url, html)
+        page.run(R.raw.layer_photo_viewer)
         Thread.sleep(300)
     }
 
-    private fun eval(js: String): String {
-        var result: String? = null
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            webView.evaluateJavascript(js) { result = it; latch.countDown() }
-        }
-        assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-        return result ?: "null"
-    }
+    private fun eval(js: String) = page.eval(js)
 
     private fun photoWidth() = eval("document.getElementById('photo').getBoundingClientRect().width").toFloat()
     private fun rowWidth() = eval("document.getElementById('row').getBoundingClientRect().width").toFloat()

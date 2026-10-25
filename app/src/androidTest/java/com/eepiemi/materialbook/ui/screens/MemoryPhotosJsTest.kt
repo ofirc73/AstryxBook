@@ -1,16 +1,12 @@
 package com.eepiemi.materialbook.ui.screens
 
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * memory_photos.js: a memory card's photo opens alone (photo.php?fbid=…); the script asks the app
@@ -21,58 +17,21 @@ import java.util.concurrent.TimeUnit
 class MemoryPhotosJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture(width = 1080, height = 2000, domStorage = true)
 
         fun load(body: String, setup: String = "") {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    layout(0, 0, 1080, 2000)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(
-                        "https://m.facebook.com/",
-                        "<html><head><meta name='viewport' content='width=device-width'></head>" +
-                            "<body style='margin:0'>$body</body></html>",
-                        "text/html", "UTF-8", null
-                    )
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load(
+                "https://m.facebook.com/",
+                "<html><head><meta name='viewport' content='width=device-width'></head>" +
+                    "<body style='margin:0'>$body</body></html>"
+            )
             eval(APP + setup)
-            val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
-                .openRawResource(R.raw.memory_photos).bufferedReader().use { it.readText() }
-            eval(script)
+            page.run(R.raw.memory_photos)
         }
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
-        fun waitFor(js: String, ms: Long = 5000): Boolean {
-            val until = System.currentTimeMillis() + ms
-            while (System.currentTimeMillis() < until) {
-                if (eval(js) == "true") return true
-                Thread.sleep(100)
-            }
-            return false
-        }
+        fun waitFor(js: String, ms: Long = 5000) = page.waitFor(ms) { eval(js) == "true" }
 
         // What Facebook does when a tile is tapped: the tap, then the photo's address.
         fun tapAndOpen(tile: String, address: String) {

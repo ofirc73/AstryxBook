@@ -1,16 +1,12 @@
 package com.eepiemi.materialbook.ui.screens
 
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Back in the Messages layer (messages_layer_nav.js, `__astryxLayerBack`): in a chat it presses the
@@ -26,56 +22,24 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class MessagesLayerBackJsTest {
 
-    private lateinit var webView: WebView
+    private val page = PageFixture(width = 1080, height = 2000, domStorage = true)
 
     private fun load(html: String, returnChat: String? = null, returnLink: String? = null) {
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            webView = WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                layout(0, 0, 1080, 2000)
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, url: String) {
-                        latch.countDown()
-                    }
-                }
-                loadDataWithBaseURL("https://www.facebook.com/messages/e2ee/t/1/", html, "text/html", "UTF-8", null)
-            }
-        }
-        assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
-        val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            .openRawResource(R.raw.messages_layer_nav).bufferedReader().use { it.readText() }
+        page.load("https://www.facebook.com/messages/e2ee/t/1/", html)
         eval("window.LayerBridge = { onUrlChanged: function () {} }; sessionStorage.clear(); 1")
         returnChat?.let { eval("sessionStorage.setItem('astryxReturnChat', '$it'); 1") }
         returnLink?.let { eval("sessionStorage.setItem('astryxReturnLink', '$it'); 1") }
-        eval(script)
+        page.run(R.raw.messages_layer_nav)
     }
 
-    private fun eval(js: String): String {
-        var result: String? = null
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            webView.evaluateJavascript(js) { result = it; latch.countDown() }
-        }
-        assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-        return result ?: "null"
-    }
+    private fun eval(js: String) = page.eval(js)
 
     private fun back() = eval("window.__astryxLayerBack()")
     private fun pressed() = eval("window.__pressed || ''")
     private fun returnChat() = eval("sessionStorage.getItem('astryxReturnChat')")
     private fun pageGoes() = eval("window.dispatchEvent(new PageTransitionEvent('pagehide')); 1")
 
-    private fun waitFor(ms: Long = 5_000, check: () -> Boolean): Boolean {
-        val until = System.currentTimeMillis() + ms
-        while (System.currentTimeMillis() < until) {
-            if (check()) return true
-            Thread.sleep(100)
-        }
-        return false
-    }
+    private fun waitFor(ms: Long = 5_000, check: () -> Boolean) = page.waitFor(ms, check = check)
 
     @Test
     fun aChat_namedByALink_goesBackToTheChatList() {

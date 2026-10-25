@@ -1,17 +1,14 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 // evaluateJavascript returns strings JSON-quoted.
 private fun String.unquoted() = removeSurrounding("\"")
@@ -26,25 +23,10 @@ private fun String.unquoted() = removeSurrounding("\"")
 class ShareMediaJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture(width = 1080, height = 2000)
 
         fun load(url: String, body: String) {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    layout(0, 0, 1080, 2000)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(url, "<html><head></head><body>$body</body></html>", "text/html", "UTF-8", null)
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load(url, "<html><head></head><body>$body</body></html>")
             eval(FAKE_BRIDGE)
         }
 
@@ -55,32 +37,12 @@ class ShareMediaJsTest {
         )
 
         fun run(target: String) {
-            val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
-                .openRawResource(R.raw.share_media).bufferedReader().use { it.readText() }
-            eval("window.__astryxShareFindMs = 1500; window.__astryxShareTarget = '$target';\n$script")
+            eval("window.__astryxShareFindMs = 1500; window.__astryxShareTarget = '$target';\n${page.script(R.raw.share_media)}")
         }
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
-        fun waitFor(js: String, ms: Long = 5000): Boolean {
-            val until = System.currentTimeMillis() + ms
-            while (System.currentTimeMillis() < until) {
-                if (eval(js) == "true") return true
-                Thread.sleep(50)
-            }
-            return false
-        }
+        fun waitFor(js: String, ms: Long = 5000) = page.waitFor(ms, everyMs = 50) { eval(js) == "true" }
 
         fun calls() = eval("window.__calls.join(' ')").unquoted()
     }

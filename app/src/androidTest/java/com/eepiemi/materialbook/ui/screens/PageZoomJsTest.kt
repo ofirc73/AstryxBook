@@ -1,16 +1,13 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 // evaluateJavascript returns strings JSON-quoted.
 private fun String.unquoted() = removeSurrounding("\"")
@@ -25,51 +22,24 @@ private fun String.unquoted() = removeSurrounding("\"")
 class PageZoomJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture()
 
         fun load(zoom: Double, outerWidth: Int = 412, outerHeight: Int = 842) {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(
-                        "https://m.facebook.com/",
-                        "<html><head><meta name='viewport' id='fb' content='width=device-width, " +
-                            "initial-scale=1, interactive-widget=resizes-content'></head>" +
-                            "<body></body></html>",
-                        "text/html", "UTF-8", null
-                    )
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load(
+                "https://m.facebook.com/",
+                "<html><head><meta name='viewport' id='fb' content='width=device-width, " +
+                    "initial-scale=1, interactive-widget=resizes-content'></head>" +
+                    "<body></body></html>"
+            )
             eval(
                 "window.outerWidth = $outerWidth; window.outerHeight = $outerHeight;" +
                     "Object.defineProperty(window, 'screen', { value: { width: 412, height: 915 } });" +
                     "window.__astryxPageZoom = $zoom;"
             )
-            val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            eval(resources.openRawResource(R.raw.page_zoom).bufferedReader().use { it.readText() })
+            page.run(R.raw.page_zoom)
         }
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
         fun viewport(id: String = "fb"): String =
             eval("document.getElementById('$id').getAttribute('content')").unquoted()

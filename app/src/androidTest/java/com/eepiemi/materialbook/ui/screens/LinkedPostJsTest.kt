@@ -1,16 +1,12 @@
 package com.eepiemi.materialbook.ui.screens
 
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * linked_post.js: a post opened from a chat shows as m.facebook.com's Home, with the post as a
@@ -21,47 +17,16 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class LinkedPostJsTest {
 
-    private lateinit var webView: WebView
+    private val page = PageFixture(width = 1080, height = 2000)
 
     private fun load(html: String) {
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            webView = WebView(context).apply {
-                settings.javaScriptEnabled = true
-                layout(0, 0, 1080, 2000)
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, url: String) {
-                        latch.countDown()
-                    }
-                }
-                loadDataWithBaseURL("https://m.facebook.com/", html, "text/html", "UTF-8", null)
-            }
-        }
-        assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
-        val script = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            .openRawResource(R.raw.linked_post).bufferedReader().use { it.readText() }
-        eval(script)
+        page.load("https://m.facebook.com/", html)
+        page.run(R.raw.linked_post)
     }
 
-    private fun eval(js: String): String {
-        var result: String? = null
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            webView.evaluateJavascript(js) { result = it; latch.countDown() }
-        }
-        assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-        return result ?: "null"
-    }
+    private fun eval(js: String) = page.eval(js)
 
-    private fun waitFor(ms: Long = 5_000, check: () -> Boolean): Boolean {
-        val until = System.currentTimeMillis() + ms
-        while (System.currentTimeMillis() < until) {
-            if (check()) return true
-            Thread.sleep(100)
-        }
-        return false
-    }
+    private fun waitFor(ms: Long = 5_000, check: () -> Boolean) = page.waitFor(ms, check = check)
 
     @Test
     fun theLinkedPost_isScrolledToTheTop_underTheBar() {
