@@ -1,16 +1,13 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 // evaluateJavascript returns strings JSON-quoted.
 private fun String.unquoted() = removeSurrounding("\"")
@@ -25,63 +22,27 @@ private fun String.unquoted() = removeSurrounding("\"")
 class OpenFeedsJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture(width = 1080, height = 2000)
 
         fun load(url: String, body: String) {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    layout(0, 0, 1080, 2000)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(url, "<html><head></head><body>$body</body></html>", "text/html", "UTF-8", null)
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load(url, "<html><head></head><body>$body</body></html>")
         }
 
-        fun runOpenFeeds() = eval(raw(R.raw.open_feeds))
+        fun runOpenFeeds() = page.run(R.raw.open_feeds)
 
         // The desktop/feed identifiers and the back handler, i.e. scripts.js up to the first
         // block that doesn't belong to them (as in BackHandlerJsTest).
         fun runBackHandler() {
-            val all = raw(R.raw.scripts)
+            val all = page.script(R.raw.scripts)
             val end = all.indexOf("// Enable press and hold")
             assertTrue("back handler block not found in scripts.js", end > 0)
             eval(all.substring(0, end))
         }
 
-        private fun raw(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            .openRawResource(id).bufferedReader().use { it.readText() }
-
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
         /** Polls [js] until it's "true", for up to [ms]. */
-        fun waitFor(js: String, ms: Long = 3000): Boolean {
-            val until = System.currentTimeMillis() + ms
-            while (System.currentTimeMillis() < until) {
-                if (eval(js) == "true") return true
-                Thread.sleep(50)
-            }
-            return false
-        }
+        fun waitFor(js: String, ms: Long = 3000) = page.waitFor(ms, everyMs = 50) { eval(js) == "true" }
 
         fun bodyHidden() = eval("getComputedStyle(document.body).visibility === 'hidden'") == "true"
     }

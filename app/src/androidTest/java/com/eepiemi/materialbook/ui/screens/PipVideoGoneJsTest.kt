@@ -1,16 +1,12 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.JavascriptInterface
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -20,7 +16,6 @@ import java.util.concurrent.atomic.AtomicInteger
 class PipVideoGoneJsTest {
 
     private val gone = AtomicInteger()
-    private lateinit var webView: WebView
 
     inner class FakePipBridge {
         @JavascriptInterface
@@ -29,33 +24,11 @@ class PipVideoGoneJsTest {
         }
     }
 
-    private fun load(html: String) {
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            webView = WebView(context).apply {
-                settings.javaScriptEnabled = true
-                addJavascriptInterface(FakePipBridge(), "PipBridge")
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, url: String) {
-                        latch.countDown()
-                    }
-                }
-                loadDataWithBaseURL("https://example.com/", html, "text/html", "UTF-8", null)
-            }
-        }
-        assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
-    }
+    private val page = PageFixture(interfaces = mapOf("PipBridge" to FakePipBridge()))
 
-    private fun eval(js: String): String {
-        var result: String? = null
-        val latch = CountDownLatch(1)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            webView.evaluateJavascript(js) { result = it; latch.countDown() }
-        }
-        assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-        return result ?: "null"
-    }
+    private fun load(html: String) = page.load("https://example.com/", html)
+
+    private fun eval(js: String) = page.eval(js)
 
     private fun startPip() {
         load(PAGE)

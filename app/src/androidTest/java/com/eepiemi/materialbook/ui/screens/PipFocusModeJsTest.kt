@@ -2,17 +2,14 @@ package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Regression tests for the PiP JS scripts (PIP_TOGGLE_JS, PIP_FOCUS_MODE_JS,
@@ -32,9 +29,6 @@ class PipFocusModeJsTest {
 
     /** Drives a fresh WebView synchronously from the test thread. */
     private class Harness {
-        lateinit var webView: WebView
-            private set
-
         // Mirrors PipBridge.logPipAnomaly's shape so PIP_FOCUS_MODE_JS's real
         // sanity-check scan can be exercised end-to-end without needing the
         // production PipBridge/Log.w wiring in this test.
@@ -48,42 +42,11 @@ class PipFocusModeJsTest {
             }
         }
 
-        fun loadHtml(html: String) {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    addJavascriptInterface(FakePipBridge(), "PipBridge")
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(
-                        "https://example.com/",
-                        html,
-                        "text/html",
-                        "UTF-8",
-                        null
-                    )
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
-        }
+        private val page = PageFixture(interfaces = mapOf("PipBridge" to FakePipBridge()))
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun loadHtml(html: String) = page.load("https://example.com/", html)
+
+        fun eval(js: String) = page.eval(js)
     }
 
     // ── Nested-DOM chrome leak (yesterday's "toolbar visible in PiP" bug) ────

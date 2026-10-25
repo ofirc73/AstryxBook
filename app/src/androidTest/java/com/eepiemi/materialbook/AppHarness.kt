@@ -4,7 +4,10 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Rational
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -89,6 +92,41 @@ class AppHarness {
     }
 
     fun mainWebView(): WebView = webViews().first()
+
+    /**
+     * The Messages layer is on screen: one kept out of sight behind a reel or post it opened
+     * (MessagesLayerState.hidden) doesn't count.
+     */
+    fun layerOpen(): Boolean = webViews().drop(1).any { webView -> onActivity { webView.visibility == View.VISIBLE } }
+
+    /**
+     * A real touch at the middle of the element [js] scrolls into view and gives the box of (CSS px
+     * in the visual viewport, and that viewport's width: "left,top,width,height,viewportWidth"; ""
+     * while there's none): a link that opens a new window (target=_blank, as a shared reel's)
+     * ignores a click from a script. False when there's nothing to tap.
+     */
+    fun tapIn(webView: WebView, js: String): Boolean {
+        fun box() = eval(js, webView).trim('"').split(',').mapNotNull { it.toFloatOrNull() }
+        if (box().size < 5) return false
+        // Measured again once the scroll has settled.
+        Thread.sleep(800)
+        val box = box()
+        if (box.size < 5 || box[4] <= 0f) return false
+        val (x, y) = onActivity {
+            val at = IntArray(2).also { webView.getLocationOnScreen(it) }
+            val scale = webView.width / box[4]
+            Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
+        }
+        val downAt = SystemClock.uptimeMillis()
+        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
+            if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
+            val event = MotionEvent.obtain(downAt, time, action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            instrumentation.uiAutomation.injectInputEvent(event, true)
+            event.recycle()
+        }
+        return true
+    }
 
     /** The Messages layer's WebView, once it's open. */
     fun layerWebView(): WebView? = webViews().getOrNull(1)

@@ -36,6 +36,10 @@ user-visible change.
   only and never distributable. The published APK is re-signed with the release keystore by
   `create-release.yml` (GitHub secrets); that's also why a local release build can't update a phone
   that has an official one.
+- Fixed-page tests (`*JsTest`) load their test page through `PageFixture` (one WebView setup:
+  load, eval, run a bundled script, wait; laid out only when given a size). `AppHarness` also holds
+  what the app-level tests and the live checks share: Messages on screen (`layerOpen`) and a real
+  touch on a link (`tapIn`).
 - App-level tests drive the real `MainActivity` through `AppHarness` (androidTest; one class per
   feature, listed in FORK_CHANGES' Testing). Test pages loaded with `loadPage` have no WebView
   history (`asHistory` gives them one, but a reload then fetches the real page). Loading a second

@@ -1,16 +1,13 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Tests for backHandlerNB in scripts.js against a real WebView, same harness
@@ -25,52 +22,21 @@ class BackHandlerJsTest {
     private fun String.unquoted() = removeSurrounding("\"")
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        // A real viewport, so document.elementFromPoint (which the handler uses to skip covered
+        // buttons) can hit anything.
+        private val page = PageFixture(width = 1080, height = 2000)
 
         fun load(body: String) {
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    // A real viewport, so document.elementFromPoint (which the
-                    // handler uses to skip covered buttons) can hit anything.
-                    layout(0, 0, 1080, 2000)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL(
-                        "https://www.facebook.com/",
-                        "<html id='facebook'><body>$body</body></html>",
-                        "text/html", "UTF-8", null
-                    )
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load("https://www.facebook.com/", "<html id='facebook'><body>$body</body></html>")
             eval(backHandlerScript())
         }
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
+        fun eval(js: String) = page.eval(js)
 
         // The desktop/feed identifiers and the back handler, i.e. scripts.js up
         // to the first block that doesn't belong to them.
         private fun backHandlerScript(): String {
-            val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            val all = resources.openRawResource(R.raw.scripts).bufferedReader().use { it.readText() }
+            val all = page.script(R.raw.scripts)
             val end = all.indexOf("// Enable press and hold")
             assertTrue("back handler block not found in scripts.js", end > 0)
             return all.substring(0, end)

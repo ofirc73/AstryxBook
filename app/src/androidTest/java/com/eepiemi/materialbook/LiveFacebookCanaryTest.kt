@@ -6,12 +6,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
-import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
-import android.view.InputDevice
-import android.view.MotionEvent
-import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.core.content.FileProvider
@@ -64,6 +60,23 @@ class LiveFacebookCanaryTest {
         assertTrue("Not logged in to Facebook: log in in the debug app first", cookie?.contains("c_user=") == true)
         File(app.context.filesDir, "datastore").deleteRecursively()
         runBlocking { SettingsDataStore(app.context).setPipEnabled(true) }
+        dropPipNarrowViewportCookie()
+    }
+
+    // PiP can leave a host-only vpd cookie with the PiP window's size on m.facebook.com, which
+    // shadows the .facebook.com one and lays pages out PiP-narrow (CLAUDE.md): the app tests' PiP
+    // runs leave one on a shared emulator, and on the narrow Home the first story-sized card was
+    // someone's story, not Create story. Removed (only the host-only one), and noted, so the checks
+    // see Facebook's normal layout.
+    private fun dropPipNarrowViewportCookie() {
+        val manager = CookieManager.getInstance()
+        val vpds = manager.getCookie("https://m.facebook.com").orEmpty().split(';').count { it.trim().startsWith("vpd=") }
+        if (vpds < 2) return
+        note("a second (host-only) vpd cookie was on m.facebook.com, as PiP leaves: removed before the checks")
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            manager.setCookie("https://m.facebook.com", "vpd=; Max-Age=0; Path=/")
+            manager.flush()
+        }
     }
 
     @After
@@ -123,6 +136,17 @@ class LiveFacebookCanaryTest {
         return "webViews=$webViews activity=$activity renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
 
+    // The feed on screen ([js] true), or a failure ([message]). Facebook's Home sometimes stays blank
+    // on GitHub's emulator for good (only its shell, at /?wtsid=…; three runs on 2026-10-25): reloaded
+    // once then, with a note, before the check fails.
+    private fun awaitFeed(message: String, js: String) {
+        if (app.waitFor(30_000) { eval(js) == "true" }) return
+        note("$message within 30 s (${pageShape()}): reloaded once")
+        eval("location.reload(); 1")
+        Thread.sleep(2000)
+        assertTrue("$message, even after a reload (${pageShape()})", app.waitFor(30_000) { eval(js) == "true" })
+    }
+
     // The page's shape, or the app's state when there's no page to read.
     private fun pageShape(): String = runCatching { eval(PAGE_SHAPE_JS) }.getOrElse { "no page (${appState()})" }
 
@@ -151,7 +175,10 @@ class LiveFacebookCanaryTest {
     // the Reels tab (no reels for it there): a public reel, opened by its address, is used instead.
     private fun openPlayingReel() {
         open("https://m.facebook.com/reels/")
-        if (app.waitFor(20_000) { eval("document.title === 'Content not found'") == "true" }) {
+        // A public reel when the tab has none to show, by 20 s: "Content not found" (which came
+        // later than that once, 2026-10-25, failing the check on /reels/), or no video yet.
+        app.waitFor(20_000) { eval("document.title === 'Content not found' || !!document.querySelector('video')") == "true" }
+        if (eval("!!document.querySelector('video')") != "true") {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
         }
@@ -286,9 +313,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun removeAds_hidesTheFeedsAds() {
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
         var ads = feedAds()
@@ -428,37 +453,6 @@ class LiveFacebookCanaryTest {
         return layer
     }
 
-    // A tap at the middle of the element [js] scrolls into view and gives the box of (CSS px in the
-    // visual viewport, and that viewport's width: "left,top,width,height,viewportWidth"; "" while
-    // there's none), a real touch: a link that opens a new window (target=_blank, as a shared
-    // reel's) ignores a click from a script.
-    private fun tapIn(webView: WebView, js: String): Boolean {
-        fun box() = app.eval(js, webView).trim('"').split(',').mapNotNull { it.toFloatOrNull() }
-        if (box().size < 5) return false
-        // Measured again once the scroll has settled.
-        Thread.sleep(800)
-        val box = box()
-        if (box.size < 5 || box[4] <= 0f) return false
-        val (x, y) = app.onActivity {
-            val at = IntArray(2).also { webView.getLocationOnScreen(it) }
-            val scale = webView.width / box[4]
-            Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
-        }
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        val downAt = SystemClock.uptimeMillis()
-        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
-            if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
-            val event = MotionEvent.obtain(downAt, time, action, x, y, 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            automation.injectInputEvent(event, true)
-            event.recycle()
-        }
-        return true
-    }
-
-    // The layer on screen: one kept out of sight behind a reel (MessagesLayerState.hidden) doesn't count.
-    private fun layerOpen() = app.webViews().drop(1).any { webView -> app.onActivity { webView.visibility == View.VISIBLE } }
-
     private fun layerShape(layer: WebView) = runCatching { app.eval(LAYER_SHAPE_JS, layer) }.getOrElse { "no layer page (${appState()})" }
 
     @Test
@@ -479,7 +473,7 @@ class LiveFacebookCanaryTest {
             app.eval(PHOTO_VIEWER_OPEN_JS, layer) == "false"
         })
         Thread.sleep(1500)
-        assertTrue("Back closed the Messages layer too", layerOpen())
+        assertTrue("Back closed the Messages layer too", app.layerOpen())
         assertTrue("Back left the chat (${layerShape(layer)})", app.eval("location.pathname", layer).contains("/t/"))
     }
 
@@ -487,15 +481,15 @@ class LiveFacebookCanaryTest {
     fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) {
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_REEL_BOX_JS) }) {
             fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
         }
         assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
-            !layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
+            !app.layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
         })
 
         app.pressBack()
-        assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
+        assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { app.layerOpen() })
         assertTrue("the layer came back somewhere other than the chat (${layerShape(layer)})", app.waitFor(15_000) {
             app.eval("location.pathname", layer).contains("/t/")
         })
@@ -509,19 +503,19 @@ class LiveFacebookCanaryTest {
     fun aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) {
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_POST_BOX_JS) }) {
             fail("no shared post (a link to /share/p/) in the test chat (${layerShape(layer)})")
         }
         // Like a reel: the post in the main view (m.facebook.com shows it as Home, the post at the
         // top), the chat kept out of sight behind it.
         assertTrue("the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})",
-            app.waitFor(30_000) { !layerOpen() })
+            app.waitFor(30_000) { !app.layerOpen() })
         // Shown as Home, with the post as a "From your link" card further down: scrolled to it.
         assertTrue("the post opened from the chat isn't at the top of the main view (linked_post.js)",
             app.waitFor(15_000) { eval(LINKED_POST_AT_TOP_JS) == "true" })
 
         app.pressBack()
-        assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { layerOpen() })
+        assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { app.layerOpen() })
         assertTrue("Back from the shared post didn't show the chat (${layerShape(layer)})", app.waitFor(20_000) {
             app.eval(CHAT_OPEN_JS, layer) == "true"
         })
@@ -540,16 +534,16 @@ class LiveFacebookCanaryTest {
         val backToTheChat = { what: String ->
             app.pressBack()
             assertTrue("Back on the $what never showed the chat again", app.waitFor(15_000) {
-                layerOpen() && app.eval(CHAT_OPEN_JS, layer) == "true"
+                app.layerOpen() && app.eval(CHAT_OPEN_JS, layer) == "true"
             })
         }
 
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_POST_BOX_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
-        assertTrue("the shared post didn't leave the Messages layer", app.waitFor(30_000) { !layerOpen() })
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_POST_BOX_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
+        assertTrue("the shared post didn't leave the Messages layer", app.waitFor(30_000) { !app.layerOpen() })
         backToTheChat("post")
-        if (!app.waitFor(45_000) { tapIn(layer, CHAT_REEL_BOX_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
+        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_REEL_BOX_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
         assertTrue("the reel didn't leave the Messages layer", app.waitFor(30_000) {
-            !layerOpen() && app.url(main).startsWith("https://m.facebook.com/reel/")
+            !app.layerOpen() && app.url(main).startsWith("https://m.facebook.com/reel/")
         })
         backToTheChat("reel")
         assertTrue("the main view didn't go back to where it was before the post and the reel", app.waitFor(10_000) {
@@ -558,10 +552,10 @@ class LiveFacebookCanaryTest {
 
         app.pressBack()
         assertTrue("Back in the chat didn't show the chat list", app.waitFor(10_000) {
-            layerOpen() && app.eval(chatListShownJs(chat), layer) == "true"
+            app.layerOpen() && app.eval(chatListShownJs(chat), layer) == "true"
         })
         app.pressBack()
-        assertTrue("Back on the chat list didn't close Messages", app.waitFor(10_000) { !layerOpen() })
+        assertTrue("Back on the chat list didn't close Messages", app.waitFor(10_000) { !app.layerOpen() })
         Thread.sleep(2000)
         // Nothing the chat opened is left in the main view, on screen or behind it.
         val pages = app.onActivity {
@@ -607,11 +601,11 @@ class LiveFacebookCanaryTest {
         assertTrue(
             "Back in the chat didn't go to the chat list (messages_layer_nav.js chatBackButton: the header's Back " +
                 "button, right beside the chat's name) (${layerShape(layer)})",
-            app.waitFor(10_000) { !layerOpen() || app.eval(chatListShownJs(chat), layer) == "true" }
+            app.waitFor(10_000) { !app.layerOpen() || app.eval(chatListShownJs(chat), layer) == "true" }
         )
-        assertTrue("Back in the chat closed the Messages layer (no Back button found in the chat's header)", layerOpen())
+        assertTrue("Back in the chat closed the Messages layer (no Back button found in the chat's header)", app.layerOpen())
         app.pressBack()
-        assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(10_000) { !layerOpen() })
+        assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(10_000) { !app.layerOpen() })
     }
 
     @Test
@@ -654,9 +648,7 @@ class LiveFacebookCanaryTest {
         // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
         val before = adsPixelBlocks.get()
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
         Thread.sleep(5000) // the pixel's frames come after the feed
         val frames = eval(FRAMES_JS).trim('"')
         val blocked = adsPixelBlocks.get() - before
@@ -712,9 +704,7 @@ class LiveFacebookCanaryTest {
         // text_wrap.js (Wrap text when zoomed) relies on the server's layout: text blocks are
         // white-space: pre with the line breaks in the text, inside boxes of a fixed inline height.
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('div.native-text').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('div.native-text').length > 0")
         eval("window.scrollBy(0, window.innerHeight); 1")
         Thread.sleep(2000)
         val counts = eval(TEXT_LAYOUT_JS).trim('"').split('|').map { it.toIntOrNull() ?: 0 }
@@ -735,15 +725,11 @@ class LiveFacebookCanaryTest {
         runBlocking { SettingsDataStore(app.context).setTextZoom(PAGE_ZOOM) }
         try {
             open("https://m.facebook.com/")
-            assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-                eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-            })
+            awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
             // The server lays a page out for the vpd cookie written as the page before it loaded.
             eval("location.reload(); 1")
             Thread.sleep(3000)
-            assertTrue("the feed never loaded again (${pageShape()})", app.waitFor(30_000) {
-                eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-            })
+            awaitFeed("the feed never loaded again", "document.querySelectorAll('[data-mcomponent]').length > 0")
             Thread.sleep(2000)
             val parts = eval(ZOOM_STATE_JS).trim('"').split('|')
             val z = parts.take(4).map { it.toDoubleOrNull() ?: 0.0 }
@@ -787,9 +773,7 @@ class LiveFacebookCanaryTest {
         // Facebook's "Facebook is better on the app" sheet comes up over the feed now and then;
         // scripts.js (dismissAppPrompt) presses it away.
         open("https://m.facebook.com/")
-        assertTrue("the feed never loaded (${pageShape()})", app.waitFor(30_000) {
-            eval("document.querySelectorAll('[data-mcomponent]').length > 0") == "true"
-        })
+        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
         Thread.sleep(8000)
         val sheet = eval(APP_SHEET_JS).trim('"')
         if (sheet.isNotEmpty()) {

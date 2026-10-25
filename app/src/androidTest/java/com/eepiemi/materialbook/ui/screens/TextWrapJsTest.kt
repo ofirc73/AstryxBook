@@ -1,16 +1,14 @@
 package com.eepiemi.materialbook.ui.screens
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Tests for text_wrap.js (Wrap text when zoomed) against a real WebView, same harness
@@ -25,8 +23,7 @@ import java.util.concurrent.TimeUnit
 class TextWrapJsTest {
 
     private class Harness {
-        lateinit var webView: WebView
-            private set
+        private val page = PageFixture()
 
         fun load() {
             val long = "A long line of post text that is well over the minimum length. ".repeat(3)
@@ -56,22 +53,9 @@ class TextWrapJsTest {
                   <div id="far" style="width:400px;margin-top:3000px">$long</div>
                 </body></html>
             """.trimIndent()
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                val context = InstrumentationRegistry.getInstrumentation().targetContext
-                webView = WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, url: String) {
-                            latch.countDown()
-                        }
-                    }
-                    loadDataWithBaseURL("https://example.com/", html, "text/html", "UTF-8", null)
-                }
-            }
-            assertTrue("page never finished loading", latch.await(10, TimeUnit.SECONDS))
+            page.load("https://example.com/", html)
             eval("document.getElementById('server').textContent = '$serverText';")
-            eval(script())
+            page.run(R.raw.text_wrap)
             eval(
                 """
                 window.__z = { scale: 1, width: 300, height: 600, offsetTop: 0, offsetLeft: 0, pageTop: 0 };
@@ -96,23 +80,7 @@ class TextWrapJsTest {
         fun isWrapped(id: String) =
             eval("document.getElementById('$id').hasAttribute('data-astryx-wrap')") == "true"
 
-        fun eval(js: String): String {
-            var result: String? = null
-            val latch = CountDownLatch(1)
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                webView.evaluateJavascript(js) { value ->
-                    result = value
-                    latch.countDown()
-                }
-            }
-            assertTrue("evaluateJavascript never returned", latch.await(10, TimeUnit.SECONDS))
-            return result ?: "null"
-        }
-
-        private fun script(): String {
-            val resources = InstrumentationRegistry.getInstrumentation().targetContext.resources
-            return resources.openRawResource(R.raw.text_wrap).bufferedReader().use { it.readText() }
-        }
+        fun eval(js: String) = page.eval(js)
     }
 
     @Test
