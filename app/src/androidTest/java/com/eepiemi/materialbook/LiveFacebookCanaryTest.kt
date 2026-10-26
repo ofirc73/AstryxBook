@@ -63,6 +63,13 @@ class LiveFacebookCanaryTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
         runBlocking { SettingsDataStore(app.context).setPipEnabled(true) }
         dropPipNarrowViewportCookie()
+        // With the screen off the app's WebView is never created (it's made during layout).
+        shell("input keyevent KEYCODE_WAKEUP")
+    }
+
+    private fun shell(command: String): List<String> {
+        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
     }
 
     // PiP can leave a host-only vpd cookie with the PiP window's size on m.facebook.com, which
@@ -101,11 +108,8 @@ class LiveFacebookCanaryTest {
     }
 
     // The app's log lines under [tag], without the line prefixes.
-    private fun logLines(tag: String): List<String> {
-        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s $tag:D")
-        return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
-            .filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
-    }
+    private fun logLines(tag: String): List<String> =
+        shell("logcat -d -s $tag:D").filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
 
     // A note in the run's output for a check that passed only after working around something:
     // am instrument prints a status's stream text (the workflow turns these into warnings), and
@@ -135,7 +139,10 @@ class LiveFacebookCanaryTest {
         val webViews = runCatching { app.webViews().size.toString() }.getOrElse { it.javaClass.simpleName }
         val activity = app.activity()?.let { if (it.isFinishing) "finishing" else "on screen" } ?: "none in front"
         val renderer = runCatching { logLines("Astryxbook").filter { "renderer gone" in it } }.getOrDefault(emptyList())
-        return "webViews=$webViews activity=$activity renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
+        // Awake, Asleep or Dozing: no WebView is made with the screen off.
+        val screen = runCatching { shell("dumpsys power").firstOrNull { "mWakefulness=" in it }?.substringAfter("=")?.trim() }
+            .getOrNull() ?: "?"
+        return "webViews=$webViews activity=$activity screen=$screen renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
 
     // The feed on screen ([js] true), or a failure ([message]). Facebook's Home sometimes stays blank

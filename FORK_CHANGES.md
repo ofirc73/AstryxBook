@@ -504,7 +504,9 @@ pinch). The check needs a logged-in device, so it runs only with `-e canary true
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
 drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 UTC and the later
-runs stand down once one has run. The reel check presses Home only once the reel plays on as the app's PiP detector
+runs stand down once one has run. The workflow keeps the emulator's screen on, and each check wakes it: with the
+screen off the app makes no WebView (it's made during layout), and checks failed with "webViews=0";
+a failure's app state says whether the screen was awake. The reel check presses Home only once the reel plays on as the app's PiP detector
 counts playing: unmuted, a reel buffers for a moment on GitHub's emulator. When the app's last PiP
 params had auto-enter off before Home anyway (a stall longer than the detector's 2 s grace), the
 check plays it again and presses Home once more, and says so: a "Live check note" warning on the

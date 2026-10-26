@@ -168,6 +168,11 @@ jobs:
           script: |
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            # The screen stays on: with it off the app's WebView is never created (made during
+            # layout), and checks failed with "webViews=0".
+            adb shell svc power stayon true
+            adb shell settings put system screen_off_timeout 1800000
+            adb shell input keyevent KEYCODE_WAKEUP
             adb shell am instrument -w -e canary true -e fbCookies "$(printf %s "$FB_TEST_COOKIES" | base64 -w0)" ${FB_TEST_CHAT:+-e fbChat "$FB_TEST_CHAT"} -e class com.eepiemi.materialbook.LiveFacebookCanaryTest com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner | tee canary.txt
             grep -qE '^OK \([0-9]+ tests?\)' canary.txt
 
