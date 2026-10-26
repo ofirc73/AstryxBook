@@ -180,7 +180,7 @@ jobs:
 
       # The device log of a failed run (the app's, the test runner's and WebView's lines).
       - name: Upload the device log
-        if: failure() && steps.checks.outcome == 'failure'
+        if: always() && steps.checks.outcome == 'failure'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canary-logcat

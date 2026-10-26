@@ -138,11 +138,24 @@ class LiveFacebookCanaryTest {
     private fun appState(): String {
         val webViews = runCatching { app.webViews().size.toString() }.getOrElse { it.javaClass.simpleName }
         val activity = app.activity()?.let { if (it.isFinishing) "finishing" else "on screen" } ?: "none in front"
+        // What the window holds instead, when there's no WebView: its views' classes, a few deep.
+        val views = runCatching {
+            app.onActivity { a ->
+                val names = mutableListOf<String>()
+                fun walk(v: android.view.View, depth: Int) {
+                    if (names.size >= 25) return
+                    names += "${"-".repeat(depth)}${v.javaClass.simpleName}${if (v.isShown) "" else "(hidden)"}"
+                    if (v is android.view.ViewGroup && depth < 6) for (i in 0 until v.childCount) walk(v.getChildAt(i), depth + 1)
+                }
+                walk(a.window.decorView, 0)
+                names.joinToString(" ")
+            }
+        }.getOrElse { it.javaClass.simpleName }
         val renderer = runCatching { logLines("Astryxbook").filter { "renderer gone" in it } }.getOrDefault(emptyList())
         // Awake, Asleep or Dozing: no WebView is made with the screen off.
         val screen = runCatching { shell("dumpsys power").firstOrNull { "mWakefulness=" in it }?.substringAfter("=")?.trim() }
             .getOrNull() ?: "?"
-        return "webViews=$webViews activity=$activity screen=$screen renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
+        return "webViews=$webViews activity=$activity screen=$screen views=[$views] renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
 
     // The feed on screen ([js] true), or a failure ([message]). Facebook's Home sometimes stays blank
