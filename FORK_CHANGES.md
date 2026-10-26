@@ -423,7 +423,9 @@ on their own can't:
   not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
-  Groups, profile picture) taking the files in and opening its page in the right view.
+  Groups, profile picture) taking the files in and opening its page in the right view; after Share
+  to story, Facebook's stories page closing the story screen, or opening the creator again for the
+  next file.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -450,6 +452,10 @@ live check guards:
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`).
+- `facebooksStoriesPage_afterAStory_closesTheStoryScreen`: Facebook's stories page still at
+  `www.facebook.com/stories`, and the real creator moved there closing the story screen
+  (`messagesLayerExit`, `ShareIntoFacebookTest`). That Facebook goes there after Share to story
+  isn't checked: only a real post gets there, and the checks never post.
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`). An
   ad label it missed, found by its text, fails the check; a run that saw no ad says so in a note.
   The test account's feed may hold no posts at all, so the feed check only notes when it finds none
@@ -1079,6 +1085,12 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   story screen (back to where you were, as in the Facebook app) instead of leaving Facebook's
   "start a story" page open; the script waits until the page is choosing a story again, so a story
   being uploaded after Share to story is never interrupted.
+- After Share to story the story screen stayed open on Facebook's stories page (your story, Archive,
+  Add to story) instead of going back to the feed. Facebook used to go Home after a story was
+  posted, which closed the screen; now it moves the creator in-page to `www.facebook.com/stories`
+  (seen on a Galaxy A56, 2026-10-27). That page now counts as Home: the story screen closes, back to
+  where you were, or opens the creator again for the next shared file. A story's own page
+  (`/stories/<id>/`) still stays in the layer.
 - The story editor is laid out like the Facebook app's (`story_layout.js`): the story fills the
   screen at the phone's own width (normal-size text), the creator's tools (Add text, Add music,
   Alternative text...) are round buttons along the bottom of the story, and privacy, Discard and
