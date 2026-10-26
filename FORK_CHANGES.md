@@ -442,7 +442,8 @@ test added or changed gets its live check here, or a reason below why it has non
 live check guards:
 - `aReel_keepsPlayingInPip`: a reel going to PiP from Home and playing there with a visible video
   (`pip_video_detector.js`, the keep-playing guard, focus mode; `PipKeepPlayingJsTest`,
-  `PipVideoDetectorJsTest`, `PipFocusModeJsTest`).
+  `PipVideoDetectorJsTest`, `PipFocusModeJsTest`), and no PiP-narrow `vpd` cookie left once it
+  ends (`MainActivity.dropPipViewportCookie`, `comingBackToTheApp_dropsTheViewportCookiePipLeft`).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
@@ -822,6 +823,13 @@ leaving the app while a Facebook video or Reel is playing.
   second. Each resize of the PiP window now zooms the page all the way out again right away, as
   entering PiP does, so it comes back at its normal zoom (the reset stays as a backstop). Covered by
   `aResizedPipWindow_showsThePageZoomedOutAgain`.
+- After PiP, later pages could stay laid out for the PiP window's width. In PiP Facebook can write
+  the window's size into a session `vpd` cookie of `m.facebook.com` alone, which outranks the
+  `.facebook.com` one its server lays pages out by (seen on the emulator after the PiP tests;
+  WebView keeps session cookies across restarts). The app now expires that host-only cookie when
+  PiP ends and again whenever it comes back to the front out of PiP: a PiP window entered and left
+  within a moment can end with no PiP callback at all. Covered by
+  `comingBackToTheApp_dropsTheViewportCookiePipLeft` and the live check `aReel_keepsPlayingInPip`.
 
 ## Sharing, text size, shortcuts and developer options
 

@@ -932,7 +932,7 @@ class LiveFacebookCanaryTest {
         // The widths in the page's vpd cookies ("v1;<height>x<width>x<density>").
         private const val VPD_WIDTHS_JS =
             "document.cookie.split('; ').filter(function (c) { return c.indexOf('vpd=') === 0; })" +
-                ".map(function (c) { var m = decodeURIComponent(c.slice(4)).match(/^v1;\d+x(\d+)x/); return m ? m[1] : '?'; }).join(',')"
+                ".map(function (c) { var m = decodeURIComponent(c.slice(4)).match(/^v1;\\d+x(\\d+)x/); return m ? m[1] : '?'; }).join(',')"
         // No vpd cookie narrower than 60% of the window (a PiP window's).
         private const val NO_NARROW_VPD_JS =
             "(function () { var w = $VPD_WIDTHS_JS.split(','); return w.every(function (x) {" +
