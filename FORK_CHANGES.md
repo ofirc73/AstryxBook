@@ -432,8 +432,8 @@ on their own can't:
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
-  to story, Facebook's stories page closing the story screen, or opening the creator again for the
-  next file.
+  to story, Facebook's stories page closing the story screen (and loading the feed again), or
+  opening the creator again for the next file.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -460,9 +460,9 @@ live check guards:
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`).
-- `facebooksStoriesPage_afterAStory_closesTheStoryScreen`: Facebook's stories page still at
-  `www.facebook.com/stories`, and the real creator moved there closing the story screen
-  (`messagesLayerExit`, `ShareIntoFacebookTest`). That Facebook goes there after Share to story
+- `facebooksStoriesPage_afterAStory_closesTheStoryScreen_andLoadsTheFeedAgain`: Facebook's stories
+  page still at `www.facebook.com/stories`, and the real creator moved there closing the story
+  screen and loading the feed again (`messagesLayerExit`, `ShareIntoFacebookTest`). That Facebook goes there after Share to story
   isn't checked: only a real post gets there, and the checks never post.
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`). An
   ad label it missed, found by its text, fails the check; a run that saw no ad says so in a note.
@@ -1101,6 +1101,11 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (seen on a Galaxy A56, 2026-10-27). That page now counts as Home: the story screen closes, back to
   where you were, or opens the creator again for the next shared file. A story's own page
   (`/stories/<id>/`) still stays in the layer.
+- The new story shows in the feed's stories tray as soon as the story screen closes: the feed
+  under it was the page from before the share, so the story was missing from Your story until the
+  feed was reloaded, minutes later or by hand (checked on a Galaxy A56: present at once after an
+  immediate reload). The main view now loads the feed (`m.facebook.com/`) when the story screen
+  closes after a share.
 - The story editor is laid out like the Facebook app's (`story_layout.js`): the story fills the
   screen at the phone's own width (normal-size text), the creator's tools (Add text, Add music,
   Alternative text...) are round buttons along the bottom of the story, and privacy, Discard and
