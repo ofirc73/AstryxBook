@@ -676,6 +676,42 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun theStoryEditorsMusicList_isClosedByATapOnDiscard() {
+        // Facebook's popups aren't modal (Share posted a story with the music list open, Galaxy A56,
+        // 2026-10-27): story_layout.js dims Discard and Share while one is open and a tap on either
+        // only closes it, through its close button. Tried with Discard, never Share: had the tap
+        // gone through, it would only ask "Discard story?".
+        sharePicture("ShareToStory", 720, 1280)
+        assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
+            app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
+        })
+        val layer = app.layerWebView()!!
+        assertTrue("story_layout.js never laid out the story editor", app.waitFor(60_000) {
+            app.eval(STORY_LAYOUT_JS, layer).trim('"').startsWith("ok ")
+        })
+        val opened = app.eval(
+            "(function () { var t = [].filter.call(document.querySelectorAll('[data-astryx-story=tool]'), function (b) {" +
+                " return /music/i.test(b.innerText); })[0]; if (!t) return false; t.click(); return true; })()", layer
+        ) == "true"
+        if (!opened) {
+            note("no Add music tool on the story editor (by its English label): the music list wasn't checked")
+            return
+        }
+        assertTrue("the music list never opened as a popup (data-astryx-story-popup)", app.waitFor(15_000) {
+            app.eval("document.documentElement.classList.contains('astryx-story-popup-open')", layer) == "true"
+        })
+        app.eval("document.querySelector('[data-astryx-story=actions] [role=button]').click(); 1", layer)
+        assertTrue("a tap on Discard didn't close the music list (its close button, found at the popup's top right)",
+            app.waitFor(5_000) {
+                app.eval("document.documentElement.classList.contains('astryx-story-popup-open')", layer) == "false"
+            })
+        assertEquals("the tap on Discard went through with the music list open", "false", app.eval(
+            "[].some.call(document.querySelectorAll('[role=dialog]'), function (d) {" +
+                " var r = d.getBoundingClientRect(); return r.width > 0 && r.height > 0; })", layer
+        ))
+    }
+
+    @Test
     fun facebooksStoriesPage_afterAStory_showsYourStoriesOrClosesTheStoryScreen() {
         // After Share to story the creator moves in-page to Facebook's stories page (seen on a
         // Galaxy A56, 2026-10-27; nothing is posted here): that page must still be at

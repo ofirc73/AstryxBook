@@ -204,6 +204,40 @@ class StoryLayoutJsTest {
         assertEquals("\"auto\"", h.eval("getComputedStyle(document.getElementById('open-popup')).pointerEvents"))
     }
 
+    // Facebook's popups aren't modal: Share posted the story with the music list still open (Galaxy
+    // A56, 2026-10-27). While one is open, Discard and Share are dimmed and a tap only closes it.
+    @Test
+    fun withTheMusicListOpen_shareFirstClosesIt_thenShares() {
+        val h = Harness()
+        h.load(CREATOR + MUSIC_LIST)
+        h.run()
+        h.eval("window.__showFrame(); window.__shared = 0;" +
+            " document.querySelectorAll('#actions [role=button]')[1].addEventListener('click', function () { window.__shared++; }); 1")
+        assertTrue("the music list was never seen as open", h.waitFor(POPUP_OPEN_AND_LAID_OUT))
+        assertEquals("\"0.5\"", h.eval("getComputedStyle(document.querySelectorAll('#actions [role=button]')[1]).opacity"))
+        h.eval("document.querySelectorAll('#actions [role=button]')[1].click(); 1")
+        assertEquals("Share went through with the music list open", "0", h.eval("window.__shared"))
+        assertEquals("the music list's close button wasn't pressed", "true", h.eval("!!window.__musicClosed"))
+        assertTrue(h.waitFor("!document.documentElement.classList.contains('astryx-story-popup-open')"))
+        h.eval("document.querySelectorAll('#actions [role=button]')[1].click(); 1")
+        assertEquals("Share didn't go through once the list was closed", "1", h.eval("window.__shared"))
+    }
+
+    // A popup it can't close (no close button found) never keeps Share from posting: the second tap goes.
+    @Test
+    fun aPopupThatCantBeClosed_letsTheSecondTapThrough() {
+        val h = Harness()
+        h.load(CREATOR + POPUPS)
+        h.run()
+        h.eval("window.__showFrame(); window.__shared = 0;" +
+            " document.querySelectorAll('#actions [role=button]')[1].addEventListener('click', function () { window.__shared++; }); 1")
+        assertTrue(h.waitFor(POPUP_OPEN_AND_LAID_OUT))
+        h.eval("document.querySelectorAll('#actions [role=button]')[1].click(); 1")
+        assertEquals("0", h.eval("window.__shared"))
+        h.eval("document.querySelectorAll('#actions [role=button]')[1].click(); 1")
+        assertEquals("the second tap on Share was held back too", "1", h.eval("window.__shared"))
+    }
+
     @Test
     fun fiveTools_fitTheStorysWidth_eachWithOneIcon() {
         // An account with more tools (Apps, with a submenu arrow, and Add time) than the sidebar's
@@ -412,6 +446,19 @@ class StoryLayoutJsTest {
             "<div id='open-popup' style='position: fixed; transform: translate(355px, 157px);'><div>Search music</div></div>" +
                 "<div id='closed-popup' style='position: fixed; transform: translate(355px, 157px);'>" +
                 "<div style='visibility: hidden'><img width='10' height='10'>Hidden</div></div>"
+
+        // A popup is open, and Discard / Share are in the bottom bar.
+        const val POPUP_OPEN_AND_LAID_OUT = "document.documentElement.classList.contains('astryx-story-popup-open') &&" +
+            " document.getElementById('actions').getAttribute('data-astryx-story') === 'actions'"
+
+        // Add music's song list, as read from a Galaxy A56 (2026-10-27): a search box with a small
+        // close button at the popup's top right (which hides the popup's content), then the songs.
+        const val MUSIC_LIST =
+            "<div id='music' style='position: fixed; transform: translate(53px, 64px);'><div id='music-content' style='width:280px'>" +
+                "<div style='display:flex;justify-content:space-between'><input aria-label='Search music' style='width:170px'>" +
+                "<div role='button' aria-label='Close' style='width:36px;height:36px'" +
+                " onclick=\"window.__musicClosed = true; document.getElementById('music-content').style.visibility = 'hidden'\">x</div></div>" +
+                "<div role='button' aria-label='Play' style='width:24px;height:24px'>&gt;</div><div>For you</div></div></div>"
 
         // A music sticker's panel (song, Remove, four style buttons named only for screen readers)
         // and the song clip bar (Pause, Undo, Done; no text). Facebook's fixed layers.
