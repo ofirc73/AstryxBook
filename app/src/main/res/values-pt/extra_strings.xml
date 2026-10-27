@@ -108,4 +108,6 @@
     <string name="webview_update_later">Agora não</string>
     <string name="share_media_adding_one">A adicionar a sua foto…</string>
     <string name="share_media_adding_several">A adicionar %1$d fotos…</string>
+    <string name="send_post_pick_chat">Abra uma conversa para enviar a publicação: o link dela vai para a caixa de mensagem.</string>
+    <string name="send_post_cancel">Não enviar a publicação</string>
 </resources>

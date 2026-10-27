@@ -13,14 +13,13 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
-import java.net.URLDecoder
 
 /**
  * A post's Share > Send as a message: m.facebook.com hands the post to the Messenger app with an
- * intent:// link, which the app never launches. The post goes to the desktop site's Send in
- * Messenger dialog in the Messages layer instead (with Messages in desktop mode off, after the
- * user picks desktop mode). No login here: the layer may show Facebook's login page with the
- * dialog's address in its own, which is why addresses are checked decoded.
+ * intent:// link, which the app never launches. The Messages layer opens the chat list instead
+ * (with Messages in desktop mode off, after the user picks desktop mode), and the chat the user
+ * opens gets the post's link in its message box (put_link_in_chat.js), for the user to send. No
+ * login here: the chat list may be Facebook's login page, so the chat is a test page.
  */
 @RunWith(AndroidJUnit4::class)
 class SendAsMessageTest {
@@ -39,7 +38,6 @@ class SendAsMessageTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
     }
 
-    private fun decoded(url: String) = runCatching { URLDecoder.decode(url, "UTF-8") }.getOrDefault(url)
 
     // A dialog of the app's is up: the activity's window has lost the focus to it.
     private fun dialogShown() = app.onActivity { !it.hasWindowFocus() }
@@ -72,23 +70,31 @@ class SendAsMessageTest {
         fail("the page never got the tap on Send as a message (${state()})")
     }
 
-    private fun assertTheDialogOpensForThePost() {
-        assertTrue("Send in Messenger never opened for the post in the Messages layer (${state()})", app.waitFor(20_000) {
-            val layer = app.layerWebView()
-            layer != null && app.layerOpen() && decoded(app.url(layer)).let { it.contains("/share_as_message/") && it.contains(POST) }
+    // The layer opened for the post, and a chat opened there (a test page with Messenger's message
+    // box, tapped as a user's tap on it would) gets the post's link in the box.
+    private fun assertTheChatGetsThePost() {
+        assertTrue("the Messages layer never opened for the post (${state()})", app.waitFor(20_000) {
+            app.layerWebView() != null && app.layerOpen()
+        })
+        val layer = app.layerWebView()!!
+        app.loadPage(CHAT_URL, CHAT, layer)
+        assertTrue("the chat's message box couldn't be tapped", app.tapIn(layer, BOX_JS))
+        assertTrue("the chat's message box never got the post's link (${state()}; box: " +
+            "${app.eval("document.getElementById('box').innerText", layer)})", app.waitFor(15_000) {
+            app.eval("document.getElementById('box').innerText.indexOf('$POST') >= 0", layer) == "true"
         })
         assertTrue("the feed was left", app.eval("!!window.__testPage", app.mainWebView()) == "true")
     }
 
     @Test
-    fun withMessagesInDesktopMode_thePostOpensInSendInMessenger() {
+    fun withMessagesInDesktopMode_theChatPickedGetsThePostsLink() {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         tapSendAsMessage()
-        assertTheDialogOpensForThePost()
+        assertTheChatGetsThePost()
     }
 
     @Test
-    fun withoutMessagesInDesktopMode_desktopModeIsOffered_andOpensSendInMessenger() {
+    fun withoutMessagesInDesktopMode_desktopModeIsOffered_andTheChatPickedGetsThePostsLink() {
         tapSendAsMessage()
         assertTrue("desktop mode was never offered (no dialog)", app.waitFor { dialogShown() })
         Thread.sleep(500)
@@ -97,7 +103,7 @@ class SendAsMessageTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
-        assertTheDialogOpensForThePost()
+        assertTheChatGetsThePost()
     }
 
     private companion object {
@@ -111,6 +117,16 @@ class SendAsMessageTest {
                 "<div id='send' role='button' aria-label='Send as a message' style='margin:40px;height:80px'" +
                 " onclick=\"window.__taps = (window.__taps || 0) + 1; window.open('$SHARE_LINK', '_self')\">Send as a message</div>" +
                 "<script>window.__testPage = true;</script></body></html>"
+        const val CHAT_URL = "https://www.facebook.com/messages/t/4567/"
+        // A chat, with Messenger's message box (its Lexical editor: role=textbox, contenteditable).
+        const val CHAT =
+            "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head><body>" +
+                "<div id='box' contenteditable='true' role='textbox' aria-label='Message'" +
+                " style='margin:40px;min-height:60px;border:1px solid #888'></div>" +
+                "<script>window.__testPage = true;</script></body></html>"
+        const val BOX_JS =
+            "(function () { var e = document.getElementById('box'); if (!e) return ''; " +
+                "var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
         const val SEND_BOX_JS =
             "(function () { var e = document.getElementById('send'); if (!e) return ''; e.scrollIntoView(); " +
                 "var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"

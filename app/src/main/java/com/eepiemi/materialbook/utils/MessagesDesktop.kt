@@ -5,7 +5,6 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 const val MESSAGES_DESKTOP_URL = "https://www.facebook.com/messages/"
-private const val SHARE_AS_MESSAGE_URL = "https://www.facebook.com/share_as_message/?link="
 
 private fun hostAndPath(url: String): Pair<String, String>? {
     val uri = runCatching { URI(url) }.getOrNull() ?: return null
@@ -165,7 +164,11 @@ private val THREAD_PATH = Regex("^/messages/(?:e2ee/)?t/[^/]+")
  * The page a Messenger share link sends: m.facebook.com's "Send as a message" (a post's Share)
  * opens `intent://share/?link=<the post>…#Intent;scheme=fb-messenger;package=com.facebook.orca;end`
  * (seen on the emulator, 2026-10-27), `fb-messenger://share/?link=…` in the Messenger app's own
- * form. Null for any other link, or one whose `link` isn't a web page.
+ * form. Null for any other link, or one whose `link` isn't a web page. The layer opens the chat
+ * list for it, and the chat picked gets the page's link in its message box (MessagesLayerState
+ * .linkToSend): the desktop site's own Send in Messenger dialog (`share_as_message`) sent an
+ * attachment an end-to-end encrypted chat showed as an empty message, and the other side didn't
+ * get at all (tried 2026-10-28).
  */
 fun messengerShareLink(url: String): String? {
     if (!isMessagesLink(url)) return null
@@ -189,12 +192,10 @@ fun messengerShareAppLink(url: String): String? =
 /**
  * Desktop equivalent of any Messages/Messenger link, so deep links keep their conversation:
  * `facebook.com/messages/t/<id>`, `m.me/<name>`, `messenger.com/t/<id>` and
- * `fb-messenger://user/<id>` open that thread; a share link ([messengerShareLink]) opens the
- * desktop site's Send in Messenger dialog for its page (`share_as_message`, which the desktop
- * `dialog/send` redirects to); anything else opens the inbox.
+ * `fb-messenger://user/<id>` open that thread; anything else (a share link, [messengerShareLink],
+ * included) opens the inbox.
  */
 fun messagesDesktopUrl(url: String): String {
-    messengerShareLink(url)?.let { return SHARE_AS_MESSAGE_URL + URLEncoder.encode(it, "UTF-8") }
     val inbox = MESSAGES_DESKTOP_URL
     val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return inbox
     val scheme = uri.scheme?.lowercase()

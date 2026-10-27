@@ -107,4 +107,6 @@
     <string name="webview_update_later">Nanti</string>
     <string name="share_media_adding_one">Menambahkan foto Anda…</string>
     <string name="share_media_adding_several">Menambahkan %1$d foto…</string>
+    <string name="send_post_pick_chat">Buka chat untuk mengirim postingan: tautannya akan masuk ke kotak pesan.</string>
+    <string name="send_post_cancel">Jangan kirim postingan</string>
 </resources>

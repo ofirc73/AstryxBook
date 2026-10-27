@@ -103,4 +103,6 @@
     <string name="webview_update_later">এখন নয়</string>
     <string name="share_media_adding_one">আপনার ছবি যোগ করা হচ্ছে…</string>
     <string name="share_media_adding_several">%1$d টি ছবি যোগ করা হচ্ছে…</string>
+    <string name="send_post_pick_chat">পোস্টটি পাঠাতে একটি চ্যাট খুলুন: এর লিংক মেসেজ বক্সে বসবে।</string>
+    <string name="send_post_cancel">পোস্টটি পাঠাবেন না</string>
 </resources>

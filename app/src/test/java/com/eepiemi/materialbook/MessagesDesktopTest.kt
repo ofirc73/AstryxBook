@@ -248,20 +248,19 @@ class MessagesDesktopTest {
     }
 
     @Test
-    fun aPostSentAsAMessage_opensTheDesktopSendInMessengerDialogForIt() {
+    fun aPostSentAsAMessage_isReadFromMessengersShareLink_andOpensTheChatList() {
         val post = "https://www.facebook.com/groups/355/permalink/3732/"
-        val dialog = "https://www.facebook.com/share_as_message/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F"
+        val inbox = "https://www.facebook.com/messages/"
         assertTrue(isMessagesLink(SEND_AS_MESSAGE))
         assertEquals(post, messengerShareLink(SEND_AS_MESSAGE))
-        assertEquals(dialog, messagesDesktopUrl(SEND_AS_MESSAGE))
-        assertEquals(MessagesLayerRoute.Remap(dialog), messagesLayerRoute(SEND_AS_MESSAGE, isMainFrame = true))
-        assertEquals(dialog, messagesDesktopUrl("fb-messenger://share/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F"))
+        // The chat list: the chat picked there gets the post's link (MessagesLayerState.linkToSend).
+        assertEquals(inbox, messagesDesktopUrl(SEND_AS_MESSAGE))
+        assertEquals(MessagesLayerRoute.Remap(inbox), messagesLayerRoute(SEND_AS_MESSAGE, isMainFrame = true))
         // Open Messenger gets Messenger's own link, never the intent:// one.
         val appLink = messengerShareAppLink(SEND_AS_MESSAGE)
         assertEquals("fb-messenger://share/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F", appLink)
-        assertEquals(dialog, messagesDesktopUrl(appLink!!))
-        // The share dialog stays in the layer (it's no section of Facebook's).
-        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute(dialog, isMainFrame = true))
+        assertEquals(post, messengerShareLink(appLink!!))
+        assertEquals(inbox, messagesDesktopUrl(appLink))
     }
 
     @Test

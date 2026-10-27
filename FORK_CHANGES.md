@@ -432,14 +432,17 @@ on their own can't:
   the test's own step, not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `SendAsMessageTest`: a post's Send as a message (Facebook's Messenger share link) opening the
-  desktop Send in Messenger dialog for the post in the Messages layer, and with Messages in desktop
-  mode off, after desktop mode is picked in the app's dialog (pressed by keyboard: the test's
-  UiAutomation sees no window for the dialog). A tap the page didn't get (a dialog Facebook's real
-  start page pushed can take it) is made once more, and a failure names the taps, the dialog, the
-  setting and the layer's address (the v1.36.2 release run failed once without saying). Live check
-  `sendAsAMessage_opensSendInMessengerForThePost`: the feed's Share sheet still has the item (found
-  by its Messenger icon), still hands out a share link the app reads, and the dialog still opens
-  with its search box; nothing is sent.
+  Messages layer, and a chat opened there (a test page with Messenger's message box, tapped) getting
+  the post's link in its box; with Messages in desktop mode off, after desktop mode is picked in the
+  app's dialog (pressed by keyboard: the test's UiAutomation sees no window for the dialog). A tap
+  the page didn't get (a dialog Facebook's real start page pushed can take it) is made once more,
+  and a failure names the taps, the dialog, the setting and the layer's address (the v1.36.2
+  release run failed once without saying). Live check
+  `sendAsAMessage_opensTheChatList_andTheChatPickedGetsThePostsLink`: the feed's Share sheet still
+  has the item (found by its Messenger icon; the next post's Share is tried when a sheet has none),
+  still hands out a share link the app reads (its log line), and the chat list opens; with the test
+  chat (`-e fbChat`, local only), the chat picked from the list gets the link in Messenger's real
+  message box, which is then emptied: nothing is sent.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
@@ -511,7 +514,8 @@ live check guards:
   (`tools/canary.ps1 -Chat`): the test account's chat is end-to-end encrypted, and GitHub's emulator,
   logged in by cookies alone, gets its restore prompt instead of its messages:
   `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt` (`layer_photo_viewer.js`,
-  `LayerPhotoViewerJsTest`), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
+  `LayerPhotoViewerJsTest`; it opens the largest picture that isn't a link's, since a link preview
+  the Send as a message test left at the chat's end was opened instead), `aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat`
   (`MessagesLayerReelTest`; the main view also leaves the reel),
   `aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt` (`messagesLayerExit`; the post
   scrolled to the top, `linked_post.js`),
@@ -563,12 +567,17 @@ separate layer was added on top.
 - **Send as a message** in a post's Share sheet works: m.facebook.com hands the post to the
   Messenger app (`intent://share/?link=<the post>…;package=com.facebook.orca`), which the app
   never launches, so the tap did nothing (desktop mode off: "not supported"; on: the inbox opened
-  without the post). The post now opens in the desktop site's **Send in Messenger** dialog
-  (`www.facebook.com/share_as_message/?link=…`: search, recent chats, Send) in the Messages layer;
-  its close button or Back closes the layer. With Messages in desktop mode off, the app's "Read
+  without the post). Since v1.36.3 the Messages layer opens the chat list, with a banner over it
+  ("Open a chat to send the post", and a close button that drops the post); the chat the user
+  opens gets the post's link in its message box (`put_link_in_chat.js`, Messenger's own preview
+  card follows), and the user sends it. v1.36.2 opened the desktop site's Send in Messenger dialog
+  (`www.facebook.com/share_as_message/?link=…`) instead: in an end-to-end encrypted chat its Send
+  posted an attachment the chat showed as an empty message, and the other side got nothing (seen on
+  a Galaxy A56 and the emulator, 2026-10-28). With Messages in desktop mode off, the app's "Read
   your messages here?" dialog offers desktop mode (or the Messenger app, by its own
-  `fb-messenger://share/?link=…` link) first. `messengerShareLink` in `MessagesDesktop.kt`;
-  covered by `MessagesDesktopTest` and `SendAsMessageTest`. The sheet's other items (Share to
+  `fb-messenger://share/?link=…` link) first. `messengerShareLink` in `MessagesDesktop.kt`,
+  `MessagesLayerState.linkToSend`; covered by `MessagesDesktopTest`, `MessagesLayerStateTest` and
+  `SendAsMessageTest`. The sheet's other items (Share to
   Facebook, a friend's profile, a group, Copy link, Share via…) were checked on the emulator
   (2026-10-27) and need nothing from the app beyond what it already does.
 - Facebook pages opened from a chat (a profile; posts since v1.35.17 open like reels) open in the layer too, on the desktop

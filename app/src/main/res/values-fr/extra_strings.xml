@@ -108,4 +108,6 @@
     <string name="webview_update_later">Plus tard</string>
     <string name="share_media_adding_one">Ajout de votre photo…</string>
     <string name="share_media_adding_several">Ajout de %1$d photos…</string>
+    <string name="send_post_pick_chat">Ouvrez une discussion pour envoyer la publication : son lien ira dans la zone de message.</string>
+    <string name="send_post_cancel">Ne pas envoyer la publication</string>
 </resources>
