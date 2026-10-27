@@ -213,15 +213,28 @@ class AppHarness {
         ).use { it.readBytes() }
     }
 
+    // The app has been told it's in PiP (onPictureInPictureModeChanged, its private isInPipMode),
+    // which can come a second after isInPictureInPictureMode turns true.
+    private fun pipDelivered(): Boolean = activity()?.let { a ->
+        onActivity {
+            val field = MainActivity::class.java.getDeclaredField("isInPipMode\$delegate").apply { isAccessible = true }
+            (field.get(a) as androidx.compose.runtime.State<*>).value == true
+        }
+    } ?: false
+
     // Back to full screen the way a tap on the PiP window's expand does: the activity to the front.
-    // On a busy CI emulator the first request now and then left the window in PiP (3 of about 8
-    // runs of aReelBufferingRightBeforeHome_stillGoesToPip, 2026-10-24): asked once more then.
+    // Only once the app has been told it's in PiP: asked 0.2 s after Home, while Android was still
+    // entering PiP, the window stayed in PiP for good and the app never heard of PiP at all (CI's
+    // logcat of aReelBufferingRightBeforeHome_stillGoesToPip, 2026-10-27; it failed so about 1 in
+    // 3 runs since 2026-10-24). On a busy CI emulator the first request now and then left the window
+    // in PiP too: asked once more then.
     fun leavePip() {
+        waitFor(5_000) { pipDelivered() }
         val toFront = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         context.startActivity(toFront)
         if (waitFor { !isInPip() }) return
         context.startActivity(toFront)
-        assertTrue("never left PiP", waitFor(15_000) { !isInPip() })
+        assertTrue("never left PiP (the app was told it's in PiP: ${pipDelivered()})", waitFor(15_000) { !isInPip() })
     }
 }

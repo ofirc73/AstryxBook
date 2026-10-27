@@ -426,9 +426,10 @@ on their own can't:
   whole in PiP and zoomed back after; PiP from the Messages layer acting on the layer; PiP on the
   WebView that replaces a crashed renderer; lock and unlock in PiP keeping the window, the page
   and the sound; the PiP window closing when its video leaves the page, a new page loads or the app starts again
-  inside it. The harness leaves PiP as the window's expand does, asking a second time when the first
-  request left the window in PiP on a busy CI emulator (no live check: that's the test's own step,
-  not Facebook's page).
+  inside it. The harness leaves PiP as the window's expand does, once the app has been told it's in
+  PiP (asked while Android was still entering PiP, the window stayed in PiP for good), asking a second
+  time when the first request left the window in PiP on a busy CI emulator (no live check: that's
+  the test's own step, not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
