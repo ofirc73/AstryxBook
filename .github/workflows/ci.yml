@@ -49,6 +49,12 @@ jobs:
       # written from main, read on branches. Unchanged tasks come from the cache.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        # Only main's release runs (Create Release, which calls this workflow) write the cache.
+        # Entries written by this workflow's own runs on main (by hand) carry the workflow name
+        # "CI" in their key, so every PR run restored them first, however old: after the Gradle,
+        # AGP and Kotlin updates each test part downloaded and compiled it all again (~4 min more).
+        with:
+          cache-read-only: ${{ github.workflow == 'CI' }}
 
       - name: Run Android Lint
         run: |
@@ -83,6 +89,8 @@ jobs:
       # written from main, read on branches. Unchanged tasks come from the cache.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: ${{ github.workflow == 'CI' }}
 
       - name: Run Unit Tests and Build APK
         env:
@@ -139,6 +147,8 @@ jobs:
       # written from main, read on branches. Unchanged tasks come from the cache.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: ${{ github.workflow == 'CI' }}
 
       # Compile the app and test APKs before the emulator starts: the emulator
       # renders in software (swiftshader) and competing with it for the CPUs

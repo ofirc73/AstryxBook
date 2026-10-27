@@ -28,7 +28,9 @@ user-visible change.
   four emulators (`instrumented-shard`, the runner's `numShards`/`shardIndex`) next to the release
   APK's launch check (`release-launch`, the build job's APK); the required `instrumented-tests`
   check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
-  `--build-cache`). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
+  `--build-cache`), written only by main's release runs: entries from a by-hand `ci.yml` run on main
+  (workflow "CI" in their key) were what every PR restored first, and once stale they doubled each
+  test part's time (2026-10-27; found in the parts' "Build App and Test APKs" step). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
   `main` and inside `create-release.yml` nothing is cancelled. Run CI by hand on a branch with
   `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) is its own
   workflow, started after each CI or release run that passed (`workflow_run`); it gates nothing.
