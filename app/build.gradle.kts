@@ -21,7 +21,7 @@ kotlin {
 
 extensions.configure<ApplicationExtension> {
     namespace = "com.eepiemi.materialbook"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.astryx.book"
