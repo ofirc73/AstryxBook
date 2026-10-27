@@ -9,3 +9,19 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci"
+
+  # The Gradle wrapper, plugins and libraries (gradle/libs.versions.toml). Minor and patch
+  # updates come as one PR a week; a major update gets its own. Dependabot's commits don't
+  # make a release on their own (create-release.yml's compute-version skips a push whose
+  # commits since the last release are all Dependabot's): they go out with the next one.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build"
+    groups:
+      gradle-minor-and-patch:
+        update-types:
+          - minor
+          - patch

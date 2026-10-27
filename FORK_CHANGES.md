@@ -511,7 +511,10 @@ pinch) and a story opened from a chat (`LayerStoryViewerJsTest`: the test accoun
 empty, and the checks never post one). The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
-a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
+a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). When
+Facebook has ended that session, the checks fail with "Facebook session expired" (found by the
+login cookie, and by the logged-out page's title, since its Home asks to log in without a password
+box), and the secret needs fresh cookies. GitHub
 drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 UTC and the later
 runs stand down once one has run. The workflow keeps the emulator's screen on, and each check wakes it: with the
 screen off the app makes no WebView (it's made during layout), and checks failed with "webViews=0";

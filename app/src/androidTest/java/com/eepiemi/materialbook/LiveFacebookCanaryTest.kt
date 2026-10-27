@@ -186,10 +186,16 @@ class LiveFacebookCanaryTest {
         app.start()
         assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
         assertTrue("Facebook never loaded", app.waitFor(30_000) { eval("location.hostname") == "\"m.facebook.com\"" })
-        assertEquals(
-            "Facebook session expired: log in again (FB_TEST_COOKIES)", "false",
-            eval("location.pathname.indexOf('/login') === 0 || !!document.querySelector('input[name=\"pass\"]')")
-        )
+        // A session Facebook ended shows its logged-out Home ("Facebook - log in or sign up", at /,
+        // with Log in and Create account buttons but no password box; 2026-10-27) and drops the
+        // login cookie, so the page's own title and the cookie are read too, once it has loaded.
+        app.waitFor(10_000) { eval("document.readyState") == "\"complete\"" }
+        val loginCookie = CookieManager.getInstance().getCookie("https://m.facebook.com")?.contains("c_user=") == true
+        val loginPage = eval(
+            "location.pathname.indexOf('/login') === 0 || !!document.querySelector('input[name=\"pass\"]') || " +
+                "/log in/i.test(document.title)"
+        ) == "true"
+        if (!loginCookie || loginPage) fail("Facebook session expired: log in again (FB_TEST_COOKIES) (${pageShape()})")
         eval("location.href = '$url'; 1")
     }
 
