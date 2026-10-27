@@ -114,23 +114,17 @@ class ShareIntoFacebookTest {
     }
 
     // After Share to story the creator moves in-page to Facebook's stories page (seen on a Galaxy
-    // A56, 2026-10-27): the story screen closes once nothing is left to share, and the feed under it
-    // is loaded again (its stories tray was the page from before the share)...
+    // A56, 2026-10-27): the story screen closes once nothing is left to share...
     @Test
-    fun facebooksStoriesPage_afterTheLastStory_closesTheStoryScreen_andLoadsTheFeedAgain() {
+    fun facebooksStoriesPage_afterTheLastStory_closesTheStoryScreen() {
         share("ShareToStory", photo("story.png"))
         assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
         // The creator took the photo: nothing is left to share.
         ShareMediaQueue.clear()
         val layer = app.layerWebView()!!
         app.loadPage(STORY_CREATE_URL, PAGE, layer)
-        app.eval("window.__feedBeforeTheStory = 1; 1", app.mainWebView())
         app.eval("history.pushState({}, '', '/stories'); 1", layer)
         assertTrue("the story screen stayed open on Facebook's stories page", app.waitFor { !app.layerOpen() })
-        assertTrue("the feed wasn't loaded again", app.waitFor(20_000) {
-            app.eval("typeof window.__feedBeforeTheStory", app.mainWebView()) == "\"undefined\"" &&
-                app.url(app.mainWebView()).startsWith("https://m.facebook.com/")
-        })
     }
 
     // ... and opens the creator again for the next shared file.

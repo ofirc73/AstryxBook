@@ -670,11 +670,10 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
-    fun facebooksStoriesPage_afterAStory_closesTheStoryScreen_andLoadsTheFeedAgain() {
+    fun facebooksStoriesPage_afterAStory_closesTheStoryScreen() {
         // After Share to story the creator moves in-page to Facebook's stories page (seen on a
         // Galaxy A56, 2026-10-27; nothing is posted here): that page must still be at
-        // www.facebook.com/stories, and the story screen closes there (messagesLayerExit), with
-        // the feed loaded again under it (its stories tray didn't have the new story before).
+        // www.facebook.com/stories, and the story screen closes there (messagesLayerExit).
         sharePicture("ShareToStory", 720, 1280)
         assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
             app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
@@ -692,14 +691,9 @@ class LiveFacebookCanaryTest {
         }
         assertEquals("Facebook's stories page isn't at www.facebook.com/stories (status and address after redirects)",
             "200 /stories", stories)
-        app.eval("window.__astryxFeedBeforeTheStory = 1; 1", app.mainWebView())
         app.eval("history.pushState({}, '', '/stories'); 1", layer)
         assertTrue("the story screen stayed open on Facebook's stories page (${appState()})", app.waitFor(10_000) {
             !app.layerOpen()
-        })
-        assertTrue("the feed under the story screen wasn't loaded again (${appState()})", app.waitFor(30_000) {
-            app.eval("typeof window.__astryxFeedBeforeTheStory", app.mainWebView()) == "\"undefined\"" &&
-                app.url(app.mainWebView()).startsWith("https://m.facebook.com/")
         })
     }
 

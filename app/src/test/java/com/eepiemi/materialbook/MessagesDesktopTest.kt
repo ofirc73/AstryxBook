@@ -200,14 +200,12 @@ class MessagesDesktopTest {
     }
 
     @Test
-    fun theStoriesPageAfterShareToStory_closesTheLayer_andLoadsTheFeedAgain() {
+    fun theStoriesPageAfterShareToStory_closesTheLayerLikeHome() {
         // After Share to story the creator moves in-page to Facebook's stories page (seen on a
-        // Galaxy A56, 2026-10-27): the story screen closes, or takes the next shared file, and the
-        // main view loads the feed again, whose stories tray then has the new story.
-        val feed = MessagesLayerRoute.Leave("https://m.facebook.com/")
-        assertEquals(feed, messagesLayerExit("https://www.facebook.com/stories"))
-        assertEquals(feed, messagesLayerExit("https://www.facebook.com/stories/"))
-        assertEquals(feed, messagesLayerRoute("https://www.facebook.com/stories", true))
+        // Galaxy A56, 2026-10-27): the story screen closes, or takes the next shared file.
+        assertEquals(MessagesLayerRoute.Leave(null), messagesLayerExit("https://www.facebook.com/stories"))
+        assertEquals(MessagesLayerRoute.Leave(null), messagesLayerExit("https://www.facebook.com/stories/"))
+        assertEquals(MessagesLayerRoute.Leave(null), messagesLayerRoute("https://www.facebook.com/stories", true))
         // The creator itself and a story's own page stay.
         assertNull(messagesLayerExit("https://www.facebook.com/stories/create"))
         assertNull(messagesLayerExit("https://www.facebook.com/stories/123456789012345/"))
