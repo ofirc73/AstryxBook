@@ -4,9 +4,11 @@ import android.view.KeyEvent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,21 +44,36 @@ class SendAsMessageTest {
     // A dialog of the app's is up: the activity's window has lost the focus to it.
     private fun dialogShown() = app.onActivity { !it.hasWindowFocus() }
 
+    // The taps the test page's Send as a message got.
+    private fun taps() = runCatching { app.eval("window.__taps || 0", app.mainWebView()).toInt() }.getOrDefault(-1)
+
+    // What the app shows, for failures.
+    private fun state(): String {
+        val setting = runBlocking { SettingsDataStore(app.context).messagesDesktop.first() }
+        val layer = app.layerWebView()?.let { app.url(it) } ?: "none"
+        return "taps=${taps()}, dialog=${dialogShown()}, Messages in desktop mode=$setting, layer=$layer"
+    }
+
     // The feed with Send as a message, which opens Messenger's share link as Facebook's does.
     private fun tapSendAsMessage() {
         app.start()
         assertTrue(app.waitFor { app.webViews().isNotEmpty() })
         app.loadPage("https://m.facebook.com/", FEED)
-        // Facebook's real page, loaded at start, may have pushed its app (fb://): that dialog goes.
-        if (dialogShown()) {
-            app.pressBack()
-            app.waitFor { !dialogShown() }
+        // Facebook's real page, loaded at start, may push its app (fb://): that dialog goes, and a
+        // tap it took instead of the page is made again.
+        for (attempt in 1..2) {
+            if (dialogShown()) {
+                app.pressBack()
+                app.waitFor { !dialogShown() }
+            }
+            assertTrue("Send as a message couldn't be tapped", app.tapIn(app.mainWebView(), SEND_BOX_JS))
+            if (app.waitFor(3_000) { taps() > 0 }) return
         }
-        assertTrue("Send as a message couldn't be tapped", app.tapIn(app.mainWebView(), SEND_BOX_JS))
+        fail("the page never got the tap on Send as a message (${state()})")
     }
 
     private fun assertTheDialogOpensForThePost() {
-        assertTrue("Send in Messenger never opened for the post in the Messages layer", app.waitFor(20_000) {
+        assertTrue("Send in Messenger never opened for the post in the Messages layer (${state()})", app.waitFor(20_000) {
             val layer = app.layerWebView()
             layer != null && app.layerOpen() && decoded(app.url(layer)).let { it.contains("/share_as_message/") && it.contains(POST) }
         })
@@ -92,7 +109,7 @@ class SendAsMessageTest {
         const val FEED =
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head><body>" +
                 "<div id='send' role='button' aria-label='Send as a message' style='margin:40px;height:80px'" +
-                " onclick=\"window.open('$SHARE_LINK', '_self')\">Send as a message</div>" +
+                " onclick=\"window.__taps = (window.__taps || 0) + 1; window.open('$SHARE_LINK', '_self')\">Send as a message</div>" +
                 "<script>window.__testPage = true;</script></body></html>"
         const val SEND_BOX_JS =
             "(function () { var e = document.getElementById('send'); if (!e) return ''; e.scrollIntoView(); " +

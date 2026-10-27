@@ -434,7 +434,9 @@ on their own can't:
 - `SendAsMessageTest`: a post's Send as a message (Facebook's Messenger share link) opening the
   desktop Send in Messenger dialog for the post in the Messages layer, and with Messages in desktop
   mode off, after desktop mode is picked in the app's dialog (pressed by keyboard: the test's
-  UiAutomation sees no window for the dialog). Live check
+  UiAutomation sees no window for the dialog). A tap the page didn't get (a dialog Facebook's real
+  start page pushed can take it) is made once more, and a failure names the taps, the dialog, the
+  setting and the layer's address (the v1.36.2 release run failed once without saying). Live check
   `sendAsAMessage_opensSendInMessengerForThePost`: the feed's Share sheet still has the item (found
   by its Messenger icon), still hands out a share link the app reads, and the dialog still opens
   with its search box; nothing is sent.
