@@ -304,6 +304,14 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   on/off switch while the editor shows it, in any language; its label is remembered, so the
   redrawn row is never a tool and stays hidden.
 
+- The app could start with its network error dialog instead of Facebook: any error on the page's
+  own load while it was loading counted as no connection, and the dialog took the page's place,
+  WebView and all. Facebook's redirect after start sometimes fails as `net::ERR_FAILED` (seen on
+  GitHub's emulator, 2026-10-27, where the live checks then found no WebView). Only errors that
+  mean Facebook can't be reached (no connection, a name that doesn't resolve, a refused connection,
+  a timeout) show the dialog now (`isConnectionError`, `PageErrorsTest`; the live checks, which
+  failed on it, are its live check).
+
 ## CI/CD
 
 - `./gradlew test`, `:app:lintDebug`, and `connectedAndroidTest` now gate
