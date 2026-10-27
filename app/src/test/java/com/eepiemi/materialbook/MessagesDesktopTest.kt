@@ -11,6 +11,8 @@ import com.eepiemi.materialbook.utils.isStoriesPage
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
 import com.eepiemi.materialbook.utils.messagesLayerExit
 import com.eepiemi.materialbook.utils.messagesLayerRoute
+import com.eepiemi.materialbook.utils.messengerShareAppLink
+import com.eepiemi.materialbook.utils.messengerShareLink
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,6 +23,12 @@ import org.junit.Test
 private const val PROFILE_APP_REDIRECT =
     "intent://profile/4?wtsid=x#Intent;scheme=fb;package=com.facebook.katana;" +
         "S.browser_fallback_url=https%3A%2F%2Fm.facebook.com%2F4%2F%3Fwtsid%3Dx%26from_intent_redirect%3D1;end"
+
+// m.facebook.com's "Send as a message" in a post's Share (seen on the emulator, 2026-10-27).
+private const val SEND_AS_MESSAGE =
+    "intent://share/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F&vcuid=6159&" +
+        "src=mtouch_diode&is_msite_sso_eligible=0&entry_point=feed_story_share_as_message&is_group=0&" +
+        "restricted_access=0#Intent;scheme=fb-messenger;package=com.facebook.orca;end"
 
 class MessagesDesktopTest {
     @Test
@@ -237,6 +245,33 @@ class MessagesDesktopTest {
         assertEquals(inbox, messagesDesktopUrl("https://m.facebook.com/messages/"))
         assertEquals(inbox, messagesDesktopUrl("fb-messenger://threads"))
         assertEquals(inbox, messagesDesktopUrl("intent://x#Intent;package=com.facebook.orca;end"))
+    }
+
+    @Test
+    fun aPostSentAsAMessage_opensTheDesktopSendInMessengerDialogForIt() {
+        val post = "https://www.facebook.com/groups/355/permalink/3732/"
+        val dialog = "https://www.facebook.com/share_as_message/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F"
+        assertTrue(isMessagesLink(SEND_AS_MESSAGE))
+        assertEquals(post, messengerShareLink(SEND_AS_MESSAGE))
+        assertEquals(dialog, messagesDesktopUrl(SEND_AS_MESSAGE))
+        assertEquals(MessagesLayerRoute.Remap(dialog), messagesLayerRoute(SEND_AS_MESSAGE, isMainFrame = true))
+        assertEquals(dialog, messagesDesktopUrl("fb-messenger://share/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F"))
+        // Open Messenger gets Messenger's own link, never the intent:// one.
+        val appLink = messengerShareAppLink(SEND_AS_MESSAGE)
+        assertEquals("fb-messenger://share/?link=https%3A%2F%2Fwww.facebook.com%2Fgroups%2F355%2Fpermalink%2F3732%2F", appLink)
+        assertEquals(dialog, messagesDesktopUrl(appLink!!))
+        // The share dialog stays in the layer (it's no section of Facebook's).
+        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute(dialog, isMainFrame = true))
+    }
+
+    @Test
+    fun otherMessengerLinks_areNoShare() {
+        assertNull(messengerShareLink("intent://x#Intent;package=com.facebook.orca;end"))
+        assertNull(messengerShareLink("fb-messenger://user/42"))
+        assertNull(messengerShareLink("intent://share/?link=javascript%3Aalert(1)#Intent;scheme=fb-messenger;package=com.facebook.orca;end"))
+        // Another app's share link isn't Messenger's.
+        assertNull(messengerShareLink("intent://share/?link=https%3A%2F%2Fexample.com#Intent;scheme=x;package=com.example;end"))
+        assertNull(messengerShareAppLink("https://www.facebook.com/messages/"))
     }
 
     @Test

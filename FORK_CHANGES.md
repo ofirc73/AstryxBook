@@ -431,6 +431,13 @@ on their own can't:
   time when the first request left the window in PiP on a busy CI emulator (no live check: that's
   the test's own step, not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
+- `SendAsMessageTest`: a post's Send as a message (Facebook's Messenger share link) opening the
+  desktop Send in Messenger dialog for the post in the Messages layer, and with Messages in desktop
+  mode off, after desktop mode is picked in the app's dialog (pressed by keyboard: the test's
+  UiAutomation sees no window for the dialog). Live check
+  `sendAsAMessage_opensSendInMessengerForThePost`: the feed's Share sheet still has the item (found
+  by its Messenger icon), still hands out a share link the app reads, and the dialog still opens
+  with its search box; nothing is sent.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
@@ -551,6 +558,17 @@ separate layer was added on top.
   `m.me`, `messenger.com`, `fb-messenger://`, `intent://`) opens the layer. Links that
   point at a conversation keep it (`/messages/t/<id>`, `m.me/<name>`,
   `messenger.com/t/<id>`, `fb-messenger://user/<id>`); anything else opens the inbox.
+- **Send as a message** in a post's Share sheet works: m.facebook.com hands the post to the
+  Messenger app (`intent://share/?link=<the post>…;package=com.facebook.orca`), which the app
+  never launches, so the tap did nothing (desktop mode off: "not supported"; on: the inbox opened
+  without the post). The post now opens in the desktop site's **Send in Messenger** dialog
+  (`www.facebook.com/share_as_message/?link=…`: search, recent chats, Send) in the Messages layer;
+  its close button or Back closes the layer. With Messages in desktop mode off, the app's "Read
+  your messages here?" dialog offers desktop mode (or the Messenger app, by its own
+  `fb-messenger://share/?link=…` link) first. `messengerShareLink` in `MessagesDesktop.kt`;
+  covered by `MessagesDesktopTest` and `SendAsMessageTest`. The sheet's other items (Share to
+  Facebook, a friend's profile, a group, Copy link, Share via…) were checked on the emulator
+  (2026-10-27) and need nothing from the app beyond what it already does.
 - Facebook pages opened from a chat (a profile; posts since v1.35.17 open like reels) open in the layer too, on the desktop
   site, which opens profiles without pushing the Facebook app; Back returns to the chat.
   Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile

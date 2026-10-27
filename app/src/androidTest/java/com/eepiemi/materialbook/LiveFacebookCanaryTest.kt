@@ -769,6 +769,34 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun sendAsAMessage_opensSendInMessengerForThePost() {
+        // A post's Share > Send as a message hands the post to the Messenger app
+        // (intent://share/?link=<the post>…), which the app opens as the desktop site's Send in
+        // Messenger dialog for it (www.facebook.com/share_as_message/?link=…, messagesDesktopUrl) in
+        // the Messages layer. Nothing is sent here: Back closes the dialog.
+        runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        open("https://m.facebook.com/")
+        awaitFeed("the feed has no post with a Share button (its icon, U+F037A)", actionWithIconJs(SHARE_ICON, click = false))
+        eval(actionWithIconJs(SHARE_ICON, click = true))
+        assertTrue("the Share sheet has no Send as a message (its Messenger icon, U+F3031)", app.waitFor(15_000) {
+            eval(actionWithIconJs(MESSENGER_ICON, click = false)) == "true"
+        })
+        eval(actionWithIconJs(MESSENGER_ICON, click = true))
+        var address = ""
+        val opened = app.waitFor(30_000) {
+            address = app.layerWebView()?.takeIf { app.layerOpen() }?.let { app.url(it) }.orEmpty()
+            address.contains("/share_as_message/?link=http")
+        }
+        assertTrue("Send as a message didn't open Send in Messenger for the post in the Messages layer (messengerShareLink: " +
+            "Facebook's link changed?). The layer: ${address.replace(Regex("\\d{6,}"), "N").ifEmpty { "not open" }} (${appState()})", opened)
+        val layer = app.layerWebView()!!
+        assertTrue("www.facebook.com/share_as_message shows no Send in Messenger dialog with a search box (${layerShape(layer)})",
+            app.waitFor(30_000) { app.eval(SEND_IN_MESSENGER_SHOWN_JS, layer) == "true" })
+        app.pressBack()
+        assertTrue("Back didn't close Send in Messenger (${appState()})", app.waitFor { !app.layerOpen() })
+    }
+
+    @Test
     fun theFeed_hasItsAdsPixelBlocked() {
         // Every full m.facebook.com load adds Facebook's Google Ads pixel frames
         // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
@@ -1057,6 +1085,20 @@ class LiveFacebookCanaryTest {
                 " window.__astryxStoriesPage = r.status + ' ' + new URL(r.url).pathname.replace(/\\/$/, ''); })" +
                 ".catch(function (e) { window.__astryxStoriesPage = 'error ' + e; }); 1"
         // A visible link to the story creator on the stories page (Add to story, or Create a story).
+        // A feed post's Share button and its sheet's Send as a message, found by their icons (the
+        // icon font's U+F037A share arrow and U+F3031 Messenger logo, read on the emulator 2026-10-27):
+        // [glyph]'s first item, clicked when [click]; true when there's one.
+        private fun actionWithIconJs(glyph: String, click: Boolean) =
+            "(function () { var e = [].filter.call(document.querySelectorAll('[data-action-id]'), function (e) {" +
+                " var r = e.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < innerHeight &&" +
+                " (e.innerText || '').trim().indexOf('$glyph') === 0; })[0];" +
+                (if (click) " if (e) e.click();" else "") + " return !!e; })()"
+        private const val SHARE_ICON = "\\uDB80\\uDF7A"
+        private const val MESSENGER_ICON = "\\uDB8C\\uDC31"
+        // The Send in Messenger dialog on screen, with its search box for people and groups.
+        private const val SEND_IN_MESSENGER_SHOWN_JS =
+            "[].some.call(document.querySelectorAll('[role=dialog]'), function (d) {" +
+                " return d.getBoundingClientRect().height > 0 && !!d.querySelector('input'); })"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"

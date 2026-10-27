@@ -2,8 +2,10 @@ package com.eepiemi.materialbook.utils
 
 import java.net.URI
 import java.net.URLDecoder
+import java.net.URLEncoder
 
 const val MESSAGES_DESKTOP_URL = "https://www.facebook.com/messages/"
+private const val SHARE_AS_MESSAGE_URL = "https://www.facebook.com/share_as_message/?link="
 
 private fun hostAndPath(url: String): Pair<String, String>? {
     val uri = runCatching { URI(url) }.getOrNull() ?: return null
@@ -160,11 +162,39 @@ fun isDesktopMessagesUrl(url: String): Boolean {
 private val THREAD_PATH = Regex("^/messages/(?:e2ee/)?t/[^/]+")
 
 /**
+ * The page a Messenger share link sends: m.facebook.com's "Send as a message" (a post's Share)
+ * opens `intent://share/?link=<the post>…#Intent;scheme=fb-messenger;package=com.facebook.orca;end`
+ * (seen on the emulator, 2026-10-27), `fb-messenger://share/?link=…` in the Messenger app's own
+ * form. Null for any other link, or one whose `link` isn't a web page.
+ */
+fun messengerShareLink(url: String): String? {
+    if (!isMessagesLink(url)) return null
+    val uri = runCatching { URI(url) }.getOrNull() ?: return null
+    val scheme = uri.scheme?.lowercase()
+    if (scheme != "intent" && scheme != "fb-messenger" && scheme != "fb-messenger-share") return null
+    if (uri.host?.lowercase() != "share") return null
+    val link = uri.rawQuery?.split('&')?.firstOrNull { it.startsWith("link=") }?.substringAfter('=')
+        ?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() } ?: return null
+    val linkScheme = runCatching { URI(link).scheme?.lowercase() }.getOrNull()
+    return link.takeIf { linkScheme == "http" || linkScheme == "https" }
+}
+
+/**
+ * The Messenger app's link for sending [url]'s page (see [messengerShareLink]), for the Open
+ * Messenger choice: an intent:// link is never launched as it is.
+ */
+fun messengerShareAppLink(url: String): String? =
+    messengerShareLink(url)?.let { "fb-messenger://share/?link=" + URLEncoder.encode(it, "UTF-8") }
+
+/**
  * Desktop equivalent of any Messages/Messenger link, so deep links keep their conversation:
  * `facebook.com/messages/t/<id>`, `m.me/<name>`, `messenger.com/t/<id>` and
- * `fb-messenger://user/<id>` open that thread; anything else opens the inbox.
+ * `fb-messenger://user/<id>` open that thread; a share link ([messengerShareLink]) opens the
+ * desktop site's Send in Messenger dialog for its page (`share_as_message`, which the desktop
+ * `dialog/send` redirects to); anything else opens the inbox.
  */
 fun messagesDesktopUrl(url: String): String {
+    messengerShareLink(url)?.let { return SHARE_AS_MESSAGE_URL + URLEncoder.encode(it, "UTF-8") }
     val inbox = MESSAGES_DESKTOP_URL
     val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return inbox
     val scheme = uri.scheme?.lowercase()
