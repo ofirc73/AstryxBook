@@ -13,6 +13,8 @@ import com.eepiemi.materialbook.utils.ShareMediaQueue
 import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.isMobilePostPage
 import com.eepiemi.materialbook.utils.isMobileReelPage
+import com.eepiemi.materialbook.utils.messagesDesktopUrl
+import com.eepiemi.materialbook.utils.messengerShareLink
 import com.eepiemi.materialbook.utils.rendererRecoveryUrl
 
 /**
@@ -65,6 +67,12 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      */
     var mainBeforeReel: MainPlace? = null
 
+    /**
+     * A page to send in a chat (a post's Send as a message, messengerShareLink): the chat the user
+     * picks gets its link in the message box (MessagesLayer), and the user sends it. Not saved.
+     */
+    var linkToSend by mutableStateOf<String?>(null)
+
     /** The layer exists (shown or hidden). */
     val isOpen: Boolean get() = url != null
 
@@ -77,10 +85,20 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         hidden = false
     }
 
+    /**
+     * Opens the layer for a Messages [link] (messagesDesktopUrl): a share link opens the chat list,
+     * with its page to put in the chat picked ([linkToSend]).
+     */
+    fun openMessages(link: String) {
+        open(messagesDesktopUrl(link))
+        linkToSend = messengerShareLink(link)
+    }
+
     /** Closes the layer, shown or hidden. */
     fun close() {
         url = null
         hidden = false
+        linkToSend = null
     }
 
     /**

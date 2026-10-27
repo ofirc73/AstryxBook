@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.ui.screens
 
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import androidx.activity.compose.BackHandler
@@ -7,7 +8,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import com.eepiemi.materialbook.R
@@ -105,6 +117,8 @@ fun MessagesLayer(
     onOpenSettings: () -> Unit = {},
     onThemeColor: (Color) -> Unit = {},
     textZoom: Int = 100,
+    linkToSend: String? = null,
+    onLinkToSendDone: () -> Unit = {},
     onRendererGone: (pageUrl: String?) -> Unit = { onClose() },
 ) {
     val context = LocalContext.current
@@ -266,6 +280,28 @@ fun MessagesLayer(
         currentOnLeave(null, pageUrl)
     }
 
+    // A post sent with Send as a message: the chat the user opens from the chat list gets the post's
+    // link in its message box (put_link_in_chat.js), for the user to send. Asked every moment until
+    // it's there: a chat opens in-page, and its box comes some time after.
+    val currentOnLinkToSendDone by rememberUpdatedState(onLinkToSendDone)
+    LaunchedEffect(linkToSend, loadingState is LoadingState.Finished) {
+        val link = linkToSend ?: return@LaunchedEffect
+        if (loadingState !is LoadingState.Finished) return@LaunchedEffect
+        val script = "window.__astryxLinkToSend = ${JSONObject.quote(link)};\n" +
+            resources.openRawResource(R.raw.put_link_in_chat).bufferedReader().use { it.readText() }
+        Log.d("Astryxbook", "Link to send: waiting for a chat")
+        while (true) {
+            val result = CompletableDeferred<String>()
+            navigator.evaluateJavaScript(script) { result.complete(it) }
+            if (result.await().contains("placed")) {
+                Log.d("Astryxbook", "Link to send: in the chat's message box")
+                currentOnLinkToSendDone()
+                return@LaunchedEffect
+            }
+            delay(LINK_TO_SEND_RETRY_MS)
+        }
+    }
+
     // PiP for videos in the layer (a shared reel, a video in a chat): the same detector as the
     // main view reports them (AstryxPage, or PipBridge on old WebViews), and while the layer is open PiP acts on its
     // page. When it closes, its videos are gone: say so, or leaving the app afterwards would
@@ -385,6 +421,29 @@ fun MessagesLayer(
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
             )
         }
+        // Over the desktop header while the post waits for a chat: what to do, and a way out.
+        if (linkToSend != null && !hidden) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shadowElevation = 4.dp,
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.send_post_pick_chat),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onLinkToSendDone) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.send_post_cancel))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -398,6 +457,9 @@ private const val STEP_BACK_TO_CHAT_JS =
         " window.removeEventListener('popstate', step); window.__astryxSteppingBack = false; return; }" +
         " steps++; history.back(); }" +
         " window.addEventListener('popstate', step); step(); })()"
+
+// put_link_in_chat.js, asked this often until the chat's message box holds the link.
+private const val LINK_TO_SEND_RETRY_MS = 700L
 
 // open_own_story.js: up to 5 s for the stories page's Your story card.
 private const val SHARED_STORY_TRIES = 10

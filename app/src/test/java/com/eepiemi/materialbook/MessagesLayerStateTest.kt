@@ -31,6 +31,24 @@ class MessagesLayerStateTest {
     private fun openAt(url: String) = MessagesLayerState(url = url, returnUrl = null)
 
     @Test
+    fun aPostSentAsAMessage_opensTheChatList_withThePostToPutInTheChatPicked() {
+        val layer = openAt(chat).apply { close() }
+        layer.openMessages(
+            "intent://share/?link=https%3A%2F%2Fwww.facebook.com%2Fsome.page%2Fposts%2F12%2F" +
+                "#Intent;scheme=fb-messenger;package=com.facebook.orca;end"
+        )
+        assertEquals("https://www.facebook.com/messages/", layer.url)
+        assertEquals("https://www.facebook.com/some.page/posts/12/", layer.linkToSend)
+        // Another Messages link opens the layer without a post; closing forgets it.
+        layer.openMessages(chat)
+        assertEquals("https://www.facebook.com/messages/t/4567", layer.url)
+        assertNull(layer.linkToSend)
+        layer.openMessages("fb-messenger://share/?link=https%3A%2F%2Fwww.facebook.com%2Fx%2Fposts%2F1%2F")
+        layer.close()
+        assertNull(layer.linkToSend)
+    }
+
+    @Test
     fun aReel_loadsInTheMainView_whileTheChatStaysOpen() {
         val layer = openAt(chat)
         layer.onLeave(reel, chat) { loaded += it }

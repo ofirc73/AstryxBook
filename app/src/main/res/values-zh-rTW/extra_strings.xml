@@ -98,4 +98,6 @@
     <string name="webview_update_later">稍後再說</string>
     <string name="share_media_adding_one">正在新增你的相片…</string>
     <string name="share_media_adding_several">正在新增 %1$d 張相片…</string>
+    <string name="send_post_pick_chat">開啟聊天室來傳送貼文：貼文連結會放進訊息框。</string>
+    <string name="send_post_cancel">不傳送貼文</string>
 </resources>

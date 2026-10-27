@@ -121,4 +121,6 @@
     <string name="webview_update_later">ليس الآن</string>
     <string name="share_media_adding_one">جارٍ إضافة صورتك…</string>
     <string name="share_media_adding_several">جارٍ إضافة الصور (%1$d)…</string>
+    <string name="send_post_pick_chat">افتح محادثة لإرسال المنشور: سيُضاف رابطه إلى مربع الرسالة.</string>
+    <string name="send_post_cancel">عدم إرسال المنشور</string>
 </resources>

@@ -251,7 +251,7 @@ fun MaterialbookWebView(
             onUseDesktop = {
                 pendingMessengerLink = null
                 settingsVM.setMessagesDesktop(true)
-                messagesLayer.open(messagesDesktopUrl(link))
+                messagesLayer.openMessages(link)
             },
             onOpenApp = {
                 pendingMessengerLink = null
@@ -264,7 +264,7 @@ fun MaterialbookWebView(
         requestInterceptor = ExternalRequestInterceptor(
             tryOpenMessagesDesktop = { messagesUrl ->
                 if (currentMessagesDesktopSetting && !currentIsEffectiveDesktop) {
-                    messagesLayer.open(messagesDesktopUrl(messagesUrl))
+                    messagesLayer.openMessages(messagesUrl)
                     true
                 } else {
                     false
@@ -287,7 +287,7 @@ fun MaterialbookWebView(
                 navigator.loadUrl(link)
             }
             currentMessagesDesktopSetting && !currentIsEffectiveDesktop -> {
-                messagesLayer.open(messagesDesktopUrl(link))
+                messagesLayer.openMessages(link)
                 if (!whileRunning) navigator.loadUrl(HOME_URL)
             }
             currentIsEffectiveDesktop -> navigator.loadUrl(messagesDesktopUrl(link))
@@ -1017,6 +1017,8 @@ fun MaterialbookWebView(
                 },
                 onOpenSettings = { settingsToggle = true },
                 onThemeColor = { layerThemeColor = it },
+                linkToSend = messagesLayer.linkToSend,
+                onLinkToSendDone = { messagesLayer.linkToSend = null },
                 onRendererGone = { pageUrl ->
                     messagesLayer.onRendererGone(pageUrl, layerUrl, SystemClock.elapsedRealtime())
                 },

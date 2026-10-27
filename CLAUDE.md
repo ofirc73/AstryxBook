@@ -131,9 +131,12 @@ user-visible change.
   `intent://…;package=com.facebook.katana;S.browser_fallback_url=…`; the interceptors open
   the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names. A post's
   Share > Send as a message opens `intent://share/?link=<post>…;package=com.facebook.orca`:
-  `messengerShareLink` reads the post and the Messages layer opens the desktop Send in Messenger
-  dialog for it (`www.facebook.com/share_as_message/?link=…`; the desktop `dialog/send` redirects
-  there). Never press its Send when testing.
+  `messengerShareLink` reads the post, the Messages layer opens the chat list, and the chat the user
+  opens gets the link in its message box (`put_link_in_chat.js`: `execCommand('insertText')` into
+  Messenger's Lexical editor, which needs the page focused, as a real tap gives it). Don't use the
+  desktop Send in Messenger dialog (`share_as_message`, `dialog/send`): in end-to-end encrypted
+  chats it sends an empty message (2026-10-28). Never send from the test account except to the
+  user's own account, with their OK.
 - `MainActivity` is `singleTask`: a link sent while the app runs arrives in `onNewIntent`
   and reaches the WebView as `openLinkRequest`. Start links are checked with `appLinkUrl`
   (the start page skips the request interceptor); outgoing links with `externalLinkAction`.

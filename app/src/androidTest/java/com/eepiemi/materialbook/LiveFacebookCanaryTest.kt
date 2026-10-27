@@ -769,31 +769,68 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
-    fun sendAsAMessage_opensSendInMessengerForThePost() {
+    fun sendAsAMessage_opensTheChatList_andTheChatPickedGetsThePostsLink() {
         // A post's Share > Send as a message hands the post to the Messenger app
-        // (intent://share/?link=<the post>…), which the app opens as the desktop site's Send in
-        // Messenger dialog for it (www.facebook.com/share_as_message/?link=…, messagesDesktopUrl) in
-        // the Messages layer. Nothing is sent here: Back closes the dialog.
+        // (intent://share/?link=<the post>…, messengerShareLink), which the app opens as the chat
+        // list in the Messages layer; the chat the user opens gets the post's link in its message box
+        // (put_link_in_chat.js). That part needs the test chat (-e fbChat, local only). Nothing is
+        // sent: the box is emptied again.
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        shell("logcat -c")
         open("https://m.facebook.com/")
         awaitFeed("the feed has no post with a Share button (its icon, U+F037A)", actionWithIconJs(SHARE_ICON, click = false))
-        eval(actionWithIconJs(SHARE_ICON, click = true))
-        assertTrue("the Share sheet has no Send as a message (its Messenger icon, U+F3031)", app.waitFor(15_000) {
-            eval(actionWithIconJs(MESSENGER_ICON, click = false)) == "true"
-        })
-        eval(actionWithIconJs(MESSENGER_ICON, click = true))
-        var address = ""
-        val opened = app.waitFor(30_000) {
-            address = app.layerWebView()?.takeIf { app.layerOpen() }?.let { app.url(it) }.orEmpty()
-            address.contains("/share_as_message/?link=http")
+        eval(RECORD_WINDOW_OPEN_JS)
+        // A tap on Share right as the feed appears can go unanswered, and some posts' sheets have no
+        // Send as a message: every 4 s the next post's Share is tapped (a script's click reaches it
+        // under a sheet left open).
+        var sharedAt = 0L
+        var shares = 0
+        var sheet = ""
+        val sent = app.waitFor(30_000) {
+            if (eval(actionWithIconJs(MESSENGER_ICON, click = true)) == "true") return@waitFor true
+            if (System.currentTimeMillis() - sharedAt > 4000) {
+                sheet = eval(SHEET_ITEMS_JS).trim('"')
+                eval(actionWithIconJs(SHARE_ICON, click = true, index = shares++))
+                sharedAt = System.currentTimeMillis()
+            }
+            false
         }
-        assertTrue("Send as a message didn't open Send in Messenger for the post in the Messages layer (messengerShareLink: " +
-            "Facebook's link changed?). The layer: ${address.replace(Regex("\\d{6,}"), "N").ifEmpty { "not open" }} (${appState()})", opened)
+        assertTrue("no post's Share sheet had Send as a message (its Messenger icon, U+F3031; $shares Share taps). " +
+            "The last sheet: ${sheet.ifEmpty { "none" }}", sent)
+        // The app read the post from Facebook's link (messengerShareLink) and opened the chat list for
+        // it (MessagesLayer logs it). What the page opened is named on failure.
+        val waiting = app.waitFor(30_000) {
+            app.layerOpen() && app.layerWebView()?.let { app.url(it).contains("/messages") } == true &&
+                logLines("Astryxbook").any { "Link to send: waiting for a chat" in it }
+        }
+        if (!waiting) {
+            val opened = runCatching { eval("window.__canaryOpened || ''").trim('"') }.getOrDefault("")
+            fail("Send as a message didn't open the chat list with the post to send (messengerShareLink: Facebook's " +
+                "link changed?). The page opened: ${opened.replace(Regex("\\d{6,}"), "N").ifEmpty { "nothing seen" }} " +
+                "(${appState()})")
+        }
         val layer = app.layerWebView()!!
-        assertTrue("www.facebook.com/share_as_message shows no Send in Messenger dialog with a search box (${layerShape(layer)})",
-            app.waitFor(30_000) { app.eval(SEND_IN_MESSENGER_SHOWN_JS, layer) == "true" })
-        app.pressBack()
-        assertTrue("Back didn't close Send in Messenger (${appState()})", app.waitFor { !app.layerOpen() })
+        val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }?.let { chatPath(it) }
+        if (chat == null) {
+            note("no test chat (-e fbChat): the post's link in a chat's message box wasn't checked")
+            return
+        }
+        // Picked from the chat list, as the user would (chatShownJs taps its row).
+        assertTrue("the test chat never showed in the Messages layer (${layerShape(layer)})",
+            app.waitFor(45_000) { app.eval(chatShownJs(chat), layer) == "true" })
+        // A user's tap on the box gives the page the focus the script needs (the row was clicked by script).
+        assertTrue("the chat's message box couldn't be tapped", app.tapIn(layer, MESSAGE_BOX_JS))
+        val placed = app.waitFor(20_000) {
+            logLines("Astryxbook").any { "Link to send: in the chat's message box" in it }
+        }
+        // Never sent: emptied whatever happened.
+        shell("input keycombination 113 29")
+        shell("input keyevent 67")
+        assertTrue("the chat's message box never got the post's link (put_link_in_chat.js; box: " +
+            "${app.eval(MESSAGE_BOX_TEXT_JS, layer).replace(Regex("\\d{6,}"), "N")})", placed)
+        assertTrue("the post's link was left in the chat's message box", app.waitFor(5_000) {
+            app.eval("($MESSAGE_BOX_TEXT_JS).trim() === ''", layer) == "true"
+        })
     }
 
     @Test
@@ -1087,18 +1124,32 @@ class LiveFacebookCanaryTest {
         // A visible link to the story creator on the stories page (Add to story, or Create a story).
         // A feed post's Share button and its sheet's Send as a message, found by their icons (the
         // icon font's U+F037A share arrow and U+F3031 Messenger logo, read on the emulator 2026-10-27):
-        // [glyph]'s first item, clicked when [click]; true when there's one.
-        private fun actionWithIconJs(glyph: String, click: Boolean) =
+        // [glyph]'s [index]th item (scrolled into view: the feed's first post may start below the
+        // screen), clicked when [click]; true when there's one.
+        private fun actionWithIconJs(glyph: String, click: Boolean, index: Int = 0) =
             "(function () { var e = [].filter.call(document.querySelectorAll('[data-action-id]'), function (e) {" +
-                " var r = e.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.top < innerHeight &&" +
-                " (e.innerText || '').trim().indexOf('$glyph') === 0; })[0];" +
-                (if (click) " if (e) e.click();" else "") + " return !!e; })()"
+                " var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 &&" +
+                " (e.innerText || '').trim().indexOf('$glyph') === 0; })[$index];" +
+                (if (click) " if (e) { e.scrollIntoView({ block: 'center' }); e.click(); }" else "") + " return !!e; })()"
+        // The Share sheet's items on screen (their labels), for failures; "" without a sheet.
+        private const val SHEET_ITEMS_JS =
+            "[].filter.call(document.querySelectorAll('[data-action-id][aria-label]'), function (e) {" +
+                " var r = e.getBoundingClientRect(); return r.width > 200 && r.height > 30 && r.height < 80 && r.top > innerHeight / 3; })" +
+                ".map(function (e) { return e.getAttribute('aria-label'); }).join(', ')"
         private const val SHARE_ICON = "\\uDB80\\uDF7A"
         private const val MESSENGER_ICON = "\\uDB8C\\uDC31"
-        // The Send in Messenger dialog on screen, with its search box for people and groups.
-        private const val SEND_IN_MESSENGER_SHOWN_JS =
-            "[].some.call(document.querySelectorAll('[role=dialog]'), function (d) {" +
-                " return d.getBoundingClientRect().height > 0 && !!d.querySelector('input'); })"
+        // Records the page's window.open (m.facebook.com's Send as a message opens Messenger's share link with it).
+        private const val RECORD_WINDOW_OPEN_JS =
+            "(function () { if (window.__canaryOpenHook) return 1; window.__canaryOpenHook = true; var o = window.open;" +
+                " window.open = function (u) { window.__canaryOpened = String(u); return o.apply(this, arguments); }; return 1; })()"
+        // The open chat's message box (Messenger's Lexical editor): its box for tapIn, and its text.
+        private const val MESSAGE_BOX_FIND_JS =
+            "[].filter.call(document.querySelectorAll('[role=textbox][contenteditable=true]'), function (e) {" +
+                " var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })[0]"
+        private const val MESSAGE_BOX_JS =
+            "(function () { var e = $MESSAGE_BOX_FIND_JS; if (!e) return ''; e.scrollIntoView(); var r = e.getBoundingClientRect();" +
+                " return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
+        private const val MESSAGE_BOX_TEXT_JS = "(function () { var e = $MESSAGE_BOX_FIND_JS; return e ? e.innerText : ''; })()"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"
@@ -1302,15 +1353,16 @@ class LiveFacebookCanaryTest {
                 " ' reelLinks=' + document.querySelectorAll('a[href*=\"/reel/\"], a[href*=\"/share/r/\"]').length +" +
                 " ' inputs=' + document.querySelectorAll('input').length + ' dialogs=' + document.querySelectorAll('[role=dialog]').length; })()"
 
-        // Opens the chat's largest photo (at least 100 px each way, not a shared reel's or post's picture) as
-        // a tap would; false while there's none.
+        // Opens the chat's largest photo (at least 100 px each way, not a link's picture: a shared reel,
+        // post or link preview, which is a link; a link's preview at the chat's end was opened instead
+        // while the photo above it was still small, 2026-10-28) as a tap would; false while there's none.
         private const val OPEN_CHAT_PHOTO_JS = """
             (function () {
               var root = document.querySelector('[role="main"]') || document.body;
               var imgs = root.querySelectorAll('img'), best = null, area = 0;
               for (var i = 0; i < imgs.length; i++) {
                 var r = imgs[i].getBoundingClientRect();
-                if (r.width < 100 || r.height < 100 || imgs[i].closest('a[href*="/reel/"], a[href*="/share/"], a[target="_blank"]')) continue;
+                if (r.width < 100 || r.height < 100 || imgs[i].closest('a[href]')) continue;
                 if (r.width * r.height > area) { area = r.width * r.height; best = imgs[i]; }
               }
               if (!best) return false;
