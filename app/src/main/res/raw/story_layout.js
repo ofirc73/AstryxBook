@@ -22,6 +22,7 @@
     return 'width=' + CHOOSER_WIDTH + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=yes';
   }
   var BAR_HEIGHT = 64; // the bottom bar: privacy, Discard, Share to story
+  var POPUP_OPEN = 'astryx-story-popup-open'; // on <html> while a popup shows (see popupFirst)
   var TOOLS_GAP = 40; // between the tools (their labels hang below them) and the bottom of the story
   var TOOLS_LEFT_INSET = 4;
   var TOOLS_RIGHT_INSET = 14; // keep the last tool's label clear of the story's right edge
@@ -30,6 +31,7 @@
   var observers = [];
   var listeners = [];
   var style = null;
+  var heldPopup = null; // the popup a tap on Discard or Share last tried to close (popupFirst)
 
   function on(target, type, handler, options) {
     target.addEventListener(type, handler, options);
@@ -354,6 +356,7 @@
     // The ones showing something are centred under the header. Closed popups' hosts stay where
     // they are and let taps through (one sat over the story and took its taps).
     var layers = document.querySelectorAll('div[style*="position: fixed"][style*="translate"]');
+    var anyShowing = false;
     for (var l = 0; l < layers.length; l++) {
       var layer = layers[l];
       if (layer.closest('[role="main"]') || layer.closest('[data-astryx-story]')) continue;
@@ -362,10 +365,13 @@
       var showing = shown && (/\S/.test(layer.innerText || '') || !!layer.querySelector('input, textarea, [contenteditable]'));
       if (showing) layer.setAttribute('data-astryx-story-popup', '');
       else layer.removeAttribute('data-astryx-story-popup');
+      if (showing) anyShowing = true;
       if (!shown) layer.setAttribute('data-astryx-story-idle', '');
       else layer.removeAttribute('data-astryx-story-idle');
       if (shown) labelControls(layer);
     }
+    document.documentElement.classList.toggle(POPUP_OPEN, anyShowing);
+    if (!anyShowing) heldPopup = null; // closed: the next popup (maybe the same host) waits again
 
     fitFrame(frame);
     // A sticker's remove button (×, shown while it's selected): a thin grey cross on 24 px,
@@ -637,6 +643,8 @@
       ' transform: none !important; contain: none !important; filter: none !important;' +
       ' perspective: none !important; backdrop-filter: none !important; transform-style: flat !important; }' +
       '[data-astryx-story-idle] { pointer-events: none !important; }' +
+      // Discard and Share wait while a popup is open (popupFirst).
+      'html.' + POPUP_OPEN + ' [data-astryx-story="actions"] > * { opacity: .5 !important; }' +
       'html body [data-astryx-story-x] { background: rgba(0, 0, 0, .7) !important; border-radius: 50% !important;' +
       ' box-shadow: 0 0 0 2px #fff !important; color: #fff !important; opacity: 1 !important; }' +
       'html body [data-astryx-story-x] svg, html body [data-astryx-story-x] path { fill: #fff !important;' +
@@ -772,6 +780,41 @@
     }, { capture: true, passive: false });
   }
 
+  // A popup (the music list, a song's clip bar, text style) is a panel on top of the story, as in
+  // the Facebook app: while one is open, Discard and Share are dimmed and a tap on either only
+  // closes it. Facebook's popups aren't modal: Share posted the story with the music list still open
+  // (Galaxy A56, 2026-10-27), and neither Escape nor a tap elsewhere closes the list, only its close
+  // button (or the app's Done on panels that have one). A second tap while the same popup is still
+  // there goes through, so a popup this can't close never keeps Share from posting.
+  function popupCloser(popup) {
+    var done = popup.querySelector('[data-astryx-story-done]');
+    if (done) return done;
+    // The close button: a small labelled button at the popup's top right.
+    var box = popup.getBoundingClientRect();
+    var buttons = popup.querySelectorAll('[role="button"][aria-label]');
+    for (var i = 0; i < buttons.length; i++) {
+      var r = buttons[i].getBoundingClientRect();
+      if (r.width > 0 && r.width <= 48 && r.height <= 48 && r.top - box.top < 64 && box.right - r.right < 40) {
+        return buttons[i];
+      }
+    }
+    return null;
+  }
+
+  function popupFirst() {
+    on(window, 'click', function (e) {
+      var action = e.target && e.target.closest && e.target.closest('[data-astryx-story="actions"]');
+      if (!action) return;
+      var popup = document.querySelector('[data-astryx-story-popup]');
+      if (!popup || popup === heldPopup) { heldPopup = null; return; }
+      heldPopup = popup;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      var closer = popupCloser(popup);
+      if (closer) closer.click();
+    }, true);
+  }
+
   viewport();
   observe(document.head || document.documentElement,
     { childList: true, subtree: true, attributes: true, attributeFilter: ['content'] }, viewport);
@@ -783,6 +826,7 @@
   });
   timers.push(setInterval(layout, 500));
   dragByTouch();
+  popupFirst();
 
   window.__astryxStoryLayout = {
     stop: function () {
@@ -793,6 +837,7 @@
         l[0].removeEventListener(l[1], l[2], l[3]);
       }
       if (style) style.remove();
+      document.documentElement.classList.remove(POPUP_OPEN);
       untag();
       var added = document.querySelectorAll('[data-astryx-story-done]');
       for (var d = 0; d < added.length; d++) added[d].remove();

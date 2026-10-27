@@ -461,6 +461,9 @@ live check guards:
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`).
+- `theStoryEditorsMusicList_isClosedByATapOnDiscard`: the real music list seen as an open panel,
+  and a tap on Discard closing it through its close button without going through (tried on
+  Discard, never Share; `StoryLayoutJsTest`).
 - `facebooksStoriesPage_afterAStory_showsYourStoriesOrClosesTheStoryScreen`: Facebook's stories page
   still at `www.facebook.com/stories`, with the Add to story link `open_own_story.js` finds your
   card by; on the real page the account's own stories open (full screen, Back closes the story
@@ -1141,6 +1144,12 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   after Discard) keeps Facebook's own page, fitted to the screen. The story page ignores *Page
   zoom*. v1.28.0 showed the whole story, but in the desktop layout: tiny text, and a music sticker
   that couldn't be moved. Covered by `StoryLayoutJsTest`.
+- Discard and Share to story wait while one of Facebook's panels is open on the story (the music
+  list, a song's clip bar, text style): they're dimmed, and a tap on either only closes the panel,
+  as its close button (or Done) would; the next tap shares or discards. Facebook's panels aren't
+  modal, so Share posted the story with the music list still open, and neither Escape nor a
+  tap elsewhere closes that list (seen on a Galaxy A56, 2026-10-27). A panel that can't be closed
+  that way never holds Share back: the second tap goes through. Covered by `StoryLayoutJsTest`.
 - The music sticker's panel was hard to use: its four round buttons (the sticker's style) had no
   labels, the song clip bar was wider than the phone so its ✓ was off the screen, and the panel
   closed only on a tap somewhere else on the story, which nothing said (its only button,
