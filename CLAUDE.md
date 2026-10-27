@@ -118,7 +118,8 @@ user-visible change.
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
   DevTools target. The layer pinch-zooms (not in the creators) and runs the page scripts with
   `window.__astryxMessagesLayer` set (`pinch_to_zoom.js` leaves it zoomable); `layer_photo_viewer.js`
-  widens the desktop photo viewer's photo over its arrow columns. PiP effects act on
+  widens the desktop photo viewer's photo over its arrow columns, `layer_story_viewer.js` hides the
+  stories viewer's Stories column and top bar at phone width. PiP effects act on
   `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on
   `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to

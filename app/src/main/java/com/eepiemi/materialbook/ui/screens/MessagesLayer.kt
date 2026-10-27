@@ -228,10 +228,10 @@ fun MessagesLayer(
     }
 
     // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), and
-    // its photo viewer laid out for a phone (layer_photo_viewer.js).
+    // its photo and stories viewers laid out for a phone (layer_photo_viewer.js, layer_story_viewer.js).
     LaunchedEffect(loadingState, pageStarts) {
         if (loadingState is LoadingState.Finished) {
-            val script = listOf(R.raw.messages_layer_nav, R.raw.layer_photo_viewer).joinToString("\n") { id ->
+            val script = listOf(R.raw.messages_layer_nav, R.raw.layer_photo_viewer, R.raw.layer_story_viewer).joinToString("\n") { id ->
                 resources.openRawResource(id).bufferedReader().use { it.readText() }
             }
             navigator.evaluateJavaScript(script) {}

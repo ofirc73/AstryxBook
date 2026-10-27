@@ -506,8 +506,9 @@ live check guards:
 Not checked live: the `intent://` fallback for a full profile load (Facebook didn't redirect the
 test account's loads on 2026-10-24, so there was nothing to check), the PiP window's own behaviour
 (`PipVisibilityJsTest`, `PipVideoGoneJsTest`: the reel check covers PiP on the mobile site, not the
-desktop player's), and pinch-zooming a chat photo (`MessagesLayerZoomTest`: a test WebView can't
-pinch). The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
+desktop player's), pinch-zooming a chat photo (`MessagesLayerZoomTest`: a test WebView can't
+pinch) and a story opened from a chat (`LayerStoryViewerJsTest`: the test account's story tray is
+empty, and the checks never post one). The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
@@ -551,6 +552,12 @@ separate layer was added on top.
   closes the photo (Escape, as the viewer's own key), instead of stepping the layer back a page,
   which left the chat for "No chats selected". Covered by `LayerPhotoViewerJsTest` and
   `MessagesLayerReelTest`.
+- A story opened from a chat (a reply or reaction to a story) fills the screen, as in the
+  Facebook app: the desktop stories viewer kept its 360 px Stories column (Your story, All
+  stories) beside the story, which pushed the story off the right edge at phone width, and
+  Facebook's top bar covered the story's own header. At phone width both are hidden while a
+  story is open (`layer_story_viewer.js`, Messages layer only); Back leaves the story for the
+  chat. Covered by `LayerStoryViewerJsTest`.
 - A photo sent in a chat can be pinch-zoomed: the desktop photo viewer shows it small at phone
   width and has no zoom of its own for fingers, and the layer's WebView had pinch zoom off (and
   *Pinch to zoom* off locked it too; the lock now leaves the layer alone, as it leaves the mobile
