@@ -97,6 +97,7 @@ import com.eepiemi.materialbook.utils.jsBridge.installPageBridges
 import com.eepiemi.materialbook.utils.jsBridge.installShareMediaBridge
 import com.eepiemi.materialbook.utils.lookUpPhotoPost
 import com.eepiemi.materialbook.utils.messagesDesktopUrl
+import com.eepiemi.materialbook.utils.messengerShareAppLink
 import com.eepiemi.materialbook.utils.openInCustomTab
 import com.eepiemi.materialbook.utils.rememberAutoDesktop
 import com.eepiemi.materialbook.utils.rememberImeHeight
@@ -189,8 +190,9 @@ fun MaterialbookWebView(
     }
     // A link into another app (not web, email or phone) waits here for the user's OK.
     var pendingExternalLink by remember { mutableStateOf<String?>(null) }
-    // A Messenger app link (Facebook's Messages tab sends one) while Messages in desktop mode
-    // is off: offered as desktop mode instead, so the tab isn't a dead end without Messenger.
+    // A Messenger app link (Facebook's Messages tab sends one, a post's Send as a message another)
+    // while Messages in desktop mode is off: offered as desktop mode instead, so neither is a dead
+    // end without Messenger.
     var pendingMessengerLink by remember { mutableStateOf<String?>(null) }
     val currentIsInPipMode by rememberUpdatedState(isInPipMode)
     val openExternalUrl: (String) -> Unit = openExternalUrl@{ externalUrl ->
@@ -202,9 +204,11 @@ fun MaterialbookWebView(
             return@openExternalUrl
         }
         // intent:// links are never used to launch the app they name (Facebook uses them to
-        // push its own apps); if one carries a web fallback, that page is opened instead.
+        // push its own apps); if one carries a web fallback, that page is opened instead. A post
+        // sent as a message (Messenger's share link) goes to the Messenger dialog below, which
+        // offers desktop mode's Send in Messenger.
         val target = if (externalUrl.startsWith("intent:", ignoreCase = true)) {
-            intentFallbackUrl(externalUrl)
+            intentFallbackUrl(externalUrl) ?: messengerShareAppLink(externalUrl)
         } else {
             externalUrl
         }

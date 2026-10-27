@@ -129,7 +129,11 @@ user-visible change.
   `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to
   `intent://…;package=com.facebook.katana;S.browser_fallback_url=…`; the interceptors open
-  the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names.
+  the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names. A post's
+  Share > Send as a message opens `intent://share/?link=<post>…;package=com.facebook.orca`:
+  `messengerShareLink` reads the post and the Messages layer opens the desktop Send in Messenger
+  dialog for it (`www.facebook.com/share_as_message/?link=…`; the desktop `dialog/send` redirects
+  there). Never press its Send when testing.
 - `MainActivity` is `singleTask`: a link sent while the app runs arrives in `onNewIntent`
   and reaches the WebView as `openLinkRequest`. Start links are checked with `appLinkUrl`
   (the start page skips the request interceptor); outgoing links with `externalLinkAction`.
