@@ -35,6 +35,7 @@ import com.eepiemi.materialbook.utils.deadWebViewUrl
 import com.eepiemi.materialbook.utils.hardenWebView
 import com.eepiemi.materialbook.utils.isDesktopMessagesUrl
 import com.eepiemi.materialbook.utils.isReelCreatePage
+import com.eepiemi.materialbook.utils.isStoriesPage
 import com.eepiemi.materialbook.utils.isStoryCreatePage
 import com.eepiemi.materialbook.utils.jsBridge.LayerBridge
 import com.eepiemi.materialbook.utils.jsBridge.MaterialYouBridge
@@ -58,6 +59,8 @@ import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.WebViewState
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import org.json.JSONObject
 
 /**
@@ -121,6 +124,12 @@ fun MessagesLayer(
     // Opened for a reel share: the desktop reels page (where the reel creator opens) stays in
     // the layer instead of leaving for the main view's Reels tab.
     val reelShare = isReelCreatePage(url)
+    // Opened for a story share: Facebook's stories page, where Share moves to, shows the new story
+    // (open_own_story.js) once nothing is left to share, instead of closing the layer.
+    val storyShare = isStoryCreatePage(url)
+    // That page reached: Back then closes the layer, to the feed (stepping back would go to the
+    // creator).
+    var showSharedStory by remember { mutableStateOf(false) }
     // The last chat the layer showed, for [onLeave]: a reel opened from it goes back there on
     // Back. Only Messages pages count: a reel shared in a chat comes as Facebook's share link
     // (/share/r/...), which redirects to the reel; kept as the page to go back to, Back opened the
@@ -156,6 +165,10 @@ fun MessagesLayer(
     // Composed after the main view's handlers, so it gets Back first; disabled while a
     // video is fullscreen, so Back leaves fullscreen through the main view's handler.
     BackHandler(enabled = !isFullscreen && !hidden) {
+        if (showSharedStory) {
+            onClose()
+            return@BackHandler
+        }
         // As the desktop site does at phone width (messages_layer_nav.js __astryxLayerBack): a
         // photo closes, a chat goes back to the chat list (its own Back button), the chat list
         // closes the layer. Stepping back a page instead left the chat for "No chats selected"
@@ -236,6 +249,21 @@ fun MessagesLayer(
             }
             navigator.evaluateJavaScript(script) {}
         }
+    }
+
+    // After Share to story: the user's own stories, new one included, on Facebook's stories page.
+    // The page may draw its Your story card a moment after it moves there: tried for up to 5 s, then
+    // the layer closes as it would without this.
+    LaunchedEffect(showSharedStory) {
+        if (!showSharedStory) return@LaunchedEffect
+        val script = resources.openRawResource(R.raw.open_own_story).bufferedReader().use { it.readText() }
+        repeat(SHARED_STORY_TRIES) {
+            val result = CompletableDeferred<String>()
+            navigator.evaluateJavaScript(script) { result.complete(it) }
+            if (result.await().contains("opened")) return@LaunchedEffect
+            delay(SHARED_STORY_RETRY_MS)
+        }
+        currentOnLeave(null, pageUrl)
     }
 
     // PiP for videos in the layer (a shared reel, a video in a chat): the same detector as the
@@ -333,7 +361,11 @@ fun MessagesLayer(
                             layer = LayerBridge { newUrl ->
                                 val exit = messagesLayerExit(newUrl)?.takeUnless { reelShare && isReelCreatePage(newUrl) }
                                 ContextCompat.getMainExecutor(context).execute {
-                                    if (exit != null) currentOnLeave(exit.mainUrl, pageUrl)
+                                    // Once only: the viewer may come back to the page when it ends.
+                                    if (exit != null && storyShare && isStoriesPage(newUrl) && !showSharedStory &&
+                                        !ShareMediaQueue.pending(ShareTarget.STORY)
+                                    ) showSharedStory = true
+                                    else if (exit != null) currentOnLeave(exit.mainUrl, pageUrl)
                                     else if (isDesktopMessagesUrl(newUrl)) pageUrl = newUrl
                                 }
                             },
@@ -366,6 +398,10 @@ private const val STEP_BACK_TO_CHAT_JS =
         " window.removeEventListener('popstate', step); window.__astryxSteppingBack = false; return; }" +
         " steps++; history.back(); }" +
         " window.addEventListener('popstate', step); step(); })()"
+
+// open_own_story.js: up to 5 s for the stories page's Your story card.
+private const val SHARED_STORY_TRIES = 10
+private const val SHARED_STORY_RETRY_MS = 500L
 
 // Back on the layer's page (messages_layer_nav.js): "photo", "chat", "list" or "page".
 private const val LAYER_BACK_JS =

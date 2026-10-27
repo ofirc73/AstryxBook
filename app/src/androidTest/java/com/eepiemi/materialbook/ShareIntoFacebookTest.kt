@@ -91,6 +91,15 @@ class ShareIntoFacebookTest {
         const val PAGE =
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
                 "<body><p>test page</p><script>window.__testPage = true;</script></body></html>"
+        // Facebook's stories page as Share moves to it: the Your story card, with the Add to story
+        // link drawn over it (see OpenOwnStoryJsTest).
+        const val STORIES_PAGE =
+            "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
+                "<body style='margin:0'><div role='navigation' style='width:360px'><div style='position:relative'>" +
+                "<div role='button' onclick=\"window.__opened='own'\" style='margin:8px;width:344px;height:76px'>Me 1m</div>" +
+                "<div style='position:absolute;top:8px;right:16px'>" +
+                "<a href='/stories/create/' style='display:block;width:60px;height:60px'>+</a></div></div></div>" +
+                "<script>window.__testPage = true;</script></body></html>"
     }
 
     @Test
@@ -114,23 +123,35 @@ class ShareIntoFacebookTest {
     }
 
     // After Share to story the creator moves in-page to Facebook's stories page (seen on a Galaxy
-    // A56, 2026-10-27): the story screen closes once nothing is left to share, and the feed under it
-    // is loaded again (its stories tray was the page from before the share)...
+    // A56, 2026-10-27): once nothing is left to share, the user's own stories open there, the new
+    // one included, and Back closes the story screen...
     @Test
-    fun facebooksStoriesPage_afterTheLastStory_closesTheStoryScreen_andLoadsTheFeedAgain() {
+    fun facebooksStoriesPage_afterTheLastStory_showsYourStories_andBackClosesIt() {
         share("ShareToStory", photo("story.png"))
         assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
         // The creator took the photo: nothing is left to share.
         ShareMediaQueue.clear()
         val layer = app.layerWebView()!!
-        app.loadPage(STORY_CREATE_URL, PAGE, layer)
-        app.eval("window.__feedBeforeTheStory = 1; 1", app.mainWebView())
+        app.loadPage(STORY_CREATE_URL, STORIES_PAGE, layer)
         app.eval("history.pushState({}, '', '/stories'); 1", layer)
-        assertTrue("the story screen stayed open on Facebook's stories page", app.waitFor { !app.layerOpen() })
-        assertTrue("the feed wasn't loaded again", app.waitFor(20_000) {
-            app.eval("typeof window.__feedBeforeTheStory", app.mainWebView()) == "\"undefined\"" &&
-                app.url(app.mainWebView()).startsWith("https://m.facebook.com/")
+        assertTrue("your story's card on Facebook's stories page was never opened", app.waitFor {
+            app.eval("window.__opened || ''", layer) == "\"own\""
         })
+        assertTrue("the story screen closed instead of showing your stories", app.layerOpen())
+        app.pressBack()
+        assertTrue("Back didn't close the story screen", app.waitFor { !app.layerOpen() })
+    }
+
+    // ... or closes at once there when there's no story of the user's to show...
+    @Test
+    fun facebooksStoriesPage_withNoStoryOfYoursOnIt_closesTheStoryScreen() {
+        share("ShareToStory", photo("story.png"))
+        assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+        ShareMediaQueue.clear()
+        val layer = app.layerWebView()!!
+        app.loadPage(STORY_CREATE_URL, PAGE, layer)
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        assertTrue("the story screen stayed open on Facebook's stories page", app.waitFor(15_000) { !app.layerOpen() })
     }
 
     // ... and opens the creator again for the next shared file.

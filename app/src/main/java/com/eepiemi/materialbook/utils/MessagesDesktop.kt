@@ -102,11 +102,11 @@ private val POST_PAGE_PATH = Regex("^/(?:share/p/[^/]+|[^/]+/posts/[^/]+|permali
  * a Galaxy A56); the mobile site's reel player shows it full size, with sound and PiP. A post
  * shared in a chat leaves the same way, so the chat is kept behind it like a reel's: opened in the
  * layer, Back reloaded the chat, which showed its latest messages and then jumped back to the
- * post. Facebook's stories page (www.facebook.com/stories, no story named) means a story was just
- * shared: after Share to story the creator moves there in-page (seen on a Galaxy A56, 2026-10-27).
- * The story screen closes (or takes the next shared file), as it used to when Facebook went Home,
- * and the main view loads the feed again: its stories tray was the page from before the share,
- * without the new story until the feed reloaded. Returns null for anything else, including other pages opened from a chat (a profile) and
+ * post. Facebook's stories page (www.facebook.com/stories, no story named, [isStoriesPage]) counts
+ * as Home. After Share to story the creator moves there in-page (seen on a Galaxy A56, 2026-10-27):
+ * the story screen takes the next shared file, or shows the new story on that page (MessagesLayer:
+ * the feed's stories tray gets it only some 30 s later, and reloading the feed didn't make that
+ * sooner, v1.35.22), and closes when that's left. Returns null for anything else, including other pages opened from a chat (a profile) and
  * a story's own page, which stay in the layer.
  */
 fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
@@ -117,8 +117,7 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
     val path = (uri.rawPath ?: "").trimEnd('/')
     val query = uri.rawQuery
     return when {
-        path.isEmpty() || path == "/home.php" -> MessagesLayerRoute.Leave(null)
-        path == "/stories" -> MessagesLayerRoute.Leave("https://m.facebook.com/")
+        path.isEmpty() || path == "/home.php" || path == "/stories" -> MessagesLayerRoute.Leave(null)
         path == "/watch" && query?.contains("v=") == true -> null
         REEL_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave("https://m.facebook.com$path/")
         reelOfStory(path, query) != null -> MessagesLayerRoute.Leave("https://m.facebook.com/reel/${reelOfStory(path, query)}/")
@@ -129,6 +128,12 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
             MessagesLayerRoute.Leave("https://m.facebook.com$path/" + (query?.let { "?$it" } ?: ""))
         else -> null
     }
+}
+
+/** Facebook's stories page with no story named (www.facebook.com/stories), as Share to story moves to. */
+fun isStoriesPage(url: String?): Boolean {
+    val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
+    return isFacebookHost(uri.host?.lowercase() ?: return false) && (uri.rawPath ?: "").trimEnd('/') == "/stories"
 }
 
 /** A reel's page on the mobile site (m.facebook.com/reel/<id>), as [messagesLayerExit] opens one. */
