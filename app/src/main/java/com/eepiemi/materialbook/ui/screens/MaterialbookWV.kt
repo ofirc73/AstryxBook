@@ -77,6 +77,7 @@ import com.eepiemi.materialbook.utils.externalLinkAction
 import com.eepiemi.materialbook.utils.fbRedirectSanitizer
 import com.eepiemi.materialbook.utils.hardenWebView
 import com.eepiemi.materialbook.utils.intentFallbackUrl
+import com.eepiemi.materialbook.utils.isConnectionError
 import com.eepiemi.materialbook.utils.isMessagesLink
 import com.eepiemi.materialbook.utils.isMessengerAppLink
 import com.eepiemi.materialbook.utils.isMobileReelPage
@@ -448,7 +449,9 @@ fun MaterialbookWebView(
     }
 
     var isLoading by rememberSaveable { mutableStateOf(true) }
-    val isError = state.errorsForCurrentRequest.lastOrNull()?.isFromMainFrame == true
+    // Only a page Facebook can't be reached for (isConnectionError): the error dialog takes the
+    // page's place, WebView and all.
+    val isError = state.errorsForCurrentRequest.lastOrNull()?.let { it.isFromMainFrame && isConnectionError(it.code) } == true
 
     val viewModel: MainViewModel = viewModel {
         MainViewModel(

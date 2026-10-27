@@ -16,6 +16,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.eepiemi.materialbook.notifications.FacebookCounts
 import com.eepiemi.materialbook.notifications.FacebookCountsWorker
+import com.eepiemi.materialbook.utils.ShareMediaQueue
+import com.eepiemi.materialbook.utils.ShareTarget
 import com.eepiemi.materialbook.utils.TextZoom
 import com.eepiemi.materialbook.utils.adsPixelBlocks
 import com.eepiemi.materialbook.utils.lookUpPhotoPost
@@ -61,6 +63,13 @@ class LiveFacebookCanaryTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
         runBlocking { SettingsDataStore(app.context).setPipEnabled(true) }
         dropPipNarrowViewportCookie()
+        // With the screen off the app's WebView is never created (it's made during layout).
+        shell("input keyevent KEYCODE_WAKEUP")
+    }
+
+    private fun shell(command: String): List<String> {
+        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
     }
 
     // PiP can leave a host-only vpd cookie with the PiP window's size on m.facebook.com, which
@@ -99,11 +108,8 @@ class LiveFacebookCanaryTest {
     }
 
     // The app's log lines under [tag], without the line prefixes.
-    private fun logLines(tag: String): List<String> {
-        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("logcat -d -s $tag:D")
-        return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
-            .filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
-    }
+    private fun logLines(tag: String): List<String> =
+        shell("logcat -d -s $tag:D").filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
 
     // A note in the run's output for a check that passed only after working around something:
     // am instrument prints a status's stream text (the workflow turns these into warnings), and
@@ -132,8 +138,24 @@ class LiveFacebookCanaryTest {
     private fun appState(): String {
         val webViews = runCatching { app.webViews().size.toString() }.getOrElse { it.javaClass.simpleName }
         val activity = app.activity()?.let { if (it.isFinishing) "finishing" else "on screen" } ?: "none in front"
+        // What the window holds instead, when there's no WebView: its views' classes, a few deep.
+        val views = runCatching {
+            app.onActivity { a ->
+                val names = mutableListOf<String>()
+                fun walk(v: android.view.View, depth: Int) {
+                    if (names.size >= 25) return
+                    names += "${"-".repeat(depth)}${v.javaClass.simpleName}${if (v.isShown) "" else "(hidden)"}"
+                    if (v is android.view.ViewGroup && depth < 6) for (i in 0 until v.childCount) walk(v.getChildAt(i), depth + 1)
+                }
+                walk(a.window.decorView, 0)
+                names.joinToString(" ")
+            }
+        }.getOrElse { it.javaClass.simpleName }
         val renderer = runCatching { logLines("Astryxbook").filter { "renderer gone" in it } }.getOrDefault(emptyList())
-        return "webViews=$webViews activity=$activity renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
+        // Awake, Asleep or Dozing: no WebView is made with the screen off.
+        val screen = runCatching { shell("dumpsys power").firstOrNull { "mWakefulness=" in it }?.substringAfter("=")?.trim() }
+            .getOrNull() ?: "?"
+        return "webViews=$webViews activity=$activity screen=$screen views=[$views] renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
 
     // The feed on screen ([js] true), or a failure ([message]). Facebook's Home sometimes stays blank
@@ -648,6 +670,34 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun facebooksStoriesPage_afterAStory_closesTheStoryScreen() {
+        // After Share to story the creator moves in-page to Facebook's stories page (seen on a
+        // Galaxy A56, 2026-10-27; nothing is posted here): that page must still be at
+        // www.facebook.com/stories, and the story screen closes there (messagesLayerExit).
+        sharePicture("ShareToStory", 720, 1280)
+        assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
+            app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
+        })
+        val layer = app.layerWebView()!!
+        // With the photo still waiting, the stories page would open the creator again for it.
+        assertTrue("the story creator never took the shared photo (share_media.js)", app.waitFor(60_000) {
+            !ShareMediaQueue.pending(ShareTarget.STORY)
+        })
+        app.eval(STORIES_PAGE_FETCH_JS, layer)
+        var stories = ""
+        app.waitFor(30_000) {
+            stories = app.eval("window.__astryxStoriesPage || ''", layer).trim('"')
+            stories.isNotEmpty()
+        }
+        assertEquals("Facebook's stories page isn't at www.facebook.com/stories (status and address after redirects)",
+            "200 /stories", stories)
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        assertTrue("the story screen stayed open on Facebook's stories page (${appState()})", app.waitFor(10_000) {
+            !app.layerOpen()
+        })
+    }
+
+    @Test
     fun theFeed_hasItsAdsPixelBlocked() {
         // Every full m.facebook.com load adds Facebook's Google Ads pixel frames
         // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
@@ -929,6 +979,12 @@ class LiveFacebookCanaryTest {
         private const val STORY_REEL_ID = "1427052772729171"
         private const val STORY_OF_A_REEL = "https://m.facebook.com/story.php?story_fbid=$STORY_REEL_ID&id=61594936681030" +
             "&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fr%2FAstryxCanary%2F"
+        // Fetches Facebook's stories page as the creator would move to it: "<status> <path>" once
+        // redirects are followed, in window.__astryxStoriesPage.
+        private const val STORIES_PAGE_FETCH_JS =
+            "fetch('/stories', { credentials: 'include' }).then(function (r) {" +
+                " window.__astryxStoriesPage = r.status + ' ' + new URL(r.url).pathname.replace(/\\/$/, ''); })" +
+                ".catch(function (e) { window.__astryxStoriesPage = 'error ' + e; }); 1"
         // The widths in the page's vpd cookies ("v1;<height>x<width>x<density>").
         private const val VPD_WIDTHS_JS =
             "document.cookie.split('; ').filter(function (c) { return c.indexOf('vpd=') === 0; })" +

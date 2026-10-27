@@ -304,6 +304,14 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
   on/off switch while the editor shows it, in any language; its label is remembered, so the
   redrawn row is never a tool and stays hidden.
 
+- The app could start with its network error dialog instead of Facebook: any error on the page's
+  own load while it was loading counted as no connection, and the dialog took the page's place,
+  WebView and all. Facebook's redirect after start sometimes fails as `net::ERR_FAILED` (seen on
+  GitHub's emulator, 2026-10-27, where the live checks then found no WebView). Only errors that
+  mean Facebook can't be reached (no connection, a name that doesn't resolve, a refused connection,
+  a timeout) show the dialog now (`isConnectionError`, `PageErrorsTest`; the live checks, which
+  failed on it, are its live check).
+
 ## CI/CD
 
 - `./gradlew test`, `:app:lintDebug`, and `connectedAndroidTest` now gate
@@ -423,7 +431,9 @@ on their own can't:
   not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
-  Groups, profile picture) taking the files in and opening its page in the right view.
+  Groups, profile picture) taking the files in and opening its page in the right view; after Share
+  to story, Facebook's stories page closing the story screen, or opening the creator again for the
+  next file.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -450,6 +460,10 @@ live check guards:
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`).
+- `facebooksStoriesPage_afterAStory_closesTheStoryScreen`: Facebook's stories page still at
+  `www.facebook.com/stories`, and the real creator moved there closing the story screen
+  (`messagesLayerExit`, `ShareIntoFacebookTest`). That Facebook goes there after Share to story
+  isn't checked: only a real post gets there, and the checks never post.
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`). An
   ad label it missed, found by its text, fails the check; a run that saw no ad says so in a note.
   The test account's feed may hold no posts at all, so the feed check only notes when it finds none
@@ -498,7 +512,9 @@ pinch). The check needs a logged-in device, so it runs only with `-e canary true
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). GitHub
 drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 UTC and the later
-runs stand down once one has run. The reel check presses Home only once the reel plays on as the app's PiP detector
+runs stand down once one has run. The workflow keeps the emulator's screen on, and each check wakes it: with the
+screen off the app makes no WebView (it's made during layout), and checks failed with "webViews=0";
+a failure's app state says whether the screen was awake. The reel check presses Home only once the reel plays on as the app's PiP detector
 counts playing: unmuted, a reel buffers for a moment on GitHub's emulator. When the app's last PiP
 params had auto-enter off before Home anyway (a stall longer than the detector's 2 s grace), the
 check plays it again and presses Home once more, and says so: a "Live check note" warning on the
@@ -1079,6 +1095,12 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   story screen (back to where you were, as in the Facebook app) instead of leaving Facebook's
   "start a story" page open; the script waits until the page is choosing a story again, so a story
   being uploaded after Share to story is never interrupted.
+- After Share to story the story screen stayed open on Facebook's stories page (your story, Archive,
+  Add to story) instead of going back to the feed. Facebook used to go Home after a story was
+  posted, which closed the screen; now it moves the creator in-page to `www.facebook.com/stories`
+  (seen on a Galaxy A56, 2026-10-27). That page now counts as Home: the story screen closes, back to
+  where you were, or opens the creator again for the next shared file. A story's own page
+  (`/stories/<id>/`) still stays in the layer.
 - The story editor is laid out like the Facebook app's (`story_layout.js`): the story fills the
   screen at the phone's own width (normal-size text), the creator's tools (Add text, Add music,
   Alternative text...) are round buttons along the bottom of the story, and privacy, Discard and

@@ -86,6 +86,13 @@ class ShareIntoFacebookTest {
         if (!inLayer) assertTrue("$target opened the Messages layer", app.webViews().size == 1)
     }
 
+    private companion object {
+        const val STORY_CREATE_URL = "https://www.facebook.com/stories/create/"
+        const val PAGE =
+            "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
+                "<body><p>test page</p><script>window.__testPage = true;</script></body></html>"
+    }
+
     @Test
     fun toFeed_opensTheComposer() {
         share("ShareToFeed", photo("feed.png"))
@@ -104,6 +111,36 @@ class ShareIntoFacebookTest {
     fun toYourStory_opensTheStoryCreatorInTheLayer() {
         share("ShareToStory", photo("story.png"))
         assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+    }
+
+    // After Share to story the creator moves in-page to Facebook's stories page (seen on a Galaxy
+    // A56, 2026-10-27): the story screen closes once nothing is left to share...
+    @Test
+    fun facebooksStoriesPage_afterTheLastStory_closesTheStoryScreen() {
+        share("ShareToStory", photo("story.png"))
+        assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+        // The creator took the photo: nothing is left to share.
+        ShareMediaQueue.clear()
+        val layer = app.layerWebView()!!
+        app.loadPage(STORY_CREATE_URL, PAGE, layer)
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        assertTrue("the story screen stayed open on Facebook's stories page", app.waitFor { !app.layerOpen() })
+    }
+
+    // ... and opens the creator again for the next shared file.
+    @Test
+    fun facebooksStoriesPage_withAnotherFileToShare_opensTheCreatorAgain() {
+        share("ShareToStory", photo("one.png"), photo("two.png"))
+        assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+        val layer = app.layerWebView()!!
+        app.loadPage(STORY_CREATE_URL, PAGE, layer)
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        // The test page goes: the creator is loaded anew (it may be a new WebView).
+        assertTrue("the creator never opened again for the next file", app.waitFor(20_000) {
+            val now = app.layerWebView()
+            app.layerOpen() && now != null && decoded(app.url(now)).contains("/stories/create") &&
+                app.eval("!!window.__testPage", now) == "false"
+        })
     }
 
     @Test
