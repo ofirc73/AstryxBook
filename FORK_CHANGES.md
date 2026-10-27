@@ -432,8 +432,9 @@ on their own can't:
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
-  to story, Facebook's stories page closing the story screen, or opening the creator again for the
-  next file.
+  to story, Facebook's stories page opening your stories (Back closes the story screen), closing
+  the story screen when there's no story of yours on it, or opening the creator again for the next
+  file.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -460,10 +461,13 @@ live check guards:
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`).
-- `facebooksStoriesPage_afterAStory_closesTheStoryScreen`: Facebook's stories page still at
-  `www.facebook.com/stories`, and the real creator moved there closing the story screen
-  (`messagesLayerExit`, `ShareIntoFacebookTest`). That Facebook goes there after Share to story
-  isn't checked: only a real post gets there, and the checks never post.
+- `facebooksStoriesPage_afterAStory_showsYourStoriesOrClosesTheStoryScreen`: Facebook's stories page
+  still at `www.facebook.com/stories`, with the Add to story link `open_own_story.js` finds your
+  card by; on the real page the account's own stories open (full screen, Back closes the story
+  screen) or, with none, the story screen closes (`OpenOwnStoryJsTest`, `LayerStoryViewerJsTest`,
+  `ShareIntoFacebookTest`). The test account has no story of its own (the checks never post), so
+  that case is noted, not failed. That Facebook goes there after Share to story isn't checked:
+  only a real post gets there.
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`). An
   ad label it missed, found by its text, fails the check; a run that saw no ad says so in a note.
   The test account's feed may hold no posts at all, so the feed check only notes when it finds none
@@ -1111,10 +1115,15 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (seen on a Galaxy A56, 2026-10-27). That page now counts as Home: the story screen closes, back to
   where you were, or opens the creator again for the next shared file. A story's own page
   (`/stories/<id>/`) still stays in the layer.
-- After Share to story the feed is no longer loaded again when the story screen closes (v1.35.22
-  did that). Facebook adds the new story to the feed's stories tray by itself, at the end of Your
-  story, some 30 seconds after the share; the reload didn't make that sooner and took you out of
-  the stories you were watching meanwhile (seen on a Galaxy A56, 2026-10-27).
+- After Share to story your new story shows at once: the story screen opens your stories on
+  Facebook's stories page, where Share moves to and which already has the new one ("1 new", 1m),
+  full screen like a story opened from a chat (`open_own_story.js` finds your card by its Add to
+  story link, in any language; `layer_story_viewer.js` lays it out). Back closes the story screen,
+  to the feed. The feed's stories tray gets the new story only some 30 seconds after the share,
+  by itself; v1.35.22's feed reload didn't make that sooner and took you out of the stories you
+  were watching meanwhile, so it's gone (seen on a Galaxy A56, 2026-10-27). With several shared
+  files the creator still opens for each; your stories show after the last. With no story of yours
+  on the page (within 5 s) the story screen closes as before.
 - The story editor is laid out like the Facebook app's (`story_layout.js`): the story fills the
   screen at the phone's own width (normal-size text), the creator's tools (Add text, Add music,
   Alternative text...) are round buttons along the bottom of the story, and privacy, Discard and

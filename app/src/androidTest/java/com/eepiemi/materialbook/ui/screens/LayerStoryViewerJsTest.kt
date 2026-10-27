@@ -20,8 +20,9 @@ class LayerStoryViewerJsTest {
 
     private val page = PageFixture(width = 1080, height = 2000)
 
-    private fun load(url: String) {
-        page.load(url, VIEWER)
+    private fun load(url: String, html: String = VIEWER, before: String = "") {
+        page.load(url, html)
+        if (before.isNotEmpty()) page.eval(before)
         page.eval("window.__resized = 0; window.addEventListener('resize', function () { window.__resized++; }); 1")
         page.run(R.raw.layer_story_viewer)
         Thread.sleep(300)
@@ -63,7 +64,43 @@ class LayerStoryViewerJsTest {
         }
     }
 
+    // After Share to story, open_own_story.js opens the user's stories on Facebook's stories page and
+    // marks it: the viewer stays at /stories, beside the page's own column (not in a dialog), under
+    // the banner and its search box.
+    @Test
+    fun yourStoriesOpenedOnTheStoriesPage_takeTheWholeWidth() {
+        load(STORIES_URL, STORIES_PAGE, before = "window.__astryxSharedStoryOpen = true; 1")
+        assertEquals("the Stories column is still beside the story", "\"none\"", display("column"))
+        assertTrue("the story's pane stayed narrow (${paneWidth()} of ${windowWidth()})", paneWidth() >= windowWidth() - 1)
+        assertEquals("Facebook's banner is still over the story", "\"none\"", display("banner"))
+        assertEquals("Facebook's search box is still over the story", "\"none\"", display("search"))
+    }
+
+    @Test
+    fun theStoriesPage_withNoStoryOpenedByTheApp_isLeftAlone() {
+        load(STORIES_URL, STORIES_PAGE)
+        assertEquals("\"block\"", display("column"))
+        assertEquals("\"block\"", display("search"))
+    }
+
     companion object {
+        private const val STORIES_URL = "https://www.facebook.com/stories"
+        // Facebook's stories page with the viewer open, as read from a Galaxy A56 (2026-10-27): the
+        // banner, its search box in a fixed box of its own, and a row of the column and the story.
+        private const val STORIES_PAGE =
+            "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
+                "<body style='margin:0'>" +
+                "<div id='banner' style='position:fixed;top:0;left:0;right:0;height:56px;z-index:3'>" +
+                "<div role='navigation' aria-label='Account Controls and Settings'>" +
+                "<div role='button' aria-label='Messenger'>m</div></div></div>" +
+                "<div id='search' style='position:fixed;top:8px;left:56px;width:120px;height:40px;z-index:4'>" +
+                "<input aria-label='Search Facebook' style='width:100px'></div>" +
+                "<div id='row' style='display:flex;height:100vh;padding-top:56px;box-sizing:border-box'>" +
+                "<div id='column' style='flex:0 1 auto;width:360px'>" +
+                "<div role='navigation' style='position:fixed;top:56px;bottom:0;width:360px'>Stories</div></div>" +
+                "<div id='pane' style='flex:1 1 auto;position:relative'>" +
+                "<div role='button' aria-label='Next story'>&gt;</div></div>" +
+                "</div></body></html>"
         private const val STORY_URL = "https://www.facebook.com/stories/1000/UzpfSVNDOjE=/"
         private const val VIEWER =
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +

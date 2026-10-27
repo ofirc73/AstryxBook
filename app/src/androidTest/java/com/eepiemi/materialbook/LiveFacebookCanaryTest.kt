@@ -676,10 +676,12 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
-    fun facebooksStoriesPage_afterAStory_closesTheStoryScreen() {
+    fun facebooksStoriesPage_afterAStory_showsYourStoriesOrClosesTheStoryScreen() {
         // After Share to story the creator moves in-page to Facebook's stories page (seen on a
         // Galaxy A56, 2026-10-27; nothing is posted here): that page must still be at
-        // www.facebook.com/stories, and the story screen closes there (messagesLayerExit).
+        // www.facebook.com/stories, with the Add to story link open_own_story.js finds the user's
+        // own card by; the user's stories open there (laid out full screen, layer_story_viewer.js)
+        // and Back closes the story screen, or, with no story of the account's own, it closes at once.
         sharePicture("ShareToStory", 720, 1280)
         assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
             app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
@@ -697,10 +699,37 @@ class LiveFacebookCanaryTest {
         }
         assertEquals("Facebook's stories page isn't at www.facebook.com/stories (status and address after redirects)",
             "200 /stories", stories)
-        app.eval("history.pushState({}, '', '/stories'); 1", layer)
-        assertTrue("the story screen stayed open on Facebook's stories page (${appState()})", app.waitFor(10_000) {
-            !app.layerOpen()
+        // The real page in the layer, loaded by the WebView itself: through the app's routing a full
+        // load of it would close the layer (Share moves there in-page).
+        app.onActivity { layer.loadUrl("https://www.facebook.com/stories/") }
+        assertTrue("Facebook's stories page has no Add to story link, which open_own_story.js finds your card by " +
+            "(${app.eval(STORIES_SHAPE_JS, layer)})", app.waitFor(45_000) {
+            app.eval(ADD_TO_STORY_SHOWN_JS, layer) == "true"
         })
+        // The address changes in-page, as Share's move does: the app reads it as Share's.
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        var opened = false
+        assertTrue("the story screen neither showed your stories nor closed on Facebook's stories page " +
+            "(${app.eval(STORIES_SHAPE_JS, layer)}; ${appState()})", app.waitFor(20_000) {
+            opened = app.layerOpen() && app.eval("window.__astryxSharedStoryOpen === true", layer) == "true"
+            opened || !app.layerOpen()
+        })
+        if (!opened) {
+            note("the test account has no story of its own: only checked that the stories page closes the story screen")
+            return
+        }
+        // Laid out at phone width only: the creator's wide layout (story_layout.js's viewport) can
+        // leave this full load wider than that, while Share's in-page move keeps the creator's.
+        val width = app.eval("innerWidth", layer).toFloatOrNull() ?: 0f
+        if (width < 720) {
+            assertTrue("your stories aren't laid out full screen (layer_story_viewer.js)", app.waitFor(10_000) {
+                app.eval("document.documentElement.classList.contains('astryx-story-viewer')", layer) == "true"
+            })
+        } else {
+            note("the stories page loaded ${width.toInt()} px wide: the full-screen layout wasn't checked")
+        }
+        app.pressBack()
+        assertTrue("Back didn't close the story screen (${appState()})", app.waitFor { !app.layerOpen() })
     }
 
     @Test
@@ -991,6 +1020,16 @@ class LiveFacebookCanaryTest {
             "fetch('/stories', { credentials: 'include' }).then(function (r) {" +
                 " window.__astryxStoriesPage = r.status + ' ' + new URL(r.url).pathname.replace(/\\/$/, ''); })" +
                 ".catch(function (e) { window.__astryxStoriesPage = 'error ' + e; }); 1"
+        // A visible link to the story creator on the stories page (Add to story, or Create a story).
+        private const val ADD_TO_STORY_SHOWN_JS =
+            "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
+                " return a.getBoundingClientRect().width > 0; })"
+        // What the stories page shows, for failures: address, headings, creator links and their boxes.
+        private const val STORIES_SHAPE_JS =
+            "location.pathname + ' | ' + [].map.call(document.querySelectorAll('h1, h2, h3'), function (h) {" +
+                " return h.innerText.slice(0, 30); }).join(', ') + ' | ' +" +
+                " [].map.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
+                " var r = a.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }).join(', ')"
         // The widths in the page's vpd cookies ("v1;<height>x<width>x<density>").
         private const val VPD_WIDTHS_JS =
             "document.cookie.split('; ').filter(function (c) { return c.indexOf('vpd=') === 0; })" +

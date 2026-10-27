@@ -119,7 +119,10 @@ user-visible change.
   DevTools target. The layer pinch-zooms (not in the creators) and runs the page scripts with
   `window.__astryxMessagesLayer` set (`pinch_to_zoom.js` leaves it zoomable); `layer_photo_viewer.js`
   widens the desktop photo viewer's photo over its arrow columns, `layer_story_viewer.js` hides the
-  stories viewer's Stories column and top bar at phone width. PiP effects act on
+  stories viewer's Stories column and top bar at phone width. After Share to story the creator
+  moves in-page to `www.facebook.com/stories`, which already has the new story (the feed's tray
+  gets it ~30 s later): `open_own_story.js` opens the user's own card there (found by its Add to
+  story link), and Back closes the layer. PiP effects act on
   `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on
   `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to

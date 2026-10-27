@@ -102,12 +102,11 @@ private val POST_PAGE_PATH = Regex("^/(?:share/p/[^/]+|[^/]+/posts/[^/]+|permali
  * a Galaxy A56); the mobile site's reel player shows it full size, with sound and PiP. A post
  * shared in a chat leaves the same way, so the chat is kept behind it like a reel's: opened in the
  * layer, Back reloaded the chat, which showed its latest messages and then jumped back to the
- * post. Facebook's stories page (www.facebook.com/stories, no story named) counts as Home: after
- * Share to story the creator moves there in-page (seen on a Galaxy A56, 2026-10-27), and the
- * story screen should close (or take the next shared file), as it used to when Facebook went
- * Home. The feed isn't loaded again there: Facebook adds the new story to its stories tray by
- * itself (about 30 s later), and a reload only took the user out of the stories they were watching
- * (v1.35.22). Returns null for anything else, including other pages opened from a chat (a profile) and
+ * post. Facebook's stories page (www.facebook.com/stories, no story named, [isStoriesPage]) counts
+ * as Home. After Share to story the creator moves there in-page (seen on a Galaxy A56, 2026-10-27):
+ * the story screen takes the next shared file, or shows the new story on that page (MessagesLayer:
+ * the feed's stories tray gets it only some 30 s later, and reloading the feed didn't make that
+ * sooner, v1.35.22), and closes when that's left. Returns null for anything else, including other pages opened from a chat (a profile) and
  * a story's own page, which stay in the layer.
  */
 fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
@@ -129,6 +128,12 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
             MessagesLayerRoute.Leave("https://m.facebook.com$path/" + (query?.let { "?$it" } ?: ""))
         else -> null
     }
+}
+
+/** Facebook's stories page with no story named (www.facebook.com/stories), as Share to story moves to. */
+fun isStoriesPage(url: String?): Boolean {
+    val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
+    return isFacebookHost(uri.host?.lowercase() ?: return false) && (uri.rawPath ?: "").trimEnd('/') == "/stories"
 }
 
 /** A reel's page on the mobile site (m.facebook.com/reel/<id>), as [messagesLayerExit] opens one. */

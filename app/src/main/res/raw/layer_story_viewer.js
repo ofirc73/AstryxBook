@@ -5,7 +5,10 @@
 // story's own header. At phone width both are hidden while a story is open: the story takes the
 // whole width (Facebook sizes it again on resize) and Back leaves it, as the bar's close did.
 // Found by the column's navigation (taller than half the window, at least half its width) and by the
-// bar's boxes (fixed at the top, no taller than the bar). ES5, like the PiP scripts.
+// bar's boxes (fixed at the top, no taller than the bar). The same goes for the user's own stories
+// opened on Facebook's stories page after Share to story (open_own_story.js, which marks the page):
+// the viewer then stays at www.facebook.com/stories, and the column is the page's own, not in a
+// dialog. ES5, like the PiP scripts.
 (function () {
   if (window.__astryxStoryViewerInstalled) return;
   window.__astryxStoryViewerInstalled = true;
@@ -22,6 +25,7 @@
 
   function isStoryPage() {
     var path = location.pathname;
+    if (/^\/stories\/?$/.test(path)) return !!window.__astryxSharedStoryOpen;
     return /^\/stories\/[^\/]+/.test(path) && path.indexOf('/stories/create') !== 0;
   }
 
@@ -48,10 +52,10 @@
     return hidden;
   }
 
-  // The top bar: the fixed boxes at the top that hold its buttons and links (the close button is
-  // the viewer's, the account buttons are Facebook's banner, outside the viewer's dialog).
+  // The top bar: the fixed boxes at the top that hold its buttons, links and search box (the close
+  // button is the viewer's, the account buttons are Facebook's banner, outside the viewer's dialog).
   function hideBar() {
-    var items = document.querySelectorAll('[role="button"], [role="navigation"], a');
+    var items = document.querySelectorAll('[role="button"], [role="navigation"], a, input');
     var hidden = false;
     for (var i = 0; i < items.length; i++) {
       var r = items[i].getBoundingClientRect();
@@ -75,6 +79,7 @@
     for (var i = 0; i < dialogs.length; i++) {
       if (hideColumn(dialogs[i])) hidden = true;
     }
+    if (window.__astryxSharedStoryOpen && hideColumn(document.body)) hidden = true;
     // Facebook sizes the story for the space it has only when the window resizes.
     if (hidden) window.dispatchEvent(new Event('resize'));
   }
