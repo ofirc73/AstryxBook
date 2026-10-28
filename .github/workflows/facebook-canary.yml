@@ -174,7 +174,7 @@ jobs:
             adb shell settings put system screen_off_timeout 1800000
             adb shell input keyevent KEYCODE_WAKEUP
             adb logcat -G 16M
-            adb shell am instrument -w -e canary true -e fbCookies "$(printf %s "$FB_TEST_COOKIES" | base64 -w0)" ${FB_TEST_CHAT:+-e fbChat "$FB_TEST_CHAT"} -e class com.eepiemi.materialbook.LiveFacebookCanaryTest com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner | tee canary.txt
+            adb shell am instrument -w -e canary true -e fbCookies "$(printf %s "$FB_TEST_COOKIES" | base64 -w0)" ${FB_TEST_CHAT:+-e fbChat "$FB_TEST_CHAT"} -e class com.astryx.book.LiveFacebookCanaryTest com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner | tee canary.txt
             adb logcat -d -v time -s Astryxbook:D AstryxbookPiP:D AstryxbookCanary:D TestRunner:I ActivityTaskManager:I WindowManager:W AndroidRuntime:E chromium:E WebViewFactory:I > canary-logcat.txt || true
             grep -qE '^OK \([0-9]+ tests?\)' canary.txt
 

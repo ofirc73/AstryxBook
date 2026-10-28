@@ -24,6 +24,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.astryx.book.utils.FullscreenController
+import com.astryx.book.utils.RendererGoneClient
+import com.astryx.book.utils.androidPermissionFor
+import com.astryx.book.utils.webMediaGrant
 import com.multiplatform.webview.web.AccompanistWebChromeClient
 import com.multiplatform.webview.web.PlatformWebViewParams
 

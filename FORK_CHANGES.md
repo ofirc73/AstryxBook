@@ -8,6 +8,12 @@ Organized by area rather than by release tag, since auto-versioning bumps a
 patch version on every merged commit (`fix:`/`chore:`/etc.) — a per-tag log
 would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
+The fork's own code is in package `com.astryx.book` (moved there in v1.36.5: 48 app files, 35 unit
+tests, 45 instrumented tests); upstream's files stay in `com.eepiemi.materialbook`, so upstream
+merges don't touch the move. The Facebook notifications job is re-enqueued with
+`ExistingPeriodicWorkPolicy.UPDATE`, so a job an older version saved under the old worker class is
+rewritten to the new one, keeping its schedule.
+
 ## Rebrand
 
 - Renamed to **Astryxbook**: `applicationId` (`com.astryx.book`), display
@@ -443,7 +449,8 @@ on their own can't:
   and a failure names the taps, the dialog, the setting and the layer's address (the v1.36.2
   release run failed once without saying). Live check
   `sendAsAMessage_opensTheChatList_andTheChatPickedGetsThePostsLink`: the feed's Share sheet still
-  has the item (found by its Messenger icon; the next post's Share is tried when a sheet has none),
+  has the item (found by its Messenger icon; the next post's Share is tried when a sheet has none;
+  both tapped for real: on GitHub's Android 34 emulator a script's click opened nothing),
   still hands out a share link the app reads (its log line), and the chat list opens; with the test
   chat (`-e fbChat`, local only), the chat picked from the list gets the link in Messenger's real
   message box (a note when it takes over 2 s; about 0.4 s on the emulator), which is then emptied:

@@ -167,7 +167,7 @@
              because Media3 controllers must bind to it; the session itself
              only accepts this app's own controller (see LockScreenAudioService). -->
         <service
-            android:name=".audio.LockScreenAudioService"
+            android:name="com.astryx.book.audio.LockScreenAudioService"
             android:exported="true"
             tools:ignore="ExportedService"
             android:foregroundServiceType="mediaPlayback">

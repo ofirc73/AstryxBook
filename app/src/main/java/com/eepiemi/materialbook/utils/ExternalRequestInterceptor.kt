@@ -1,5 +1,10 @@
 package com.eepiemi.materialbook.utils
 
+import com.astryx.book.utils.intentFallbackUrl
+import com.astryx.book.utils.isDesktopMessagesUrl
+import com.astryx.book.utils.isFacebookWebUrl
+import com.astryx.book.utils.isMessagesLink
+import com.astryx.book.utils.messagesDesktopUrl
 import com.multiplatform.webview.request.RequestInterceptor
 import com.multiplatform.webview.request.WebRequest
 import com.multiplatform.webview.request.WebRequestInterceptResult

@@ -15,7 +15,7 @@ import androidx.core.content.FileProvider
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
-import com.eepiemi.materialbook.utils.isFacebookWebUrl
+import com.astryx.book.utils.isFacebookWebUrl
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream

@@ -24,9 +24,24 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
-import com.eepiemi.materialbook.utils.AppLock
-import com.eepiemi.materialbook.utils.KeepScreenOn
-import com.eepiemi.materialbook.utils.TextZoom
+import com.astryx.book.utils.AppLock
+import com.astryx.book.utils.KeepScreenOn
+import com.astryx.book.utils.TextZoom
+import com.astryx.book.ui.components.settings.AppearanceSettings
+import com.astryx.book.ui.components.settings.BackupSettings
+import com.astryx.book.ui.components.settings.ChoiceDialog
+import com.astryx.book.ui.components.settings.DeveloperSettings
+import com.astryx.book.ui.components.settings.FeedSettings
+import com.astryx.book.ui.components.settings.HideOptionsDialog
+import com.astryx.book.ui.components.settings.MessagesLinksSettings
+import com.astryx.book.ui.components.settings.NotificationsSettings
+import com.astryx.book.ui.components.settings.PIP_RATIO_PRESETS
+import com.astryx.book.ui.components.settings.PrivacySettings
+import com.astryx.book.ui.components.settings.VideoSettings
+import com.astryx.book.ui.components.settings.appLockLabel
+import com.astryx.book.ui.components.settings.keepScreenOnLabel
+import com.astryx.book.ui.components.settings.pipRatioLabel
+import com.astryx.book.ui.components.settings.textZoomLabel
 
 @Composable
 fun SettingsContent(

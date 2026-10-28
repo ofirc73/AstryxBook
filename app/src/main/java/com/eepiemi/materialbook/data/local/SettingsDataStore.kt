@@ -8,9 +8,11 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.eepiemi.materialbook.utils.AppLock
-import com.eepiemi.materialbook.utils.KeepScreenOn
-import com.eepiemi.materialbook.utils.TextZoom
+import com.astryx.book.data.local.exportSettingsJson
+import com.astryx.book.data.local.importSettingsJson
+import com.astryx.book.utils.AppLock
+import com.astryx.book.utils.KeepScreenOn
+import com.astryx.book.utils.TextZoom
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 

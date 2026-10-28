@@ -106,7 +106,7 @@ try {
 
     # 4. The checks.
     $chatArgs = if ($Chat) { @('-e', 'fbChat', $Chat) } else { @() }
-    $output = & $adb shell am instrument -w -e canary true @chatArgs -e class com.eepiemi.materialbook.LiveFacebookCanaryTest `
+    $output = & $adb shell am instrument -w -e canary true @chatArgs -e class com.astryx.book.LiveFacebookCanaryTest `
         com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | Out-String
     Write-Host $output
     if ($output -notmatch 'OK \(\d+ tests?\)') {
