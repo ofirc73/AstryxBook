@@ -7,6 +7,7 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -64,7 +65,7 @@ class SendAsMessageTest {
                 app.pressBack()
                 app.waitFor { !dialogShown() }
             }
-            assertTrue("Send as a message couldn't be tapped", app.tapIn(app.mainWebView(), SEND_BOX_JS))
+            assertTrue("Send as a message couldn't be tapped", app.tapOn(app.mainWebView(), "document.getElementById('send')"))
             if (app.waitFor(3_000) { taps() > 0 }) return
         }
         fail("the page never got the tap on Send as a message (${state()})")
@@ -78,7 +79,7 @@ class SendAsMessageTest {
         })
         val layer = app.layerWebView()!!
         app.loadPage(CHAT_URL, CHAT, layer)
-        assertTrue("the chat's message box couldn't be tapped", app.tapIn(layer, BOX_JS))
+        assertTrue("the chat's message box couldn't be tapped", app.tapOn(layer, "document.getElementById('box')"))
         assertTrue("the chat's message box never got the post's link (${state()}; box: " +
             "${app.eval("document.getElementById('box').innerText", layer)})", app.waitFor(15_000) {
             app.eval("document.getElementById('box').innerText.indexOf('$POST') >= 0", layer) == "true"
@@ -91,6 +92,29 @@ class SendAsMessageTest {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         tapSendAsMessage()
         assertTheChatGetsThePost()
+    }
+
+    // A chat whose message box comes a moment after the tap that opened it and loses the first text
+    // put in it, as Messenger's does before its editor takes the box over (2026-10-28): the link goes
+    // in as the box appears, again 0.2 s on, and once only (put_link_in_chat.js).
+    @Test
+    fun aBoxThatComesLate_andLosesTheFirstInsert_getsTheLinkOnce() {
+        runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        tapSendAsMessage()
+        assertTrue("the Messages layer never opened for the post (${state()})", app.waitFor(20_000) {
+            app.layerWebView() != null && app.layerOpen()
+        })
+        val layer = app.layerWebView()!!
+        app.loadPage(CHAT_URL, LATE_CHAT, layer)
+        assertTrue("the chat couldn't be tapped", app.tapOn(layer, "document.getElementById('pane')"))
+        val text = "document.getElementById('box') ? document.getElementById('box').innerText : ''"
+        assertTrue("the late box never got the post's link (box: ${app.eval(text, layer)}, " +
+            "first insert lost: ${app.eval("!!window.__lost", layer)})", app.waitFor(10_000) {
+            app.eval("($text).indexOf('$POST') >= 0", layer) == "true"
+        })
+        assertTrue("the box never lost its first insert: the test didn't test the retry", app.eval("!!window.__lost", layer) == "true")
+        Thread.sleep(1500)
+        assertEquals("the link went in more than once", "1", app.eval("($text).split('$POST').length - 1", layer))
     }
 
     @Test
@@ -124,11 +148,17 @@ class SendAsMessageTest {
                 "<div id='box' contenteditable='true' role='textbox' aria-label='Message'" +
                 " style='margin:40px;min-height:60px;border:1px solid #888'></div>" +
                 "<script>window.__testPage = true;</script></body></html>"
-        const val BOX_JS =
-            "(function () { var e = document.getElementById('box'); if (!e) return ''; " +
-                "var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
-        const val SEND_BOX_JS =
-            "(function () { var e = document.getElementById('send'); if (!e) return ''; e.scrollIntoView(); " +
-                "var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
+        // A chat whose box is added 0.8 s after the chat is tapped, and empties itself the first time
+        // text goes in.
+        const val LATE_CHAT =
+            "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head><body>" +
+                "<div id='pane' style='margin:40px;height:200px;background:#ddd'></div>" +
+                "<script>window.__testPage = true;" +
+                " document.getElementById('pane').addEventListener('click', function () {" +
+                " if (window.__boxComing) return; window.__boxComing = true; setTimeout(function () {" +
+                " var box = document.createElement('div'); box.id = 'box'; box.contentEditable = 'true';" +
+                " box.setAttribute('role', 'textbox'); box.style.minHeight = '60px'; box.style.border = '1px solid #888';" +
+                " box.addEventListener('input', function () { if (!window.__lost) { window.__lost = true; box.textContent = ''; } });" +
+                " document.body.appendChild(box); }, 800); });</script></body></html>"
     }
 }

@@ -41,7 +41,10 @@ user-visible change.
 - Fixed-page tests (`*JsTest`) load their test page through `PageFixture` (one WebView setup:
   load, eval, run a bundled script, wait; laid out only when given a size). `AppHarness` also holds
   what the app-level tests and the live checks share: Messages on screen (`layerOpen`) and a real
-  touch on a link (`tapIn`).
+  touch on an element (`tapOn` with a JS expression for it; `tapIn` with its box). Keep test code
+  free of repeats: reuse or generalize those, and the live checks' `shownJs(selector)` (elements
+  with a size) and `MESSAGE_BOX_FIND_JS`, before writing a new snippet; check through the app's own
+  behaviour (its log lines, its state) rather than re-reading Facebook's page where that's enough.
 - App-level tests drive the real `MainActivity` through `AppHarness` (androidTest; one class per
   feature, listed in FORK_CHANGES' Testing). Test pages loaded with `loadPage` have no WebView
   history (`asHistory` gives them one, but a reload then fetches the real page). Loading a second
@@ -133,7 +136,9 @@ user-visible change.
   Share > Send as a message opens `intent://share/?link=<post>…;package=com.facebook.orca`:
   `messengerShareLink` reads the post, the Messages layer opens the chat list, and the chat the user
   opens gets the link in its message box (`put_link_in_chat.js`: `execCommand('insertText')` into
-  Messenger's Lexical editor, which needs the page focused, as a real tap gives it). Don't use the
+  Messenger's Lexical editor, which needs the page focused, as a real tap gives it; a
+  MutationObserver puts it in as the box appears, and an insert made before Lexical takes the box
+  over is lost, so it's tried again 0.2 s on). Don't use the
   desktop Send in Messenger dialog (`share_as_message`, `dialog/send`): in end-to-end encrypted
   chats it sends an empty message (2026-10-28). Never send from the test account except to the
   user's own account, with their OK.

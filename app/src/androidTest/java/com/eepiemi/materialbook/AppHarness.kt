@@ -128,6 +128,16 @@ class AppHarness {
         return true
     }
 
+    /**
+     * [tapIn] on the element [elementJs] evaluates to (an expression; null or undefined while there's
+     * none), scrolled to the middle of the screen first.
+     */
+    fun tapOn(webView: WebView, elementJs: String): Boolean = tapIn(
+        webView,
+        "(function () { var e = ($elementJs); if (!e) return ''; e.scrollIntoView({ block: 'center' });" +
+            " var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
+    )
+
     /** The Messages layer's WebView, once it's open. */
     fun layerWebView(): WebView? = webViews().getOrNull(1)
 
