@@ -157,10 +157,13 @@ class LiveFacebookCanaryTest {
         return "webViews=$webViews activity=$activity screen=$screen views=[$views] renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
 
-    // The feed on screen ([js] true), or a failure ([message]). Facebook's Home sometimes stays blank
-    // on GitHub's emulator for good (only its shell, at /?wtsid=…; three runs on 2026-10-25): reloaded
-    // once then, with a note, before the check fails.
-    private fun awaitFeed(message: String, js: String) {
+    // The page showing what [js] checks for, or a failure ([message]). Facebook's pages sometimes stay
+    // blank on GitHub's emulator for good (only their shell: Home at /?wtsid=…, three runs on
+    // 2026-10-25; the public reel, "title=Facebook buttons=0", 2026-10-28): reloaded once then, with a
+    // note, before the check fails.
+    private fun awaitFeed() = awaitPage("the feed never loaded", FEED_SHOWN_JS)
+
+    private fun awaitPage(message: String, js: String) {
         if (app.waitFor(30_000) { eval(js) == "true" }) return
         note("$message within 30 s (${pageShape()}): reloaded once")
         eval("location.reload(); 1")
@@ -208,6 +211,7 @@ class LiveFacebookCanaryTest {
         if (eval("!!document.querySelector('video')") != "true") {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
+            awaitPage("the public reel never showed its video", "!!document.querySelector('video')")
         }
         var playing = app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" }
         if (!playing) {
@@ -345,7 +349,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun removeAds_hidesTheFeedsAds() {
         open("https://m.facebook.com/")
-        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
+        awaitFeed()
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
         var ads = feedAds()
@@ -776,7 +780,7 @@ class LiveFacebookCanaryTest {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         shell("logcat -c")
         open("https://m.facebook.com/")
-        awaitFeed("the feed has no post with a Share button (its icon, U+F037A)", "!!(${iconActionJs(SHARE_ICON)})")
+        awaitPage("the feed has no post with a Share button (its icon, U+F037A)", "!!(${iconActionJs(SHARE_ICON)})")
         eval(RECORD_WINDOW_OPEN_JS)
         // Real taps: on GitHub's emulator (Android 34) a script's click on Send as a message opened
         // nothing (2026-10-28), Facebook's window.open wanting a user's tap. A tap on Share right as the
@@ -843,7 +847,7 @@ class LiveFacebookCanaryTest {
         // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
         val before = adsPixelBlocks.get()
         open("https://m.facebook.com/")
-        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
+        awaitFeed()
         Thread.sleep(5000) // the pixel's frames come after the feed
         val frames = eval(FRAMES_JS).trim('"')
         val blocked = adsPixelBlocks.get() - before
@@ -899,7 +903,7 @@ class LiveFacebookCanaryTest {
         // text_wrap.js (Wrap text when zoomed) relies on the server's layout: text blocks are
         // white-space: pre with the line breaks in the text, inside boxes of a fixed inline height.
         open("https://m.facebook.com/")
-        awaitFeed("the feed never loaded", "document.querySelectorAll('div.native-text').length > 0")
+        awaitPage("the feed never loaded", "document.querySelectorAll('div.native-text').length > 0")
         eval("window.scrollBy(0, window.innerHeight); 1")
         Thread.sleep(2000)
         val counts = eval(TEXT_LAYOUT_JS).trim('"').split('|').map { it.toIntOrNull() ?: 0 }
@@ -920,11 +924,11 @@ class LiveFacebookCanaryTest {
         runBlocking { SettingsDataStore(app.context).setTextZoom(PAGE_ZOOM) }
         try {
             open("https://m.facebook.com/")
-            awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
+            awaitFeed()
             // The server lays a page out for the vpd cookie written as the page before it loaded.
             eval("location.reload(); 1")
             Thread.sleep(3000)
-            awaitFeed("the feed never loaded again", "document.querySelectorAll('[data-mcomponent]').length > 0")
+            awaitPage("the feed never loaded again", FEED_SHOWN_JS)
             Thread.sleep(2000)
             val parts = eval(ZOOM_STATE_JS).trim('"').split('|')
             val z = parts.take(4).map { it.toDoubleOrNull() ?: 0.0 }
@@ -968,7 +972,7 @@ class LiveFacebookCanaryTest {
         // Facebook's "Facebook is better on the app" sheet comes up over the feed now and then;
         // scripts.js (dismissAppPrompt) presses it away.
         open("https://m.facebook.com/")
-        awaitFeed("the feed never loaded", "document.querySelectorAll('[data-mcomponent]').length > 0")
+        awaitFeed()
         Thread.sleep(8000)
         val sheet = eval(APP_SHEET_JS).trim('"')
         if (sheet.isNotEmpty()) {
@@ -1137,6 +1141,8 @@ class LiveFacebookCanaryTest {
             "[].filter.call(document.querySelectorAll('[data-action-id][aria-label]'), function (e) {" +
                 " var r = e.getBoundingClientRect(); return r.width > 200 && r.height > 30 && r.height < 80 && r.top > innerHeight / 3; })" +
                 ".map(function (e) { return e.getAttribute('aria-label'); }).join(', ')"
+        // The feed drawn (m.facebook.com's components on the page).
+        private const val FEED_SHOWN_JS = "document.querySelectorAll('[data-mcomponent]').length > 0"
         private const val SHARE_ICON = "\\uDB80\\uDF7A"
         private const val MESSENGER_ICON = "\\uDB8C\\uDC31"
         // Records the page's window.open (m.facebook.com's Send as a message opens Messenger's share link with it).

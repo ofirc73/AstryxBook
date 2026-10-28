@@ -474,8 +474,9 @@ on their own can't:
 `LiveFacebookCanaryTest` runs the app against today's real m.facebook.com, logged in, to catch
 Facebook changing what the scripts rely on. The fixed-page tests above run each script on Facebook's
 markup as it was when the test was written, so they keep passing when Facebook changes it. Every
-test added or changed gets its live check here, or a reason below why it has none. What each
-live check guards:
+test added or changed gets its live check here, or a reason below why it has none. A page Facebook
+leaves blank on GitHub's emulator (Home, or the public reel the reel checks fall back to there) is
+reloaded once, with a note, before the check fails (`awaitPage`). What each live check guards:
 - `aReel_keepsPlayingInPip`: a reel going to PiP from Home and playing there with a visible video
   (`pip_video_detector.js`, the keep-playing guard, focus mode; `PipKeepPlayingJsTest`,
   `PipVideoDetectorJsTest`, `PipFocusModeJsTest`), and no PiP-narrow `vpd` cookie left once it
