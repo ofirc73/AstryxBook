@@ -6,6 +6,15 @@ applicationId `com.astryx.book`. Fork-specific changes are documented in
 `FORK_CHANGES.md` (upstream's own log is `CHANGE.md`); update it with every
 user-visible change.
 
+- **Packages (since 2026-10-28):** a new fork-only Kotlin file goes in `com.astryx.book.*` (`app/src/main/java/com/astryx/book/…`,
+  tests in `app/src/test|androidTest/java/com/astryx/book/…`), mirroring the old layout (`.utils`,
+  `.ui.screens`, …). Existing files stay where they are, and so does the Android `namespace`
+  (`com.eepiemi.materialbook`: `R`, `BuildConfig` and the manifest's relative class names come from it).
+  Renaming it would conflict every upstream merge and rename `MainActivity`, which drops the
+  launcher icon from users' home screens. A new class something creates by reflection needs its
+  keep rule in `proguard-rules.pro` under the new package; a new activity or receiver goes in the
+  manifest by its full name (a relative `.Name` resolves to `com.eepiemi.materialbook`).
+
 ## Build, install, test (Windows / PowerShell)
 
 - Release build for a device: `.\gradlew.bat assembleRelease "-PversionNameOverride=99.99.N"`.
