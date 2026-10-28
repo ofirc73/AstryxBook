@@ -6,14 +6,20 @@ applicationId `com.astryx.book`. Fork-specific changes are documented in
 `FORK_CHANGES.md` (upstream's own log is `CHANGE.md`); update it with every
 user-visible change.
 
-- **Packages (since 2026-10-28):** a new fork-only Kotlin file goes in `com.astryx.book.*` (`app/src/main/java/com/astryx/book/…`,
-  tests in `app/src/test|androidTest/java/com/astryx/book/…`), mirroring the old layout (`.utils`,
-  `.ui.screens`, …). Existing files stay where they are, and so does the Android `namespace`
-  (`com.eepiemi.materialbook`: `R`, `BuildConfig` and the manifest's relative class names come from it).
-  Renaming it would conflict every upstream merge and rename `MainActivity`, which drops the
-  launcher icon from users' home screens. A new class something creates by reflection needs its
-  keep rule in `proguard-rules.pro` under the new package; a new activity or receiver goes in the
-  manifest by its full name (a relative `.Name` resolves to `com.eepiemi.materialbook`).
+- **Packages (since 2026-10-28):** the fork's own Kotlin files live in `com.astryx.book.*`
+  (`app/src/{main,test,androidTest}/java/com/astryx/book/…`, with the same sub-packages: `.utils`,
+  `.ui.screens`, …); a new one goes there too. Only upstream's files (the 29 also in
+  `upstream/main`, e.g. `MainActivity.kt`, `MaterialbookWV.kt`, `SettingsDataStore.kt`) stay in
+  `com.eepiemi.materialbook.*`, and so does the Android `namespace` (`R`, `BuildConfig` and the
+  manifest's relative class names come from it), so upstream merges don't conflict and
+  `MainActivity` keeps its name (renamed, it would drop the launcher icon from users' home
+  screens). A fork activity, service or receiver goes in the manifest by its full name (a
+  relative `.Name` resolves to `com.eepiemi.materialbook`); a class something creates by
+  reflection needs its keep rule under the new package. A class name saved on the device must
+  survive a move: the Facebook notifications job is re-enqueued with `ExistingPeriodicWorkPolicy.UPDATE`,
+  which rewrites the worker class WorkManager saved (tried on the emulator: a job saved by v1.36.4
+  named `com.eepiemi…FacebookCountsWorker`, the update rewrote it, schedule kept). Paths below like
+  `ui/screens/MessagesLayer.kt` are under whichever of the two packages holds the file.
 
 ## Build, install, test (Windows / PowerShell)
 

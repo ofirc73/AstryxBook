@@ -8,6 +8,12 @@ Organized by area rather than by release tag, since auto-versioning bumps a
 patch version on every merged commit (`fix:`/`chore:`/etc.) — a per-tag log
 would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
+The fork's own code is in package `com.astryx.book` (moved there in v1.36.5: 48 app files, 35 unit
+tests, 45 instrumented tests); upstream's files stay in `com.eepiemi.materialbook`, so upstream
+merges don't touch the move. The Facebook notifications job is re-enqueued with
+`ExistingPeriodicWorkPolicy.UPDATE`, so a job an older version saved under the old worker class is
+rewritten to the new one, keeping its schedule.
+
 ## Rebrand
 
 - Renamed to **Astryxbook**: `applicationId` (`com.astryx.book`), display
