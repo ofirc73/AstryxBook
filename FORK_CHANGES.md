@@ -358,7 +358,9 @@ would mostly be noise. See GitHub Releases for the actual per-version diffs.
 
 The fixed-page tests share one WebView setup, `PageFixture` (it replaced a copy in each of the 22
 `*JsTest` classes), and the app-level tests and the live checks share `AppHarness`'s
-`layerOpen` and `tapIn`.
+`layerOpen`, `tapIn` and `tapOn` (a real tap on the element a JS expression gives; it replaced six
+copies of the same "box for tapIn" script, 2026-10-28). The live checks find what's on screen with
+one `shownJs(selector)` and Messenger's message box with one `MESSAGE_BOX_FIND_JS`.
 
 Added test coverage for the rebrand and default-behavior changes: settings
 defaults, theme colors, app identity/strings, launcher icon, applicationId,
@@ -434,7 +436,9 @@ on their own can't:
 - `SendAsMessageTest`: a post's Send as a message (Facebook's Messenger share link) opening the
   Messages layer, and a chat opened there (a test page with Messenger's message box, tapped) getting
   the post's link in its box; with Messages in desktop mode off, after desktop mode is picked in the
-  app's dialog (pressed by keyboard: the test's UiAutomation sees no window for the dialog). A tap
+  app's dialog (pressed by keyboard: the test's UiAutomation sees no window for the dialog); and a
+  chat whose box comes 0.8 s after the tap and loses the first text put in it (as Messenger's does
+  before its editor takes it over) getting the link once. A tap
   the page didn't get (a dialog Facebook's real start page pushed can take it) is made once more,
   and a failure names the taps, the dialog, the setting and the layer's address (the v1.36.2
   release run failed once without saying). Live check
@@ -442,7 +446,8 @@ on their own can't:
   has the item (found by its Messenger icon; the next post's Share is tried when a sheet has none),
   still hands out a share link the app reads (its log line), and the chat list opens; with the test
   chat (`-e fbChat`, local only), the chat picked from the list gets the link in Messenger's real
-  message box, which is then emptied: nothing is sent.
+  message box (a note when it takes over 2 s; about 0.4 s on the emulator), which is then emptied:
+  nothing is sent.
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
@@ -570,7 +575,11 @@ separate layer was added on top.
   without the post). Since v1.36.3 the Messages layer opens the chat list, with a banner over it
   ("Open a chat to send the post", and a close button that drops the post); the chat the user
   opens gets the post's link in its message box (`put_link_in_chat.js`, Messenger's own preview
-  card follows), and the user sends it. v1.36.2 opened the desktop site's Send in Messenger dialog
+  card follows), and the user sends it. Since v1.36.4 the link is there some 0.4 s after the chat
+  is tapped (it was about 4 s, measured on the emulator): the script watches the page and puts the
+  link in as the box appears, trying again 0.2 s on (an insert made as the box appears is lost
+  before Messenger's editor takes the box over), instead of the app asking every 0.7 s and waiting
+  1 s between tries. v1.36.2 opened the desktop site's Send in Messenger dialog
   (`www.facebook.com/share_as_message/?link=…`) instead: in an end-to-end encrypted chat its Send
   posted an attachment the chat showed as an empty message, and the other side got nothing (seen on
   a Galaxy A56 and the emulator, 2026-10-28). With Messages in desktop mode off, the app's "Read

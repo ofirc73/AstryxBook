@@ -514,7 +514,7 @@ class LiveFacebookCanaryTest {
     fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_REEL_BOX_JS) }) {
+        if (!app.waitFor(45_000) { app.tapOn(layer, CHAT_REEL_JS) }) {
             fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
         }
         assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
@@ -536,7 +536,7 @@ class LiveFacebookCanaryTest {
     fun aPostSharedInAChat_opensInTheMainView_andBackShowsTheChatAtIt() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
-        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_POST_BOX_JS) }) {
+        if (!app.waitFor(45_000) { app.tapOn(layer, CHAT_POST_JS) }) {
             fail("no shared post (a link to /share/p/) in the test chat (${layerShape(layer)})")
         }
         // Like a reel: the post in the main view (m.facebook.com shows it as Home, the post at the
@@ -571,10 +571,10 @@ class LiveFacebookCanaryTest {
             })
         }
 
-        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_POST_BOX_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
+        if (!app.waitFor(45_000) { app.tapOn(layer, CHAT_POST_JS) }) fail("no shared post in the test chat (${layerShape(layer)})")
         assertTrue("the shared post didn't leave the Messages layer", app.waitFor(30_000) { !app.layerOpen() })
         backToTheChat("post")
-        if (!app.waitFor(45_000) { app.tapIn(layer, CHAT_REEL_BOX_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
+        if (!app.waitFor(45_000) { app.tapOn(layer, CHAT_REEL_JS) }) fail("no shared reel in the test chat (${layerShape(layer)})")
         assertTrue("the reel didn't leave the Messages layer", app.waitFor(30_000) {
             !app.layerOpen() && app.url(main).startsWith("https://m.facebook.com/reel/")
         })
@@ -706,8 +706,7 @@ class LiveFacebookCanaryTest {
                 app.eval("document.documentElement.classList.contains('astryx-story-popup-open')", layer) == "false"
             })
         assertEquals("the tap on Discard went through with the music list open", "false", app.eval(
-            "[].some.call(document.querySelectorAll('[role=dialog]'), function (d) {" +
-                " var r = d.getBoundingClientRect(); return r.width > 0 && r.height > 0; })", layer
+            "${shownJs("[role=dialog]")}.length > 0", layer
         ))
     }
 
@@ -819,10 +818,14 @@ class LiveFacebookCanaryTest {
         assertTrue("the test chat never showed in the Messages layer (${layerShape(layer)})",
             app.waitFor(45_000) { app.eval(chatShownJs(chat), layer) == "true" })
         // A user's tap on the box gives the page the focus the script needs (the row was clicked by script).
-        assertTrue("the chat's message box couldn't be tapped", app.tapIn(layer, MESSAGE_BOX_JS))
+        assertTrue("the chat's message box couldn't be tapped", app.tapOn(layer, MESSAGE_BOX_FIND_JS))
+        val tappedAt = System.currentTimeMillis()
         val placed = app.waitFor(20_000) {
             logLines("Astryxbook").any { "Link to send: in the chat's message box" in it }
         }
+        // About 0.4 s on the emulator (2026-10-28; 4 s before the page watched for the box).
+        val took = System.currentTimeMillis() - tappedAt
+        if (placed && took > 2000) note("the post's link took ${took / 1000.0} s to reach the chat's message box")
         // Never sent: emptied whatever happened.
         shell("input keycombination 113 29")
         shell("input keyevent 67")
@@ -1127,9 +1130,8 @@ class LiveFacebookCanaryTest {
         // [glyph]'s [index]th item (scrolled into view: the feed's first post may start below the
         // screen), clicked when [click]; true when there's one.
         private fun actionWithIconJs(glyph: String, click: Boolean, index: Int = 0) =
-            "(function () { var e = [].filter.call(document.querySelectorAll('[data-action-id]'), function (e) {" +
-                " var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 &&" +
-                " (e.innerText || '').trim().indexOf('$glyph') === 0; })[$index];" +
+            "(function () { var e = ${shownJs("[data-action-id]")}.filter(function (e) {" +
+                " return (e.innerText || '').trim().indexOf('$glyph') === 0; })[$index];" +
                 (if (click) " if (e) { e.scrollIntoView({ block: 'center' }); e.click(); }" else "") + " return !!e; })()"
         // The Share sheet's items on screen (their labels), for failures; "" without a sheet.
         private const val SHEET_ITEMS_JS =
@@ -1142,14 +1144,14 @@ class LiveFacebookCanaryTest {
         private const val RECORD_WINDOW_OPEN_JS =
             "(function () { if (window.__canaryOpenHook) return 1; window.__canaryOpenHook = true; var o = window.open;" +
                 " window.open = function (u) { window.__canaryOpened = String(u); return o.apply(this, arguments); }; return 1; })()"
-        // The open chat's message box (Messenger's Lexical editor): its box for tapIn, and its text.
-        private const val MESSAGE_BOX_FIND_JS =
-            "[].filter.call(document.querySelectorAll('[role=textbox][contenteditable=true]'), function (e) {" +
-                " var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })[0]"
-        private const val MESSAGE_BOX_JS =
-            "(function () { var e = $MESSAGE_BOX_FIND_JS; if (!e) return ''; e.scrollIntoView(); var r = e.getBoundingClientRect();" +
-                " return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
-        private const val MESSAGE_BOX_TEXT_JS = "(function () { var e = $MESSAGE_BOX_FIND_JS; return e ? e.innerText : ''; })()"
+        // The elements matching [selector] that have a size, in page order (a JS array).
+        private fun shownJs(selector: String) =
+            "[].filter.call(document.querySelectorAll(${JSONObject.quote(selector)}), function (e) {" +
+                " var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })"
+        // The open chat's message box (Messenger's Lexical editor), for tapOn and the checks that read
+        // it; undefined on the chat list, which keeps a box with no size.
+        private val MESSAGE_BOX_FIND_JS = shownJs("[role=textbox][contenteditable=true]") + "[0]"
+        private val MESSAGE_BOX_TEXT_JS = "(function () { var e = $MESSAGE_BOX_FIND_JS; return e ? e.innerText : ''; })()"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"
@@ -1394,32 +1396,11 @@ class LiveFacebookCanaryTest {
         """
 
         // The chat's latest shared reel (a link to a /reel/ page, or Facebook's share link for one),
-        // scrolled into view, as tapIn's box; "" while there's none.
-        private const val CHAT_REEL_BOX_JS = """
-            (function () {
-              var links = Array.prototype.filter.call(document.querySelectorAll('a[href*="/reel/"], a[href*="/share/r/"]'),
-                function (a) { var r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
-              if (!links.length) return '';
-              var link = links[links.length - 1];
-              link.scrollIntoView({ block: 'center' });
-              var r = link.getBoundingClientRect();
-              return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
-            })()
-        """
+        // for tapOn; undefined while there's none.
+        private val CHAT_REEL_JS = shownJs("a[href*=\"/reel/\"], a[href*=\"/share/r/\"]") + ".pop()"
 
-        // The chat's latest shared post (Facebook's /share/p/ link), scrolled into view, as tapIn's
-        // box; "" while there's none.
-        private const val CHAT_POST_BOX_JS = """
-            (function () {
-              var links = Array.prototype.filter.call(document.querySelectorAll('a[href*="/share/p/"]'),
-                function (a) { var r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
-              if (!links.length) return '';
-              var link = links[links.length - 1];
-              link.scrollIntoView({ block: 'center' });
-              var r = link.getBoundingClientRect();
-              return [r.left, r.top, r.width, r.height, window.visualViewport.width].join(',');
-            })()
-        """
+        // The chat's latest shared post (Facebook's /share/p/ link), for tapOn.
+        private val CHAT_POST_JS = shownJs("a[href*=\"/share/p/\"]") + ".pop()"
 
         // The "From your link" label (the test account's Facebook is in English), found by its
         // text, independently of linked_post.js, in the top third of the screen.
@@ -1441,9 +1422,7 @@ class LiveFacebookCanaryTest {
                 " var r = a.getBoundingClientRect(); return r.height > 0 && r.bottom > 0 && r.top < window.innerHeight; })"
 
         // A chat on screen: its message box has a size (the chat list keeps it with none).
-        private const val CHAT_OPEN_JS =
-            "Array.prototype.some.call(document.querySelectorAll('[role=\"textbox\"][contenteditable=\"true\"]')," +
-                " function (e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })"
+        private val CHAT_OPEN_JS = "!!($MESSAGE_BOX_FIND_JS)"
 
         // What follows /messages/ in FB_TEST_CHAT's chat ("t/<id>", "e2ee/t/<id>"), given as its
         // address, that path or a bare id.
@@ -1454,13 +1433,14 @@ class LiveFacebookCanaryTest {
             return full
         }
 
+        // The chat's row in the chat list, when on screen (a JS array).
+        private fun chatRowJs(chat: String) = shownJs("a[href=\"/messages/$chat/\"]")
+
         // Whether the layer shows the chat list: the chat's row on screen, and no message box.
         private fun chatListShownJs(chat: String) = """
             (function () {
-              function shown(e) { var r = e && e.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; }
-              var boxes = document.querySelectorAll('[role="textbox"][contenteditable="true"]');
-              for (var i = 0; i < boxes.length; i++) { if (shown(boxes[i])) return false; }
-              return shown(document.querySelector('a[href="/messages/$chat/"]'));
+              if ($MESSAGE_BOX_FIND_JS) return false;
+              return ${chatRowJs(chat)}.length > 0;
             })()
         """
 
@@ -1468,11 +1448,9 @@ class LiveFacebookCanaryTest {
         // While the chat list shows instead, the chat's row is tapped (at most every 3 s).
         private fun chatShownJs(chat: String) = """
             (function () {
-              function shown(e) { var r = e && e.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; }
-              var boxes = document.querySelectorAll('[role="textbox"][contenteditable="true"]');
-              for (var i = 0; i < boxes.length; i++) { if (shown(boxes[i])) return true; }
-              var row = document.querySelector('a[href="/messages/$chat/"]');
-              if (shown(row) && !(Date.now() - (window.__canaryRowTap || 0) < 3000)) {
+              if ($MESSAGE_BOX_FIND_JS) return true;
+              var row = ${chatRowJs(chat)}[0];
+              if (row && !(Date.now() - (window.__canaryRowTap || 0) < 3000)) {
                 window.__canaryRowTap = Date.now();
                 row.click();
               }

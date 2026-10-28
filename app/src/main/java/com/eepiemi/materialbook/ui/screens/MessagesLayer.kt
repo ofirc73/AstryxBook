@@ -281,8 +281,9 @@ fun MessagesLayer(
     }
 
     // A post sent with Send as a message: the chat the user opens from the chat list gets the post's
-    // link in its message box (put_link_in_chat.js), for the user to send. Asked every moment until
-    // it's there: a chat opens in-page, and its box comes some time after.
+    // link in its message box (put_link_in_chat.js, which watches the page for the box), for the user
+    // to send. Asked again every moment until it's there, to drop the banner (and to start the
+    // watcher on a page that loads anew). The post dropped (the banner's close), the watcher stops.
     val currentOnLinkToSendDone by rememberUpdatedState(onLinkToSendDone)
     LaunchedEffect(linkToSend, loadingState is LoadingState.Finished) {
         val link = linkToSend ?: return@LaunchedEffect
@@ -290,15 +291,21 @@ fun MessagesLayer(
         val script = "window.__astryxLinkToSend = ${JSONObject.quote(link)};\n" +
             resources.openRawResource(R.raw.put_link_in_chat).bufferedReader().use { it.readText() }
         Log.d("Astryxbook", "Link to send: waiting for a chat")
-        while (true) {
-            val result = CompletableDeferred<String>()
-            navigator.evaluateJavaScript(script) { result.complete(it) }
-            if (result.await().contains("placed")) {
-                Log.d("Astryxbook", "Link to send: in the chat's message box")
-                currentOnLinkToSendDone()
-                return@LaunchedEffect
+        var placed = false
+        try {
+            while (true) {
+                val result = CompletableDeferred<String>()
+                navigator.evaluateJavaScript(script) { result.complete(it) }
+                if (result.await().contains("placed")) {
+                    placed = true
+                    Log.d("Astryxbook", "Link to send: in the chat's message box")
+                    currentOnLinkToSendDone()
+                    return@LaunchedEffect
+                }
+                delay(LINK_TO_SEND_RETRY_MS)
             }
-            delay(LINK_TO_SEND_RETRY_MS)
+        } finally {
+            if (!placed) navigator.evaluateJavaScript("window.__astryxLinkToSend = null; 1") {}
         }
     }
 
@@ -458,8 +465,9 @@ private const val STEP_BACK_TO_CHAT_JS =
         " steps++; history.back(); }" +
         " window.addEventListener('popstate', step); step(); })()"
 
-// put_link_in_chat.js, asked this often until the chat's message box holds the link.
-private const val LINK_TO_SEND_RETRY_MS = 700L
+// put_link_in_chat.js, asked this often until the chat's message box holds the link (the page's own
+// watcher puts it in).
+private const val LINK_TO_SEND_RETRY_MS = 300L
 
 // open_own_story.js: up to 5 s for the stories page's Your story card.
 private const val SHARED_STORY_TRIES = 10
