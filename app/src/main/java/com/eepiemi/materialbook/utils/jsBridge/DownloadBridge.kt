@@ -17,7 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
-import com.eepiemi.materialbook.utils.isFacebookWebUrl
+import com.astryx.book.utils.isFacebookWebUrl
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow

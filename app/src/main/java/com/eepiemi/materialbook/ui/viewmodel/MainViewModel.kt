@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import com.eepiemi.materialbook.R
-import com.eepiemi.materialbook.utils.Script
-import com.eepiemi.materialbook.utils.bundledScripts
+import com.astryx.book.utils.Script
+import com.astryx.book.utils.bundledScripts
 
 
 class MainViewModel(

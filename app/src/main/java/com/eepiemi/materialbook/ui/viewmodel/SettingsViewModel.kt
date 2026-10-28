@@ -35,11 +35,11 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.REMOVE_AD
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.START_ON_FEEDS
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.STICKY_NAVBAR
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.TEXT_WRAP_ON_ZOOM
-import com.eepiemi.materialbook.utils.AppLock
+import com.astryx.book.utils.AppLock
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.TEXT_ZOOM
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.WEBVIEW_DEBUGGING
-import com.eepiemi.materialbook.utils.KeepScreenOn
-import com.eepiemi.materialbook.utils.TextZoom
+import com.astryx.book.utils.KeepScreenOn
+import com.astryx.book.utils.TextZoom
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
