@@ -776,19 +776,21 @@ class LiveFacebookCanaryTest {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         shell("logcat -c")
         open("https://m.facebook.com/")
-        awaitFeed("the feed has no post with a Share button (its icon, U+F037A)", actionWithIconJs(SHARE_ICON, click = false))
+        awaitFeed("the feed has no post with a Share button (its icon, U+F037A)", "!!(${iconActionJs(SHARE_ICON)})")
         eval(RECORD_WINDOW_OPEN_JS)
-        // A tap on Share right as the feed appears can go unanswered, and some posts' sheets have no
-        // Send as a message: every 4 s the next post's Share is tapped (a script's click reaches it
-        // under a sheet left open).
+        // Real taps: on GitHub's emulator (Android 34) a script's click on Send as a message opened
+        // nothing (2026-10-28), Facebook's window.open wanting a user's tap. A tap on Share right as the
+        // feed appears can go unanswered, and some posts' sheets have no Send as a message: every 4 s
+        // the next post's Share is tapped (a tap on a sheet left open closes it first).
         var sharedAt = 0L
         var shares = 0
         var sheet = ""
+        val main = app.mainWebView()
         val sent = app.waitFor(30_000) {
-            if (eval(actionWithIconJs(MESSENGER_ICON, click = true)) == "true") return@waitFor true
+            if (app.tapOn(main, iconActionJs(MESSENGER_ICON))) return@waitFor true
             if (System.currentTimeMillis() - sharedAt > 4000) {
                 sheet = eval(SHEET_ITEMS_JS).trim('"')
-                eval(actionWithIconJs(SHARE_ICON, click = true, index = shares++))
+                app.tapOn(main, iconActionJs(SHARE_ICON, index = shares++))
                 sharedAt = System.currentTimeMillis()
             }
             false
@@ -1126,12 +1128,10 @@ class LiveFacebookCanaryTest {
         // A visible link to the story creator on the stories page (Add to story, or Create a story).
         // A feed post's Share button and its sheet's Send as a message, found by their icons (the
         // icon font's U+F037A share arrow and U+F3031 Messenger logo, read on the emulator 2026-10-27):
-        // [glyph]'s [index]th item (scrolled into view: the feed's first post may start below the
-        // screen), clicked when [click]; true when there's one.
-        private fun actionWithIconJs(glyph: String, click: Boolean, index: Int = 0) =
-            "(function () { var e = ${shownJs("[data-action-id]")}.filter(function (e) {" +
-                " return (e.innerText || '').trim().indexOf('$glyph') === 0; })[$index];" +
-                (if (click) " if (e) { e.scrollIntoView({ block: 'center' }); e.click(); }" else "") + " return !!e; })()"
+        // [glyph]'s [index]th item, for tapOn; undefined while there's none.
+        private fun iconActionJs(glyph: String, index: Int = 0) =
+            "${shownJs("[data-action-id]")}.filter(function (e) {" +
+                " return (e.innerText || '').trim().indexOf('$glyph') === 0; })[$index]"
         // The Share sheet's items on screen (their labels), for failures; "" without a sheet.
         private const val SHEET_ITEMS_JS =
             "[].filter.call(document.querySelectorAll('[data-action-id][aria-label]'), function (e) {" +
