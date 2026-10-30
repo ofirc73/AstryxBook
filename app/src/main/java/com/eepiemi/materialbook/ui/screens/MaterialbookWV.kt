@@ -464,6 +464,7 @@ fun MaterialbookWebView(
                             val steps = backHistory.backTarget(
                                 entries, list.currentIndex, mainPageStarts.count, SystemClock.elapsedRealtime()
                             )?.let { it - list.currentIndex }
+                            Log.d("Astryxbook", "Back: $steps from ${list.currentIndex + 1} of ${list.size}")
                             if (steps != null && webView.canGoBackOrForward(steps)) {
                                 webView.goBackOrForward(steps)
                                 true

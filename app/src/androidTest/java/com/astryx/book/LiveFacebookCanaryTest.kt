@@ -199,12 +199,26 @@ class LiveFacebookCanaryTest {
         app.onActivity { main.loadUrl(url) }
     }
 
-    // The main view's page is the web fallback of Facebook's redirect to its app (intent://).
-    private fun loadedFromIntentFallback(): Boolean {
-        val main = app.mainWebView()
-        return app.onActivity { main.copyBackForwardList().currentItem?.originalUrl.orEmpty() }
-            .contains("from_intent_redirect=1")
+    // The main view's history: each page's address now and as it was loaded, and the current one.
+    private class History(val urls: List<String>, val loadedUrls: List<String>, val current: Int) {
+        // For a failure: the pages' paths, the current one marked.
+        override fun toString() = urls.mapIndexed { i, u ->
+            (if (i == current) "*" else "") + u.substringAfter("facebook.com").substringBefore('?').replace(Regex("\\d{6,}"), "N")
+        }.joinToString(" ")
     }
+
+    private fun mainHistory(): History {
+        val main = app.mainWebView()
+        return app.onActivity {
+            val list = main.copyBackForwardList()
+            val items = (0 until list.size).map { list.getItemAtIndex(it) }
+            History(items.map { it.url.orEmpty() }, items.map { it.originalUrl.orEmpty() }, list.currentIndex)
+        }
+    }
+
+    // The main view's page is the web fallback of Facebook's redirect to its app (intent://).
+    private fun loadedFromIntentFallback(): Boolean =
+        mainHistory().let { it.loadedUrls.getOrElse(it.current) { "" } }.contains("from_intent_redirect=1")
 
     // Down most of a screen, then [settleMs] for what the page loads as it scrolls.
     private fun scrollDown(settleMs: Long = 2000) {
@@ -627,7 +641,7 @@ class LiveFacebookCanaryTest {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)
         val main = app.mainWebView()
-        val start = app.onActivity { main.copyBackForwardList().currentIndex }
+        val start = mainHistory().current
         val backToTheChat = { what: String ->
             app.pressBack()
             assertTrue("Back on the $what never showed the chat again", app.waitFor(15_000) {
@@ -644,7 +658,7 @@ class LiveFacebookCanaryTest {
         })
         backToTheChat("reel")
         assertTrue("the main view didn't go back to where it was before the post and the reel", app.waitFor(10_000) {
-            app.onActivity { main.copyBackForwardList().currentIndex } <= start
+            mainHistory().current <= start
         })
 
         app.pressBack()
@@ -655,10 +669,7 @@ class LiveFacebookCanaryTest {
         assertTrue("Back on the chat list didn't close Messages", app.waitFor(10_000) { !app.layerOpen() })
         Thread.sleep(2000)
         // Nothing the chat opened is left in the main view, on screen or behind it.
-        val pages = app.onActivity {
-            val history = main.copyBackForwardList()
-            (0..history.currentIndex).map { history.getItemAtIndex(it).url }
-        }
+        val pages = mainHistory().let { it.urls.take(it.current + 1) }
         val left = pages.filter { "/reel/" in it || "/share/p/" in it || "/posts/" in it }
         assertTrue("the main view kept what the chat opened: ${left.map { it.replace(Regex("\\d{6,}"), "N").substringBefore('?') }}",
             left.isEmpty())
@@ -706,7 +717,9 @@ class LiveFacebookCanaryTest {
         awaitPage("Notifications never loaded", "location.pathname.indexOf('/notifications') === 0 && $FEED_SHOWN_JS")
 
         app.pressBack()
-        assertTrue("Back on Notifications didn't go back to the reel (${app.url(main)})", app.waitFor(30_000) {
+        assertTrue("Back on Notifications didn't go back to the reel (history: ${mainHistory()}; the app's Back: " +
+            "${logLines("Astryxbook").lastOrNull { it.startsWith("Back: ") }}; dialogs: " +
+            "${eval("document.querySelectorAll('[role=dialog]').length")})", app.waitFor(30_000) {
             app.url(main).startsWith(PUBLIC_REEL_URL) && app.onActivity { main.progress } == 100
         })
         val bouncedOnBack = loadedFromIntentFallback()
