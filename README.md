@@ -74,7 +74,7 @@ Always on:
 *  Supports real fullscreen video, including landscape, from Facebook's fullscreen button
    (on phones the app otherwise stays in portrait, apart from Messages, since Facebook's mobile site breaks in landscape)
 *  One-tap *Log out and clear data* in Settings
-*  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Italian, Spanish, French, Portuguese, Indonesian, and Traditional Chinese
+*  Supports English, Arabic, Bengali, German, Hebrew (`עברית`), Italian, Spanish, French, Portuguese, Indonesian, Polish, and Traditional Chinese
 *  And more!
 
 <h2 align="middle">

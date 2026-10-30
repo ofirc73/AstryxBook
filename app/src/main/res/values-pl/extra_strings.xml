@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish copy of values/extra_strings.xml (see the comment there). -->
+<resources>
+    <string name="text_size_title">Powiększenie strony</string>
+    <string name="text_size_percent">%1$d%%</string>
+    <string name="text_size_default">%1$d%% (domyślnie)</string>
+
+    <string name="share_page">Udostępnij tę stronę</string>
+    <string name="share_only_links">Na Facebooku można udostępniać tylko linki</string>
+
+    <string name="shortcut_messages">Wiadomości</string>
+    <string name="shortcut_notifications">Powiadomienia</string>
+    <string name="shortcut_marketplace">Marketplace</string>
+
+    <string name="app_version">%1$s %2$s</string>
+    <string name="developer_options_enabled">Opcje programisty są włączone</string>
+    <string name="webview_debugging_title">Debugowanie WebView</string>
+    <string name="webview_debugging_summary">Pozwól komputerowi z debugowaniem USB podglądać stronę i nią sterować (chrome://inspect). Wyłącz po zakończeniu.</string>
+    <string name="external_link_title">Otworzyć w innej aplikacji?</string>
+    <string name="external_link_open">Otwórz</string>
+    <string name="open_links_title">Otwieraj tutaj linki do Facebooka</string>
+    <string name="open_links_summary">Wybierz, które linki do Facebooka mają się otwierać w tej aplikacji zamiast w przeglądarce</string>
+    <string name="open_web_links_in_app_title">Otwieraj linki do stron w aplikacji</string>
+    <string name="open_web_links_in_app_summary">Pokazuj je w karcie przeglądarki nad aplikacją zamiast przełączać aplikacje. Karta nie korzysta z tutejszego logowania do Facebooka.</string>
+    <string name="export_settings_title">Eksportuj ustawienia</string>
+    <string name="export_settings_summary">Zapisz ustawienia do pliku</string>
+    <string name="import_settings_title">Importuj ustawienia</string>
+    <string name="import_settings_summary">Przywróć ustawienia z wyeksportowanego pliku</string>
+    <string name="settings_exported">Ustawienia wyeksportowane</string>
+    <string name="settings_export_failed">Nie udało się wyeksportować ustawień</string>
+    <string name="settings_import_failed">To nie jest plik ustawień Astryxbook</string>
+    <plurals name="settings_imported">
+        <item quantity="one">Zaimportowano %1$d ustawienie</item>
+        <item quantity="few">Zaimportowano %1$d ustawienia</item>
+        <item quantity="many">Zaimportowano %1$d ustawień</item>
+        <item quantity="other">Zaimportowano %1$d ustawienia</item>
+    </plurals>
+    <!-- Settings sections -->
+    <string name="settings_section_feed">Kanał</string>
+    <string name="settings_section_appearance">Wygląd</string>
+    <string name="settings_section_video">Wideo</string>
+    <string name="settings_section_messages_links">Wiadomości i linki</string>
+    <string name="settings_section_privacy">Prywatność i bezpieczeństwo</string>
+    <string name="settings_section_backup">Kopia zapasowa</string>
+    <string name="reload_to_apply">Odśwież, aby zastosować</string>
+    <string name="hide_from_feed_title">Ukryj w kanale</string>
+    <string name="amoled_black_summary">Czysto czarne tło w trybie ciemnym Facebooka (menu Facebooka › Tryb ciemny)</string>
+    <string name="text_size_layout_note">Powiększa lub pomniejsza strony Facebooka: tekst, obrazy i przyciski razem, więc nic na siebie nie zachodzi.</string>
+    <string name="app_lock_open_security_settings">Ustaw blokadę ekranu na tym urządzeniu, aby używać blokady aplikacji. Dotknij, aby otworzyć ustawienia zabezpieczeń.</string>
+    <string name="open_links_hint_text">Na następnym ekranie dotknij Dodaj link i zaznacz wszystkie linki do Facebooka.</string>
+    <string name="open_links_hint_continue">Dalej</string>
+
+    <!-- Links into other apps -->
+    <string name="external_link_text">Ten link otwiera inną aplikację na telefonie (%1$s).</string>
+    <string name="no_app_for_link">Żadna aplikacja na tym telefonie nie może otworzyć tego linku</string>
+    <string name="messenger_link_title">Czytać wiadomości tutaj?</string>
+    <string name="messenger_link_text">Facebook chce otworzyć aplikację Messenger. W trybie Wiadomości w wersji komputerowej możesz czytać i wysyłać wiadomości w tej aplikacji.</string>
+    <string name="messenger_link_use_desktop">Użyj trybu komputerowego</string>
+    <string name="messenger_link_open_app">Otwórz Messengera</string>
+
+    <!-- Sharing and downloads -->
+    <string name="share_via">Udostępnij przez…</string>
+    <string name="download_open">Otwórz</string>
+    <string name="download_already_saved">Już w folderze Pobrane</string>
+
+    <!-- Text wrap on zoom (shown under Pinch to zoom) -->
+    <string name="text_wrap_on_zoom_title">Zawijaj tekst po powiększeniu</string>
+    <string name="text_wrap_on_zoom_summary">Dopasowuje powiększony tekst do ekranu, żeby nie trzeba było przewijać w bok</string>
+
+    <!-- Start page (Feed section) -->
+    <string name="start_on_feeds_title">Zaczynaj od Kanałów</string>
+    <string name="start_on_feeds_summary">Otwieraj aplikację na Kanałach Facebooka, od najnowszych postów, zamiast na stronie głównej</string>
+
+    <!-- Facebook notifications (Notifications section) -->
+    <string name="settings_section_notifications">Powiadomienia</string>
+    <string name="facebook_notifications_title">Powiadomienia z Facebooka</string>
+    <string name="facebook_notifications_summary">Gdy aplikacja jest zamknięta, co 15 minut sprawdza nowe powiadomienia, wiadomości i zaproszenia do znajomych, korzystając z logowania do Facebooka w aplikacji</string>
+    <string name="facebook_notifications_denied">Powiadomienia Astryxbook są wyłączone w ustawieniach Androida</string>
+    <string name="facebook_notifications_channel">Powiadomienia z Facebooka</string>
+    <!-- Share photos and videos into Facebook (share sheet entries and messages) -->
+    <string name="share_target_feed">Kanał</string>
+    <string name="share_target_profile_picture">Ustaw jako zdjęcie profilowe</string>
+    <string name="share_target_group">Twoje grupy</string>
+    <string name="share_target_reel">Rolki</string>
+    <string name="share_target_story">Twoja relacja</string>
+    <string name="share_media_nothing_feed">Stąd można publikować w kanale tylko zdjęcia. Filmy mogą trafić do relacji.</string>
+    <string name="share_media_nothing_story">Nie ma czego udostępnić: relacje przyjmują zdjęcia i filmy.</string>
+    <string name="share_media_nothing_photos">Tutaj można udostępniać tylko zdjęcia. Filmy mogą trafić do relacji lub rolki.</string>
+    <string name="share_media_nothing_reel">Nie ma czego udostępnić: rolka wymaga filmu.</string>
+    <string name="story_panel_done">Gotowe</string>
+    <plurals name="share_media_skipped">
+        <item quantity="one">Pominięto %1$d element (za duży, za dużo elementów lub nieobsługiwany typ)</item>
+        <item quantity="few">Pominięto %1$d elementy (za duże, za dużo elementów lub nieobsługiwany typ)</item>
+        <item quantity="many">Pominięto %1$d elementów (za duże, za dużo elementów lub nieobsługiwany typ)</item>
+        <item quantity="other">Pominięto %1$d elementu (za duże, za dużo elementów lub nieobsługiwany typ)</item>
+    </plurals>
+    <string name="share_media_no_composer">Nie udało się otworzyć edytora posta Facebooka. Czy jesteś zalogowany?</string>
+    <string name="share_media_failed">Strona Facebooka nie przyjęła plików. Spróbuj jej własnego przycisku Zdjęcie.</string>
+    <string name="facebook_notification_text_title">Pokazuj ich treść</string>
+    <string name="facebook_notification_text_summary">Dodaje treść nowych powiadomień z Facebooka (nie czatów). Ukryta na ekranie blokady</string>
+    <plurals name="facebook_new_notifications">
+        <item quantity="one">%1$s nowe powiadomienie na Facebooku</item>
+        <item quantity="few">%1$s nowe powiadomienia na Facebooku</item>
+        <item quantity="many">%1$s nowych powiadomień na Facebooku</item>
+        <item quantity="other">%1$s nowego powiadomienia na Facebooku</item>
+    </plurals>
+    <plurals name="facebook_new_messages">
+        <item quantity="one">%1$s nieprzeczytany czat</item>
+        <item quantity="few">%1$s nieprzeczytane czaty</item>
+        <item quantity="many">%1$s nieprzeczytanych czatów</item>
+        <item quantity="other">%1$s nieprzeczytanego czatu</item>
+    </plurals>
+    <plurals name="facebook_new_friend_requests">
+        <item quantity="one">%1$s nowe zaproszenie do znajomych</item>
+        <item quantity="few">%1$s nowe zaproszenia do znajomych</item>
+        <item quantity="many">%1$s nowych zaproszeń do znajomych</item>
+        <item quantity="other">%1$s nowego zaproszenia do znajomych</item>
+    </plurals>
+    <string name="webview_update_title">Zaktualizuj Android System WebView</string>
+    <string name="webview_update_text">Astryxbook wyświetla Facebooka przez Android System WebView, a wersja na tym telefonie (%1$s) jest za stara: część Facebooka nie będzie działać. Potrzebna jest wersja %2$d lub nowsza.</string>
+    <string name="webview_update_open">Aktualizuj</string>
+    <string name="webview_update_later">Nie teraz</string>
+    <string name="share_media_adding_one">Dodawanie zdjęcia…</string>
+    <string name="share_media_adding_several">Dodawanie zdjęć (%1$d)…</string>
+    <string name="send_post_pick_chat">Otwórz czat, aby wysłać post: jego link trafi do pola wiadomości.</string>
+    <string name="send_post_cancel">Nie wysyłaj posta</string>
+</resources>

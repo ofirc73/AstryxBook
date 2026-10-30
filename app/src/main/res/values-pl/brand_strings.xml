@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish copy of values/brand_strings.xml (see the comment there). -->
+<resources>
+    <string name="app_name">Astryxbook</string>
+    <string name="network_error_description">Aby korzystać z Astryxbook, włącz transmisję danych lub połącz się z siecią Wi-Fi.</string>
+    <string name="materialbook_settings">Ustawienia Astryxbook</string>
+</resources>

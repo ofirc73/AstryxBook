@@ -41,7 +41,7 @@ Messages in desktop mode, app lock, and more). Everyone taking part follows the
   - New text the user sees goes in `brand_strings.xml`, `extra_strings.xml` or
     `privacy_strings.xml` (not `strings.xml`, which belongs to upstream Materialbook's
     translations), with a copy in every translated language (`values-ar`, `-bn`, `-de`, `-es`,
-    `-fr`, `-in`, `-it`, `-iw`, `-pt`, `-zh-rTW`).
+    `-fr`, `-in`, `-it`, `-iw`, `-pl`, `-pt`, `-zh-rTW`).
   - A new setting is listed in `data/local/SettingsBackup.kt`, as exported or not.
   - Scripts added to Facebook's pages (`res/raw`) for PiP stay ES5 (no arrow functions or `?.`);
     don't restyle or resize the video's parent elements, Facebook's reels player watches them.

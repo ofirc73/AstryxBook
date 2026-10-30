@@ -68,6 +68,10 @@ rewritten to the new one, keeping its schedule.
 - Indonesian (`in`): upstream's new translation, merged from upstream without its
   Materialbook-branded strings, plus the fork's own strings and its additions to `strings.xml`
   (PiP, Messages in desktop mode, keep screen on…), so the whole app is in Indonesian.
+- Polish (`pl`): upstream's translation (until now an empty file) merged the same way: its
+  Materialbook-branded and unused strings left out, the fork's own strings and its additions to
+  `strings.xml` translated, with Polish plural forms (one, few, many), so the whole app is in
+  Polish.
 
 ## Android compatibility
 
