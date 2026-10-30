@@ -423,15 +423,15 @@ class LiveFacebookCanaryTest {
         }
         if (ads.missed > 0) {
             fail("${ads.missed} Sponsored labels stayed on the feed: adblock.js no longer finds feed ads (by its " +
-                "grey span.f5 in div.native-text.rslh, hiding the post's div[data-dcm-id=\"1\"][data-mcomponent=MContainer]). " +
+                "grey span.f5 in div.native-text.rslh, hiding the post's rows: scripts.js hideFeedPost). " +
                 "The label: ${ads.missedShape}")
         }
-        // The test account has no friends, so its feed may hold no posts at all (suggestions only):
-        // no post boxes is noted, not failed. An ad left showing fails above either way.
+        // The test account's feed has group posts and suggested ones: none found means adblock.js and
+        // the hide_* scripts no longer find the feed's posts. Until 2026-10-30 this was only noted,
+        // and missed Home splitting each post into rows.
         if (ads.posts == 0) {
-            note("no feed posts in the boxes adblock.js hides (div[data-dcm-id=\"1\"][data-mcomponent=MContainer]) " +
-                "in $FEED_SCREENS screens (${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")})")
-            return
+            fail("scripts.js feedPostRows found no posts on the feed (rows of [data-type=vscroller] with a " +
+                "data-tracking-duration-id) in $FEED_SCREENS screens (${runCatching { eval(FEED_SHAPE_JS) }.getOrDefault("")})")
         }
         if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
             fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
@@ -1460,10 +1460,13 @@ class LiveFacebookCanaryTest {
             (function () {
               var s = window.__canaryExtras || (window.__canaryExtras = { sug: [0, 0], pymk: [0, 0], reels: [0, 0] });
               function shown(e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+              // Shown while any row of its post is (scripts.js feedPostRows): a post hidden only in
+              // part, e.g. its header row alone, still shows.
               function count(kind, e) {
                 if (e.__canarySeen) return;
                 e.__canarySeen = true;
-                s[kind][shown(e) ? 0 : 1]++;
+                var rows = window.feedPostRows(e);
+                s[kind][(rows.length ? rows.some(shown) : shown(e)) ? 0 : 1]++;
               }
               var texts = document.querySelectorAll('.native-text');
               for (var i = 0; i < texts.length; i++) {
@@ -1612,22 +1615,25 @@ class LiveFacebookCanaryTest {
             }
         """
 
-        // The feed's posts in the boxes adblock.js hides (top-level ones) and the ones it hid
-        // (hidden, with the grey label it looks for inside), and the Sponsored labels still showing
-        // anywhere on the feed (leaf elements; found by their text, not as adblock.js finds them),
-        // counted across scrolls: "posts|hidden|missed|shape". A missed label's shape names the
-        // Facebook boxes around it (data-mcomponent, #data-dcm-id), for fixing adblock.js.
+        // The feed's posts as adblock.js sees them (scripts.js feedPostRows, counted by their first
+        // row) and the ones it hid (every row hidden, with the grey label it looks for inside), and
+        // the Sponsored labels still showing anywhere on the feed (leaf elements; found by their
+        // text, not as adblock.js finds them), counted across scrolls: "posts|hidden|missed|shape". A
+        // missed label's shape names the Facebook boxes around it (data-mcomponent, #data-dcm-id),
+        // for fixing adblock.js.
         private const val FEED_ADS_JS = """
             (function () {
               $AD_LABEL_FNS
-              var sel = 'div[data-dcm-id="1"][data-mcomponent="MContainer"]';
               var grey = 'div.native-text.rslh > span.f5[style*="color:#8a8d91"]';
               var s = window.__canaryFeed || (window.__canaryFeed = { posts: 0, hidden: 0, missed: 0, shape: '' });
-              var all = document.querySelectorAll(sel);
+              var all = document.querySelectorAll('[data-type="vscroller"] > [data-tracking-duration-id]');
               for (var i = 0; i < all.length; i++) {
-                var p = all[i];
-                if (!p.__canarySeen && !(p.parentElement && p.parentElement.closest(sel))) { p.__canarySeen = true; s.posts++; }
-                if (p.style.display === 'none' && !p.__canaryHidden && p.querySelector(grey)) { p.__canaryHidden = true; s.hidden++; }
+                var post = window.feedPostRows(all[i]);
+                var p = post[0];
+                if (p !== all[i]) continue;
+                if (!p.__canarySeen) { p.__canarySeen = true; s.posts++; }
+                if (!p.__canaryHidden && post.every(function (r) { return r.style.display === 'none'; }) &&
+                    post.some(function (r) { return r.querySelector(grey); })) { p.__canaryHidden = true; s.hidden++; }
               }
               var els = document.body.querySelectorAll('*');
               for (var j = 0; j < els.length; j++) {
@@ -1647,8 +1653,9 @@ class LiveFacebookCanaryTest {
         """
 
         // The feed's structure, for a failure message (no text): how many of Facebook's boxes there
-        // are, the commonest data-dcm-id values of its MContainers, the text blocks and grey spans
-        // adblock.js looks at, and how far the page scrolled.
+        // are, the commonest data-dcm-id values of its MContainers, the feed lists and their tracked
+        // rows (feedPostRows), the text blocks and grey spans adblock.js looks at, and how far the
+        // page scrolled.
         private const val FEED_SHAPE_JS = """
             (function () {
               var ids = {};
@@ -1661,6 +1668,8 @@ class LiveFacebookCanaryTest {
                 .map(function (k) { return k + ':' + ids[k]; }).join(',');
               return 'components=' + document.querySelectorAll('[data-mcomponent]').length +
                 ' containers=' + boxes.length + ' dcmIds=' + (top || 'none') +
+                ' lists=' + document.querySelectorAll('[data-type="vscroller"]').length +
+                ' trackedRows=' + document.querySelectorAll('[data-type="vscroller"] > [data-tracking-duration-id]').length +
                 ' textBlocks=' + document.querySelectorAll('div.native-text.rslh').length +
                 ' greySpans=' + document.querySelectorAll('span.f5[style*="color:#8a8d91"]').length +
                 ' scrollY=' + Math.round(window.scrollY) + ' height=' + document.documentElement.scrollHeight;

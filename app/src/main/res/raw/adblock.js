@@ -51,15 +51,7 @@
             }
 
             // A label outside a feed post (a photo opened directly has some) has no post to hide.
-            const container = parent.closest('div[data-dcm-id="1"][data-mcomponent="MContainer"]');
-            if (!container) continue;
-            container.style.display = 'none'
-
-            const postSeparator = container.previousElementSibling;
-
-            if (postSeparator && postSeparator.offsetHeight === 1 && postSeparator.querySelector('[data-fd-action]') ) {
-              postSeparator.style.display = 'none';
-            }
+            window.hideFeedPost(parent);
         }
     }
 

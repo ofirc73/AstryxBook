@@ -253,6 +253,14 @@ rewritten to the new one, keeping its schedule.
   Before, a normal reel whose caption used a label word ("Ad", `במימון` "funded by") was hidden
   too. Icon glyphs, direction marks and separators around the label are ignored. Covered by
   `ReelAdsJsTest`.
+- Remove ads, Hide suggested posts, Hide People you may know and Hide reels hide whole posts
+  again on Home. Since 2026-10-30 Home draws each post as separate rows of its feed list (header,
+  text, actions) instead of one card: Remove ads looked for the card (`data-dcm-id="1"`, now gone
+  from Home) and hid nothing, and the Hide settings hid only the row holding what they look for
+  (a suggested post's header, its text and buttons still showing). `scripts.js` `hideFeedPost`
+  now hides all of a post's rows, the feed list's children sharing its
+  `data-tracking-duration-id`, and the thin gap above it, in either layout (a post opened from a
+  link still shows as one card). Covered by `FeedPostJsTest`.
 - Reels: Facebook's blue "Open app" button showed in the top bar when *Download* was off (only
   `download_content.js` hid it). `scripts.js`, which always runs, now hides "Open app" buttons,
   found by their icon in any language. The copy button no longer shows on Reels pages: a Like
@@ -529,10 +537,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `ShareIntoFacebookTest`). The test account has no story of its own (the checks never post), so
   that case is noted, not failed. That Facebook goes there after Share to story isn't checked:
   only a real post gets there.
-- `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`). An
-  ad label it missed, found by its text, fails the check; a run that saw no ad says so in a note.
-  The test account's feed may hold no posts at all, so the feed check only notes when it finds none
-  of the boxes `adblock.js` hides.
+- `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`,
+  `FeedPostJsTest`). An ad label it missed, found by its text, fails the check; a run that saw no
+  ad says so in a note. The feed check counts posts through `scripts.js` `feedPostRows` and fails
+  when it finds none: it used to only note that (the test account has no friends, but its feed has
+  group and suggested posts), which hid Home dropping the cards `adblock.js` looked for.
 - `aReelsPlayer_hasItsMp4InDataVideoUrl`: the reel player's `data-video-url` being an MP4 the page
   can fetch (downloads and the lock-screen audio hand-off; `MediaDownloadJsTest`,
   `FileDownloadJsTest`, `PipHandoffJsTest`).
@@ -563,9 +572,10 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `hideStoriesSuggestedPeopleAndReels_hideWhatTheFeedShows`: with the four Hide settings on, down
   15 screens of the feed nothing they hide shows: Create story (`hide_stories.js`), a suggested post's
   Follow / Join (`hide_suggested.js`), "People you may know" (`hide_pymk.js`) and a Reels box
-  (`hide_reels.js`), each found by what the user sees rather than the scripts' selectors. The test
-  account's feed had no People you may know or Reels box when it was written: those are noted when
-  absent. These scripts are upstream's and have no fixed-page tests.
+  (`hide_reels.js`), each found by what the user sees rather than the scripts' selectors, and
+  counted as shown while any row of its post shows (`feedPostRows`). The test account's feed had no
+  People you may know or Reels box when it was written: those are noted when absent. Covered by
+  `FeedPostJsTest` (the post as rows and as a card).
 - `backOnTheFeed_scrollsToTheTop_thenLeavesTheApp`: `scripts.js` `isFeed()` still recognising the
   feed, and Back on it scrolling to the top, then sending the app to the background
   (`BackHandlerJsTest`).

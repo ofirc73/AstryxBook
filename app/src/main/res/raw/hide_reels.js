@@ -31,7 +31,7 @@
           const box = el.closest('[data-tracking-duration-id]');
           if (box && !box.hasAttribute(FLAG)) {
             box.setAttribute(FLAG, '1');
-            box.style.display = 'none';
+            window.hideFeedPost(box);
           }
         }
       });
