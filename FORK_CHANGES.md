@@ -166,6 +166,14 @@ rewritten to the new one, keeping its schedule.
   page externally. The "is this Facebook" check now matches only facebook.com /
   messenger.com hosts and their subdomains (the old pattern also accepted look-alike
   hosts and URLs that merely contained a Facebook address).
+- Back no longer gets stuck on a reel. Facebook now also redirects full loads of a reel to its app
+  (seen for one account, 2026-10-30, not the test account): when Back had to load a reel again
+  (after Android restored the app, the history pages all load anew), that Back step was
+  cancelled and the reel's web fallback opened as a new page on top, so every Back showed the same
+  reel and added another copy of it. A Back step that bounces like that now counts as the step:
+  the next Back goes on from the page it was going to (`BackHistory`). Back from a bounced reel also
+  skips the earlier copies of the same reel left in a restored history. Covered by `BackHistoryTest` and the live check
+  `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`.
 - Security: a link in a post or ad can no longer send you straight into another app.
   Web, email and phone links open as before; any other kind (another app's deep link,
   `market:`, `sms:`…) first asks "Open in another app?" and shows the link. `javascript:`,
@@ -522,6 +530,12 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `sessionStorage`, which the re-layout after an empty PiP window removes.
 - `startOnFeeds_pressesTheMenusFeedsEntry`, `facebookNotifications_readTheCountsFromTheTabBar`:
   `open_feeds.js` (`OpenFeedsJsTest`) and the notification counts (`FacebookCountsNotificationTest`).
+- `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`: Home, the public reel and Notifications
+  opened by the app, then Back twice ends on Home (`BackHistory`, `BackHistoryTest`). A reel load
+  Facebook sent to its app (`intent://`) is noted. The test account's reel didn't bounce when it
+  was written, so until it does the check only guards Back over a reel loaded again; the bounce
+  itself was tried on the emulator with DevTools' `Fetch` answering the reel's load with
+  Facebook's redirect.
 - In a chat named by `-e fbChat` (the chat's address, `e2ee/t/<id>` or a bare id; skipped without
   it), one with a photo and a shared reel. These run only on the local emulator
   (`tools/canary.ps1 -Chat`): the test account's chat is end-to-end encrypted, and GitHub's emulator,
@@ -538,7 +552,7 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `MessagesLayerBackJsTest`).
 
 Not checked live: the `intent://` fallback for a full profile load (Facebook didn't redirect the
-test account's loads on 2026-10-24, so there was nothing to check), the PiP window's own behaviour
+test account's loads on 2026-10-24 or its reel loads on 2026-10-30, so there was nothing to check), the PiP window's own behaviour
 (`PipVisibilityJsTest`, `PipVideoGoneJsTest`: the reel check covers PiP on the mobile site, not the
 desktop player's), pinch-zooming a chat photo (`MessagesLayerZoomTest`: a test WebView can't
 pinch) and a story opened from a chat (`LayerStoryViewerJsTest`: the test account's story tray is

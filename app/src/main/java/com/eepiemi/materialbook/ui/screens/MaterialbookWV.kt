@@ -76,6 +76,8 @@ import com.eepiemi.materialbook.utils.effectiveDesktop
 import com.astryx.book.utils.externalLinkAction
 import com.eepiemi.materialbook.utils.fbRedirectSanitizer
 import com.astryx.book.utils.hardenWebView
+import com.astryx.book.utils.BackHistory
+import com.astryx.book.utils.HistoryEntry
 import com.astryx.book.utils.intentFallbackUrl
 import com.astryx.book.utils.isConnectionError
 import com.astryx.book.utils.isMessagesLink
@@ -274,6 +276,9 @@ fun MaterialbookWebView(
             onDismiss = { pendingMessengerLink = null }
         )
     }
+    val mainPageStarts = remember { PageStarts() }
+    // Back past pages Facebook bounces through intent:// (BackHistory).
+    val backHistory = remember { BackHistory() }
     val navigator = rememberWebViewNavigator(
         requestInterceptor = ExternalRequestInterceptor(
             tryOpenMessagesDesktop = { messagesUrl ->
@@ -285,6 +290,9 @@ fun MaterialbookWebView(
                 }
             },
             isDesktopView = { currentIsEffectiveDesktop },
+            onIntentFallback = { fallback ->
+                backHistory.onIntentFallback(fallback, mainPageStarts.count, SystemClock.elapsedRealtime())
+            },
             handleExternalUrl = openExternalUrl
         )
     )
@@ -379,7 +387,6 @@ fun MaterialbookWebView(
     // own videos through PipBridge too), else this view's. Everything below acts on that
     // page; the PiP scripts themselves are the same for both.
     var layerPipTarget by remember { mutableStateOf<PipTarget?>(null) }
-    val mainPageStarts = remember { PageStarts() }
     // Not the layer kept out of sight behind a reel (MessagesLayerState.hidden).
     val shownLayerPipTarget = layerPipTarget?.takeUnless { messagesLayer.hidden }
     val pipNavigator = shownLayerPipTarget?.navigator ?: navigator
@@ -444,13 +451,26 @@ fun MaterialbookWebView(
                         // Asked of the WebView itself, as in the Messages layer: Facebook opens
                         // some pages in-page (the composer a share opens), which
                         // navigator.canGoBack doesn't always pick up, so Back left the app.
-                        val canGoBack = runCatching { state.nativeWebView.canGoBack() }
-                            .getOrDefault(navigator.canGoBack)
-                        if (canGoBack) {
-                            navigator.navigateBack()
-                        } else {
-                            leaveApp()
-                        }
+                        // Pages Facebook bounced through intent:// count as the entry Back
+                        // went to (BackHistory).
+                        val wentBack = runCatching {
+                            val webView = state.nativeWebView
+                            val list = webView.copyBackForwardList()
+                            val entries = (0 until list.size).map {
+                                val item = list.getItemAtIndex(it)
+                                HistoryEntry(item?.url, item?.originalUrl)
+                            }
+                            val steps = backHistory.backTarget(
+                                entries, list.currentIndex, mainPageStarts.count, SystemClock.elapsedRealtime()
+                            )?.let { it - list.currentIndex }
+                            if (steps != null && webView.canGoBackOrForward(steps)) {
+                                webView.goBackOrForward(steps)
+                                true
+                            } else {
+                                false
+                            }
+                        }.getOrDefault(false)
+                        if (!wentBack) leaveApp()
                     }
                     "exit" -> leaveApp()
                     "scrolling" -> exitScroll = true
