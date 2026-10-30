@@ -15,6 +15,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.astryx.book.notifications.FacebookCounts
 import com.astryx.book.notifications.FacebookCountsWorker
+import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.TextZoom
@@ -421,6 +422,23 @@ class LiveFacebookCanaryTest {
             "data-video-url isn't an MP4 the page can fetch, as a download does: $file",
             file.startsWith("status=200 ") && (" type=video/" in file || " box=ftyp" in file)
         )
+    }
+
+    // What the feed showed and hid so far (FEED_EXTRAS_JS): the story tray's Create story still on
+    // screen, and the suggested posts, People you may know and reels boxes seen, shown or hidden.
+    private data class FeedExtras(
+        val storyTrayShown: Boolean, val suggested: Seen, val pymk: Seen, val reels: Seen, val shape: String,
+    ) {
+        data class Seen(val shown: Int, val hidden: Int)
+
+        companion object {
+            fun parse(raw: String): FeedExtras {
+                val parts = raw.trim('"').split('|')
+                fun seen(i: Int) = parts.getOrElse(i) { "" }.split(',').map { it.toIntOrNull() ?: 0 }
+                    .let { Seen(it.getOrElse(0) { 0 }, it.getOrElse(1) { 0 }) }
+                return FeedExtras(parts.getOrElse(0) { "" } == "1", seen(1), seen(2), seen(3), parts.getOrElse(4) { "" })
+            }
+        }
     }
 
     // What adblock.js did on the feed so far (FEED_ADS_JS).
@@ -1032,6 +1050,127 @@ class LiveFacebookCanaryTest {
         assertNotNull("no tab bar counts in m.facebook.com/notifications/ (FacebookCounts.parse)", FacebookCounts.parse(html!!))
     }
 
+    @Test
+    fun hideStoriesSuggestedPeopleAndReels_hideWhatTheFeedShows() {
+        // hide_stories.js, hide_suggested.js, hide_pymk.js and hide_reels.js find their boxes by
+        // Facebook's markup (data-srat="43", a "•" text span, .hscroller, the reels icon); each is
+        // found here by what the user sees instead (Create story, Follow / Join, "People you may
+        // know", reel links), and must be hidden.
+        runBlocking {
+            SettingsDataStore(app.context).apply {
+                setHideStories(true); setHideSuggested(true); setHidePeopleYouMayKnow(true); setHideReels(true)
+            }
+        }
+        open("https://m.facebook.com/")
+        awaitFeed()
+        Thread.sleep(3000)
+        var seen = FeedExtras.parse(eval(FEED_EXTRAS_JS))
+        for (screen in 1..FEED_SCREENS) {
+            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+            Thread.sleep(2000)
+            seen = FeedExtras.parse(eval(FEED_EXTRAS_JS))
+        }
+        val missed = listOfNotNull(
+            "the story tray's Create story (hide_stories.js: MContainer[data-srat=\"43\"])".takeIf { seen.storyTrayShown },
+            "${seen.suggested.shown} suggested posts with Follow / Join (hide_suggested.js: a \"•\" span in a TextArea)"
+                .takeIf { seen.suggested.shown > 0 },
+            "${seen.pymk.shown} People you may know boxes (hide_pymk.js: .hscroller in a tracked box)".takeIf { seen.pymk.shown > 0 },
+            "${seen.reels.shown} reels boxes (hide_reels.js: the reels icon in .fl.ac .native-text)".takeIf { seen.reels.shown > 0 },
+        )
+        if (missed.isNotEmpty()) fail("shown on the feed with their Hide settings on: ${missed.joinToString("; ")} (${seen.shape})")
+        listOf("suggested posts" to seen.suggested, "People you may know" to seen.pymk, "reels boxes" to seen.reels)
+            .filter { it.second.hidden == 0 }
+            .takeIf { it.isNotEmpty() }
+            ?.let { none -> note("no ${none.joinToString(", ") { it.first }} on the feed in $FEED_SCREENS screens: not checked") }
+    }
+
+    @Test
+    fun backOnTheFeed_scrollsToTheTop_thenLeavesTheApp() {
+        // scripts.js backHandlerNB: on the feed (window.isFeed, Facebook's tab bar), Back scrolls to
+        // the top first and then sends the app to the background. With isFeed lost, Back on the
+        // feed did nothing (no page to go back to) or left the app at once.
+        open("https://m.facebook.com/")
+        awaitFeed()
+        assertEquals("scripts.js isFeed() doesn't see the feed as the feed (${pageShape()})", "true", eval("window.isFeed()"))
+        eval("window.scrollBy(0, window.innerHeight * 2); 1")
+        Thread.sleep(1500)
+        app.pressBack()
+        assertTrue("Back on the scrolled feed didn't scroll it to the top (scrollY ${eval("scrollY")})", app.waitFor(5_000) {
+            eval("scrollY") == "0"
+        })
+        assertTrue("Back scrolling the feed up also left the app", !app.isInBackground())
+        Thread.sleep(1000)
+        app.pressBack()
+        assertTrue("Back at the top of the feed didn't send the app to the background", app.waitFor(5_000) { app.isInBackground() })
+    }
+
+    @Test
+    fun stickyNavbar_keepsTheTabBarOnScreen_downTheFeed() {
+        runBlocking { SettingsDataStore(app.context).setStickyNavbar(true) }
+        open("https://m.facebook.com/")
+        awaitFeed()
+        for (screen in 1..3) {
+            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+            Thread.sleep(1500)
+        }
+        val bar = eval(TAB_BAR_JS).trim('"')
+        assertTrue("the tab bar left the screen down the feed with Sticky navbar on (sticky_navbar.js: " +
+            "div[role=tablist][data-mcomponent=MContainer].m and the vscroller) (tab bar: $bar, ${pageShape()})",
+            bar.startsWith("on "))
+    }
+
+    @Test
+    fun theMessagesTab_opensMessagesInTheLayer() {
+        // messages_tab.js sends the Messages tab (its English label or icon) straight to
+        // /messages/, which the app opens in the Messages layer; without it the tab goes through
+        // Facebook's fb-messenger:// link, which the app intercepts too, so the layer is checked.
+        runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
+        open("https://m.facebook.com/")
+        awaitFeed()
+        assertEquals("messages_tab.js never ran", "true", eval("window.__mbMessagesTabHooked === true"))
+        val tab = "${shownJs("[role=tab]")}.filter(function (t) { return /^messages\\b/i.test(t.getAttribute('aria-label') || ''); })[0]"
+        if (!app.waitFor(20_000) { app.tapOn(app.mainWebView(), tab) }) {
+            fail("no Messages tab (role=tab, aria-label \"messages, …\") on the feed: messages_tab.js finds it by that label " +
+                "or its icon (tabs: ${eval("[].map.call(document.querySelectorAll('[role=tab]'), function (t) { return t.getAttribute('aria-label'); }).join(' | ')")})")
+        }
+        assertTrue("the Messages tab didn't open Messages in the layer (${appState()})", app.waitFor(30_000) {
+            app.layerWebView()?.let { app.layerOpen() && app.url(it).contains("/messages") } == true
+        })
+    }
+
+    @Test
+    fun keepScreenOnWhileVideo_keepsItOnWhileAReelPlays() {
+        // video_playing.js reports a playing video (any shown <video> past readyState 2) and the app
+        // keeps the screen on (the host view's keepScreenOn).
+        runBlocking { SettingsDataStore(app.context).setKeepScreenOn(KeepScreenOn.WHILE_VIDEO) }
+        openPlayingReel()
+        val keptOn = {
+            app.onActivity { activity ->
+                fun any(v: android.view.View): Boolean =
+                    v.keepScreenOn || (v is android.view.ViewGroup && (0 until v.childCount).any { any(v.getChildAt(it)) })
+                any(activity.window.decorView)
+            }
+        }
+        assertTrue("the screen isn't kept on while the reel plays (video_playing.js: ${eval(VIDEO_STATE_JS)})",
+            app.waitFor(15_000) { keptOn() })
+        eval("[].forEach.call(document.querySelectorAll('video'), function (v) { v.pause(); }); 1")
+        assertTrue("the screen stayed kept on with the reel paused", app.waitFor(15_000) { !keptOn() })
+    }
+
+    @Test
+    fun aPageOpenedAsALink_showsInTheApp() {
+        // Facebook answers full loads of some pages with a redirect to its app (intent://); the app
+        // opens the web fallback (intentFallbackUrl). A public Page opened as a link must show here,
+        // not "Not supported" or nothing.
+        open("https://m.facebook.com/")
+        awaitFeed()
+        val main = app.mainWebView()
+        app.onActivity { main.loadUrl(PUBLIC_PAGE_URL) }
+        awaitPage("the public Page never loaded", "/^\\/(NASA|profile\\.php)/.test(location.pathname) && $FEED_SHOWN_JS")
+        val original = app.onActivity { main.copyBackForwardList().currentItem?.originalUrl.orEmpty() }
+        if ("from_intent_redirect=1" in original) note("Facebook sent the public Page's load to its app (intent://): its web fallback opened")
+    }
+
     companion object {
         // The public test group the test account joined ("Android Developer With Android Studio",
         // 2026-10-15) for group shares. Nothing is ever posted there.
@@ -1145,6 +1284,48 @@ class LiveFacebookCanaryTest {
               var ok = count('main') === 1 && count('tools') === 1 && count('tool') >= 2 && count('actions') === 1 &&
                 !window.__astryxStoryLayoutError && r && r.width >= window.innerWidth * 0.9;
               return (ok ? 'ok ' : '') + shape;
+            })()
+        """
+
+        // A public Page (NASA's), opened as a link from outside the feed.
+        private const val PUBLIC_PAGE_URL = "https://m.facebook.com/NASA/"
+
+        // The feed's extras as the user sees them (the test account uses Facebook in English), each
+        // counted once, as shown or hidden when first seen (the Hide scripts act as boxes arrive):
+        // "storyTrayShown|suggested shown,hidden|pymk shown,hidden|reels shown,hidden|shape".
+        private const val FEED_EXTRAS_JS = """
+            (function () {
+              var s = window.__canaryExtras || (window.__canaryExtras = { sug: [0, 0], pymk: [0, 0], reels: [0, 0] });
+              function shown(e) { var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+              function count(kind, e) {
+                if (e.__canarySeen) return;
+                e.__canarySeen = true;
+                s[kind][shown(e) ? 0 : 1]++;
+              }
+              var texts = document.querySelectorAll('.native-text');
+              for (var i = 0; i < texts.length; i++) {
+                var t = (texts[i].textContent || '').replace(/\s+/g, ' ').trim();
+                if (t === 'Follow' || t === 'Join') count('sug', texts[i]);
+                else if (/^people you may know$/i.test(t)) count('pymk', texts[i]);
+                else if (/^reels( and short videos)?$/i.test(t)) count('reels', texts[i]);
+              }
+              var story = [].some.call(document.querySelectorAll('a[href*="/stories/create"], [aria-label^="Create story" i]'), shown);
+              var shape = 'tray=' + document.querySelectorAll('[data-mcomponent="MContainer"][data-srat="43"]').length +
+                ' hscrollers=' + document.querySelectorAll('.hscroller').length +
+                ' boxes=' + document.querySelectorAll('[data-tracking-duration-id]').length + ' scrollY=' + Math.round(scrollY);
+              return [story ? 1 : 0, s.sug.join(','), s.pymk.join(','), s.reels.join(','), shape].join('|');
+            })()
+        """
+
+        // Facebook's tab bar: "on <top>,<bottom>" while it's inside the window, "off ..." when it's
+        // scrolled away, "none" without one.
+        private const val TAB_BAR_JS = """
+            (function () {
+              var bar = document.querySelector('[role="tablist"]');
+              if (!bar) return 'none';
+              var r = bar.getBoundingClientRect();
+              var on = r.height > 0 && r.top >= -1 && r.bottom <= innerHeight + 1;
+              return (on ? 'on ' : 'off ') + Math.round(r.top) + ',' + Math.round(r.bottom);
             })()
         """
 

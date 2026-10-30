@@ -536,6 +536,24 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   was written, so until it does the check only guards Back over a reel loaded again; the bounce
   itself was tried on the emulator with DevTools' `Fetch` answering the reel's load with
   Facebook's redirect.
+- `hideStoriesSuggestedPeopleAndReels_hideWhatTheFeedShows`: with the four Hide settings on, down
+  15 screens of the feed nothing they hide shows: Create story (`hide_stories.js`), a suggested post's
+  Follow / Join (`hide_suggested.js`), "People you may know" (`hide_pymk.js`) and a Reels box
+  (`hide_reels.js`), each found by what the user sees rather than the scripts' selectors. The test
+  account's feed had no People you may know or Reels box when it was written: those are noted when
+  absent. These scripts are upstream's and have no fixed-page tests.
+- `backOnTheFeed_scrollsToTheTop_thenLeavesTheApp`: `scripts.js` `isFeed()` still recognising the
+  feed, and Back on it scrolling to the top, then sending the app to the background
+  (`BackHandlerJsTest`).
+- `stickyNavbar_keepsTheTabBarOnScreen_downTheFeed`: the tab bar still on screen three screens down
+  (`sticky_navbar.js`; on by default).
+- `theMessagesTab_opensMessagesInTheLayer`: a real tap on the Messages tab (its "messages, …" label,
+  which `messages_tab.js` finds it by) opening Messages in the layer.
+- `keepScreenOnWhileVideo_keepsItOnWhileAReelPlays`: Keep screen on (while a video plays) keeping
+  the screen on for a playing reel and letting it go once paused (`video_playing.js`; the unit test
+  `KeepScreenOnTest`).
+- `aPageOpenedAsALink_showsInTheApp`: a public Page opened as a link showing in the app; a load
+  Facebook sent to its app (`intent://`, `intentFallbackUrl`) is noted.
 - In a chat named by `-e fbChat` (the chat's address, `e2ee/t/<id>` or a bare id; skipped without
   it), one with a photo and a shared reel. These run only on the local emulator
   (`tools/canary.ps1 -Chat`): the test account's chat is end-to-end encrypted, and GitHub's emulator,
