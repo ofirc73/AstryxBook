@@ -257,7 +257,11 @@ user-visible change.
   goes back. `open_new_post.js` opens the profile's newest post then. Since 2026-10-30 Home draws a
   post as several rows of its feed list (`data-type="vscroller"`; header, text, actions) sharing a
   `data-tracking-duration-id`, where a post opened from a link is still one card
-  (`data-dcm-id="1"`): hide a post through `scripts.js` `hideFeedPost`, never one box. Posting tests: the emulator's
+  (`data-dcm-id="1"`): hide a post through `scripts.js` `hideFeedPost`, never one box. A list asks
+  for more when its loading row (last row, `data-on-first-visibility-action-id`) fires Facebook's
+  plain IntersectionObserver; `feed_prefetch.js` (document start) fires it three screens early. The
+  page's code is GWT-compiled, in `rsrc.php` scripts: a stack trace from a hooked DOM getter names
+  the file to fetch and read. Posting tests: the emulator's
   test account, audience Only me, deleted right after, only with the user's OK for each.
 - m.facebook.com has no URL for Feeds (`?sk=h_chr` redirects to Home). *Start on Feeds* opens the
   menu at `/bookmarks/#astryx-feeds` and `open_feeds.js` presses its Feeds entry, found by its icon.

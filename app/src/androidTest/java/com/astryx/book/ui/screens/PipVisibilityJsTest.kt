@@ -10,8 +10,8 @@ import org.junit.runner.RunWith
 /**
  * Tests for pip_visibility.js, the IntersectionObserver wrapper that keeps Facebook's
  * desktop player from pausing the PiP video as "less than 50% visible". The native
- * IntersectionObserver is replaced by a stub before the script runs, so the tests deliver
- * entries themselves (a test WebView isn't rendered, so real observers wouldn't fire).
+ * IntersectionObserver is replaced by a stub before the script runs
+ * ([PageFixture.stubIntersectionObserver]), so the tests deliver entries themselves.
  */
 @RunWith(AndroidJUnit4::class)
 class PipVisibilityJsTest {
@@ -25,21 +25,7 @@ class PipVisibilityJsTest {
                 "<html><body><div id='player'><div><video id='pip'></video></div></div>" +
                     "<div id='other'></div></body></html>"
             )
-            // Stub native observer: records callbacks; __deliver(i, id, ratio) fires one entry.
-            eval(
-                """
-                window.__ios = [];
-                window.IntersectionObserver = function(cb) { this.cb = cb; window.__ios.push(this); };
-                IntersectionObserver.prototype.observe = function() {};
-                IntersectionObserver.prototype.unobserve = function() {};
-                IntersectionObserver.prototype.disconnect = function() {};
-                window.__deliver = function(i, id, ratio) {
-                  var o = window.__ios[i], t = document.getElementById(id);
-                  o.cb.call(o, [{ target: t, intersectionRatio: ratio, isIntersecting: ratio > 0,
-                    rootBounds: null, boundingClientRect: t.getBoundingClientRect(), time: 1 }], o);
-                };
-                """.trimIndent()
-            )
+            page.stubIntersectionObserver()
             page.run(R.raw.pip_visibility)
             // The page's own observer, watching the player box and an unrelated element.
             eval(

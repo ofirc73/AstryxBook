@@ -124,6 +124,7 @@ import com.astryx.book.ui.screens.PipEffects
 import com.astryx.book.ui.screens.PipTarget
 import com.astryx.book.ui.screens.RELAYOUT_PAGE_JS
 import com.astryx.book.ui.screens.ShareMediaRequest
+import com.astryx.book.ui.screens.installFeedPrefetchScript
 import com.astryx.book.ui.screens.installOpenFeedsScript
 import com.astryx.book.ui.screens.installPageZoomScript
 import com.astryx.book.ui.screens.installPipVisibilityScript
@@ -1030,6 +1031,7 @@ fun MaterialbookWebView(
                         "MaterialYouBridge"
                     )
                     installPipVisibilityScript(this)
+                    installFeedPrefetchScript(this)
                     openFeedsAtDocumentStart = installOpenFeedsScript(this)
 
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)

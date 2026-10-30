@@ -1148,6 +1148,55 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun theFeed_asksForMorePostsBeforeItsLoadingRowShows() {
+        // feed_prefetch.js: Facebook asks for the next posts when the feed list's loading row comes
+        // on screen; the app tells it so while the row is still a few screens below, so the posts
+        // are there before the user scrolls to the grey placeholder. With suggested posts hidden,
+        // as the phone where it was found (2026-10-30).
+        runBlocking { SettingsDataStore(app.context).setHideSuggested(true) }
+        openFeed()
+        // The first batch's posts keep coming for a few seconds: counted once they stop.
+        var feed = FeedLoading.parse(eval(FEED_LOADING_JS))
+        for (second in 1..15) {
+            Thread.sleep(1500)
+            val now = FeedLoading.parse(eval(FEED_LOADING_JS))
+            if (now.posts == feed.posts) break
+            feed = now
+        }
+        if (feed.loaderBelow == null) {
+            fail("no loading row in the feed list (a [data-type=vscroller] child with " +
+                "data-on-first-visibility-action-id): feed_prefetch.js has nothing to watch (${eval(FEED_LOADING_JS)})")
+        }
+        val firstPosts = feed.posts
+        for (screen in 1..FEED_SCREENS) {
+            if (feed.prefetched > 0 && feed.posts > firstPosts) break
+            scrollDown()
+            feed = FeedLoading.parse(eval(FEED_LOADING_JS))
+        }
+        assertTrue("feed_prefetch.js never passed the loading row on to Facebook early (${eval(FEED_LOADING_JS)})",
+            feed.prefetched > 0)
+        assertTrue("feed_prefetch.js passed the loading row on only once it was on screen " +
+            "(${feed.prefetchedBelow} px below the window)", (feed.prefetchedBelow ?: 0) > 0)
+        // The test account's feed stopped after one batch, in Chrome too (2026-10-30).
+        if (feed.posts <= firstPosts) {
+            untestable("the test account's feed got no second batch (${feed.posts} posts): that the next posts " +
+                "come before the placeholder shows wasn't checked")
+        }
+    }
+
+    // The feed list's loading (FEED_LOADING_JS): its posts, how far below the window its loading
+    // row is (null without one), and feed_prefetch.js's early passes and the last one's distance.
+    private data class FeedLoading(val posts: Int, val loaderBelow: Int?, val prefetched: Int, val prefetchedBelow: Int?) {
+        companion object {
+            fun parse(raw: String): FeedLoading {
+                val parts = raw.trim('"').split('|')
+                fun at(i: Int) = parts.getOrNull(i)?.toIntOrNull()
+                return FeedLoading(at(0) ?: 0, at(1), at(2) ?: 0, at(3))
+            }
+        }
+    }
+
+    @Test
     fun backOnTheFeed_scrollsToTheTop_thenLeavesTheApp() {
         // scripts.js backHandlerNB: on the feed (window.isFeed, Facebook's tab bar), Back scrolls to
         // the top first and then sends the app to the background. With isFeed lost, Back on the
@@ -1502,6 +1551,24 @@ class LiveFacebookCanaryTest {
             "[].map.call(document.querySelectorAll('[role=tab]'), function (t) { return t.getAttribute('aria-selected') + ':' +" +
                 " ((t.textContent || '').trim().codePointAt(0) || 0).toString(16); }).join(' ') + ' homeButtonIcons=' +" +
                 " [].filter.call(document.querySelectorAll('[role=button] span'), function (s) { return s.textContent === '\\uDB86\\uDD46'; }).length"
+
+        // "posts|loaderBelow|prefetched|prefetchedBelow" (FeedLoading): the feed list's posts (its
+        // rows' distinct data-tracking-duration-id), its last loading row's distance below the window
+        // ("" without one) and feed_prefetch.js's record (window.__astryxFeedPrefetched).
+        private const val FEED_LOADING_JS = """
+            (function () {
+              var list = document.querySelector('[data-type="vscroller"]');
+              var rows = list ? list.children : [];
+              var ids = {}, posts = 0, loader = null;
+              for (var i = 0; i < rows.length; i++) {
+                var id = rows[i].getAttribute('data-tracking-duration-id');
+                if (id && !ids[id]) { ids[id] = true; posts++; }
+                if (rows[i].hasAttribute('data-on-first-visibility-action-id')) loader = rows[i];
+              }
+              var p = window.__astryxFeedPrefetched || { count: 0, below: '' };
+              return [posts, loader ? Math.round(loader.getBoundingClientRect().top - innerHeight) : '', p.count, p.below].join('|');
+            })()
+        """
 
         // Facebook's tab bar: "on <top>,<bottom>" while it's inside the window, "off ..." when it's
         // scrolled away, "none" without one.
