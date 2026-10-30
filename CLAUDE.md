@@ -45,7 +45,10 @@ user-visible change.
   check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
   `--build-cache`), written only by main's release runs: entries from a by-hand `ci.yml` run on main
   (workflow "CI" in their key) were what every PR restored first, and once stale they doubled each
-  test part's time (2026-10-27; found in the parts' "Build App and Test APKs" step). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
+  test part's time (2026-10-27; found in the parts' "Build App and Test APKs" step). The emulator's
+  AVD cache (`ci.yml`, `facebook-canary.yml`) is saved right after the AVD is made, never at a job's
+  end: saved then, a release run's AVD kept v1.36.6 installed and every branch build failed to
+  install as a downgrade (2026-10-30). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
   `main` and inside `create-release.yml` nothing is cancelled. Run CI by hand on a branch with
   `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) is its own
   workflow, started after each CI or release run that passed (`workflow_run`); it gates nothing.
@@ -315,6 +318,11 @@ Messages layer is open (`appOrientation`). See Known
 limitations in `FORK_CHANGES.md`.
 
 ## Repo housekeeping
+
+- No duplicated code anywhere: app code, tests and live checks, workflows and scripts. Reuse or
+  generalize what's there (`AppHarness`: `tapOn`, `pinch`, `screenBox`; the live checks' helpers
+  such as `openFeed`, `loadInMain`, `scrollDown`; `.github/actions/avd` for the emulator setup)
+  and read each diff for repeats before committing.
 
 - Plan files (`*_PLAN.md`) and `spike.log` are working notes; don't commit them.
 - The `stats` branch is data-only (weekly release download counts written by

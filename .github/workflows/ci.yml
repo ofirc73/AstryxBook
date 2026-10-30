@@ -159,53 +159,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug assembleDebugAndroidTest --build-cache --stacktrace
 
-      # GitHub-hosted Ubuntu runners support nested virtualization but need
-      # KVM permissions opened up explicitly for the emulator to use it.
-      - name: Enable KVM group perms
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      # A boot snapshot only loads in the emulator and system image it was made
-      # with ("Snapshot file cannot be used, incompatible version" otherwise, and
-      # every run cold-booted). Install both up front and put their versions in
-      # the cache key, so a runner image update makes a fresh snapshot once.
-      - name: Install Emulator and System Image
-        id: avd-versions
-        run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
-          VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
-            grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
-            awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
-          echo "Installed versions: $VERSIONS"
-          echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
-
-      # Caches the AVD image + boot snapshot, so a cache hit restores from the
-      # snapshot instead of cold-booting. Not hashed on source: the AVD only
-      # depends on the api-level/target/arch/profile below and the versions above.
-      - name: AVD cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-34-google_apis-x86_64-pixel_6-${{ steps.avd-versions.outputs.key }}
-
-      - name: Create AVD and generate snapshot for caching
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          disable-animations: false
-          script: echo "Generated AVD snapshot for caching."
+      # KVM, the emulator and its AVD with the boot snapshot, from the cache when there.
+      - name: Emulator AVD
+        uses: ./.github/actions/avd
 
       - name: Run Instrumented Tests
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
@@ -254,53 +210,9 @@ jobs:
           name: apk-artifact
           path: release-apk
 
-      # GitHub-hosted Ubuntu runners support nested virtualization but need
-      # KVM permissions opened up explicitly for the emulator to use it.
-      - name: Enable KVM group perms
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      # A boot snapshot only loads in the emulator and system image it was made
-      # with ("Snapshot file cannot be used, incompatible version" otherwise, and
-      # every run cold-booted). Install both up front and put their versions in
-      # the cache key, so a runner image update makes a fresh snapshot once.
-      - name: Install Emulator and System Image
-        id: avd-versions
-        run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
-          VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
-            grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
-            awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
-          echo "Installed versions: $VERSIONS"
-          echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
-
-      # Caches the AVD image + boot snapshot, so a cache hit restores from the
-      # snapshot instead of cold-booting. Not hashed on source: the AVD only
-      # depends on the api-level/target/arch/profile below and the versions above.
-      - name: AVD cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-34-google_apis-x86_64-pixel_6-${{ steps.avd-versions.outputs.key }}
-
-      - name: Create AVD and generate snapshot for caching
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          disable-animations: false
-          script: echo "Generated AVD snapshot for caching."
+      # KVM, the emulator and its AVD with the boot snapshot, from the cache when there.
+      - name: Emulator AVD
+        uses: ./.github/actions/avd
 
       - name: Launch the Release Build
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
