@@ -10,7 +10,7 @@ runs:
     # GitHub-hosted Ubuntu runners support nested virtualization but need
     # KVM permissions opened up explicitly for the emulator to use it.
     - name: Enable KVM group perms
-      shell: bash
+      shell: bash -e {0}
       run: |
         echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
         sudo udevadm control --reload-rules
@@ -19,10 +19,11 @@ runs:
     # A boot snapshot only loads in the emulator and system image it was made
     # with ("Snapshot file cannot be used, incompatible version" otherwise, and
     # every run cold-booted). Install both up front and put their versions in
-    # the cache key, so a runner image update makes a fresh snapshot once.
+    # the cache key, so a runner image update makes a fresh snapshot once. "bash -e", a job's
+    # own default: a composite's plain "bash" adds pipefail, and yes's broken pipe then failed it.
     - name: Install Emulator and System Image
       id: avd-versions
-      shell: bash
+      shell: bash -e {0}
       run: |
         SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
         yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
