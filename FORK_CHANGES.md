@@ -174,6 +174,12 @@ rewritten to the new one, keeping its schedule.
   the next Back goes on from the page it was going to (`BackHistory`). Back from a bounced reel also
   skips the earlier copies of the same reel left in a restored history. Covered by `BackHistoryTest` and the live check
   `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`.
+- Back no longer does nothing while a page is loading. Back first asks the page (`scripts.js`
+  `backHandlerNB`) whether it closes something of its own; a page whose scripts hadn't run yet
+  gave no answer, and a busy page answered late or never, and Back was then ignored (found on
+  GitHub's emulator by the live checks, 2026-10-30). Any answer but the page's own now steps back,
+  and without one in 1.5 s Back steps back anyway. The app logs each Back step ("Back: …"). Covered
+  by `PagesAndSettingsTest.back_onAPageWhoseScriptsHaventRun_stillGoesBack`.
 - Back on the feed scrolls to the top and then leaves the app again where Facebook draws Home
   without the Home button's icon (GitHub's emulator, 2026-10-30): `scripts.js` `hasHomeTabs` also
   knows Home by its tab bar, the first tab selected and drawn as an icon (Feeds, also at "/", has

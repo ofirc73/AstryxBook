@@ -33,6 +33,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -112,6 +113,7 @@ import com.multiplatform.webview.web.WebView
 import com.multiplatform.webview.web.rememberSaveableWebViewState
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.astryx.book.ui.screens.AppLeaveEffects
 import com.astryx.book.ui.screens.MAX_ZOOM_OUT_STEPS
 import com.astryx.book.ui.screens.MainPlace
@@ -148,6 +150,9 @@ private const val RESUME_UNDER_LAYER_JS = "(function () {" +
 private const val LAYER_CLOSE_WAIT_MS = 8000L
 // Longest the loading screen covers the page for the relayout after an empty PiP window.
 private const val RELAYOUT_COVER_MAX_MS = 8000L
+// Back asks the page first (scripts.js); how long it waits for the answer before stepping back.
+private const val BACK_HANDLER_JS = "backHandlerNB();"
+private const val BACK_ANSWER_WAIT_MS = 1500L
 
 /** A link the running app was sent (onNewIntent); [seq] tells two taps on the same link apart. */
 data class OpenLinkRequest(val seq: Int, val url: String)
@@ -280,6 +285,7 @@ fun MaterialbookWebView(
     val mainPageStarts = remember { PageStarts() }
     // Back past pages Facebook bounces through intent:// (BackHistory).
     val backHistory = remember { BackHistory() }
+    val backScope = rememberCoroutineScope()
     val navigator = rememberWebViewNavigator(
         requestInterceptor = ExternalRequestInterceptor(
             tryOpenMessagesDesktop = { messagesUrl ->
@@ -445,39 +451,59 @@ fun MaterialbookWebView(
         } else if (exitScroll) {
             leaveApp()
         } else {
-            navigator.evaluateJavaScript("backHandlerNB();") {
-                val backHandled = it.removeSurrounding("\"")
-                when (backHandled) {
-                    "false" -> {
-                        // Asked of the WebView itself, as in the Messages layer: Facebook opens
-                        // some pages in-page (the composer a share opens), which
-                        // navigator.canGoBack doesn't always pick up, so Back left the app.
-                        // Pages Facebook bounced through intent:// count as the entry Back
-                        // went to (BackHistory).
-                        val wentBack = runCatching {
-                            val webView = state.nativeWebView
-                            val list = webView.copyBackForwardList()
-                            val entries = (0 until list.size).map {
-                                val item = list.getItemAtIndex(it)
-                                HistoryEntry(item?.url, item?.originalUrl)
-                            }
-                            val steps = backHistory.backTarget(
-                                entries, list.currentIndex, mainPageStarts.count, SystemClock.elapsedRealtime()
-                            )?.let { it - list.currentIndex }
-                            Log.d("Astryxbook", "Back: $steps from ${list.currentIndex + 1} of ${list.size}")
-                            if (steps != null && webView.canGoBackOrForward(steps)) {
-                                webView.goBackOrForward(steps)
-                                true
-                            } else {
-                                false
-                            }
-                        }.getOrDefault(false)
-                        if (!wentBack) leaveApp()
+            // Not handled by the page: a step back in the main view's history, or out of the app.
+            val goBack = {
+                // Asked of the WebView itself, as in the Messages layer: Facebook opens
+                // some pages in-page (the composer a share opens), which
+                // navigator.canGoBack doesn't always pick up, so Back left the app.
+                // Pages Facebook bounced through intent:// count as the entry Back
+                // went to (BackHistory).
+                val wentBack = runCatching {
+                    val webView = state.nativeWebView
+                    val list = webView.copyBackForwardList()
+                    val entries = (0 until list.size).map {
+                        val item = list.getItemAtIndex(it)
+                        HistoryEntry(item?.url, item?.originalUrl)
                     }
+                    val steps = backHistory.backTarget(
+                        entries, list.currentIndex, mainPageStarts.count, SystemClock.elapsedRealtime()
+                    )?.let { it - list.currentIndex }
+                    Log.d("Astryxbook", "Back: $steps from ${list.currentIndex + 1} of ${list.size}")
+                    if (steps != null && webView.canGoBackOrForward(steps)) {
+                        webView.goBackOrForward(steps)
+                        true
+                    } else {
+                        false
+                    }
+                }.getOrDefault(false)
+                if (!wentBack) leaveApp()
+            }
+            // The page's answer (scripts.js backHandlerNB). A page whose scripts haven't run yet
+            // gives none, and a busy renderer answers late or not at all (both on GitHub's emulator,
+            // 2026-10-30): Back did nothing then. Without an answer in time it steps back anyway,
+            // and a late answer is dropped.
+            var answered = false
+            val noAnswer = backScope.launch {
+                delay(BACK_ANSWER_WAIT_MS)
+                answered = true
+                Log.d("Astryxbook", "Back: the page didn't answer")
+                goBack()
+            }
+            val onAnswer = answer@{ reply: String? ->
+                if (answered) return@answer
+                answered = true
+                noAnswer.cancel()
+                when (reply?.removeSurrounding("\"")) {
+                    "true" -> Unit // the page closed something of its own
                     "exit" -> leaveApp()
                     "scrolling" -> exitScroll = true
+                    // "false", or null: the page's scripts hadn't run yet.
+                    else -> goBack()
                 }
             }
+            // Asked of the WebView itself: the navigator passes on only its last event.
+            runCatching { state.nativeWebView.evaluateJavascript(BACK_HANDLER_JS) { onAnswer(it) } }
+                .onFailure { navigator.evaluateJavaScript(BACK_HANDLER_JS) { onAnswer(it) } }
         }
     }
 

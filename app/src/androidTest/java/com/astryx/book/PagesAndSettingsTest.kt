@@ -102,11 +102,23 @@ class PagesAndSettingsTest {
         startOnPage()
         val webView = app.mainWebView()
         app.onActivity { webView.clearHistory() }
-        // The page answers Back through scripts.js; a press while the page is still busy (a slow
-        // CI emulator) can go unanswered, so it's pressed once more, as a user would.
         app.pressBack()
-        if (!app.waitFor(5_000) { app.isInBackground() }) app.pressBack()
         assertTrue("Back on the first page never left the app", app.waitFor { app.isInBackground() })
+    }
+
+    @Test
+    fun back_onAPageWhoseScriptsHaventRun_stillGoesBack() {
+        // The page answers Back through scripts.js (backHandlerNB); a page still loading, its
+        // scripts not run yet, gave no answer, and Back did nothing (GitHub's emulator, 2026-10-30).
+        startOnPage("$FEED_URL?n=1", asHistory = true)
+        app.loadPage("$FEED_URL?n=2", FEED_PAGE, asHistory = true)
+        val webView = app.mainWebView()
+        val before = app.onActivity { webView.copyBackForwardList().currentIndex }
+        app.eval("delete window.backHandlerNB; 1")
+        app.pressBack()
+        assertTrue("Back did nothing on a page without the app's scripts", app.waitFor {
+            app.onActivity { webView.copyBackForwardList().currentIndex } < before
+        })
     }
 
     @Test
