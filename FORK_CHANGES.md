@@ -1256,6 +1256,11 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   after Discard) keeps Facebook's own page, fitted to the screen. The story page ignores *Page
   zoom*. v1.28.0 showed the whole story, but in the desktop layout: tiny text, and a music sticker
   that couldn't be moved. Covered by `StoryLayoutJsTest`.
+- The story editor is laid out again since Facebook changed its creator (2026-10-30): the sidebar
+  is now a region ("Stories Creation Form") instead of a navigation, so the script found no
+  sidebar and left the desktop page as it was (the sidebar across most of the screen, the photo
+  pushed off its right edge). Both kinds of sidebar are found now. Covered by `StoryLayoutJsTest`
+  (a fixed page of each) and the story editor's live checks.
 - Discard and Share to story wait while one of Facebook's panels is open on the story (the music
   list, a song's clip bar, text style): they're dimmed, and a tap on either only closes the panel,
   as its close button (or Done) would; the next tap shares or discards. Facebook's panels aren't

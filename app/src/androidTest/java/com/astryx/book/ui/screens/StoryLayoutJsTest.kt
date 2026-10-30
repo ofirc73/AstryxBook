@@ -14,7 +14,7 @@ private fun String.unquoted() = removeSurrounding("\"")
 /**
  * Tests for story_layout.js (the desktop story creator laid out like the Facebook app's story
  * editor) against a real WebView. The fixture is built like Facebook's creator: a sidebar
- * (role=navigation) with the privacy button, the tools, the AI label row and Discard / Share,
+ * (role=navigation; role=region since 2026-10-30) with the privacy button, the tools, the AI label row and Discard / Share,
  * beside the preview (role=main) whose story frame Facebook sizes from the window's height.
  */
 @RunWith(AndroidJUnit4::class)
@@ -79,9 +79,17 @@ class StoryLayoutJsTest {
     }
 
     @Test
-    fun theTools_goOnTheStory_andPrivacyDiscardShare_inTheBottomBar() {
+    fun theTools_goOnTheStory_andPrivacyDiscardShare_inTheBottomBar() = assertLaidOut(CREATOR)
+
+    // Since 2026-10-30 the sidebar is a region ("Stories Creation Form"), no longer a navigation.
+    @Test
+    fun aSidebarThatIsARegion_isLaidOutTheSameWay() = assertLaidOut(
+        CREATOR.replace("role='navigation' id='nav'", "role='region' aria-label='Stories Creation Form' id='nav'")
+    )
+
+    private fun assertLaidOut(creator: String) {
         val h = Harness()
-        h.load(CREATOR)
+        h.load(creator)
         h.run()
         h.eval("window.__showFrame()")
 
