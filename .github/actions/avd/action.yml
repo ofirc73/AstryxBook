@@ -1,0 +1,71 @@
+name: Emulator AVD
+description: >
+  KVM for the emulator, the emulator and API 34 system image, and the AVD with its boot snapshot
+  from the cache, made (and cached) when it isn't there. The jobs then start the emulator with
+  reactivecircus/android-emulator-runner and the same api-level/target/arch/profile.
+
+runs:
+  using: composite
+  steps:
+    # GitHub-hosted Ubuntu runners support nested virtualization but need
+    # KVM permissions opened up explicitly for the emulator to use it.
+    - name: Enable KVM group perms
+      shell: bash -e {0}
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    # A boot snapshot only loads in the emulator and system image it was made
+    # with ("Snapshot file cannot be used, incompatible version" otherwise, and
+    # every run cold-booted). Install both up front and put their versions in
+    # the cache key, so a runner image update makes a fresh snapshot once. "bash -e", a job's
+    # own default: a composite's plain "bash" adds pipefail, and yes's broken pipe then failed it.
+    - name: Install Emulator and System Image
+      id: avd-versions
+      shell: bash -e {0}
+      run: |
+        SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
+        VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
+          grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
+          awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
+        echo "Installed versions: $VERSIONS"
+        echo "key=${VERSIONS%-}" >> "$GITHUB_OUTPUT"
+
+    # The AVD image + boot snapshot, so a cache hit restores from the snapshot instead of
+    # cold-booting. Not hashed on source: the AVD only depends on the api-level/target/arch/profile
+    # below and the versions above. Saved right after it's made, before anything is installed:
+    # saved at a job's end, a release run's AVD kept its versioned apps, and every branch's build
+    # (versionCode 13) then failed to install as a downgrade (2026-10-30; "clean" in the key
+    # dropped that cache).
+    - name: AVD cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      id: avd-cache
+      with:
+        path: |
+          ~/.android/avd/*
+          ~/.android/adb*
+        key: avd-34-google_apis-x86_64-pixel_6-clean-${{ steps.avd-versions.outputs.key }}
+
+    - name: Create AVD and generate snapshot for caching
+      if: steps.avd-cache.outputs.cache-hit != 'true'
+      uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+      with:
+        api-level: 34
+        target: google_apis
+        arch: x86_64
+        profile: pixel_6
+        force-avd-creation: false
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+        disable-animations: false
+        script: echo "Generated AVD snapshot for caching."
+
+    - name: Save the new AVD
+      if: steps.avd-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.android/avd/*
+          ~/.android/adb*
+        key: ${{ steps.avd-cache.outputs.cache-primary-key }}

@@ -2,9 +2,6 @@ package com.astryx.book
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.Build
-import android.os.SystemClock
-import android.view.InputDevice
-import android.view.MotionEvent
 import android.webkit.CookieManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -285,64 +282,17 @@ class MainActivityPipTest {
     }
 
     // The PiP window's bounds on the screen.
-    private fun pipWindow(): android.graphics.Rect = app.onActivity {
-        val view = it.window.decorView
-        val at = IntArray(2).also(view::getLocationOnScreen)
-        android.graphics.Rect(at[0], at[1], at[0] + view.width, at[1] + view.height)
-    }
+    private fun pipWindow(): android.graphics.Rect = app.screenBox(app.onActivity { it.window.decorView })
 
     // Pinches the PiP window smaller, or bigger when it's already as small as it gets (Android keeps
     // the size the last test left). Leaves PiP and skips the test when the window doesn't resize.
     private fun resizePipWindow(window: android.graphics.Rect) {
-        pinch(window, 0.6f)
+        app.pinch(window, 0.6f)
         if (app.waitFor(3000) { pipWindow().width() < window.width() * 0.9 }) return
-        pinch(window, 1.6f)
+        app.pinch(window, 1.6f)
         if (app.waitFor(3000) { pipWindow().width() > window.width() * 1.1 }) return
         app.leavePip()
         assumeTrue("this Android's PiP doesn't resize on an injected pinch", false)
-    }
-
-    // Two fingers along the window's longer side, moving to [factor] times their distance.
-    private fun pinch(window: android.graphics.Rect, factor: Float) {
-        val horizontal = window.width() > window.height()
-        val from = maxOf(window.width(), window.height()) / 5f
-        val to = from * factor
-        val cx = window.exactCenterX()
-        val cy = window.exactCenterY()
-        val properties = Array(2) { i ->
-            MotionEvent.PointerProperties().apply { id = i; toolType = MotionEvent.TOOL_TYPE_FINGER }
-        }
-        val downAt = SystemClock.uptimeMillis()
-        var now = downAt
-        fun send(action: Int, pointers: Int, distance: Float) {
-            val coords = Array(2) { i ->
-                val sign = if (i == 0) -1 else 1
-                MotionEvent.PointerCoords().apply {
-                    x = if (horizontal) cx + sign * distance else cx
-                    y = if (horizontal) cy else cy + sign * distance
-                    pressure = 1f
-                    size = 1f
-                }
-            }
-            val event = MotionEvent.obtain(
-                downAt, now, action, pointers, properties, coords, 0, 0, 1f, 1f, 0, 0,
-                InputDevice.SOURCE_TOUCHSCREEN, 0
-            )
-            instrumentation.uiAutomation.injectInputEvent(event, true)
-            event.recycle()
-        }
-        val second = 1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT
-        send(MotionEvent.ACTION_DOWN, 1, from)
-        send(MotionEvent.ACTION_POINTER_DOWN or second, 2, from)
-        for (step in 1..20) {
-            Thread.sleep(16)
-            now += 16
-            send(MotionEvent.ACTION_MOVE, 2, from + (to - from) * step / 20)
-        }
-        Thread.sleep(300)
-        now += 300
-        send(MotionEvent.ACTION_POINTER_UP or second, 2, to)
-        send(MotionEvent.ACTION_UP, 1, to)
     }
 
     // ── the effects around focus mode ───────────────────────────────────────

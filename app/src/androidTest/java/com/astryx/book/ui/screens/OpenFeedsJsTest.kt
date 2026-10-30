@@ -126,6 +126,30 @@ class OpenFeedsJsTest {
         assertEquals("exit", h.eval("window.backHandlerNB()").unquoted())
     }
 
+    // A tab bar as m.facebook.com draws it at "/": Home's (icon-font glyphs, read on the emulator
+    // 2026-10-30) or Feeds' (text), the first tab selected.
+    private fun tabBar(vararg tabs: String) = "<div role='tablist'>" + tabs.mapIndexed { i, t ->
+        "<div role='tab' aria-selected='${i == 0}'><span>$t</span></div>"
+    }.joinToString("") + "</div>"
+
+    @Test
+    fun homesIconTabBar_isTheFeed_withoutTheHomeButtonsIcon() {
+        val h = Harness()
+        h.load("https://m.facebook.com/", tabBar("\uDB84\uDF8E", "\uDB80\uDF8D", "\uDB80\uDF88", "\uDB80\uDF86", "\uDB80\uDF82"))
+        h.runBackHandler()
+        assertEquals("true", h.eval("window.isFeed()"))
+    }
+
+    @Test
+    fun feedsTextTabBar_isNotTheFeed() {
+        val h = Harness()
+        h.load("https://m.facebook.com/", tabBar("All", "Friends", "Groups", "Pages"))
+        h.runBackHandler()
+        assertEquals("false", h.eval("window.isFeed()"))
+        h.eval("window.__astryxFeeds = true")
+        assertEquals("true", h.eval("window.isStartFeeds()"))
+    }
+
     @Test
     fun back_isNotTakenOver_onOtherPagesAtTheRoot() {
         // Without the mark (Feeds opened from Facebook's own menu) Back works as before.

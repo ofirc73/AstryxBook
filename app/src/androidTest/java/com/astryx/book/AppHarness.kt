@@ -138,6 +138,58 @@ class AppHarness {
             " var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
     )
 
+    /**
+     * A real two-finger pinch in [area] (screen px): along its longer side, from a fifth of that
+     * side apart to [factor] times as far (below 1 pinches in, above 1 spreads out).
+     */
+    fun pinch(area: android.graphics.Rect, factor: Float) {
+        val horizontal = area.width() > area.height()
+        val from = maxOf(area.width(), area.height()) / 5f
+        val to = from * factor
+        val cx = area.exactCenterX()
+        val cy = area.exactCenterY()
+        val properties = Array(2) { i ->
+            MotionEvent.PointerProperties().apply { id = i; toolType = MotionEvent.TOOL_TYPE_FINGER }
+        }
+        val downAt = SystemClock.uptimeMillis()
+        var now = downAt
+        fun send(action: Int, pointers: Int, distance: Float) {
+            val coords = Array(2) { i ->
+                val sign = if (i == 0) -1 else 1
+                MotionEvent.PointerCoords().apply {
+                    x = if (horizontal) cx + sign * distance else cx
+                    y = if (horizontal) cy else cy + sign * distance
+                    pressure = 1f
+                    size = 1f
+                }
+            }
+            val event = MotionEvent.obtain(
+                downAt, now, action, pointers, properties, coords, 0, 0, 1f, 1f, 0, 0,
+                InputDevice.SOURCE_TOUCHSCREEN, 0
+            )
+            instrumentation.uiAutomation.injectInputEvent(event, true)
+            event.recycle()
+        }
+        val second = 1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT
+        send(MotionEvent.ACTION_DOWN, 1, from)
+        send(MotionEvent.ACTION_POINTER_DOWN or second, 2, from)
+        for (step in 1..20) {
+            Thread.sleep(16)
+            now += 16
+            send(MotionEvent.ACTION_MOVE, 2, from + (to - from) * step / 20)
+        }
+        Thread.sleep(300)
+        now += 300
+        send(MotionEvent.ACTION_POINTER_UP or second, 2, to)
+        send(MotionEvent.ACTION_UP, 1, to)
+    }
+
+    /** [view]'s box on the screen. */
+    fun screenBox(view: View): android.graphics.Rect = onActivity {
+        val at = IntArray(2).also(view::getLocationOnScreen)
+        android.graphics.Rect(at[0], at[1], at[0] + view.width, at[1] + view.height)
+    }
+
     /** The Messages layer's WebView, once it's open. */
     fun layerWebView(): WebView? = webViews().getOrNull(1)
 

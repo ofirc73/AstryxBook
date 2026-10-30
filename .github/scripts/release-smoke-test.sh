@@ -10,6 +10,9 @@ set -euo pipefail
 APK=${1:-app/build/outputs/apk/release/app-release.apk}
 PKG=com.astryx.book
 
+# A copy already on the emulator (a higher versionCode left in a cached AVD) would refuse the
+# install as a downgrade.
+adb uninstall "$PKG" > /dev/null 2>&1 || true
 adb install -r "$APK"
 adb logcat -b crash -c
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /dev/null

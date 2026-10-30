@@ -45,7 +45,10 @@ user-visible change.
   check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
   `--build-cache`), written only by main's release runs: entries from a by-hand `ci.yml` run on main
   (workflow "CI" in their key) were what every PR restored first, and once stale they doubled each
-  test part's time (2026-10-27; found in the parts' "Build App and Test APKs" step). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
+  test part's time (2026-10-27; found in the parts' "Build App and Test APKs" step). The emulator's
+  AVD cache (`ci.yml`, `facebook-canary.yml`) is saved right after the AVD is made, never at a job's
+  end: saved then, a release run's AVD kept v1.36.6 installed and every branch build failed to
+  install as a downgrade (2026-10-30). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
   `main` and inside `create-release.yml` nothing is cancelled. Run CI by hand on a branch with
   `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) is its own
   workflow, started after each CI or release run that passed (`workflow_run`); it gates nothing.
@@ -152,7 +155,11 @@ user-visible change.
   bounces is cancelled and the fallback lands on top, so `BackHistory` counts it as that step. To
   try it on the emulator, answer the reel's document load over DevTools (`Fetch.fulfillRequest`, a
   302 to the `intent://` link). Pages a script opens by `location.href` without a tap are skipped
-  by Back (Chromium's history intervention): in tests open them with `loadUrl` or an app link. A post's
+  by Back (Chromium's history intervention): in tests open them with `loadUrl` or an app link.
+  m.facebook.com answers a desktop user agent with a 301 to www.facebook.com that the WebView
+  caches; the mobile view then followed it to the desktop site (after Desktop layout): the app
+  clears the cache and goes back to the mobile page (`mobileSiteUrl`). The same `wtsid` on every
+  redirect means a cached one. A post's
   Share > Send as a message opens `intent://share/?link=<post>…;package=com.facebook.orca`:
   `messengerShareLink` reads the post, the Messages layer opens the chat list, and the chat the user
   opens gets the link in its message box (`put_link_in_chat.js`: `execCommand('insertText')` into
@@ -311,6 +318,11 @@ Messages layer is open (`appOrientation`). See Known
 limitations in `FORK_CHANGES.md`.
 
 ## Repo housekeeping
+
+- No duplicated code anywhere: app code, tests and live checks, workflows and scripts. Reuse or
+  generalize what's there (`AppHarness`: `tapOn`, `pinch`, `screenBox`; the live checks' helpers
+  such as `openFeed`, `loadInMain`, `scrollDown`; `.github/actions/avd` for the emulator setup)
+  and read each diff for repeats before committing.
 
 - Plan files (`*_PLAN.md`) and `spike.log` are working notes; don't commit them.
 - The `stats` branch is data-only (weekly release download counts written by
