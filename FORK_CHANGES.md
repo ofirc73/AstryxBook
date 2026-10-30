@@ -265,6 +265,14 @@ rewritten to the new one, keeping its schedule.
   now hides all of a post's rows, the feed list's children sharing its
   `data-tracking-duration-id`, and the thin gap above it, in either layout (a post opened from a
   link still shows as one card). Covered by `FeedPostJsTest`.
+- The feed's next posts are asked for three screens ahead (`feed_prefetch.js`, document start,
+  main view). m.facebook.com asks for them only when the list's loading row (the grey placeholder
+  at the bottom) is on screen: it watches the row with an IntersectionObserver without a margin.
+  Read on the phone (2026-10-30): flinging down the feed reached the placeholder about 28 times in
+  90 s, mostly for 0.5-1 s, up to 7 s, and since v1.38.0 hid whole posts (44% of that feed) each
+  batch is shorter on screen, so it came up more often. The script watches the same row with a
+  margin of three windows and passes that on to Facebook's own callback; other first-visibility
+  marks (which log what the user saw) keep Facebook's timing. Covered by `FeedPrefetchJsTest`.
 - Reels: Facebook's blue "Open app" button showed in the top bar when *Download* was off (only
   `download_content.js` hid it). `scripts.js`, which always runs, now hides "Open app" buttons,
   found by their icon in any language. The copy button no longer shows on Reels pages: a Like
@@ -580,6 +588,12 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   counted as shown while any row of its post shows (`feedPostRows`). The test account's feed had no
   People you may know or Reels box when it was written: those are noted when absent. Covered by
   `FeedPostJsTest` (the post as rows and as a card).
+- `theFeed_asksForMorePostsBeforeItsLoadingRowShows`: with Hide suggested posts on, the feed list
+  still has its loading row (else it fails: `feed_prefetch.js` would have nothing to watch), and
+  the app passes it on to Facebook while it's still below the window (`window.__astryxFeedPrefetched`;
+  `FeedPrefetchJsTest`). That the next posts then arrive is untestable for now: the test account's
+  feed stops after one batch, in Chrome on the emulator too (2026-10-30, after it followed NASA,
+  National Geographic and BBC News); the check counts them and says so.
 - `backOnTheFeed_scrollsToTheTop_thenLeavesTheApp`: `scripts.js` `isFeed()` still recognising the
   feed, and Back on it scrolling to the top, then sending the app to the background
   (`BackHandlerJsTest`).
@@ -667,7 +681,8 @@ A green run says that nothing the checks could see broke, not that every part wa
 - **Untestable** (`untestable(…)`, a `CANARY UNTESTABLE:` line in the run's output, no warning): a
   part no run can check, the same every day: People you may know and reels boxes on the feed
   (Facebook doesn't show them to the test account), a story of its own (the checks never post), the
-  chat checks on GitHub (no `fbChat`). Covered by fixed-page tests only. They were warnings at
+  chat checks on GitHub (no `fbChat`), the feed's second batch (the test account gets one). Covered
+  by fixed-page tests only. They were warnings at
   first, repeated on every run, and buried the ones that said something about that run.
 
 ## Messages in desktop mode

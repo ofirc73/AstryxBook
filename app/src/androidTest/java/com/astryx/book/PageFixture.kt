@@ -78,6 +78,28 @@ class PageFixture(
         return eval(all.substring(0, end))
     }
 
+    /**
+     * Replaces the page's IntersectionObserver with a stub (a test WebView isn't rendered, so real
+     * observers wouldn't fire): each one is kept in `window.__ios` with its options (`opts`) and
+     * the elements it observes (`targets`), and `window.__deliver(i, id, ratio)` gives observer i
+     * one entry for the element with that id.
+     */
+    fun stubIntersectionObserver(): String = eval(
+        """
+        window.__ios = [];
+        window.IntersectionObserver = function(cb, opts) { this.cb = cb; this.opts = opts || {}; this.targets = []; window.__ios.push(this); };
+        IntersectionObserver.prototype.observe = function(t) { this.targets.push(t); };
+        IntersectionObserver.prototype.unobserve = function(t) { this.targets = this.targets.filter(function(x) { return x !== t; }); };
+        IntersectionObserver.prototype.disconnect = function() { this.targets = []; };
+        window.__deliver = function(i, id, ratio) {
+          var o = window.__ios[i], t = document.getElementById(id);
+          o.cb.call(o, [{ target: t, intersectionRatio: ratio, isIntersecting: ratio > 0,
+            rootBounds: null, boundingClientRect: t.getBoundingClientRect(), time: 1 }], o);
+        };
+        1
+        """.trimIndent()
+    )
+
     /** Whether [check] became true within [ms], checked every [everyMs]. */
     fun waitFor(ms: Long = 5_000, everyMs: Long = 100, check: () -> Boolean): Boolean {
         val until = System.currentTimeMillis() + ms
