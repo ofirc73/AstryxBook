@@ -29,14 +29,7 @@ class OpenFeedsJsTest {
 
         fun runOpenFeeds() = page.run(R.raw.open_feeds)
 
-        // The desktop/feed identifiers and the back handler, i.e. scripts.js up to the first
-        // block that doesn't belong to them (as in BackHandlerJsTest).
-        fun runBackHandler() {
-            val all = page.script(R.raw.scripts)
-            val end = all.indexOf("// Enable press and hold")
-            assertTrue("back handler block not found in scripts.js", end > 0)
-            eval(all.substring(0, end))
-        }
+        fun runBackHandler() = page.runBackHandler()
 
         fun eval(js: String) = page.eval(js)
 
