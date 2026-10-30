@@ -186,9 +186,53 @@ class LiveFacebookCanaryTest {
         }
     }
 
-    private fun open(url: String) {
+    // Home, with its feed drawn.
+    private fun openFeed() {
+        open("https://m.facebook.com/")
+        awaitFeed()
+    }
+
+    // [url] in the main view as the app opens a link (loadUrl): a page Back stops at, unlike one a
+    // script opens by location.href without a tap (Chromium's history intervention skips those).
+    private fun loadInMain(url: String) {
+        val main = app.mainWebView()
+        app.onActivity { main.loadUrl(url) }
+    }
+
+    // The main view's page is the web fallback of Facebook's redirect to its app (intent://).
+    private fun loadedFromIntentFallback(): Boolean {
+        val main = app.mainWebView()
+        return app.onActivity { main.copyBackForwardList().currentItem?.originalUrl.orEmpty() }
+            .contains("from_intent_redirect=1")
+    }
+
+    // Down most of a screen, then [settleMs] for what the page loads as it scrolls.
+    private fun scrollDown(settleMs: Long = 2000) {
+        eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+        Thread.sleep(settleMs)
+    }
+
+    // A public Page (NASA's) opened as a link from the feed.
+    private fun openPublicPage() {
+        openFeed()
+        loadInMain(PUBLIC_PAGE_URL)
+        awaitPage("the public Page never loaded", "/^\\/(NASA|profile\\.php)/.test(location.pathname) && $FEED_SHOWN_JS")
+    }
+
+    // The public photo's page in the main view, opened from the feed or from the page already there.
+    private fun openPublicPhoto(fromFeed: Boolean = true) {
+        if (fromFeed) openFeed()
+        loadInMain(PUBLIC_PHOTO_URL)
+        awaitPage("the public photo never loaded", PHOTO_PAGE_SHOWN_JS)
+    }
+
+    private fun startApp() {
         app.start()
         assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
+    }
+
+    private fun open(url: String) {
+        startApp()
         assertTrue("Facebook never loaded", app.waitFor(30_000) { eval("location.hostname") == "\"m.facebook.com\"" })
         // A session Facebook ended shows its logged-out Home ("Facebook - log in or sign up", at /,
         // with Log in and Create account buttons but no password box; 2026-10-27) and drops the
@@ -350,15 +394,13 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun removeAds_hidesTheFeedsAds() {
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
         var ads = feedAds()
         for (screen in 1..FEED_SCREENS) {
             if (ads.hidden > 0 || ads.missed > 0) break
-            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
-            Thread.sleep(2000)
+            scrollDown()
             ads = feedAds()
         }
         if (ads.missed > 0) {
@@ -655,24 +697,19 @@ class LiveFacebookCanaryTest {
         // copy of it on top, and every further Back added another (BackHistory; a Galaxy A56,
         // 2026-10-30; the test account's reel loaded normally then). Home, the public reel and
         // Notifications, each opened by the app as a link is; Back twice must end on Home.
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         val main = app.mainWebView()
-        val bounced = {
-            app.onActivity { main.copyBackForwardList().let { it.currentItem?.originalUrl.orEmpty() } }
-                .contains("from_intent_redirect=1")
-        }
-        app.onActivity { main.loadUrl(PUBLIC_REEL_URL) }
+        loadInMain(PUBLIC_REEL_URL)
         awaitPage("the public reel never showed its video", "!!document.querySelector('video')")
-        if (bounced()) note("Facebook sent the public reel's page to its app (intent://): the app opened its web fallback")
-        app.onActivity { main.loadUrl("https://m.facebook.com/notifications/") }
+        if (loadedFromIntentFallback()) note("Facebook sent the public reel's page to its app (intent://): the app opened its web fallback")
+        loadInMain("https://m.facebook.com/notifications/")
         awaitPage("Notifications never loaded", "location.pathname.indexOf('/notifications') === 0 && $FEED_SHOWN_JS")
 
         app.pressBack()
         assertTrue("Back on Notifications didn't go back to the reel (${app.url(main)})", app.waitFor(30_000) {
             app.url(main).startsWith(PUBLIC_REEL_URL) && app.onActivity { main.progress } == 100
         })
-        val bouncedOnBack = bounced()
+        val bouncedOnBack = loadedFromIntentFallback()
         if (bouncedOnBack) note("Facebook sent the reel's page to its app when Back loaded it again (intent://)")
         Thread.sleep(2000)
         app.pressBack()
@@ -899,8 +936,7 @@ class LiveFacebookCanaryTest {
         // Every full m.facebook.com load adds Facebook's Google Ads pixel frames
         // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
         val before = adsPixelBlocks.get()
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         Thread.sleep(5000) // the pixel's frames come after the feed
         val frames = eval(FRAMES_JS).trim('"')
         val blocked = adsPixelBlocks.get() - before
@@ -976,8 +1012,7 @@ class LiveFacebookCanaryTest {
     fun pageZoom_laysTheFeedOutForTheZoomedWidth() {
         runBlocking { SettingsDataStore(app.context).setTextZoom(PAGE_ZOOM) }
         try {
-            open("https://m.facebook.com/")
-            awaitFeed()
+            openFeed()
             // The server lays a page out for the vpd cookie written as the page before it loaded.
             eval("location.reload(); 1")
             Thread.sleep(3000)
@@ -1024,8 +1059,7 @@ class LiveFacebookCanaryTest {
     fun theFeed_showsNoGetTheAppSheet() {
         // Facebook's "Facebook is better on the app" sheet comes up over the feed now and then;
         // scripts.js (dismissAppPrompt) presses it away.
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         Thread.sleep(8000)
         val sheet = eval(APP_SHEET_JS).trim('"')
         if (sheet.isNotEmpty()) {
@@ -1062,13 +1096,11 @@ class LiveFacebookCanaryTest {
                 setHideStories(true); setHideSuggested(true); setHidePeopleYouMayKnow(true); setHideReels(true)
             }
         }
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         Thread.sleep(3000)
         var seen = FeedExtras.parse(eval(FEED_EXTRAS_JS))
         for (screen in 1..FEED_SCREENS) {
-            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
-            Thread.sleep(2000)
+            scrollDown()
             seen = FeedExtras.parse(eval(FEED_EXTRAS_JS))
         }
         val missed = listOfNotNull(
@@ -1090,8 +1122,7 @@ class LiveFacebookCanaryTest {
         // scripts.js backHandlerNB: on the feed (window.isFeed, Facebook's tab bar), Back scrolls to
         // the top first and then sends the app to the background. With isFeed lost, Back on the
         // feed did nothing (no page to go back to) or left the app at once.
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         assertEquals("scripts.js isFeed() doesn't see the feed as the feed (${pageShape()})", "true", eval("window.isFeed()"))
         eval("window.scrollBy(0, window.innerHeight * 2); 1")
         Thread.sleep(1500)
@@ -1108,11 +1139,9 @@ class LiveFacebookCanaryTest {
     @Test
     fun stickyNavbar_keepsTheTabBarOnScreen_downTheFeed() {
         runBlocking { SettingsDataStore(app.context).setStickyNavbar(true) }
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         for (screen in 1..3) {
-            eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
-            Thread.sleep(1500)
+            scrollDown(1500)
         }
         val bar = eval(TAB_BAR_JS).trim('"')
         assertTrue("the tab bar left the screen down the feed with Sticky navbar on (sticky_navbar.js: " +
@@ -1126,8 +1155,7 @@ class LiveFacebookCanaryTest {
         // /messages/, which the app opens in the Messages layer; without it the tab goes through
         // Facebook's fb-messenger:// link, which the app intercepts too, so the layer is checked.
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         assertEquals("messages_tab.js never ran", "true", eval("window.__mbMessagesTabHooked === true"))
         val tab = "${shownJs("[role=tab]")}.filter(function (t) { return /^messages\\b/i.test(t.getAttribute('aria-label') || ''); })[0]"
         if (!app.waitFor(20_000) { app.tapOn(app.mainWebView(), tab) }) {
@@ -1163,13 +1191,8 @@ class LiveFacebookCanaryTest {
         // Facebook answers full loads of some pages with a redirect to its app (intent://); the app
         // opens the web fallback (intentFallbackUrl). A public Page opened as a link must show here,
         // not "Not supported" or nothing.
-        open("https://m.facebook.com/")
-        awaitFeed()
-        val main = app.mainWebView()
-        app.onActivity { main.loadUrl(PUBLIC_PAGE_URL) }
-        awaitPage("the public Page never loaded", "/^\\/(NASA|profile\\.php)/.test(location.pathname) && $FEED_SHOWN_JS")
-        val original = app.onActivity { main.copyBackForwardList().currentItem?.originalUrl.orEmpty() }
-        if ("from_intent_redirect=1" in original) note("Facebook sent the public Page's load to its app (intent://): its web fallback opened")
+        openPublicPage()
+        if (loadedFromIntentFallback()) note("Facebook sent the public Page's load to its app (intent://): its web fallback opened")
     }
 
     @Test
@@ -1177,11 +1200,8 @@ class LiveFacebookCanaryTest {
         // A web link in a post: Facebook navigates the page to the site (with an fbclid; through
         // l.facebook.com/l.php before, which fbRedirectSanitizer unwraps), the request interceptor
         // hands it to the browser. The browser's launch is caught here instead of opening it.
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openPublicPage()
         val main = app.mainWebView()
-        app.onActivity { main.loadUrl(PUBLIC_PAGE_URL) }
-        awaitPage("the public Page never loaded", FEED_SHOWN_JS)
         val launched = AtomicReference<Intent>()
         val monitor = object : Instrumentation.ActivityMonitor() {
             override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
@@ -1198,8 +1218,7 @@ class LiveFacebookCanaryTest {
             var tapped = false
             for (screen in 0..6) {
                 if (app.tapOn(main, POST_WEB_LINK_JS)) { tapped = true; break }
-                eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
-                Thread.sleep(2000)
+                scrollDown()
             }
             if (!tapped) {
                 note("no web link in the public Page's latest posts: links in posts weren't checked")
@@ -1220,8 +1239,7 @@ class LiveFacebookCanaryTest {
         // pinch_to_zoom.js (Pinch to zoom off, the default) rewrites the viewport <meta> so pages
         // don't zoom; photo pages are left zoomable. Facebook adds a second, zoomable viewport
         // <meta> of its own (seen 2026-10-30), so a real pinch is what's checked.
-        open("https://m.facebook.com/")
-        awaitFeed()
+        openFeed()
         val main = app.mainWebView()
         val metas = "[].map.call(document.querySelectorAll('meta[name=viewport]'), function (m) { return m.content; }).join(' || ')"
         app.pinch(app.screenBox(main), 2.5f)
@@ -1229,8 +1247,7 @@ class LiveFacebookCanaryTest {
         val feedScale = eval("visualViewport.scale").toDoubleOrNull() ?: 0.0
         assertTrue("a pinch zoomed the feed to ${"%.2f".format(feedScale)}x with Pinch to zoom off (pinch_to_zoom.js; " +
             "viewport metas: ${eval(metas)})", feedScale < 1.05)
-        app.onActivity { main.loadUrl(PUBLIC_PHOTO_URL) }
-        awaitPage("the public photo never loaded", "location.pathname === '/photo.php' && !!document.querySelector('img[src*=\"fbcdn\"]')")
+        openPublicPhoto(fromFeed = false)
         Thread.sleep(2000)
         app.pinch(app.screenBox(main), 2.5f)
         assertTrue("a pinch no longer zooms a photo page (pinch_to_zoom.js leaves photo.php zoomable; viewport metas: " +
@@ -1241,11 +1258,7 @@ class LiveFacebookCanaryTest {
     fun aPhotoPage_showsTheDownloadButton() {
         // download_content.js (on by default) puts a Download button over the photo a page shows,
         // found by its viewer's markup or the largest fbcdn picture.
-        open("https://m.facebook.com/")
-        awaitFeed()
-        val main = app.mainWebView()
-        app.onActivity { main.loadUrl(PUBLIC_PHOTO_URL) }
-        awaitPage("the public photo never loaded", "location.pathname === '/photo.php' && !!document.querySelector('img[src*=\"fbcdn\"]')")
+        openPublicPhoto()
         assertTrue("download_content.js shows no Download button on a photo page (${pageShape()})", app.waitFor(20_000) {
             eval("${shownJs("[aria-label=\"Download content\"]")}.length > 0") == "true"
         })
@@ -1260,8 +1273,7 @@ class LiveFacebookCanaryTest {
         val settings = SettingsDataStore(app.context)
         runBlocking { settings.setDesktopLayout(true) }
         try {
-            app.start()
-            assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
+            startApp()
             assertTrue("Desktop layout never showed Facebook's desktop feed (html#facebook, a role=main or role=feed) " +
                 "(${pageShape()})", app.waitFor(60_000) {
                 eval("window.isDesktopMode && window.isDesktopMode() && window.isFeed() && " +
@@ -1271,8 +1283,7 @@ class LiveFacebookCanaryTest {
             runBlocking { settings.setDesktopLayout(false) }
             app.finish()
         }
-        app.start()
-        assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
+        startApp()
         assertTrue("with Desktop layout off again the app didn't open the mobile feed (${app.url(app.mainWebView()).substringBefore('?')})",
             app.waitFor(45_000) { eval("location.hostname") == "\"m.facebook.com\"" && eval(FEED_SHOWN_JS) == "true" })
     }
@@ -1396,6 +1407,8 @@ class LiveFacebookCanaryTest {
         // A public Page (NASA's), opened as a link from outside the feed.
         private const val PUBLIC_PAGE_URL = "https://m.facebook.com/NASA/"
         // The public NASA post's second photo, on its own page.
+        // A photo page with its photo drawn.
+        private const val PHOTO_PAGE_SHOWN_JS = "location.pathname === '/photo.php' && !!document.querySelector('img[src*=\"fbcdn\"]')"
         private const val PUBLIC_PHOTO_URL = "https://m.facebook.com/photo.php?fbid=$PUBLIC_POST_PHOTO"
         // A web link written in a post's text (its own tappable box holding just the address), for
         // tapOn; undefined while there's none.

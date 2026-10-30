@@ -282,11 +282,7 @@ class MainActivityPipTest {
     }
 
     // The PiP window's bounds on the screen.
-    private fun pipWindow(): android.graphics.Rect = app.onActivity {
-        val view = it.window.decorView
-        val at = IntArray(2).also(view::getLocationOnScreen)
-        android.graphics.Rect(at[0], at[1], at[0] + view.width, at[1] + view.height)
-    }
+    private fun pipWindow(): android.graphics.Rect = app.screenBox(app.onActivity { it.window.decorView })
 
     // Pinches the PiP window smaller, or bigger when it's already as small as it gets (Android keeps
     // the size the last test left). Leaves PiP and skips the test when the window doesn't resize.

@@ -184,10 +184,10 @@ class AppHarness {
         send(MotionEvent.ACTION_UP, 1, to)
     }
 
-    /** [webView]'s box on the screen. */
-    fun screenBox(webView: WebView): android.graphics.Rect = onActivity {
-        val at = IntArray(2).also(webView::getLocationOnScreen)
-        android.graphics.Rect(at[0], at[1], at[0] + webView.width, at[1] + webView.height)
+    /** [view]'s box on the screen. */
+    fun screenBox(view: View): android.graphics.Rect = onActivity {
+        val at = IntArray(2).also(view::getLocationOnScreen)
+        android.graphics.Rect(at[0], at[1], at[0] + view.width, at[1] + view.height)
     }
 
     /** The Messages layer's WebView, once it's open. */
