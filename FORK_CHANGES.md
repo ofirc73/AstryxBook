@@ -662,11 +662,13 @@ A green run says that nothing the checks could see broke, not that every part wa
   keeps its gaps (artifact `canary-gaps`, 30 days); a key in this run and the 6 runs of the checks
   before it opens the "Daily Facebook check: parts unchecked for 7 runs" issue, rewritten (not
   commented on) while it lasts and closed by a run where they were all checked again.
-- **Note** (`note(…)`): a check that passed after a workaround (a reload, a second Home, an
-  `intent://` fallback, a PiP `vpd` cookie removed), or a part Facebook never shows the test
-  account, which no run can check: People you may know and reels boxes on the feed, a story of its
-  own (the checks never post), the chat checks on GitHub (no `fbChat`). Those are covered by
-  fixed-page tests only.
+- **Note** (`note(…)`, a "Live check note" warning): a check that passed after a workaround (a
+  reload, a second Home, an `intent://` fallback, a PiP `vpd` cookie removed).
+- **Untestable** (`untestable(…)`, a `CANARY UNTESTABLE:` line in the run's output, no warning): a
+  part no run can check, the same every day: People you may know and reels boxes on the feed
+  (Facebook doesn't show them to the test account), a story of its own (the checks never post), the
+  chat checks on GitHub (no `fbChat`). Covered by fixed-page tests only. They were warnings at
+  first, repeated on every run, and buried the ones that said something about that run.
 
 ## Messages in desktop mode
 

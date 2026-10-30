@@ -112,11 +112,15 @@ class LiveFacebookCanaryTest {
     private fun logLines(tag: String): List<String> =
         shell("logcat -d -s $tag:D").filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
 
-    // A note in the run's output for a check that passed only after working around something, or
-    // for a part Facebook never shows the test account (documented in FORK_CHANGES' Testing): am
+    // A note in the run's output for a check that passed only after working around something: am
     // instrument prints a status's stream text (the workflow turns these into warnings), and logcat
     // has it under AstryxbookCanary.
     private fun note(message: String) = report(NOTE_PREFIX, message)
+
+    // A part no run can check (FORK_CHANGES' Testing): Facebook never shows it to the test account,
+    // or it needs what GitHub's run lacks. Only in the run's output, not a warning: the same words
+    // every day said nothing new and buried the warnings that did.
+    private fun untestable(message: String) = report(UNTESTABLE_PREFIX, message)
 
     // A part of a check that had nothing to check this run, though Facebook usually gives it
     // something (no ad came, say): a warning on the run like a note, and facebook-canary.yml opens
@@ -867,7 +871,7 @@ class LiveFacebookCanaryTest {
             opened || !app.layerOpen()
         })
         if (!opened) {
-            note("the test account has no story of its own: only checked that the stories page closes the story screen")
+            untestable("the test account has no story of its own: only checked that the stories page closes the story screen")
             return
         }
         // Laid out at phone width only: the creator's wide layout (story_layout.js's viewport) can
@@ -930,7 +934,7 @@ class LiveFacebookCanaryTest {
         val layer = app.layerWebView()!!
         val chat = InstrumentationRegistry.getArguments().getString("fbChat")?.trim()?.takeIf { it.isNotEmpty() }?.let { chatPath(it) }
         if (chat == null) {
-            note("no test chat (-e fbChat): the post's link in a chat's message box wasn't checked")
+            untestable("no test chat (-e fbChat): the post's link in a chat's message box wasn't checked")
             return
         }
         // Picked from the chat list, as the user would (chatShownJs taps its row).
@@ -1140,7 +1144,7 @@ class LiveFacebookCanaryTest {
         listOf("People you may know" to seen.pymk, "reels boxes" to seen.reels)
             .filter { it.second.hidden == 0 }
             .takeIf { it.isNotEmpty() }
-            ?.let { none -> note("no ${none.joinToString(", ") { it.first }} on the feed in $FEED_SCREENS screens: not checked") }
+            ?.let { none -> untestable("no ${none.joinToString(", ") { it.first }} on the feed in $FEED_SCREENS screens: not checked") }
     }
 
     @Test
@@ -1514,6 +1518,7 @@ class LiveFacebookCanaryTest {
         // The prefixes facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
         private const val GAP_PREFIX = "CANARY GAP: "
+        private const val UNTESTABLE_PREFIX = "CANARY UNTESTABLE: "
         private const val NOTE_STATUS = 3
         // A public reel posted as a video in a post ("A Day With My Cat"), as the story address its
         // share link came back as: story_fbid is the reel's id, share_url a reel share link (a
