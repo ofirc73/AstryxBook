@@ -1123,7 +1123,8 @@ class LiveFacebookCanaryTest {
         // the top first and then sends the app to the background. With isFeed lost, Back on the
         // feed did nothing (no page to go back to) or left the app at once.
         openFeed()
-        assertEquals("scripts.js isFeed() doesn't see the feed as the feed (${pageShape()})", "true", eval("window.isFeed()"))
+        assertEquals("scripts.js isFeed() doesn't see the feed as the feed (hasHomeTabs: Home's tab selected and an icon, " +
+            "or the Home button's icon) (tabs: ${eval(TABS_SHAPE_JS)}; ${pageShape()})", "true", eval("window.isFeed()"))
         eval("window.scrollBy(0, window.innerHeight * 2); 1")
         Thread.sleep(1500)
         app.pressBack()
@@ -1442,6 +1443,13 @@ class LiveFacebookCanaryTest {
               return [story ? 1 : 0, s.sug.join(','), s.pymk.join(','), s.reels.join(','), shape].join('|');
             })()
         """
+
+        // The page's tabs, for a failure: each one's selected state and its first character's code
+        // point (Home's is an icon-font glyph), then how many buttons hold the Home button's icon.
+        private const val TABS_SHAPE_JS =
+            "[].map.call(document.querySelectorAll('[role=tab]'), function (t) { return t.getAttribute('aria-selected') + ':' +" +
+                " ((t.textContent || '').trim().codePointAt(0) || 0).toString(16); }).join(' ') + ' homeButtonIcons=' +" +
+                " [].filter.call(document.querySelectorAll('[role=button] span'), function (s) { return s.textContent === '\\uDB86\\uDD46'; }).length"
 
         // Facebook's tab bar: "on <top>,<bottom>" while it's inside the window, "off ..." when it's
         // scrolled away, "none" without one.

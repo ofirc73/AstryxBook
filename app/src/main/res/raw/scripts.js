@@ -17,9 +17,17 @@
         return isHomeUrl && window.hasHomeTabs();
     };
 
-    // Home's tab bar, the one sign of the mobile feed at "/".
-    window.hasHomeTabs = () => Array.from(document.querySelectorAll('[role="button"] span'))
-        .some(span => span.textContent === '󱥆');
+    // Home's tab bar, the one sign of the mobile feed at "/": its first tab (Home) selected and
+    // drawn as an icon-font glyph, in any language (Feeds at "/" has text tabs, its first one
+    // selected too), or the Home button's icon. That icon was missing on GitHub's emulator
+    // (2026-10-30), where Back on the feed then didn't count it as the feed.
+    window.hasHomeTabs = () => {
+        const first = document.querySelector('[role="tab"]');
+        if (first && first.getAttribute('aria-selected') === 'true' &&
+                /^[\u{F0000}-\u{FFFFD}]/u.test((first.textContent || '').trim())) return true;
+        return Array.from(document.querySelectorAll('[role="button"] span'))
+            .some(span => span.textContent === '󱥆');
+    };
 
     // The Feeds that "Start on Feeds" opened (open_feeds.js): also at "/", without the tab bar.
     window.isStartFeeds = () => !!window.__astryxFeeds && !window.isDesktopMode() &&

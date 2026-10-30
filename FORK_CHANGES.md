@@ -174,6 +174,11 @@ rewritten to the new one, keeping its schedule.
   the next Back goes on from the page it was going to (`BackHistory`). Back from a bounced reel also
   skips the earlier copies of the same reel left in a restored history. Covered by `BackHistoryTest` and the live check
   `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`.
+- Back on the feed scrolls to the top and then leaves the app again where Facebook draws Home
+  without the Home button's icon (GitHub's emulator, 2026-10-30): `scripts.js` `hasHomeTabs` also
+  knows Home by its tab bar, the first tab selected and drawn as an icon (Feeds, also at "/", has
+  text tabs). Covered by `OpenFeedsJsTest` and the live check
+  `backOnTheFeed_scrollsToTheTop_thenLeavesTheApp`, which found it.
 - Turning Desktop layout off no longer leaves the app on the desktop site. m.facebook.com answers a
   desktop browser with a permanent redirect to www.facebook.com, which the WebView caches; once
   Desktop layout (or a Messages layer page) had loaded an m.facebook.com address, the mobile view
