@@ -174,6 +174,13 @@ rewritten to the new one, keeping its schedule.
   the next Back goes on from the page it was going to (`BackHistory`). Back from a bounced reel also
   skips the earlier copies of the same reel left in a restored history. Covered by `BackHistoryTest` and the live check
   `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`.
+- Turning Desktop layout off no longer leaves the app on the desktop site. m.facebook.com answers a
+  desktop browser with a permanent redirect to www.facebook.com, which the WebView caches; once
+  Desktop layout (or a Messages layer page) had loaded an m.facebook.com address, the mobile view
+  followed that cached redirect too, the start page included. When the mobile view lands on the
+  desktop site, the app now clears the WebView's cache and opens the page on m.facebook.com, once
+  per address (`mobileSiteUrl`). Found by the new live check
+  `desktopLayout_showsTheDesktopFeed_andOffAgainTheMobileOne`; covered by `MobileSiteTest`.
 - Security: a link in a post or ad can no longer send you straight into another app.
   Web, email and phone links open as before; any other kind (another app's deep link,
   `market:`, `sms:`…) first asks "Open in another app?" and shows the link. `javascript:`,
@@ -554,6 +561,17 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `KeepScreenOnTest`).
 - `aPageOpenedAsALink_showsInTheApp`: a public Page opened as a link showing in the app; a load
   Facebook sent to its app (`intent://`, `intentFallbackUrl`) is noted.
+- `aLinkInAPost_opensItsSiteOutsideTheApp`: a real tap on a web link in a public Page's post (NASA's)
+  opening the site outside the app, not a Facebook redirect (Facebook navigates straight to the site
+  with an `fbclid` now; `fbRedirectSanitizer` unwraps the older `l.facebook.com/l.php` links). The
+  browser's launch is caught by an `ActivityMonitor`, so nothing opens. No link in the Page's latest
+  posts is noted.
+- `pinchToZoomOff_keepsTheFeedUnzoomed_butPhotosStillZoom`: a real pinch (`AppHarness.pinch`) leaving
+  the feed at 1x and zooming a photo page (`pinch_to_zoom.js`). Facebook adds a second, zoomable
+  viewport `<meta>` of its own (seen 2026-10-30), which is why the zoom itself is checked.
+- `aPhotoPage_showsTheDownloadButton`: `download_content.js`'s Download button over a public photo.
+- `desktopLayout_showsTheDesktopFeed_andOffAgainTheMobileOne`: Desktop layout showing the desktop
+  feed (`isDesktopMode`, `isFeed`), and the mobile feed again once it's off (`mobileSiteUrl`).
 - In a chat named by `-e fbChat` (the chat's address, `e2ee/t/<id>` or a bare id; skipped without
   it), one with a photo and a shared reel. These run only on the local emulator
   (`tools/canary.ps1 -Chat`): the test account's chat is end-to-end encrypted, and GitHub's emulator,
@@ -574,7 +592,11 @@ test account's loads on 2026-10-24 or its reel loads on 2026-10-30, so there was
 (`PipVisibilityJsTest`, `PipVideoGoneJsTest`: the reel check covers PiP on the mobile site, not the
 desktop player's), pinch-zooming a chat photo (`MessagesLayerZoomTest`: a test WebView can't
 pinch) and a story opened from a chat (`LayerStoryViewerJsTest`: the test account's story tray is
-empty, and the checks never post one). The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
+empty, and the checks never post one). AMOLED black and Material You (`amoled_black.js`,
+`material_you.js`) aren't checked live either: they recolour Facebook's dark and blue styles, and
+Facebook picks its dark theme on its server (the emulator's dark mode left the test account's
+pages light, 2026-10-30). `hide_groups.js` (group suggestions on search and under posts) and
+`copy_to_clipboard.js` (the desktop viewers) have no live check yet. The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
 **Daily Facebook check** workflow (`facebook-canary.yml`) runs it on GitHub's emulator, logged in
 to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` secret), and opens
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). When

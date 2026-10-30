@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -1171,6 +1172,111 @@ class LiveFacebookCanaryTest {
         if ("from_intent_redirect=1" in original) note("Facebook sent the public Page's load to its app (intent://): its web fallback opened")
     }
 
+    @Test
+    fun aLinkInAPost_opensItsSiteOutsideTheApp() {
+        // A web link in a post: Facebook navigates the page to the site (with an fbclid; through
+        // l.facebook.com/l.php before, which fbRedirectSanitizer unwraps), the request interceptor
+        // hands it to the browser. The browser's launch is caught here instead of opening it.
+        open("https://m.facebook.com/")
+        awaitFeed()
+        val main = app.mainWebView()
+        app.onActivity { main.loadUrl(PUBLIC_PAGE_URL) }
+        awaitPage("the public Page never loaded", FEED_SHOWN_JS)
+        val launched = AtomicReference<Intent>()
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                val host = intent.data?.host.orEmpty()
+                if (intent.action != Intent.ACTION_VIEW || !host.contains('.') || "facebook" in host) return null
+                launched.set(intent)
+                return Instrumentation.ActivityResult(0, null)
+            }
+        }
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.addMonitor(monitor)
+        try {
+            // The Page's latest posts change: down a few screens for one with a web link in its text.
+            var tapped = false
+            for (screen in 0..6) {
+                if (app.tapOn(main, POST_WEB_LINK_JS)) { tapped = true; break }
+                eval("window.scrollBy(0, Math.round(window.innerHeight * 0.9)); 1")
+                Thread.sleep(2000)
+            }
+            if (!tapped) {
+                note("no web link in the public Page's latest posts: links in posts weren't checked")
+                return
+            }
+            assertTrue("a web link in a post didn't open its site outside the app (the main view is at " +
+                "${app.url(main).substringBefore('?')})", app.waitFor(15_000) { launched.get() != null })
+            val url = launched.get().dataString.orEmpty()
+            assertTrue("a post's link opened as a Facebook redirect instead of its site: ${url.substringBefore('?')}",
+                "facebook.com" !in Uri.parse(url).host.orEmpty())
+        } finally {
+            instrumentation.removeMonitor(monitor)
+        }
+    }
+
+    @Test
+    fun pinchToZoomOff_keepsTheFeedUnzoomed_butPhotosStillZoom() {
+        // pinch_to_zoom.js (Pinch to zoom off, the default) rewrites the viewport <meta> so pages
+        // don't zoom; photo pages are left zoomable. Facebook adds a second, zoomable viewport
+        // <meta> of its own (seen 2026-10-30), so a real pinch is what's checked.
+        open("https://m.facebook.com/")
+        awaitFeed()
+        val main = app.mainWebView()
+        val metas = "[].map.call(document.querySelectorAll('meta[name=viewport]'), function (m) { return m.content; }).join(' || ')"
+        app.pinch(app.screenBox(main), 2.5f)
+        Thread.sleep(1500)
+        val feedScale = eval("visualViewport.scale").toDoubleOrNull() ?: 0.0
+        assertTrue("a pinch zoomed the feed to ${"%.2f".format(feedScale)}x with Pinch to zoom off (pinch_to_zoom.js; " +
+            "viewport metas: ${eval(metas)})", feedScale < 1.05)
+        app.onActivity { main.loadUrl(PUBLIC_PHOTO_URL) }
+        awaitPage("the public photo never loaded", "location.pathname === '/photo.php' && !!document.querySelector('img[src*=\"fbcdn\"]')")
+        Thread.sleep(2000)
+        app.pinch(app.screenBox(main), 2.5f)
+        assertTrue("a pinch no longer zooms a photo page (pinch_to_zoom.js leaves photo.php zoomable; viewport metas: " +
+            "${eval(metas)})", app.waitFor(5_000) { (eval("visualViewport.scale").toDoubleOrNull() ?: 0.0) > 1.3 })
+    }
+
+    @Test
+    fun aPhotoPage_showsTheDownloadButton() {
+        // download_content.js (on by default) puts a Download button over the photo a page shows,
+        // found by its viewer's markup or the largest fbcdn picture.
+        open("https://m.facebook.com/")
+        awaitFeed()
+        val main = app.mainWebView()
+        app.onActivity { main.loadUrl(PUBLIC_PHOTO_URL) }
+        awaitPage("the public photo never loaded", "location.pathname === '/photo.php' && !!document.querySelector('img[src*=\"fbcdn\"]')")
+        assertTrue("download_content.js shows no Download button on a photo page (${pageShape()})", app.waitFor(20_000) {
+            eval("${shownJs("[aria-label=\"Download content\"]")}.length > 0") == "true"
+        })
+    }
+
+    @Test
+    fun desktopLayout_showsTheDesktopFeed_andOffAgainTheMobileOne() {
+        // Desktop layout loads www.facebook.com in the main view; scripts.js tells it apart by
+        // html#facebook (isDesktopMode), which the desktop scripts and Back on the feed rely on.
+        // Turned off again, the app opens the mobile feed: m.facebook.com's redirect to the
+        // desktop site, which the WebView caches, took the mobile view there (mobileSiteUrl).
+        val settings = SettingsDataStore(app.context)
+        runBlocking { settings.setDesktopLayout(true) }
+        try {
+            app.start()
+            assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
+            assertTrue("Desktop layout never showed Facebook's desktop feed (html#facebook, a role=main or role=feed) " +
+                "(${pageShape()})", app.waitFor(60_000) {
+                eval("window.isDesktopMode && window.isDesktopMode() && window.isFeed() && " +
+                    "!!document.querySelector('[role=\"main\"], [role=\"feed\"]')") == "true"
+            })
+        } finally {
+            runBlocking { settings.setDesktopLayout(false) }
+            app.finish()
+        }
+        app.start()
+        assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
+        assertTrue("with Desktop layout off again the app didn't open the mobile feed (${app.url(app.mainWebView()).substringBefore('?')})",
+            app.waitFor(45_000) { eval("location.hostname") == "\"m.facebook.com\"" && eval(FEED_SHOWN_JS) == "true" })
+    }
+
     companion object {
         // The public test group the test account joined ("Android Developer With Android Studio",
         // 2026-10-15) for group shares. Nothing is ever posted there.
@@ -1289,6 +1395,13 @@ class LiveFacebookCanaryTest {
 
         // A public Page (NASA's), opened as a link from outside the feed.
         private const val PUBLIC_PAGE_URL = "https://m.facebook.com/NASA/"
+        // The public NASA post's second photo, on its own page.
+        private const val PUBLIC_PHOTO_URL = "https://m.facebook.com/photo.php?fbid=$PUBLIC_POST_PHOTO"
+        // A web link written in a post's text (its own tappable box holding just the address), for
+        // tapOn; undefined while there's none.
+        private val POST_WEB_LINK_JS = "${shownJs("[data-action-id]")}.filter(function (e) {" +
+            " var t = (e.innerText || '').trim(); return /^https?:\\/\\/[^\\s]+$/.test(t) && !/facebook\\.com/.test(t)" +
+            " && e.getBoundingClientRect().top > 0 && e.getBoundingClientRect().bottom < innerHeight; })[0]"
 
         // The feed's extras as the user sees them (the test account uses Facebook in English), each
         // counted once, as shown or hidden when first seen (the Hide scripts act as boxes arrive):
