@@ -246,6 +246,12 @@ user-visible change.
   feed as "From your link"), then taps the same tile. `PhotoPost.kt` reads the post from the desktop
   photo page's tracking data (`top_level_post_id`, `photo_attachments_list`). Memories show only now
   and then (often after an app update) and only in the app's feed, not the sites'.
+- m.facebook.com is drawn by its server over a WebSocket (screens as HTML, toasts as text): a post's
+  id never reaches the page, and its posts have no links (a post's time, a `data-action-id`, opens
+  it). After a post from the composer (`/composer/`) the server shows a `.snackbar-container`
+  ("Uploading your post...", then "Posted"); from Home it then opens the new post, from elsewhere it
+  goes back. `open_new_post.js` opens the profile's newest post then. Posting tests: the emulator's
+  test account, audience Only me, deleted right after, only with the user's OK for each.
 - m.facebook.com has no URL for Feeds (`?sk=h_chr` redirects to Home). *Start on Feeds* opens the
   menu at `/bookmarks/#astryx-feeds` and `open_feeds.js` presses its Feeds entry, found by its icon.
 - *Facebook notifications* (`notifications/FacebookCountsWorker.kt`, WorkManager, 15 min) fetches
