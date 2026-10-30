@@ -147,7 +147,12 @@ user-visible change.
   `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to
   `intent://…;package=com.facebook.katana;S.browser_fallback_url=…`; the interceptors open
-  the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names. A post's
+  the web fallback (`intentFallbackUrl`). Never launch the app an `intent://` link names. For some
+  accounts it redirects full reel loads too (2026-10-30; not the test account): a Back step that
+  bounces is cancelled and the fallback lands on top, so `BackHistory` counts it as that step. To
+  try it on the emulator, answer the reel's document load over DevTools (`Fetch.fulfillRequest`, a
+  302 to the `intent://` link). Pages a script opens by `location.href` without a tap are skipped
+  by Back (Chromium's history intervention): in tests open them with `loadUrl` or an app link. A post's
   Share > Send as a message opens `intent://share/?link=<post>…;package=com.facebook.orca`:
   `messengerShareLink` reads the post, the Messages layer opens the chat list, and the chat the user
   opens gets the link in its message box (`put_link_in_chat.js`: `execCommand('insertText')` into

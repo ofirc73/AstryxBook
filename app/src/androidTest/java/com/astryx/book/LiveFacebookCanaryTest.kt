@@ -630,6 +630,40 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt() {
+        // Facebook answers some accounts' full loads of a reel with a redirect to its app
+        // (intent://…, the app opens the web fallback): Back to such a reel then landed on a new
+        // copy of it on top, and every further Back added another (BackHistory; a Galaxy A56,
+        // 2026-10-30; the test account's reel loaded normally then). Home, the public reel and
+        // Notifications, each opened by the app as a link is; Back twice must end on Home.
+        open("https://m.facebook.com/")
+        awaitFeed()
+        val main = app.mainWebView()
+        val bounced = {
+            app.onActivity { main.copyBackForwardList().let { it.currentItem?.originalUrl.orEmpty() } }
+                .contains("from_intent_redirect=1")
+        }
+        app.onActivity { main.loadUrl(PUBLIC_REEL_URL) }
+        awaitPage("the public reel never showed its video", "!!document.querySelector('video')")
+        if (bounced()) note("Facebook sent the public reel's page to its app (intent://): the app opened its web fallback")
+        app.onActivity { main.loadUrl("https://m.facebook.com/notifications/") }
+        awaitPage("Notifications never loaded", "location.pathname.indexOf('/notifications') === 0 && $FEED_SHOWN_JS")
+
+        app.pressBack()
+        assertTrue("Back on Notifications didn't go back to the reel (${app.url(main)})", app.waitFor(30_000) {
+            app.url(main).startsWith(PUBLIC_REEL_URL) && app.onActivity { main.progress } == 100
+        })
+        val bouncedOnBack = bounced()
+        if (bouncedOnBack) note("Facebook sent the reel's page to its app when Back loaded it again (intent://)")
+        Thread.sleep(2000)
+        app.pressBack()
+        assertTrue("Back on the reel didn't go back to Home (main view at ${app.url(main).substringBefore('?')}; " +
+            "the reel's load bounced through intent://: $bouncedOnBack)", app.waitFor(30_000) {
+            eval("location.pathname") == "\"/\""
+        })
+    }
+
+    @Test
     fun backInAChat_goesToTheChatList_andThenClosesTheLayer() {
         val chat = testChat()
         val layer = openChatInTheLayer(chat)

@@ -14,6 +14,7 @@ class ExternalRequestInterceptor(
     private val handleExternalUrl: (String) -> Unit,
     private val tryOpenMessagesDesktop: (String) -> Boolean = { false },
     private val isDesktopView: () -> Boolean = { false },
+    private val onIntentFallback: (String) -> Unit = {},
 ) : RequestInterceptor {
 
     override fun onInterceptUrlRequest(
@@ -42,6 +43,7 @@ class ExternalRequestInterceptor(
         // Facebook redirects full loads of some pages (profiles) to its app via intent://;
         // open the web fallback here instead, so the page stays in this app.
         intentFallbackUrl(request.url)?.takeIf { isFacebookWebUrl(it) }?.let { fallback ->
+            onIntentFallback(fallback)
             navigator.loadUrl(fallback)
             return WebRequestInterceptResult.Reject
         }
