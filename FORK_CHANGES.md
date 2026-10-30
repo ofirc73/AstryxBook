@@ -174,6 +174,12 @@ rewritten to the new one, keeping its schedule.
   the next Back goes on from the page it was going to (`BackHistory`). Back from a bounced reel also
   skips the earlier copies of the same reel left in a restored history. Covered by `BackHistoryTest` and the live check
   `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`.
+- Sharing a memory from the Memories page (or posting from any composer opened outside Home) now
+  ends on the new post. m.facebook.com opens the new post itself only for a composer opened from
+  Home; from elsewhere it went back to that page. The site never tells the page the new post's id,
+  so after the composer's "Posted" snackbar `open_new_post.js` opens the user's profile and taps its
+  newest post's time, which opens the post (Back: the profile, then the page shared from). Covered
+  by `OpenNewPostJsTest` and the live check `aPagesNewestPost_opensFromItsTime`.
 - Back no longer does nothing while a page is loading. Back first asks the page (`scripts.js`
   `backHandlerNB`) whether it closes something of its own; a page whose scripts hadn't run yet
   gave no answer, and a busy page answered late or never, and Back was then ignored (found on
@@ -572,6 +578,10 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `KeepScreenOnTest`).
 - `aPageOpenedAsALink_showsInTheApp`: a public Page opened as a link showing in the app; a load
   Facebook sent to its app (`intent://`, `intentFallbackUrl`) is noted.
+- `aPagesNewestPost_opensFromItsTime`: a public Page's newest post found by its time, as
+  `open_new_post.js` finds it on the user's profile, and a click on it opening the post. The
+  composer's "Posted" snackbar it waits for isn't checked live: the checks never post (it was read
+  on the emulator with Only-me test posts, deleted after, 2026-10-30).
 - `aLinkInAPost_opensItsSiteOutsideTheApp`: a real tap on a web link in a public Page's post (NASA's)
   opening the site outside the app, not a Facebook redirect (Facebook navigates straight to the site
   with an `fbclid` now; `fbRedirectSanitizer` unwraps the older `l.facebook.com/l.php` links). The

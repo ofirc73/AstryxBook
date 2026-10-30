@@ -39,6 +39,7 @@ class MainViewModel(
         val scripts = listOf(
             Script(true, R.raw.scripts), // always apply
             Script(true, R.raw.memory_photos),
+            Script(true, R.raw.open_new_post),
             Script(settings.messagesDesktop.value, R.raw.messages_tab),
             Script(settings.removeAds.value, R.raw.adblock),
             Script(settings.enableDownloadContent.value, R.raw.download_content),

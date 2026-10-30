@@ -1217,6 +1217,22 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun aPagesNewestPost_opensFromItsTime() {
+        // open_new_post.js opens a post just published from the composer (a memory shared from the
+        // Memories page) through the user's profile: the newest post's time there, which opens the
+        // post. Checked on a public Page's posts, laid out the same; the composer's snackbar after
+        // posting can't be checked live (the checks never post).
+        openPublicPage()
+        assertTrue("open_new_post.js finds no post's time on the Page (a time between left-to-right marks, then the " +
+            "audience icon, in a data-action-id) (${pageShape()})", app.waitFor(30_000) {
+            eval("!!(window.__astryxNewestPostTime && window.__astryxNewestPostTime())") == "true"
+        })
+        eval("window.__astryxNewestPostTime().click(); 1")
+        assertTrue("the newest post's time didn't open the post (${app.url(app.mainWebView()).substringBefore('?')})",
+            app.waitFor(20_000) { eval("/^\\/(story\\.php|permalink\\.php|[^/]+\\/posts\\/)/.test(location.pathname)") == "true" })
+    }
+
+    @Test
     fun aLinkInAPost_opensItsSiteOutsideTheApp() {
         // A web link in a post: Facebook navigates the page to the site (with an fbclid; through
         // l.facebook.com/l.php before, which fbRedirectSanitizer unwraps), the request interceptor
