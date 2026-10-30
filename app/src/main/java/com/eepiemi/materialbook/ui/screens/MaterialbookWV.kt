@@ -79,6 +79,7 @@ import com.astryx.book.utils.hardenWebView
 import com.astryx.book.utils.BackHistory
 import com.astryx.book.utils.HistoryEntry
 import com.astryx.book.utils.intentFallbackUrl
+import com.astryx.book.utils.mobileSiteUrl
 import com.astryx.book.utils.isConnectionError
 import com.astryx.book.utils.isMessagesLink
 import com.astryx.book.utils.isMessengerAppLink
@@ -779,6 +780,21 @@ fun MaterialbookWebView(
         // updated directly.
         state.webSettings.customUserAgentString = userAgent.ifEmpty { null }
         runCatching { state.nativeWebView }.getOrNull()?.settings?.userAgentString = userAgent
+    }
+
+    // The mobile view on the desktop site: a permanent redirect m.facebook.com gave a desktop
+    // browser (Desktop layout, the Messages layer), cached and followed again (mobileSiteUrl).
+    // The cache goes and the page opens on the mobile site, once per address.
+    var leftDesktopSiteFor by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.loadingState, mainPageStarts.count, isEffectiveDesktop) {
+        if (isEffectiveDesktop || state.loadingState !is LoadingState.Finished) return@LaunchedEffect
+        val webView = runCatching { state.nativeWebView }.getOrNull() ?: return@LaunchedEffect
+        val mobile = mobileSiteUrl(webView.url) ?: return@LaunchedEffect
+        if (mobile == leftDesktopSiteFor) return@LaunchedEffect
+        leftDesktopSiteFor = mobile
+        Log.d("Astryxbook", "mobile view on the desktop site: cache cleared, opening the mobile page")
+        webView.clearCache(true)
+        navigator.loadUrl(mobile)
     }
 
     // While the Messages layer is open the phone may rotate (see appOrientation), and the

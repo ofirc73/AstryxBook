@@ -152,7 +152,11 @@ user-visible change.
   bounces is cancelled and the fallback lands on top, so `BackHistory` counts it as that step. To
   try it on the emulator, answer the reel's document load over DevTools (`Fetch.fulfillRequest`, a
   302 to the `intent://` link). Pages a script opens by `location.href` without a tap are skipped
-  by Back (Chromium's history intervention): in tests open them with `loadUrl` or an app link. A post's
+  by Back (Chromium's history intervention): in tests open them with `loadUrl` or an app link.
+  m.facebook.com answers a desktop user agent with a 301 to www.facebook.com that the WebView
+  caches; the mobile view then followed it to the desktop site (after Desktop layout): the app
+  clears the cache and goes back to the mobile page (`mobileSiteUrl`). The same `wtsid` on every
+  redirect means a cached one. A post's
   Share > Send as a message opens `intent://share/?link=<post>…;package=com.facebook.orca`:
   `messengerShareLink` reads the post, the Messages layer opens the chat list, and the chat the user
   opens gets the link in its message box (`put_link_in_chat.js`: `execCommand('insertText')` into
