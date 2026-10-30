@@ -2,9 +2,7 @@ package com.astryx.book.ui.screens
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
-import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -27,19 +25,10 @@ class BackHandlerJsTest {
 
         fun load(body: String) {
             page.load("https://www.facebook.com/", "<html id='facebook'><body>$body</body></html>")
-            eval(backHandlerScript())
+            page.runBackHandler()
         }
 
         fun eval(js: String) = page.eval(js)
-
-        // The desktop/feed identifiers and the back handler, i.e. scripts.js up
-        // to the first block that doesn't belong to them.
-        private fun backHandlerScript(): String {
-            val all = page.script(R.raw.scripts)
-            val end = all.indexOf("// Enable press and hold")
-            assertTrue("back handler block not found in scripts.js", end > 0)
-            return all.substring(0, end)
-        }
     }
 
     private val chatWindow = """

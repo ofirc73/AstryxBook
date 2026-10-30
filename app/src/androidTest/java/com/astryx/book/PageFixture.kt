@@ -67,6 +67,17 @@ class PageFixture(
     /** Runs the bundled page script [id] on the page. */
     fun run(@RawRes id: Int): String = eval(script(id))
 
+    /**
+     * Runs scripts.js's desktop/feed identifiers and Back handler (backHandlerNB) on the page: the
+     * script up to its first block that doesn't belong to them.
+     */
+    fun runBackHandler(): String {
+        val all = script(com.eepiemi.materialbook.R.raw.scripts)
+        val end = all.indexOf("// Enable press and hold")
+        assertTrue("back handler block not found in scripts.js", end > 0)
+        return eval(all.substring(0, end))
+    }
+
     /** Whether [check] became true within [ms], checked every [everyMs]. */
     fun waitFor(ms: Long = 5_000, everyMs: Long = 100, check: () -> Boolean): Boolean {
         val until = System.currentTimeMillis() + ms
