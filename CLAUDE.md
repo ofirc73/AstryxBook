@@ -90,7 +90,10 @@ user-visible change.
   layer checks open the chat in `-e fbChat`: its address, `e2ee/t/<id>` or a bare id; skipped without
   it), and reports failures
   in one "Daily Facebook check failed" issue; a check that passed only after a workaround (the reel
-  check's second Home) prints a `CANARY NOTE:` line (`note()`), shown as a warning on the run. Never put a
+  check's second Home) prints a `CANARY NOTE:` line (`note()`), shown as a warning on the run. A part
+  Facebook gave nothing to check this run (no ad came) is a `gap(key, …)`; the same key 7 runs in a
+  row opens a "parts unchecked" issue. A check that finds none of what it checks fails: never a note
+  or gap for that (the feed check's "no feed posts" note hid Remove ads breaking for days). Never put a
   personal account's cookies there. The Messages layer checks run only on the local emulator
   (`tools/canary.ps1 -Chat e2ee/t/<id>`): the test account's chat is end-to-end encrypted, and
   GitHub's emulator, logged in by cookies alone, gets its restore prompt instead of its messages

@@ -112,13 +112,22 @@ class LiveFacebookCanaryTest {
     private fun logLines(tag: String): List<String> =
         shell("logcat -d -s $tag:D").filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
 
-    // A note in the run's output for a check that passed only after working around something:
-    // am instrument prints a status's stream text (the workflow turns these into warnings), and
-    // logcat has it under AstryxbookCanary.
-    private fun note(message: String) {
+    // A note in the run's output for a check that passed only after working around something, or
+    // for a part Facebook never shows the test account (documented in FORK_CHANGES' Testing): am
+    // instrument prints a status's stream text (the workflow turns these into warnings), and logcat
+    // has it under AstryxbookCanary.
+    private fun note(message: String) = report(NOTE_PREFIX, message)
+
+    // A part of a check that had nothing to check this run, though Facebook usually gives it
+    // something (no ad came, say): a warning on the run like a note, and facebook-canary.yml opens
+    // an issue when the same [key] goes unchecked several runs in a row. Never for a page that no
+    // longer looks as the app expects: that fails.
+    private fun gap(key: String, message: String) = report(GAP_PREFIX, "[$key] $message")
+
+    private fun report(prefix: String, message: String) {
         Log.w("AstryxbookCanary", message)
         InstrumentationRegistry.getInstrumentation().sendStatus(NOTE_STATUS, Bundle().apply {
-            putString(Instrumentation.REPORT_KEY_STREAMRESULT, "\n$NOTE_PREFIX$message\n")
+            putString(Instrumentation.REPORT_KEY_STREAMRESULT, "\n$prefix$message\n")
         })
     }
 
@@ -437,7 +446,7 @@ class LiveFacebookCanaryTest {
             fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
                 "normal posts too")
         }
-        if (ads.hidden == 0) note("no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
+        if (ads.hidden == 0) gap("feed-ads", "no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
     }
 
     @Test
@@ -461,7 +470,7 @@ class LiveFacebookCanaryTest {
         if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
             fail("adblock.js emptied ${ads.hidden} of ${ads.posts} reels as ads")
         }
-        if (ads.hidden == 0) note("no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
+        if (ads.hidden == 0) gap("reel-ads", "no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
     }
 
     @Test
@@ -803,10 +812,8 @@ class LiveFacebookCanaryTest {
             "(function () { var t = [].filter.call(document.querySelectorAll('[data-astryx-story=tool]'), function (b) {" +
                 " return /music/i.test(b.innerText); })[0]; if (!t) return false; t.click(); return true; })()", layer
         ) == "true"
-        if (!opened) {
-            note("no Add music tool on the story editor (by its English label): the music list wasn't checked")
-            return
-        }
+        assertTrue("no Add music tool on the story editor (by its English label, among story_layout.js's " +
+            "data-astryx-story=tool buttons)", opened)
         assertTrue("the music list never opened as a popup (data-astryx-story-popup)", app.waitFor(15_000) {
             app.eval("document.documentElement.classList.contains('astryx-story-popup-open')", layer) == "true"
         })
@@ -871,7 +878,7 @@ class LiveFacebookCanaryTest {
                 app.eval("document.documentElement.classList.contains('astryx-story-viewer')", layer) == "true"
             })
         } else {
-            note("the stories page loaded ${width.toInt()} px wide: the full-screen layout wasn't checked")
+            gap("stories-width", "the stories page loaded ${width.toInt()} px wide: the full-screen layout wasn't checked")
         }
         app.pressBack()
         assertTrue("Back didn't close the story screen (${appState()})", app.waitFor { !app.layerOpen() })
@@ -966,7 +973,7 @@ class LiveFacebookCanaryTest {
                 fail("the ads pixel's frames are on the feed but AdsPixelBlockingClient answered none of their " +
                     "requests (isAdsPixelUrl). Frames: $frames")
             }
-            note("no ads pixel on the feed: Facebook no longer adds www.fbsbx.com/paid_ads_pixel/ frames, or " +
+            gap("ads-pixel", "no ads pixel on the feed: Facebook no longer adds www.fbsbx.com/paid_ads_pixel/ frames, or " +
                 "moved them. Frames: ${frames.ifEmpty { "none" }}")
         }
     }
@@ -1001,7 +1008,7 @@ class LiveFacebookCanaryTest {
             fail("Facebook's Open app button shows on the reel: scripts.js hideOpenAppButtons no longer finds it " +
                 "(by its icon, U+F196C in div.fl.ac span). The button: ${parts.getOrElse(2) { "" }}")
         }
-        if (hidden == 0) note("no Open app button on the reel: hideOpenAppButtons had nothing to hide")
+        if (hidden == 0) gap("open-app-button", "no Open app button on the reel: hideOpenAppButtons had nothing to hide")
     }
 
     @Test
@@ -1022,7 +1029,7 @@ class LiveFacebookCanaryTest {
             "and re-wraps only server-broken text", pre * 2 >= blocks)
         assertTrue("no feed text block sits in a box of a fixed inline height ($sized of $blocks): text_wrap.js " +
             "grows those boxes as the text wraps", sized > 0)
-        if (broken == 0) note("no feed text block had the server's line breaks in it ($pre white-space: pre blocks)")
+        if (broken == 0) gap("text-wrap-breaks", "no feed text block had the server's line breaks in it ($pre white-space: pre blocks)")
     }
 
     @Test
@@ -1128,7 +1135,9 @@ class LiveFacebookCanaryTest {
             "${seen.reels.shown} reels boxes (hide_reels.js: the reels icon in .fl.ac .native-text)".takeIf { seen.reels.shown > 0 },
         )
         if (missed.isNotEmpty()) fail("shown on the feed with their Hide settings on: ${missed.joinToString("; ")} (${seen.shape})")
-        listOf("suggested posts" to seen.suggested, "People you may know" to seen.pymk, "reels boxes" to seen.reels)
+        if (seen.suggested.hidden == 0) gap("suggested-posts", "no suggested posts on the feed in $FEED_SCREENS screens: not checked")
+        // Facebook hasn't shown the test account these boxes (FORK_CHANGES' Testing).
+        listOf("People you may know" to seen.pymk, "reels boxes" to seen.reels)
             .filter { it.second.hidden == 0 }
             .takeIf { it.isNotEmpty() }
             ?.let { none -> note("no ${none.joinToString(", ") { it.first }} on the feed in $FEED_SCREENS screens: not checked") }
@@ -1258,7 +1267,7 @@ class LiveFacebookCanaryTest {
                 scrollDown()
             }
             if (!tapped) {
-                note("no web link in the public Page's latest posts: links in posts weren't checked")
+                gap("post-web-link", "no web link in the public Page's latest posts: links in posts weren't checked")
                 return
             }
             assertTrue("a web link in a post didn't open its site outside the app (the main view is at " +
@@ -1502,8 +1511,9 @@ class LiveFacebookCanaryTest {
             })()
         """
 
-        // The prefix facebook-canary.yml looks for; the status code is one the runner doesn't use.
+        // The prefixes facebook-canary.yml looks for; the status code is one the runner doesn't use.
         private const val NOTE_PREFIX = "CANARY NOTE: "
+        private const val GAP_PREFIX = "CANARY GAP: "
         private const val NOTE_STATUS = 3
         // A public reel posted as a video in a post ("A Day With My Cat"), as the story address its
         // share link came back as: story_fbid is the reel's id, share_url a reel share link (a

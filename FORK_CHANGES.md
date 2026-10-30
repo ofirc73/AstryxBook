@@ -543,7 +543,7 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   only a real post gets there.
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`,
   `FeedPostJsTest`). An ad label it missed, found by its text, fails the check; a run that saw no
-  ad says so in a note. The feed check counts posts through `scripts.js` `feedPostRows` and fails
+  ad reports a gap (`feed-ads`, `reel-ads`). The feed check counts posts through `scripts.js` `feedPostRows` and fails
   when it finds none: it used to only note that (the test account has no friends, but its feed has
   group and suggested posts), which hid Home dropping the cards `adblock.js` looked for.
 - `aReelsPlayer_hasItsMp4InDataVideoUrl`: the reel player's `data-video-url` being an MP4 the page
@@ -600,7 +600,7 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   opening the site outside the app, not a Facebook redirect (Facebook navigates straight to the site
   with an `fbclid` now; `fbRedirectSanitizer` unwraps the older `l.facebook.com/l.php` links). The
   browser's launch is caught by an `ActivityMonitor`, so nothing opens. No link in the Page's latest
-  posts is noted.
+  posts is a gap (`post-web-link`).
 - `pinchToZoomOff_keepsTheFeedUnzoomed_butPhotosStillZoom`: a real pinch (`AppHarness.pinch`) leaving
   the feed at 1x and zooming a photo page (`pinch_to_zoom.js`). Facebook adds a second, zoomable
   viewport `<meta>` of its own (seen 2026-10-30), which is why the zoom itself is checked.
@@ -647,6 +647,26 @@ params had auto-enter off before Home anyway (a stall longer than the detector's
 check plays it again and presses Home once more, and says so: a "Live check note" warning on the
 run (and in the failure issue when the run fails), from a `CANARY NOTE:` line in the test's output. `tools/canary.ps1` runs it on a local emulator that is logged in. Nothing is posted: the checks
 stop at the open editors.
+
+A green run says that nothing the checks could see broke, not that every part was checked. Since
+2026-10-30 the checks tell three cases apart:
+- **Failure**: the page no longer looks as the app expects, including when a check finds nothing
+  of what it checks (no feed posts, no Add music tool). Until then several such cases were only
+  noted, and the feed check noted "no feed posts" on every run from its first one (2026-10-24)
+  while Remove ads hid nothing on Home.
+- **Gap** (`gap(key, …)`, a `CANARY GAP: [key]` line, a "Live check gap" warning): Facebook gave a
+  check nothing to check this run, though it usually does: no ad on the feed (`feed-ads`) or in
+  the reels (`reel-ads`), no suggested post (`suggested-posts`), no web link in the Page's posts
+  (`post-web-link`), no Open app button (`open-app-button`), no ads pixel (`ads-pixel`), no
+  server-broken text (`text-wrap-breaks`), the stories page loaded wide (`stories-width`). Each run
+  keeps its gaps (artifact `canary-gaps`, 30 days); a key in this run and the 6 runs of the checks
+  before it opens the "Daily Facebook check: parts unchecked for 7 runs" issue, rewritten (not
+  commented on) while it lasts and closed by a run where they were all checked again.
+- **Note** (`note(…)`): a check that passed after a workaround (a reload, a second Home, an
+  `intent://` fallback, a PiP `vpd` cookie removed), or a part Facebook never shows the test
+  account, which no run can check: People you may know and reels boxes on the feed, a story of its
+  own (the checks never post), the chat checks on GitHub (no `fbChat`). Those are covered by
+  fixed-page tests only.
 
 ## Messages in desktop mode
 

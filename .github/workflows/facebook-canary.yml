@@ -11,7 +11,8 @@ name: Daily Facebook check
 # (tried 2026-10-24, all three failed). They run on the local emulator (tools/canary.ps1 -Chat).
 #
 # A failure opens (or comments on) one "Daily Facebook check failed" issue; the next passing run
-# closes it. "Facebook session expired" in the issue means the cookies need replacing.
+# closes it. "Facebook session expired" in the issue means the cookies need replacing. A part of
+# the checks with nothing to check (no ad came) 7 runs in a row opens a second issue ("Report gaps").
 
 on:
   # GitHub starts scheduled runs hours late or not at all (in this repo about half of them;
@@ -152,6 +153,67 @@ jobs:
           path: canary-logcat.txt
           retention-days: 14
 
+      # The parts of the checks that had nothing to check this run (LiveFacebookCanaryTest's gap(),
+      # "[key] message" lines), kept for the runs after it: "Report gaps" below compares them. The
+      # file is kept even with no gap, so the run counts as one where every part was checked; a run
+      # whose checks never started keeps none.
+      - name: Gaps
+        id: gaps
+        if: always() && steps.checks.outcome != 'skipped'
+        run: |
+          if ! grep -q '^com\.astryx\.book\.LiveFacebookCanaryTest' canary.txt 2>/dev/null; then
+            echo "The checks didn't run: no gaps kept"
+            exit 0
+          fi
+          { echo "# Parts not checked by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            grep -o 'CANARY GAP: .*' canary.txt | sed 's/^CANARY GAP: //' || true; } > canary-gaps.txt
+          echo kept=true >> "$GITHUB_OUTPUT"
+      - name: Upload the gaps
+        if: always() && steps.gaps.outputs.kept == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: canary-gaps
+          path: canary-gaps.txt
+          retention-days: 30
+
+      # A part unchecked in this run and the GAP_RUNS - 1 runs of the checks before it opens one
+      # issue (or rewrites its text: no daily comments); a run where every such part was checked
+      # again closes it. The failing checks' issue is apart: a run can pass with a part long unchecked.
+      - name: Report gaps
+        if: always() && steps.gaps.outputs.kept == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GAP_RUNS: 7
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Daily Facebook check: parts unchecked for $GAP_RUNS runs"
+          while IFS= read -r GAP; do
+            if [ -n "$GAP" ]; then echo "::warning title=Live check gap::${GAP//%/%25}"; fi
+          done < <(grep -v '^#' canary-gaps.txt)
+          # The gaps files of the runs before this one on this branch (runs that stood down or broke
+          # before the checks have none), newest first.
+          FOUND=0
+          for ID in $(gh api "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs?per_page=50" \
+              -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and .head_branch == \"$GITHUB_REF_NAME\" and .status == \"completed\") | .id"); do
+            [ "$FOUND" -lt $((GAP_RUNS - 1)) ] || break
+            if gh run download "$ID" -n canary-gaps -D "earlier/$ID" >/dev/null 2>&1; then FOUND=$((FOUND + 1)); fi
+          done
+          LONG=""
+          if [ "$FOUND" -ge $((GAP_RUNS - 1)) ]; then
+            for KEY in $(grep -o '^\[[^]]*\]' canary-gaps.txt | sort -u); do
+              RUNS=$(grep -lF -- "$KEY" earlier/*/canary-gaps.txt | wc -l)
+              if [ "$RUNS" -ge $((GAP_RUNS - 1)) ]; then LONG=$(printf '%s\n%s' "$LONG" "$(grep -F -- "$KEY" canary-gaps.txt | head -1)"); fi
+            done
+          fi
+          if [ -z "$LONG" ]; then
+            bash .github/scripts/canary-issue.sh close "$TITLE" "Checked again: $RUN_URL"
+            exit 0
+          fi
+          BODY=$(printf '**%s** at %s: not checked in this run nor the %s before it, so these parts may be broken without a check failing:\n```%s\n```\n\n%s' \
+            "$(date -u '+%Y-%m-%d %H:%M UTC')" "${GITHUB_SHA::7}" "$((GAP_RUNS - 1))" "$LONG" "$RUN_URL")
+          bash .github/scripts/canary-issue.sh edit "$TITLE" "$BODY"
+
       - name: Report
         if: always()
         env:
@@ -167,13 +229,9 @@ jobs:
           while IFS= read -r NOTE; do
             if [ -n "$NOTE" ]; then echo "::warning title=Live check note::${NOTE//%/%25}"; fi
           done <<< "$NOTES"
-          # The open issues listed and matched here, not with --search: search once missed an
-          # issue opened hours before, so a passing run didn't close it.
-          OPEN=$(gh issue list --state open --limit 200 --json number,title \
-            -q ".[] | select(.title == \"$TITLE\") | .number" | head -1)
           if [ "$OUTCOME" = success ]; then
             echo "All live checks passed"
-            if [ -n "$OPEN" ]; then gh issue close "$OPEN" --comment "Passing again: $RUN_URL"; fi
+            bash .github/scripts/canary-issue.sh close "$TITLE" "Passing again: $RUN_URL"
             exit 0
           fi
           # The failing checks and their messages (any exception's, java.util's too), without stack
@@ -182,6 +240,5 @@ jobs:
           [ -n "$FAILED" ] || FAILED="The checks couldn't run (outcome: $OUTCOME); see the run."
           [ -z "$NOTES" ] || FAILED=$(printf '%s\n\nNotes:\n%s' "$FAILED" "$NOTES")
           BODY=$(printf '**%s** at %s:\n\n```\n%s\n```\n\n%s' "$(date -u '+%Y-%m-%d %H:%M UTC')" "${GITHUB_SHA::7}" "$FAILED" "$RUN_URL")
-          if [ -n "$OPEN" ]; then gh issue comment "$OPEN" --body "$BODY"
-          else gh issue create --title "$TITLE" --body "$BODY"; fi
+          bash .github/scripts/canary-issue.sh comment "$TITLE" "$BODY"
           exit 1
