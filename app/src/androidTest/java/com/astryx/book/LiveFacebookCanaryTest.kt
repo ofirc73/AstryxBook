@@ -186,10 +186,14 @@ class LiveFacebookCanaryTest {
         }
     }
 
-    // Home, with its feed drawn.
+    // Home, with its feed drawn and the app's scripts run on it (a while after the feed shows on
+    // GitHub's emulator: checks that read their state at once failed there, 2026-10-30).
     private fun openFeed() {
         open("https://m.facebook.com/")
         awaitFeed()
+        assertTrue("the app's scripts never ran on the feed (${pageShape()})", app.waitFor(30_000) {
+            eval("typeof window.backHandlerNB") == "\"function\""
+        })
     }
 
     // [url] in the main view as the app opens a link (loadUrl): a page Back stops at, unlike one a
@@ -1136,8 +1140,11 @@ class LiveFacebookCanaryTest {
         // the top first and then sends the app to the background. With isFeed lost, Back on the
         // feed did nothing (no page to go back to) or left the app at once.
         openFeed()
-        assertEquals("scripts.js isFeed() doesn't see the feed as the feed (hasHomeTabs: Home's tab selected and an icon, " +
-            "or the Home button's icon) (tabs: ${eval(TABS_SHAPE_JS)}; ${pageShape()})", "true", eval("window.isFeed()"))
+        // The tab bar can come after the feed's first posts.
+        if (!app.waitFor(30_000) { eval("window.isFeed()") == "true" }) {
+            fail("scripts.js isFeed() doesn't see the feed as the feed (hasHomeTabs: Home's tab selected and an icon, " +
+                "or the Home button's icon) (tabs: ${eval(TABS_SHAPE_JS)}; ${pageShape()})")
+        }
         eval("window.scrollBy(0, window.innerHeight * 2); 1")
         Thread.sleep(1500)
         app.pressBack()
@@ -1170,7 +1177,7 @@ class LiveFacebookCanaryTest {
         // Facebook's fb-messenger:// link, which the app intercepts too, so the layer is checked.
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         openFeed()
-        assertEquals("messages_tab.js never ran", "true", eval("window.__mbMessagesTabHooked === true"))
+        assertTrue("messages_tab.js never ran", app.waitFor(30_000) { eval("window.__mbMessagesTabHooked === true") == "true" })
         val tab = "${shownJs("[role=tab]")}.filter(function (t) { return /^messages\\b/i.test(t.getAttribute('aria-label') || ''); })[0]"
         if (!app.waitFor(20_000) { app.tapOn(app.mainWebView(), tab) }) {
             fail("no Messages tab (role=tab, aria-label \"messages, …\") on the feed: messages_tab.js finds it by that label " +
