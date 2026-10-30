@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish copy of values/privacy_strings.xml (see the comment there). -->
+<resources>
+    <string name="app_lock_title">Blokada aplikacji</string>
+    <string name="app_lock_off">Wyłączona</string>
+    <string name="app_lock_immediately">Blokuj zaraz po wyjściu</string>
+    <string name="app_lock_after_1_min">Blokuj po 1 minucie nieobecności</string>
+    <string name="app_lock_after_5_min">Blokuj po 5 minutach nieobecności</string>
+    <string name="app_lock_after_15_min">Blokuj po 15 minutach nieobecności</string>
+    <string name="app_lock_locked">Aplikacja %1$s jest zablokowana</string>
+    <string name="app_lock_unlock">Odblokuj</string>
+    <string name="app_lock_prompt_title">Odblokuj %1$s</string>
+    <string name="app_lock_on_screen_off_title">Blokuj po wyłączeniu ekranu</string>
+    <string name="app_lock_on_screen_off_summary">Wyłączenie ekranu od razu blokuje aplikację, niezależnie od czasu ustawionego powyżej</string>
+    <string name="block_screenshots_title">Blokuj zrzuty ekranu</string>
+    <string name="block_screenshots_summary">Zrzuty ekranu, nagrywanie ekranu, przesyłanie obrazu i podgląd w ostatnich aplikacjach pokazują aplikację na czarno</string>
+    <string name="clear_cache_on_leave_title">Czyść pamięć podręczną przy wyjściu</string>
+    <string name="clear_cache_on_leave_summary">Usuwaj zdjęcia, filmy i strony zapisane przez aplikację za każdym razem, gdy z niej wychodzisz. Pozostajesz zalogowany; strony ładują się wolniej i zużywają więcej danych</string>
+    <string name="log_out_title">Wyloguj się i wyczyść dane</string>
+    <string name="log_out_summary">Usuń z tej aplikacji logowanie do Facebooka, pliki cookie, pamięć podręczną i dane witryn</string>
+    <string name="log_out_confirm_title">Wylogować się i wyczyścić dane?</string>
+    <string name="log_out_confirm_text">Zostaniesz wylogowany z Facebooka w tej aplikacji, a jej pliki cookie, pamięć podręczna i dane witryn zostaną usunięte. Twoje ustawienia zostaną zachowane.</string>
+    <string name="log_out_confirm">Wyloguj się</string>
+    <string name="cancel">Anuluj</string>
+</resources>
