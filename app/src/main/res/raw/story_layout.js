@@ -4,8 +4,8 @@
 // buttons along the bottom of the story, and Facebook's own privacy / Discard / Share to story
 // row sits under it. Stickers and text can be dragged with a finger.
 //
-// Facebook builds the creator from a sidebar (role=navigation, the tools) beside the preview
-// (role=main); at phone width it already moves Discard and Share under the story. Everything is
+// Facebook builds the creator from a sidebar (role=navigation, role=region since 2026-10-30; the
+// tools) beside the preview (role=main); at phone width it already moves Discard and Share under the story. Everything is
 // found by its role and its place in the page, never its (translated) label. Run by the app on the
 // story creator page; window.__astryxStoryLayout.stop() undoes it (for live debugging).
 // ES5 on purpose, like the PiP scripts.
@@ -175,7 +175,7 @@
 
   // During posting, Facebook can move the AI-label control and explanation out of the sidebar.
   // Hide them by their text so they cannot wrap into a vertical column over the photo.
-  function hideAIDisclosure() {
+  function hideAIDisclosure(nav) {
     function isDisclosure(el) {
       var content = (el.innerText || '').replace(/\s+/g, ' ').toLowerCase();
       return content.indexOf('we require you to label') !== -1 &&
@@ -190,7 +190,7 @@
       if (labelText.indexOf('add ai label') !== 0 || labelText.length > 40) continue;
       // In the editor sidebar this is a real tool; only hide the duplicate control Facebook
       // sometimes moves beside the posting disclosure.
-      if (labels[l].closest('[role="navigation"]')) continue;
+      if (nav && nav.contains(labels[l])) continue;
       if (!labels[l].hasAttribute('data-astryx-story-hide')) labels[l].setAttribute('data-astryx-story-hide', '');
     }
     var candidates = document.querySelectorAll('body div, body span, body p');
@@ -345,6 +345,17 @@
     return find(frame, false) || find(frame.closest('[role="main"]') || frame, true);
   }
 
+  // The sidebar beside the preview: a navigation until 2026-10, a region ("Stories Creation Form")
+  // since (the page header is a navigation too, but not the preview's sibling).
+  function sidebar(main) {
+    var nav = null;
+    for (var sib = main.parentElement.firstElementChild; sib; sib = sib.nextElementSibling) {
+      var role = sib.getAttribute('role');
+      if (sib !== main && (role === 'navigation' || role === 'region')) nav = sib;
+    }
+    return nav;
+  }
+
   function arrange() {
     viewport();
     var frame = storyFrame();
@@ -394,12 +405,9 @@
       untag(); // choosing a story: Facebook's own page
       return;
     }
+    var nav = sidebar(main);
     hideSwitchRows();
-    hideAIDisclosure();
-    var nav = null; // the sidebar beside the preview (the page header is a navigation too)
-    for (var sib = main.parentElement.firstElementChild; sib; sib = sib.nextElementSibling) {
-      if (sib !== main && sib.getAttribute('role') === 'navigation') nav = sib;
-    }
+    hideAIDisclosure(nav);
     if (!nav) return;
     // Under Facebook's header bar (56 px on the desktop site).
     var header = document.querySelector('[role="banner"]');
