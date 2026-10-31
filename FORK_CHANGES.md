@@ -122,7 +122,7 @@ rewritten to the new one, keeping its schedule.
 - A reel's sound goes on while its comments are open, and Back picks the reel up where the sound
   got to, as in Facebook's app. m.facebook.com opens a reel's comments as a screen of their own: it
   stopped the reel and removed it, and Back started it again from the beginning.
-  `reel_comments_audio.js` (main view) plays the reel's MP4 (its player's `data-video-url`) from
+  `reel_comments_audio.js` (main view) plays the reel's sound (its stream's audio track) from
   where the reel stopped when the comment button of a playing, unmuted reel is tapped (the button
   found by its icon, in any language), and moves the reel Back brings to the sound's position.
   Another page from the comments stops the sound; leaving the app pauses it until you come back.
@@ -144,6 +144,10 @@ rewritten to the new one, keeping its schedule.
   only once the script noticed the reel had stopped. It now plays silently in step with the reel as
   soon as it's decoded and fades in when Facebook calls the reel's `pause()` (on the emulator, in
   the same millisecond).
+- The sound in a reel's comments was a little quieter than the reel (v1.39.3, on the phone): it came
+  from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
+  streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
+  player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen
@@ -577,7 +581,7 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   ends (`MainActivity.dropPipViewportCookie`, `comingBackToTheApp_dropsTheViewportCookiePipLeft`).
 - `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`: a real tap on a playing reel's
   comment button (which must still carry the icon `reel_comments_audio.js` finds it by in other
-  languages) opening the comments with the reel's sound playing on from where the reel was, and
+  languages, its player still listing the stream's audio track) opening the comments with the reel's sound playing on from where the reel was, and
   Back handing it back to the reel, playing at or past the sound's position, not muted
   (`ReelCommentsAudioJsTest`).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a

@@ -33,9 +33,10 @@ class ReelCommentsAudioJsTest {
 
         fun waitFor(js: String, ms: Long = 5000) = page.waitFor(ms) { eval(js) == "true" }
 
-        // A reel page: the reel playing at [time] s in its player (data-video-url), and its comment
+        // A reel page: the reel playing at [time] s in its player (data-video-url, and its stream's
+        // tracks in data-extra, with an audio track unless not [streamAudio]), and its comment
         // button with Facebook's icon and [label]. [decode]: the sound is decoded at once (else when
-        // window.__decoded() is called); [fetchFails]: its MP4 can't be fetched.
+        // window.__decoded() is called); [fetchFails]: its sound can't be fetched.
         fun load(
             path: String = REEL_PATH,
             label: String = "Comment on reel by Someone, 107 comments",
@@ -45,12 +46,14 @@ class ReelCommentsAudioJsTest {
             time: Double = 12.5,
             decode: Boolean = true,
             fetchFails: Boolean = false,
+            streamAudio: Boolean = true,
             setup: String = "",
         ) {
             page.load(
                 "https://m.facebook.com$path",
                 "<html><head><meta name='viewport' content='width=device-width'></head><body style='margin:0'>" +
-                    "<div id='reel'><div data-mcomponent='MVideo' data-video-url='$MP4'>" +
+                    "<div id='reel'><div data-mcomponent='MVideo' data-video-url='$MP4'" +
+                    " data-extra='${if (streamAudio) EXTRA else EXTRA_NO_AUDIO}'>" +
                     "<video id='v1' style='width:400px;height:700px'></video></div>" +
                     "<div id='comment' role='button' aria-label='$label'>" +
                     "<span>${if (icon) "&#xF0379;" else "x"}</span><span>107</span></div></div></body></html>"
@@ -159,7 +162,7 @@ class ReelCommentsAudioJsTest {
         val h = Harness()
         h.load(time = 12.5)
         h.tapComment()
-        assertEquals("[\"$MP4_URL\"]", h.json("window.__fetched"))
+        assertEquals("[\"$AUDIO_URL\"]", h.json("window.__fetched"))
         h.eval("document.getElementById('v1').__time = 13.25; 1")
         // Silent, in step with the reel while it plays.
         assertTrue("no silent sound in step with the playing reel (${h.json("window.__sources")})",
@@ -351,7 +354,18 @@ class ReelCommentsAudioJsTest {
     }
 
     @Test
-    fun anMp4ThatCantBeFetched_leavesTheCommentsQuiet() {
+    fun aStreamWithoutItsAudioTrack_playsTheMp4sSound() {
+        // The MP4's sound is quieter than the stream's (8.7 dB on the emulator's test reel), but
+        // the same.
+        val h = Harness()
+        h.load(streamAudio = false)
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        assertEquals("[\"$MP4_URL\"]", h.json("window.__fetched"))
+    }
+
+    @Test
+    fun aSoundThatCantBeFetched_leavesTheCommentsQuiet() {
         val h = Harness()
         h.load(fetchFails = true)
         h.openComments()
@@ -374,5 +388,11 @@ class ReelCommentsAudioJsTest {
         // As the page's attribute holds it, and as the script reads it.
         const val MP4 = "https://video.fbcdn.example/v/reel.mp4?oh=1&amp;oe=2"
         const val MP4_URL = "https://video.fbcdn.example/v/reel.mp4?oh=1&oe=2"
+        // The stream's tracks as data-extra lists them: its audio track's whole file at base_url.
+        const val AUDIO_URL = "https://video.fbcdn.example/m412/audio.mp4?oh=3"
+        const val VIDEO_TRACK = "{\"mime_type\":\"video/mp4\",\"base_url\":\"https://video.fbcdn.example/m366/video.mp4\"}"
+        const val EXTRA = "{\"dash_prefetch_representations\":{\"representations\":[$VIDEO_TRACK," +
+            "{\"mime_type\":\"audio/mp4\",\"base_url\":\"$AUDIO_URL\"}]}}"
+        const val EXTRA_NO_AUDIO = "{\"dash_prefetch_representations\":{\"representations\":[$VIDEO_TRACK]}}"
     }
 }

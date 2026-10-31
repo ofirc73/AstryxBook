@@ -5,9 +5,8 @@
 // m.facebook.com opens a reel's comments as a new screen in the same document (pushState, at
 // Home's address "/"): about a second after the tap it pauses the reel, sets it back to 0 and
 // removes its <video>, and Back draws the reel again from its start. So when the comment button
-// of a playing, unmuted reel is tapped, this fetches the reel's MP4 (the player's data-video-url,
-// as download_content.js and the lock-screen hand-off use; the <video> itself plays a blob:),
-// decodes its sound (Web Audio) and plays it silently in step with the reel; when Facebook calls
+// of a playing, unmuted reel is tapped, this fetches the reel's sound (the audio track the player
+// streams, soundUrl(); the <video> itself plays a blob:), decodes it (Web Audio) and plays it silently in step with the reel; when Facebook calls
 // the reel's pause() it's faded in, at once (v1.39.2 started it only then, after noticing the reel
 // had stopped: a short cut, on the phone). An <audio> took 1-8 s on the emulator to play after a
 // seek, even from memory; a decoded sound starts at the exact spot (fetched and decoded in about a
@@ -87,7 +86,8 @@
   // For the tests and the live checks.
   window.__astryxReelCommentsAudio = {
     position: soundAt,
-    hasCommentIcon: hasCommentIcon
+    hasCommentIcon: hasCommentIcon,
+    soundUrl: soundUrl
   };
 
   // The reel playing on screen (the reels scroller keeps the ones next to it too).
@@ -292,14 +292,29 @@
     }, POLL_MS);
   }
 
-  // The playing reel and its MP4 when [e] is on the comment button of a reel page, else null.
+  // The sound the player plays: the audio track of its DASH stream (data-extra's
+  // dash_prefetch_representations, a whole fragmented MP4 at its base_url). The MP4 in
+  // data-video-url has the same sound, but quieter (8.7 dB on the emulator's test reel): it's the
+  // fallback.
+  function soundUrl(player) {
+    try {
+      var reps = JSON.parse(player.getAttribute('data-extra')).dash_prefetch_representations.representations;
+      for (var i = 0; i < reps.length; i++) {
+        if (reps[i].mime_type === 'audio/mp4' && reps[i].base_url.indexOf('https://') === 0) return reps[i].base_url;
+      }
+    } catch (e) {}
+    return player.getAttribute('data-video-url');
+  }
+
+  // The playing reel and its sound's address when [e] is on the comment button of a reel page,
+  // else null.
   function commentTap(e) {
     if (!isReelPage() || !e.target || !e.target.closest) return null;
     var button = e.target.closest('[role="button"]');
     if (!button || !isCommentButton(button)) return null;
     var video = playingReel();
     var player = video && video.closest('[data-video-url]');
-    var src = player && player.getAttribute('data-video-url');
+    var src = player && soundUrl(player);
     if (!video || video.muted || !src || src.indexOf('https://') !== 0) return null;
     return { video: video, src: src };
   }

@@ -366,7 +366,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere() {
         // reel_comments_audio.js: the comment button of a playing, unmuted reel plays the reel's sound
-        // (its MP4, fetched and decoded) while Facebook shows the comments (it removes the reel's
+        // (its stream's audio track, fetched and decoded) while Facebook shows the comments (it removes the reel's
         // <video>); Back hands the sound back to the reel that comes back, in step with it.
         openPlayingReel()
         // Reels start muted, and a muted reel has no sound to keep: unmuted as a tap on the sound would.
@@ -375,6 +375,10 @@ class LiveFacebookCanaryTest {
         assertEquals("the reel's comment button lost its icon (U+F0379): reel_comments_audio.js then finds it only by its " +
             "English label (${pageShape()})", "true",
             eval("(function (b) { return !!b && window.__astryxReelCommentsAudio.hasCommentIcon(b); })($REEL_COMMENT_BUTTON_JS)"))
+        assertEquals("the reel's player lists no audio track in data-extra: reel_comments_audio.js then plays its MP4's " +
+            "sound, quieter than the reel's (${pageShape()})", "true",
+            eval("(function (p) { return !!p && window.__astryxReelCommentsAudio.soundUrl(p) !== p.getAttribute('data-video-url'); })" +
+                "(document.querySelector('video').closest('[data-video-url]'))"))
         val reelPath = eval("location.pathname").removeSurrounding("\"")
         // Tapped a few seconds into the reel, so a sound that starts again from 0 shows (v1.39.0's did:
         // Facebook sets the reel back to 0 as it removes it).

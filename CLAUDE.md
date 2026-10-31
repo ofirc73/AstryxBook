@@ -228,11 +228,14 @@ user-visible change.
 - Facebook plays most videos through Media Source Extensions, so a `<video>`'s
   `currentSrc` is `blob:`. The mobile site's player (`data-mcomponent="MVideo"`) carries
   the whole MP4 in `data-video-url`; downloads (`download_content.js`) and the lock-screen
-  audio hand-off (`PIP_HANDOFF_ARM_JS`) use that.
+  audio hand-off (`PIP_HANDOFF_ARM_JS`) use that. Its sound is quieter than what the player streams
+  (8.7 dB on the emulator's test reel, read 2026-10-31): the stream's own tracks are in the player's
+  `data-extra` (`dash_prefetch_representations`; a track's `base_url` without byte ranges is its
+  whole fragmented MP4, which `decodeAudioData` reads).
 - A reel's comments (mobile site) are a screen of their own at "/" (pushState): Facebook removes the
   reel's `<video>` (about a second after the tap, set back to 0 on the way out), and Back draws it again from 0, passing through `/watch/` (the new
   reel's `play` fires there, its `playing` at the reel's path, the query comes back later).
-  `reel_comments_audio.js` plays the MP4's sound meanwhile through Web Audio (an `<audio>` took
+  `reel_comments_audio.js` plays the stream's audio track meanwhile through Web Audio (an `<audio>` took
   seconds to play after a seek). Facebook's player ignores a seek outside what it has loaded, and
   stalls loading a reel set `muted`: the returning reel is silenced through a Web Audio gain
   instead, and moved only once, as it starts.
