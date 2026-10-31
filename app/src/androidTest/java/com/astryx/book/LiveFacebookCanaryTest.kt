@@ -1150,7 +1150,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun theFeed_asksForMorePostsBeforeItsLoadingRowShows() {
         // feed_prefetch.js: Facebook asks for the next posts when the feed list's loading row comes
-        // on screen; the app tells it so while the row is still a few screens below, so the posts
+        // on screen; the app tells it so while the row is still up to thirty screens below, so the posts
         // are there before the user scrolls to the grey placeholder. With suggested posts hidden,
         // as the phone where it was found (2026-10-30).
         runBlocking { SettingsDataStore(app.context).setHideSuggested(true) }
