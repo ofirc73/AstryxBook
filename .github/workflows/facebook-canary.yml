@@ -11,7 +11,8 @@ name: Daily Facebook check
 # (tried 2026-10-24, all three failed). They run on the local emulator (tools/canary.ps1 -Chat).
 #
 # A failure opens (or comments on) one "Daily Facebook check failed" issue; the next passing run
-# closes it. "Facebook session expired" in the issue means the cookies need replacing. A part of
+# closes it. "Facebook session expired" in the issue means the cookies need replacing:
+# tools/renew-fb-cookies.ps1 sets them from the local emulator's login and starts a run. A part of
 # the checks with nothing to check (no ad came) 7 runs in a row opens a second issue ("Report gaps").
 
 on:
@@ -21,7 +22,14 @@ on:
   # full hour, when GitHub delays the most runs.
   schedule:
     - cron: '37 5-17/2 * * *' # from 08:37 in Israel in summer, 07:37 in winter
+  # Runs a day are capped (MAX_A_DAY in the due job); force is for the run that checks freshly
+  # renewed cookies (tools/renew-fb-cookies.ps1).
   workflow_dispatch:
+    inputs:
+      force:
+        description: Run even past today's limit (only right after renewing FB_TEST_COOKIES)
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -44,27 +52,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
+          FORCE: ${{ inputs.force }}
+          # Full runs a UTC day, any branch, by hand or not. Facebook ended the test account's
+          # session the night after each day of 10+ runs (2026-10-26, 2026-10-30): every run is a
+          # new emulator on a new IP replaying the same cookies. Check branches on the local
+          # emulator instead (tools/canary.ps1).
+          MAX_A_DAY: 2
         run: |
-          # A run started by hand always runs the checks.
-          if [ "$EVENT" != schedule ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
-          # Today's (UTC) other runs on this branch whose checks got to a result, passing or
-          # failing; one that was cancelled, timed out or stood down doesn't count. The latest
-          # runs are filtered here: the API's own branch= and created= filters once returned
-          # nothing for a run that day, and the late slot ran the checks a second time.
+          if [ "$FORCE" = true ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Today's (UTC) other runs whose checks got to a result, passing or failing; one that was
+          # cancelled, timed out or stood down doesn't count. The latest runs are filtered here:
+          # the API's own branch= and created= filters once returned nothing for a run that day,
+          # and the late slot ran the checks a second time.
           TODAY=$(date -u +%F)
-          IDS=$(gh api "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs?per_page=30" \
-            -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and .head_branch == \"$GITHUB_REF_NAME\"
-              and (.created_at | startswith(\"$TODAY\"))) | .id") ||
-            { echo "::warning::Couldn't list today's runs: running the checks"; IDS=""; }
-          for ID in $IDS; do
+          RUNS=$(gh api "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs?per_page=50" \
+            -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and (.created_at | startswith(\"$TODAY\")))
+              | \"\(.id) \(.head_branch)\"") ||
+            { echo "::warning::Couldn't list today's runs: running the checks"; RUNS=""; }
+          COUNT=0
+          while read -r ID BRANCH; do
+            [ -n "$ID" ] || continue
             RESULT=$(gh api "repos/$GH_REPO/actions/runs/$ID/jobs" \
               -q '.jobs[] | select(.name == "canary") | .conclusion') || continue
-            if [ "$RESULT" = success ] || [ "$RESULT" = failure ]; then
+            [ "$RESULT" = success ] || [ "$RESULT" = failure ] || continue
+            COUNT=$((COUNT + 1))
+            # A scheduled run: once a day on its branch.
+            if [ "$EVENT" = schedule ] && [ "$BRANCH" = "$GITHUB_REF_NAME" ]; then
               echo "Today's check already ran: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$ID"
               echo run=false >> "$GITHUB_OUTPUT"
               exit 0
             fi
-          done
+          done <<< "$RUNS"
+          if [ "$COUNT" -ge "$MAX_A_DAY" ]; then
+            echo "::notice title=Daily Facebook check::$COUNT runs today already (at most $MAX_A_DAY, to keep the test account's session): stood down. Check branches on the local emulator (tools/canary.ps1)."
+            echo run=false >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo run=true >> "$GITHUB_OUTPUT"
 
   canary:

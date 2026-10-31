@@ -39,20 +39,11 @@ $repo = (Resolve-Path "$PSScriptRoot\..").Path
 $worktree = Join-Path (Split-Path $repo -Parent) 'astryx-canary'
 $ghRepo = 'ofirc73/AstryxBook'
 $issueTitle = 'Daily Facebook check failed'
-$sdk = $env:ANDROID_HOME
-if (-not $sdk) {
-    $sdk = ((Get-Content "$repo\local.properties" | Select-String '^sdk.dir=') -replace '^sdk.dir=', '' -replace '\\:', ':').Trim()
-}
-$adb = Join-Path $sdk 'platform-tools\adb.exe'
-$emulatorExe = Join-Path $sdk 'emulator\emulator.exe'
+. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial
 $logDir = Join-Path $env:LOCALAPPDATA 'Astryxbook\canary'
 New-Item -ItemType Directory -Force $logDir | Out-Null
 $log = Join-Path $logDir ((Get-Date -Format 'yyyy-MM-dd_HHmm') + '.log')
 Start-Transcript -Path $log | Out-Null
-
-function Get-EmulatorSerial {
-    (& $adb devices) -match '^emulator-\d+\s+device$' | ForEach-Object { ($_ -split '\s+')[0] } | Select-Object -First 1
-}
 
 $startedEmulator = $false
 $failure = $null

@@ -95,7 +95,12 @@ user-visible change.
   row opens a "parts unchecked" issue. A part no run can check (the test account never sees it) is
   `untestable(…)`: in the output, not a warning. A check that finds none of what it checks fails: never a note
   or gap for that (the feed check's "no feed posts" note hid Remove ads breaking for days). Never put a
-  personal account's cookies there. The Messages layer checks run only on the local emulator
+  personal account's cookies there. At most 2 full runs a UTC day (`MAX_A_DAY`, any branch, by
+  hand too): Facebook ended the test account's session the night after each day of 10+ runs, so
+  check a branch on the local emulator (`tools/canary.ps1`), not with `gh workflow run`. When the
+  issue says the session expired, the user renews it with `tools/renew-fb-cookies.ps1` (from the
+  emulator's debug app login; it never shows the values, and starts one run past the limit).
+  The Messages layer checks run only on the local emulator
   (`tools/canary.ps1 -Chat e2ee/t/<id>`): the test account's chat is end-to-end encrypted, and
   GitHub's emulator, logged in by cookies alone, gets its restore prompt instead of its messages
   (tried 2026-10-24 with an `FB_TEST_CHAT` secret: all three failed). Leave that secret unset.

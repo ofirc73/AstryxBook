@@ -687,7 +687,13 @@ to a Facebook test account through its session cookies (the `FB_TEST_COOKIES` se
 a "Daily Facebook check failed" issue when a check fails (closed by the next passing run). When
 Facebook has ended that session, the checks fail with "Facebook session expired" (found by the
 login cookie, and by the logged-out page's title, since its Home asks to log in without a password
-box), and the secret needs fresh cookies. GitHub
+box), and the secret needs fresh cookies: `tools/renew-fb-cookies.ps1` takes them from the debug
+app's login on the local emulator (log in to the test account there first), sets the secret without
+showing them, and starts the checks once (`force`). Facebook ended the session after 7 days, then
+after 3.5 (2026-10-27, 2026-10-31), each time the night after a day of 10+ runs (branches checked
+by hand): every run is a new emulator on a new IP replaying the same cookies. So the workflow runs
+the checks at most twice a UTC day, any branch, by hand or not (`MAX_A_DAY`; a run past that
+stands down with a notice), and branches are checked on the local emulator. GitHub
 drops many scheduled runs, so it's scheduled every 2 hours from 05:37 to 17:37 UTC and the later
 runs stand down once one has run. The workflow keeps the emulator's screen on, and each check wakes it: with the
 screen off the app makes no WebView (it's made during layout), and checks failed with "webViews=0";
