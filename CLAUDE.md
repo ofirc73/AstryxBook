@@ -115,7 +115,7 @@ user-visible change.
   auto-versions from conventional commits (`feat:` = minor bump) and
   publishes a release (every commit type bumps at least the patch, `test:` too). A push
   touching only docs, tests or repo tooling (`*.md`, `LICENSE`, `fastlane/`, `assets/`,
-  `app/src/test/`, `app/src/androidTest/`, `.github/`, `.gitignore`, `lint.xml`, `tools/`)
+  `app/src/test/`, `app/src/androidTest/`, `.github/`, `.gitignore`, `lint.xml`, `tools/`, `.claude/`)
   skips it via `paths-ignore`; those commits go out with the next release. So does a push whose commits since the last release are all
   Dependabot's (`compute-version`'s check; its security updates touch the Gradle files): they go
   out with the next real release.
