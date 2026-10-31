@@ -165,6 +165,10 @@ rewritten to the new one, keeping its schedule.
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
   player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
+- Unlocking with a video in PiP gets the video in step with the lock-screen sound the same gentle
+  way as a reel back from its comments: held still while far ahead, otherwise a little slower or
+  faster for a moment (it played at 0.5x or 1.5x until in step, which could show as slow motion).
+  Both now use one page script for it, `video_catch_up.js`, each with its own remembered timing.
 - Back from a reel's comments, a second time on the same reel, played the reel's own sound along
   with the comments' sound (v1.39.2-v1.39.7): Facebook brings the reel back in the same `<video>`,
   which Web Audio takes only once, so it couldn't be silenced again; its silencing is now kept on
@@ -531,14 +535,20 @@ than live Facebook):
 
 Lock-screen audio, fullscreen and auto-desktop have their own suites:
 
-- `PipHandoffJsTest` (23, real `WebView`): the snapshot taken at page hide
+- `VideoCatchUpJsTest` (4, real `WebView`): `video_catch_up.js`, shared by the two below: each
+  use's own clock and remembered seek time (one learning leaves the other alone), the steps (in
+  step, slower or faster by the gap, held still far ahead, too far apart, not ready), the start
+  instead of the very end, holding and releasing. Its live check is the reel comments one (it runs
+  through it twice); the lock-screen use can't be checked live.
+- `PipHandoffJsTest` (24, real `WebView`): the snapshot taken at page hide
   even when the video is paused right after, mute/pause and restore of the
   prior mute state, the events told to the app (the sound, its time and play
   state every second while armed, hidden, visible again only while a handoff
   is active, handback done), the seek time kept in `localStorage`, the
   stream's audio track as the sound, the handback (muted past the native
-  player until in step, slower or faster, waiting for the page to be visible,
-  done at once for a video that can't play, position/play behaviour), and
+  player until in step (held still far ahead, a little slower or faster),
+  waiting for the page to be visible, done at once for a video that can't play
+  or without `video_catch_up.js`, position/play behaviour), and
   listener cleanup/re-arming. No live check: Facebook's part, the player's
   audio track, is checked by the reel comments one; the lock itself runs on
   the emulator (`MainActivityPipTest`, `-e pin`).

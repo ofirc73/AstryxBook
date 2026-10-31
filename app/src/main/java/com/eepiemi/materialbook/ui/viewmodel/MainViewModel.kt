@@ -40,6 +40,8 @@ class MainViewModel(
             Script(true, R.raw.scripts), // always apply
             Script(true, R.raw.memory_photos),
             Script(true, R.raw.open_new_post),
+            // Before reel_comments_audio.js, which uses it, as does the lock-screen hand-back.
+            Script(true, R.raw.video_catch_up),
             Script(true, R.raw.reel_comments_audio),
             Script(settings.messagesDesktop.value, R.raw.messages_tab),
             Script(settings.removeAds.value, R.raw.adblock),
