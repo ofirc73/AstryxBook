@@ -16,8 +16,9 @@ import org.junit.runner.RunWith
  * through /watch/, where the new reel's 'play' fires, then lands on the reel's path (its 'playing'
  * fires there) and gets its query back a moment later. Faked: the reel's paused, muted, currentTime,
  * readyState and seeking; fetch (window.__fetched); Web Audio, its clock (window.__now, s), the
- * sounds started (window.__sources: at, stopped), the gains (window.__gains) and the elements routed
- * through it (window.__routed).
+ * sounds started (window.__sources: at, stopped, out.gain.value 0 silent or 1 heard), the gain the
+ * reel back is silenced through (window.__silencer) and the elements routed through it
+ * (window.__routed).
  */
 @RunWith(AndroidJUnit4::class)
 class ReelCommentsAudioJsTest {
@@ -62,7 +63,7 @@ class ReelCommentsAudioJsTest {
                   return $fetchFails ? Promise.reject(new Error('offline')) :
                     Promise.resolve({ ok: true, arrayBuffer: function () { return Promise.resolve(new ArrayBuffer(8)); } });
                 };
-                window.__now = 0; window.__sources = []; window.__gains = []; window.__routed = [];
+                window.__now = 0; window.__sources = []; window.__routed = [];
                 window.AudioContext = function () {
                   this.state = 'running'; this.destination = {};
                   Object.defineProperty(this, 'currentTime', { get: function () { return window.__now; } });
@@ -74,18 +75,16 @@ class ReelCommentsAudioJsTest {
                     new Promise(function (r) { window.__decoded = function () { r({ duration: 30 }); }; });
                 };
                 AudioContext.prototype.createBufferSource = function () {
-                  var s = { connect: function () {}, start: function (when, at) { this.at = at; window.__sources.push(this); },
+                  return { connect: function (g) { this.out = g; },
+                    start: function (when, at) { this.at = at; window.__sources.push(this); },
                     stop: function () { this.stopped = true; } };
-                  return s;
                 };
                 AudioContext.prototype.createGain = function () {
-                  var g = { gain: { value: 1 }, connect: function () {} };
-                  window.__gains.push(g);
-                  return g;
+                  return { gain: { value: 1, setTargetAtTime: function (v) { this.value = v; } }, connect: function () {} };
                 };
                 AudioContext.prototype.createMediaElementSource = function (v) {
                   window.__routed.push(v.id);
-                  return { connect: function () {} };
+                  return { connect: function (g) { window.__silencer = g; } };
                 };
                 window.__fakeVideo = function (v, time, playing, muted) {
                   v.__time = time; v.__paused = !playing; v.muted = muted; v.__rs = 4;
@@ -119,7 +118,7 @@ class ReelCommentsAudioJsTest {
         // The last sound started.
         val sound = "window.__sources[window.__sources.length - 1]"
 
-        fun soundPlaying() = waitFor("!!$sound && !$sound.stopped")
+        fun soundPlaying() = waitFor("!!$sound && !$sound.stopped && $sound.out.gain.value === 1")
 
         fun soundStopped() = waitFor("!!$sound && $sound.stopped && window.__astryxReelCommentsAudio.position() === -1")
 
@@ -162,11 +161,17 @@ class ReelCommentsAudioJsTest {
         h.tapComment()
         assertEquals("[\"$MP4_URL\"]", h.json("window.__fetched"))
         h.eval("document.getElementById('v1').__time = 13.25; 1")
-        Thread.sleep(400)
-        assertEquals("the sound played while the reel still did", "0", h.eval("window.__sources.length"))
+        // Silent, in step with the reel while it plays.
+        assertTrue("no silent sound in step with the playing reel (${h.json("window.__sources")})",
+            h.waitFor("!!${h.sound} && !${h.sound}.stopped && ${h.sound}.out.gain.value === 0 && Math.abs(${h.sound}.at - 13.25) < 0.01"))
+        val sounds = h.eval("window.__sources.length")
+        // Facebook's pause(): heard at once (v1.39.2 started it only after noticing: a short cut).
+        assertEquals("the sound wasn't heard as Facebook paused the reel", "1",
+            h.eval("document.getElementById('v1').pause(); ${h.sound}.out.gain.value"))
         h.commentsOpen()
-        assertTrue("the reel's sound never played", h.soundPlaying())
-        assertEquals(13.25, h.eval("${h.sound}.at").toDouble(), 0.1)
+        assertTrue("the reel's sound stopped", h.soundPlaying())
+        assertEquals("the sound started again rather than going on", sounds, h.eval("window.__sources.length"))
+        assertEquals(13.25, h.eval("${h.sound}.at").toDouble(), 0.01)
         assertEquals("true", h.eval("${h.sound}.loop"))
         h.eval("window.__now = 2; 1")
         assertEquals(15.25, h.position(), 0.1)
@@ -205,7 +210,7 @@ class ReelCommentsAudioJsTest {
         h.soundAt(21.0)
         h.backToTheReel()
         assertEquals("the reel back wasn't silenced through Web Audio", "[\"v2\"]", h.json("window.__routed"))
-        assertEquals("0", h.eval("window.__gains[0].gain.value"))
+        assertEquals("0", h.eval("window.__silencer.gain.value"))
         assertEquals("the reel back was muted (Facebook's player then stalls loading it)", "false", h.eval("${h.v2}.muted"))
         // Moved past the sound by the first lead (0.8 s), once.
         assertTrue("the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})",
@@ -217,7 +222,7 @@ class ReelCommentsAudioJsTest {
         // In step: heard again, at its own speed, and the sound stops.
         h.soundAt(21.8)
         assertTrue("the sound went on with the reel in step", h.soundStopped())
-        assertEquals("1", h.eval("window.__gains[0].gain.value"))
+        assertEquals("1", h.eval("window.__silencer.gain.value"))
         assertEquals("1", h.eval("${h.v2}.playbackRate"))
     }
 
@@ -255,7 +260,7 @@ class ReelCommentsAudioJsTest {
         h.soundAt(24.0)
         h.eval("${h.v2}.__rs = 4; 1")
         assertTrue(h.soundStopped())
-        assertEquals("1", h.eval("window.__gains[0].gain.value"))
+        assertEquals("1", h.eval("window.__silencer.gain.value"))
         assertEquals("1", h.eval("${h.v2}.playbackRate"))
     }
 
@@ -341,7 +346,8 @@ class ReelCommentsAudioJsTest {
         Thread.sleep(3500)
         h.eval("document.getElementById('reel').remove(); history.pushState(null, '', '/'); 1")
         Thread.sleep(600)
-        assertEquals("0", h.eval("window.__sources.length"))
+        assertEquals("a sound was heard or left playing", "true",
+            h.eval("window.__sources.every(function (s) { return s.stopped && s.out.gain.value === 0; })"))
     }
 
     @Test
