@@ -301,6 +301,27 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun theReelsSettingsGear_isShown_clearOfFacebooksTabBar() {
+        // scripts.js's gear on a reel page (no header for the main one), below Facebook's tab bar
+        // when that's above the reel: on the phone's Reels tab it sat on Marketplace
+        // (ReelsSettingsButtonJsTest).
+        openPlayingReel()
+        val gear = "document.getElementById('custom-settings-btn-reels')"
+        assertTrue("no Settings gear on the reel page (${pageShape()})", app.waitFor(10_000) {
+            eval("!!$gear && $gear.getClientRects().length > 0") == "true"
+        })
+        if (eval("!!document.querySelector('div[role=tablist] [role=tab]')") != "true") {
+            gap("reels-tab-bar", "no tab bar above the reel: the gear's place below it wasn't checked")
+            return
+        }
+        assertEquals("the reel page's Settings gear is on a tab of Facebook's tab bar (${pageShape()})", "true", eval(
+            "(function (g) { return [].every.call(document.querySelectorAll('div[role=tablist] [role=tab]'), function (t) {" +
+                " var r = t.getBoundingClientRect(); return g.top >= r.bottom || g.bottom <= r.top || g.left >= r.right || g.right <= r.left; }); })" +
+                "($gear.getBoundingClientRect())"
+        ))
+    }
+
+    @Test
     fun aReel_keepsPlayingInPip() {
         openPlayingReel()
         assertTrue(

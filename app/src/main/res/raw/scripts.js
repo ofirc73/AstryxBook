@@ -602,13 +602,22 @@ observer.observe(document.body, { childList: true, subtree: true });
       const main = document.getElementById(BUTTON_ID);
       return !!main && main.getClientRects().length > 0;
     };
-    // The right end of the bar, or the left end when it's mirrored (Back is then on the right).
-    // Checked on every tick: the bar may not be there yet when the button is first added.
+    // Where Facebook's tab bar (Home, Friends... Marketplace) ends when it's above the reel, as the
+    // phone's Reels tab shows it (the gear sat on its last tab, Marketplace); 0 without one.
+    const tabBarBottom = () => {
+      const tabs = document.querySelector('div[role="tablist"]');
+      const r = tabs && tabs.getBoundingClientRect();
+      return r && r.height > 0 && r.top < 60 && r.bottom > 0 ? r.bottom : 0;
+    };
+    // The right end of the bar, or the left end when it's mirrored (Back is then on the right),
+    // below Facebook's tab bar when it shows. Checked on every tick: the bar may not be there yet
+    // when the button is first added.
     const placeReelsButton = (btn) => {
       const bar = document.elementFromPoint(window.innerWidth / 2, 30);
       const rtl = isRtl(bar && bar !== btn && !btn.contains(bar) ? bar : document.querySelector('.m'));
       btn.style.left = rtl ? '12px' : '';
       btn.style.right = rtl ? '' : '12px';
+      btn.style.top = (tabBarBottom() + 12) + 'px';
     };
     const updateReelsButton = () => {
       const existing = document.getElementById(REELS_BUTTON_ID);
@@ -625,7 +634,6 @@ observer.observe(document.body, { childList: true, subtree: true });
       btn.setAttribute('aria-label', 'Settings');
       btn.setAttribute('style', `
         position: fixed;
-        top: 12px;
         width: 40px;
         height: 48px;
         padding: 0;
