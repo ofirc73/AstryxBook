@@ -22,7 +22,7 @@ An open-source, ad-free Android app for Facebook's mobile site, written in Kotli
 
 <p align="middle">
     <a href='https://github.com/ofirc73/AstryxBook/releases/latest'><img alt='Download' height='40' src='./assets/download.svg'/></a>
-    <a href='https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/ofirc73/AstryxBook'><img alt='Get it on Obtainium' height='48' src='https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png'/></a>
+    <a href='https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fadd%2Fhttps%3A%2F%2Fgithub.com%2Fofirc73%2FAstryxBook'><img alt='Get it on Obtainium' height='48' src='https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png'/></a>
 </p>
 
 <p align="middle">
