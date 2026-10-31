@@ -43,7 +43,7 @@
     var plain = !(options && (options.root || options.rootMargin));
     var retry = null; // the timer for the last early ask
     var retriedAt = -1; // the list's length when it was last asked again
-    // Asks again with the same entries if the list is no longer when RETRY_MS is up, once per
+    // Asks again with the same entries if the list hasn't grown when RETRY_MS is up, once per
     // length: at the feed's end ("No more posts to fetch") the last row stays a loading row.
     function retryLater(entries) {
       var row = entries[0].target;
@@ -67,8 +67,8 @@
             if (entries[i].isIntersecting && isLoadingRow(entries[i].target)) near.push(entries[i]);
           }
           if (!near.length) return;
-          // For the live check: how often, how far below the window the row last was, and how
-          // many asks were made again.
+          // For the live check: how often, and how far below the window the row last was (and,
+          // for the tests, how many asks were made again).
           var was = window.__astryxFeedPrefetched || {};
           window.__astryxFeedPrefetched = {
             count: (was.count || 0) + 1,
