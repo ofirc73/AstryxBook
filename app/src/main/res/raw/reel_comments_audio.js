@@ -33,18 +33,30 @@
   // Off from the reel by more than this, the silent sound is started again at the reel's time.
   var DRIFT_S = 0.05;
   // How far past the sound the reel coming back is moved: what its seek took last time (it's
-  // ready at the sound's position then), at first BACK_LEAD_S.
-  var BACK_LEAD_S = 0.8;
+  // ready at the sound's position then), kept in localStorage, at first BACK_LEAD_S (a seek within
+  // what's loaded: 0.28 s on the emulator; a first guess of 0.8 s put the reel ahead, played slower
+  // for a moment, seen on the phone).
+  var BACK_LEAD_S = 0.3;
   var MAX_LEAD_S = 4;
+  var LEAD_KEY = 'astryxReelBackLead';
   // How long the reel back may take to load from its start to the sound (Facebook's memory has it
   // within about a second) before it's moved anyway (a long reel, loaded as it plays).
   var LOAD_WAIT_MS = 3000;
   var backLead = BACK_LEAD_S;
+  try { backLead = parseFloat(localStorage.getItem(LEAD_KEY)) || BACK_LEAD_S; } catch (e) {}
+  // Meanwhile the reel back plays this slowly, still to the eye (Chromium's slowest): played from
+  // its start for that second, then moved, it was seen to jump.
+  var HOLD_RATE = 0.0625;
   // The reel back plays at the sound's position when this close: the sound hands over.
-  var IN_STEP_S = 0.08;
+  var IN_STEP_S = 0.1;
   // Up to this far ahead of the sound, the reel back plays slower to let it catch up; up to
-  // BEHIND_S behind, faster. Further apart, the reel just takes over.
-  var AHEAD_S = 1;
+  // BEHIND_S behind, faster, by the gap per second (a little slower or faster for a second or so;
+  // 0.5x or 1.5x until in step before, seen on the phone; half the gap took 5 s on the emulator).
+  // Past HOLD_AHEAD_S ahead it's held still (HOLD_RATE) until the sound gets there: a moment's stop
+  // rather than slow motion or a jump in the sound (its seek took 1-3 s on the emulator, each time
+  // different). Further apart, the reel just takes over.
+  var AHEAD_S = 4;
+  var HOLD_AHEAD_S = 0.5;
   var BEHIND_S = 1.5;
   // A sound fetched for a touch that brought no tap is let go after this.
   var EARLY_MS = 5000;
@@ -248,6 +260,7 @@
     if (isFinite(v.duration) && time >= v.duration - 0.5) time = 0;
     if (!loadedTo(v, time) && Date.now() - heard.backAt < LOAD_WAIT_MS) return;
     heard.placed = true;
+    v.playbackRate = 1;
     if (Math.abs(v.currentTime - time) <= 1) return;
     heard.moves++;
     heard.movedAt = Date.now();
@@ -263,12 +276,17 @@
     if (!heard.source) { stop(); return true; }
     if (v.paused || v.seeking || v.readyState < 3 || !heard.placed) return false;
     if (heard.movedAt) {
-      backLead = Math.min(MAX_LEAD_S, Math.max(0.3, (Date.now() - heard.movedAt) / 1000));
+      // Averaged with the last ones: it varies from one seek to the next.
+      backLead = Math.min(MAX_LEAD_S, Math.max(0.1, (backLead + (Date.now() - heard.movedAt) / 1000) / 2));
+      try { localStorage.setItem(LEAD_KEY, String(backLead)); } catch (e) {}
       heard.movedAt = 0;
     }
     var ahead = v.currentTime - soundAt();
-    if (ahead > IN_STEP_S && ahead < AHEAD_S) { v.playbackRate = 0.5; return false; }
-    if (ahead < -IN_STEP_S && ahead > -BEHIND_S) { v.playbackRate = 1.5; return false; }
+    if (Math.abs(ahead) > IN_STEP_S && ahead < AHEAD_S && ahead > -BEHIND_S) {
+      v.playbackRate = ahead > HOLD_AHEAD_S ? HOLD_RATE :
+        Math.min(1.5, Math.max(0.5, Math.round((1 - ahead) * 20) / 20));
+      return false;
+    }
     stop();
     return true;
   }
@@ -365,16 +383,21 @@
   }, true);
 
   // The reel's sound through a gain of 0, for good: an element's sound can't be taken back out of
-  // Web Audio, so the gain is set to 1 when it's heard again. Without it (Web Audio refused the
-  // element), the reel is heard from 0 for a moment, as before.
+  // Web Audio, so the gain is set to 1 when it's heard again, and kept on the element: Facebook
+  // brings the reel back in the same <video>, which Web Audio takes only once (a second Back from
+  // the same reel's comments heard it from 0 along with the sound). Without it (Web Audio refused
+  // the element), the reel is heard from 0 for a moment.
   function silence(v) {
     try {
-      var gain = context.createGain();
-      gain.gain.value = 0;
-      context.createMediaElementSource(v).connect(gain);
-      gain.connect(context.destination);
-      heard.silencer = gain;
-      routed.push(v);
+      if (!v.__astryxSilencer) {
+        var gain = context.createGain();
+        context.createMediaElementSource(v).connect(gain);
+        gain.connect(context.destination);
+        v.__astryxSilencer = gain;
+      }
+      v.__astryxSilencer.gain.value = 0;
+      heard.silencer = v.__astryxSilencer;
+      if (routed.indexOf(v) < 0) routed.push(v);
     } catch (e) {}
   }
 
@@ -395,6 +418,7 @@
     heard.back = e.target;
     heard.backAt = Date.now();
     silence(e.target);
+    e.target.playbackRate = HOLD_RATE;
   }, true);
   document.addEventListener('playing', function (e) {
     if (heard && e.target === heard.back) moveBack();
