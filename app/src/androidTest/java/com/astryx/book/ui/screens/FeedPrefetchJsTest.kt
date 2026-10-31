@@ -12,6 +12,7 @@ import org.junit.runner.RunWith
  * posts when it's on screen; the script also watches it LEAD below the window and passes that on
  * as Facebook's own entry. Read on the phone (2026-10-30). The native observer is a stub
  * ([PageFixture.stubIntersectionObserver]): observer 0 is the page's, 1 the script's early one.
+ * Timers are stubbed too: [Harness.runTimers] runs the ones set so far.
  */
 @RunWith(AndroidJUnit4::class)
 class FeedPrefetchJsTest {
@@ -29,6 +30,14 @@ class FeedPrefetchJsTest {
                     "<div id='seen' data-on-first-visibility-action-id='32337'></div></body></html>"
             )
             page.stubIntersectionObserver()
+            page.eval(
+                """
+                window.__timers = {}; window.__nextTimer = 1;
+                window.setTimeout = function(f) { window.__timers[window.__nextTimer] = f; return window.__nextTimer++; };
+                window.clearTimeout = function(id) { delete window.__timers[id]; };
+                1
+                """.trimIndent()
+            )
             page.run(R.raw.feed_prefetch)
             page.eval(
                 """
@@ -45,6 +54,16 @@ class FeedPrefetchJsTest {
         fun eval(js: String) = page.eval(js).trim('"')
 
         fun seen() = eval("window.__seen.join(',')")
+
+        fun runTimers() = eval(
+            "var t = window.__timers; window.__timers = {}; Object.keys(t).forEach(function(k) { t[k](); }); 1"
+        )
+
+        // A batch came: the list has another row.
+        fun growList() = eval(
+            "document.querySelector('[data-type=vscroller]').insertBefore(document.createElement('div'), " +
+                "document.getElementById('loading')); 1"
+        )
 
         // The early observer's margin and what it watches, or "none".
         fun early() = eval(
@@ -67,6 +86,35 @@ class FeedPrefetchJsTest {
         h.load("{}", "loading")
 
         h.eval("window.__deliver(1, 'loading', 0.01)")
+
+        assertEquals("loading:true", h.seen())
+    }
+
+    @Test
+    fun anEarlyAskThatBringsNothing_isMadeOnceMore() {
+        // About once a session Facebook leaves an early ask unanswered until the row is on screen.
+        val h = Harness()
+        h.load("{}", "loading")
+        h.eval("window.__deliver(1, 'loading', 0.01)")
+
+        h.runTimers()
+
+        assertEquals("loading:true,loading:true", h.seen())
+        assertEquals("1", h.eval("window.__astryxFeedPrefetched.retries"))
+        // At the feed's end the list never grows: the next early ask isn't made again.
+        h.eval("window.__deliver(1, 'loading', 0.01)")
+        h.runTimers()
+        assertEquals("loading:true,loading:true,loading:true", h.seen())
+    }
+
+    @Test
+    fun anEarlyAskThatBringsPosts_isNotMadeAgain() {
+        val h = Harness()
+        h.load("{}", "loading")
+        h.eval("window.__deliver(1, 'loading', 0.01)")
+
+        h.growList()
+        h.runTimers()
 
         assertEquals("loading:true", h.seen())
     }
