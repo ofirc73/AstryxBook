@@ -7,11 +7,12 @@
 // 0.5-1 s, up to 7 s). With posts hidden (Remove ads, Hide suggested posts) each batch is
 // shorter on screen, so it comes up even more often. This tells Facebook the loading row is
 // visible while it's still LEAD below the window, so the next posts are on their way first.
-// LEAD was three windows in v1.38.1, which made no visible difference on the phone (2026-10-31):
-// with 65% of posts hidden a 7-post batch is under two windows tall, the server answers each in
-// 2-4 s, one at a time, so each ask already went out as the previous batch landed. A deeper lead
-// can't speed up a long fling, but it keeps loading while the user stops to read, so the next
-// fling has more to go through before it reaches the placeholder.
+// LEAD was three windows in v1.38.1, which made no visible difference on the phone (2026-10-31,
+// nothing hidden): a batch of 7 posts is 3.5-6 windows tall and the server answers each ask in
+// 2-7 s, one batch at a time, while a fast fling covers 3+ windows a second, so it reached the
+// placeholder under a second after the early ask. Ten windows is about one round trip of
+// flinging, and the feed keeps loading while the user stops to read, so the next fling has more
+// to go through before it reaches the placeholder.
 // Only rows of a list (data-type="vscroller"): other first-visibility marks log what the user
 // saw and keep their own timing. ES5, like the other document-start scripts.
 (function () {

@@ -273,11 +273,13 @@ rewritten to the new one, keeping its schedule.
   batch is shorter on screen, so it came up more often. The script watches the same row with a
   margin and passes that on to Facebook's own callback; other first-visibility marks (which log
   what the user saw) keep Facebook's timing. Covered by `FeedPrefetchJsTest`. The margin was three
-  windows in v1.38.1, which made no visible difference: read on the phone again (2026-10-31), 65%
-  of that feed's posts were hidden, so a batch of 7 is under two screens tall, and the server takes
-  2-4 s (up to 6) per batch, one at a time, so every ask already went out as the last batch landed.
-  Ten windows can't keep up with a long fling either, but the feed keeps loading while the user
-  stops to read (up to about 1 MB ahead), so the next fling goes further before the placeholder.
+  windows in v1.38.1, which made no visible difference: read on the phone again (2026-10-31, with
+  nothing hidden), a batch of 7 posts is 3.5-6 screens tall and the server answers each ask in 2-7 s,
+  one batch at a time, while a fast fling covers 3+ screens a second, so it reached the placeholder
+  under a second after the early ask (12 times in 73 s). Hiding posts wasn't the cause: turning
+  Hide suggested posts off changed nothing. Ten windows is about one round trip of flinging, and
+  the feed keeps loading while the user stops to read (up to about 1 MB ahead), so the next fling
+  goes further before the placeholder. A long fast fling still outruns Facebook's server.
 - Reels: Facebook's blue "Open app" button showed in the top bar when *Download* was off (only
   `download_content.js` hid it). `scripts.js`, which always runs, now hides "Open app" buttons,
   found by their icon in any language. The copy button no longer shows on Reels pages: a Like
