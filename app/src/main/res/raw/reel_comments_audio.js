@@ -14,8 +14,8 @@
 // sound (seeking takes it a moment), then played a little slower or faster until it's in step
 // with the sound; then it's heard again and the sound stops. Silenced through Web Audio (its sound
 // routed through a gain of 0), not muted: muted, Facebook's player stalled loading it, until it
-// was unmuted. And moved only once, as it starts playing: a seek after that stalled Facebook's
-// player, past what it had loaded for good. Going anywhere else from the comments
+// was unmuted. And moved only once, once loaded up to the sound (moveBack()): a second seek
+// stalled Facebook's player, past what it had loaded for good. Going anywhere else from the comments
 // stops the sound; the page hidden pauses it.
 //
 // The comment button is found by its icon, the same in every language (the label is
@@ -36,6 +36,9 @@
   // ready at the sound's position then), at first BACK_LEAD_S.
   var BACK_LEAD_S = 0.8;
   var MAX_LEAD_S = 4;
+  // How long the reel back may take to load from its start to the sound (Facebook's memory has it
+  // within about a second) before it's moved anyway (a long reel, loaded as it plays).
+  var LOAD_WAIT_MS = 3000;
   var backLead = BACK_LEAD_S;
   // The reel back plays at the sound's position when this close: the sound hands over.
   var IN_STEP_S = 0.08;
@@ -225,15 +228,26 @@
     else playWhenReady();
   }
 
-  // The reel back, as it starts playing from 0: moved once a little past the sound, again only if
-  // Facebook starts it from 0 again (twice at most).
+  // [v] has all from its start to a second past [time] loaded.
+  function loadedTo(v, time) {
+    var b = v.buffered, end = Math.min(time + 1, v.duration - 0.1);
+    for (var i = 0; i < b.length; i++) if (b.start(i) <= 0.5 && b.end(i) >= end) return true;
+    return false;
+  }
+
+  // The reel back, playing from 0: moved once a little past the sound, again only if Facebook starts
+  // it from 0 again (twice at most). Moved once Facebook has loaded it from its start to there (from
+  // its memory, within about a second on the emulator), or after LOAD_WAIT_MS: moved before
+  // (v1.39.2-v1.39.4), Facebook loaded it from there on only, and when it got to its end and started
+  // again, never loaded its start: it stopped there for good (every time on the emulator).
   function moveBack() {
     var v = heard.back;
     if (!onReel() || !heard.source || heard.moves >= 2) return;
     if (heard.placed && v.currentTime > 1) return;
-    heard.placed = true;
     var time = (soundAt() + backLead) % heard.sound.duration;
     if (isFinite(v.duration) && time >= v.duration - 0.5) time = 0;
+    if (!loadedTo(v, time) && Date.now() - heard.backAt < LOAD_WAIT_MS) return;
+    heard.placed = true;
     if (Math.abs(v.currentTime - time) <= 1) return;
     heard.moves++;
     heard.movedAt = Date.now();
@@ -277,8 +291,8 @@
       }
       if (heard.back) {
         if (caughtUp()) { clearInterval(timer); return; }
-        // Its 'playing' came before the reel's path did.
-        if (!heard.placed && heard.back.currentTime < 2) moveBack();
+        // Not loaded up to the sound yet, or its 'playing' came before the reel's path did.
+        if (!heard.placed) moveBack();
       }
       // Back passes through /watch/ for a moment on its way to the reel: only a page that stays
       // stops the sound.
@@ -331,7 +345,7 @@
     stop();
     heard = { phase: 'opening', reelPath: window.location.pathname, video: video, time: video.currentTime,
       timeAt: Date.now(), sound: null, source: null, played: false, offset: 0, startedAt: 0, back: null, placed: false,
-      moves: 0, movedAt: 0, silencer: null };
+      moves: 0, movedAt: 0, backAt: 0, silencer: null };
     load(tap.src);
     // Facebook stops the reel for the comments with its pause(): the sound comes in right then, at
     // the reel's time just before it. Only this reel's own pause, and only until it's stopped.
@@ -379,6 +393,7 @@
     if (!heard.commentsHref || window.location.href === heard.commentsHref) return;
     heard.phase = 'back';
     heard.back = e.target;
+    heard.backAt = Date.now();
     silence(e.target);
   }, true);
   document.addEventListener('playing', function (e) {

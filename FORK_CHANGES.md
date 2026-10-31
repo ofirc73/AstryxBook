@@ -150,6 +150,12 @@ rewritten to the new one, keeping its schedule.
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
   player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
+- A reel back from its comments froze at its start when it got to its end and started again
+  (v1.39.2-v1.39.4, every time on the emulator once the reel had loaded whole). Facebook brings the
+  reel back from its memory; moved to the sound's position before it had loaded its start, it loaded
+  only from there on, and starting again, never loaded the start. The reel is now moved once loaded
+  from its start to there (about a second after Back on the emulator; after 3 s anyway, for a long reel
+  loaded as it plays), playing silenced from its start meanwhile.
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen
@@ -583,9 +589,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   ends (`MainActivity.dropPipViewportCookie`, `comingBackToTheApp_dropsTheViewportCookiePipLeft`).
 - `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`: a real tap on a playing reel's
   comment button (which must still carry the icon `reel_comments_audio.js` finds it by in other
-  languages, its player still listing the stream's audio track) opening the comments with the reel's sound playing on from where the reel was, and
-  Back handing it back to the reel, playing at or past the sound's position, not muted
-  (`ReelCommentsAudioJsTest`).
+  languages, its player still listing the stream's audio track; the reel loaded whole first, as one
+  watched for a while is) opening the comments with the reel's sound playing on from where the reel was, and
+  Back handing it back to the reel, playing at or past the sound's position, not muted, and the reel
+  then playing through its end and from its start again (a gap when a long reel never loads whole;
+  `ReelCommentsAudioJsTest`).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).

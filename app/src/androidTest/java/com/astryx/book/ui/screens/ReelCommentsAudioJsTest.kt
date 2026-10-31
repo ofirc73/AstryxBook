@@ -15,7 +15,7 @@ import org.junit.runner.RunWith
  * to 0 and removed (v1.39.0 read its position after that and started the sound at 0); Back passes
  * through /watch/, where the new reel's 'play' fires, then lands on the reel's path (its 'playing'
  * fires there) and gets its query back a moment later. Faked: the reel's paused, muted, currentTime,
- * readyState and seeking; fetch (window.__fetched); Web Audio, its clock (window.__now, s), the
+ * readyState, seeking and buffered (window.__buf: [start, end] ranges, all of it loaded at first); fetch (window.__fetched); Web Audio, its clock (window.__now, s), the
  * sounds started (window.__sources: at, stopped, out.gain.value 0 silent or 1 heard), the gain the
  * reel back is silenced through (window.__silencer) and the elements routed through it
  * (window.__routed).
@@ -90,11 +90,15 @@ class ReelCommentsAudioJsTest {
                   return { connect: function (g) { window.__silencer = g; } };
                 };
                 window.__fakeVideo = function (v, time, playing, muted) {
-                  v.__time = time; v.__paused = !playing; v.muted = muted; v.__rs = 4;
+                  v.__time = time; v.__paused = !playing; v.muted = muted; v.__rs = 4; v.__buf = [[0, 30]];
                   Object.defineProperty(v, 'paused', { get: function () { return this.__paused; } });
                   Object.defineProperty(v, 'duration', { get: function () { return 30; } });
                   Object.defineProperty(v, 'readyState', { get: function () { return this.__rs; } });
                   Object.defineProperty(v, 'seeking', { get: function () { return false; } });
+                  Object.defineProperty(v, 'buffered', { get: function () {
+                    var b = this.__buf;
+                    return { length: b.length, start: function (i) { return b[i][0]; }, end: function (i) { return b[i][1]; } };
+                  } });
                   Object.defineProperty(v, 'currentTime', {
                     get: function () { return this.__time; }, set: function (t) { this.__time = t; } });
                 };
@@ -132,13 +136,13 @@ class ReelCommentsAudioJsTest {
 
         // Back to the reel as Facebook does it: /watch/ (the new reel's 'play'), then the reel's
         // path ('playing'), then its query. The new reel, at [newTime], is still loading (__rs = 4
-        // when it's ready).
-        fun backToTheReel(newTime: Double = 0.0) {
+        // when it's ready), loaded from its start to [loadedTo] s.
+        fun backToTheReel(newTime: Double = 0.0, loadedTo: Double = 30.0) {
             eval(
                 "history.pushState(null, '', '/watch/');" +
                     " var d = document.createElement('div'); d.setAttribute('data-video-url', '$MP4');" +
                     " d.innerHTML = '<video id=\"v2\"></video>'; document.body.appendChild(d);" +
-                    " var v = document.getElementById('v2'); __fakeVideo(v, $newTime, true, false); v.__rs = 1;" +
+                    " var v = document.getElementById('v2'); __fakeVideo(v, $newTime, true, false); v.__rs = 1; v.__buf = [[0, $loadedTo]];" +
                     " v.dispatchEvent(new Event('play')); 1"
             )
             Thread.sleep(300)
@@ -227,6 +231,39 @@ class ReelCommentsAudioJsTest {
         assertTrue("the sound went on with the reel in step", h.soundStopped())
         assertEquals("1", h.eval("window.__silencer.gain.value"))
         assertEquals("1", h.eval("${h.v2}.playbackRate"))
+    }
+
+    @Test
+    fun back_movesTheReelOnlyOnceFacebookLoadedItFromItsStartToTheSound() {
+        // Moved before, Facebook loaded it from there on only, and when it started again after its
+        // end, never loaded its start: it stopped there for good (v1.39.2-v1.39.4, on the emulator).
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel(loadedTo = 18.4)
+        Thread.sleep(400)
+        assertEquals("the reel back was moved before it was loaded up to the sound", "0", h.eval("${h.v2}.currentTime"))
+        assertEquals("false", h.eval("!!${h.sound}.stopped"))
+        h.eval("${h.v2}.__buf = [[0, 30]]; 1")
+        assertTrue("the reel back wasn't moved once loaded (${h.eval("${h.v2}.currentTime")})",
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+    }
+
+    @Test
+    fun back_aReelThatDoesntLoadUpToTheSound_isMovedAfterThreeSeconds() {
+        // A long reel, loaded as it plays: it's not kept playing silently from its start.
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel(loadedTo = 5.0)
+        Thread.sleep(2000)
+        assertEquals("0", h.eval("${h.v2}.currentTime"))
+        assertTrue("the reel back was never moved (${h.eval("${h.v2}.currentTime")})",
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05", ms = 3000))
     }
 
     @Test
