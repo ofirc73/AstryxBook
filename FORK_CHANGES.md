@@ -51,6 +51,8 @@ rewritten to the new one, keeping its schedule.
   every 3 hours into `badge.json` on the `stats` branch, read by a shields.io endpoint badge.
   shields.io's own GitHub downloads badge counted only the newest 100 releases (115 of 121 at
   110 releases) and now and then showed "invalid".
+- A "Get it on Obtainium" badge next to Download in the README adds the repo to Obtainium in one
+  tap (through Obtainium's web redirect), which then installs each GitHub release as an update.
 
 ## Localization
 
