@@ -86,6 +86,9 @@ class ReelCommentsAudioJsTest {
                   return { gain: { value: 1, setTargetAtTime: function (v) { this.value = v; } }, connect: function () {} };
                 };
                 AudioContext.prototype.createMediaElementSource = function (v) {
+                  // Once per element, as Web Audio allows.
+                  if (v.__routedOnce) throw new DOMException('already routed', 'InvalidStateError');
+                  v.__routedOnce = true;
                   window.__routed.push(v.id);
                   return { connect: function (g) { window.__silencer = g; } };
                 };
@@ -219,15 +222,16 @@ class ReelCommentsAudioJsTest {
         assertEquals("the reel back wasn't silenced through Web Audio", "[\"v2\"]", h.json("window.__routed"))
         assertEquals("0", h.eval("window.__silencer.gain.value"))
         assertEquals("the reel back was muted (Facebook's player then stalls loading it)", "false", h.eval("${h.v2}.muted"))
-        // Moved past the sound by the first lead (0.8 s), once.
+        // Moved past the sound by the first lead (0.3 s), once.
         assertTrue("the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})",
-            h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
-        // Loaded at 21.8 while the sound is at 21: ahead, so it plays slower.
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
+        // Ready at 21.3 while the sound is at 21: ahead, so it plays slower, by the gap per second
+        // (0.5x until in step before, seen on the phone).
         h.eval("${h.v2}.__rs = 4; 1")
-        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.5"))
+        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.7"))
         assertEquals("false", h.eval("!!${h.sound}.stopped"))
         // In step: heard again, at its own speed, and the sound stops.
-        h.soundAt(21.8)
+        h.soundAt(21.3)
         assertTrue("the sound went on with the reel in step", h.soundStopped())
         assertEquals("1", h.eval("window.__silencer.gain.value"))
         assertEquals("1", h.eval("${h.v2}.playbackRate"))
@@ -246,9 +250,12 @@ class ReelCommentsAudioJsTest {
         Thread.sleep(400)
         assertEquals("the reel back was moved before it was loaded up to the sound", "0", h.eval("${h.v2}.currentTime"))
         assertEquals("false", h.eval("!!${h.sound}.stopped"))
+        // Held still meanwhile: played from its start for that second, it was seen to jump.
+        assertEquals("0.0625", h.eval("${h.v2}.playbackRate"))
         h.eval("${h.v2}.__buf = [[0, 30]]; 1")
         assertTrue("the reel back wasn't moved once loaded (${h.eval("${h.v2}.currentTime")})",
-            h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
+        assertEquals("1", h.eval("${h.v2}.playbackRate"))
     }
 
     @Test
@@ -263,7 +270,7 @@ class ReelCommentsAudioJsTest {
         Thread.sleep(2000)
         assertEquals("0", h.eval("${h.v2}.currentTime"))
         assertTrue("the reel back was never moved (${h.eval("${h.v2}.currentTime")})",
-            h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05", ms = 3000))
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05", ms = 3000))
     }
 
     @Test
@@ -275,9 +282,9 @@ class ReelCommentsAudioJsTest {
         assertTrue(h.soundPlaying())
         h.soundAt(21.0)
         h.backToTheReel()
-        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
         h.eval("${h.v2}.__rs = 4; 1")
-        h.soundAt(21.8)
+        h.soundAt(21.3)
         assertTrue(h.soundStopped())
         assertEquals("the context rested with the reel playing through it", "undefined",
             h.eval("typeof window.__ctxState").removeSurrounding("\""))
@@ -285,6 +292,55 @@ class ReelCommentsAudioJsTest {
         assertEquals("suspended", h.eval("window.__ctxState").removeSurrounding("\""))
         h.eval("${h.v2}.__paused = false; ${h.v2}.dispatchEvent(new Event('play')); 1")
         assertEquals("running", h.eval("window.__ctxState").removeSurrounding("\""))
+    }
+
+    @Test
+    fun back_aReelFarAheadOfTheSound_isHeldStill_untilTheSoundGetsThere() {
+        // Its seek took 1-3 s on the emulator, each time different: landed 2.6 s ahead, it took over
+        // at once, a jump in the sound.
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel()
+        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
+        h.eval("${h.v2}.__time = 23.6; ${h.v2}.__rs = 4; 1")
+        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.0625"))
+        assertEquals("the sound stopped with the reel far ahead", "false", h.eval("!!${h.sound}.stopped"))
+        h.soundAt(23.6)
+        assertTrue(h.soundStopped())
+        assertEquals("1", h.eval("${h.v2}.playbackRate"))
+    }
+
+    @Test
+    fun aSecondBackFromTheSameReel_silencesItAgain() {
+        // Facebook brings the reel back in the same <video>, which Web Audio takes only once: a
+        // second Back heard it from 0 along with the sound (on the phone).
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel()
+        h.eval("${h.v2}.__rs = 4; 1")
+        h.soundAt(21.3)
+        assertTrue(h.soundStopped())
+        // The same reel's comments again: its button, the reel playing on screen, then gone.
+        h.eval(
+            "var v = ${h.v2}; v.style.cssText = 'width:400px;height:700px;display:block'; v.__time = 5;" +
+                " var b = document.createElement('div'); b.id = 'comment2'; b.setAttribute('role', 'button');" +
+                " b.setAttribute('aria-label', 'Comment on reel by Someone'); v.parentNode.appendChild(b); b.click();" +
+                " history.pushState(null, '', '/'); var player = v.parentNode; window.__player = player; player.remove(); 1"
+        )
+        assertTrue(h.soundPlaying())
+        // Back: the same <video> again.
+        h.eval(
+            "history.pushState(null, '', '/watch/'); document.body.appendChild(window.__player);" +
+                " ${h.v2}.__time = 0; ${h.v2}.__rs = 1; ${h.v2}.dispatchEvent(new Event('play')); 1"
+        )
+        assertEquals("routed through Web Audio once only", "[\"v2\"]", h.json("window.__routed"))
+        assertEquals("the reel back wasn't silenced again", "0", h.eval("window.__silencer.gain.value"))
     }
 
     @Test
@@ -296,7 +352,7 @@ class ReelCommentsAudioJsTest {
         assertTrue(h.soundPlaying())
         h.soundAt(21.0)
         h.backToTheReel()
-        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
         h.soundAt(24.0)
         h.eval("${h.v2}.__rs = 4; 1")
         assertTrue(h.soundStopped())
@@ -311,7 +367,7 @@ class ReelCommentsAudioJsTest {
         h.load()
         h.openComments()
         assertTrue(h.soundPlaying())
-        h.soundAt(28.9)
+        h.soundAt(29.3)
         h.backToTheReel(newTime = 0.4)
         Thread.sleep(300)
         assertEquals("0.4", h.eval("${h.v2}.currentTime"))

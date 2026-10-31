@@ -367,7 +367,7 @@ class LiveFacebookCanaryTest {
     fun aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere() {
         // reel_comments_audio.js: the comment button of a playing, unmuted reel plays the reel's sound
         // (its stream's audio track, fetched and decoded) while Facebook shows the comments (it removes the reel's
-        // <video>); Back hands the sound back to the reel that comes back, in step with it.
+        // <video>); Back hands the sound back to the reel that comes back, in step with it. Twice.
         openPlayingReel()
         // Reels start muted, and a muted reel has no sound to keep: unmuted as a tap on the sound would.
         eval("document.querySelector('video').muted = false; 1")
@@ -385,33 +385,10 @@ class LiveFacebookCanaryTest {
         val loaded = "(function (v) { var b = v.buffered; return b.length > 0 && b.start(0) <= 0.5 && b.end(0) >= v.duration - 0.1; })" +
             "(document.querySelector('video'))"
         app.waitFor(30_000) { eval(loaded) == "true" }
-        // Tapped a few seconds into the reel, so a sound that starts again from 0 shows (v1.39.0's did:
-        // Facebook sets the reel back to 0 as it removes it).
-        eval("(function (v) { if (v.currentTime < 4 || v.duration - v.currentTime < 12) v.currentTime = 5; })(document.querySelector('video')); 1")
-        Thread.sleep(1000)
-        val reelAtTap = eval("document.querySelector('video').currentTime").toDouble()
-        assertTrue("no comment button on the reel on screen", app.tapOn(app.mainWebView(), REEL_COMMENT_BUTTON_JS, scroll = false))
-        assertTrue("the comments opened without the reel's sound (${eval(VIDEO_STATE_JS)}; ${pageShape()})", app.waitFor(20_000) {
-            eval("location.pathname !== '$reelPath' && $REEL_COMMENTS_SOUND_JS > 0") == "true"
-        })
-        val soundAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
-        assertTrue("the sound started at $soundAt s, not where the reel was ($reelAtTap s)", soundAt >= reelAtTap - 0.5)
-        assertTrue("the reel's sound stopped in the comments", app.waitFor(10_000) {
-            eval(REEL_COMMENTS_SOUND_JS).toDouble().let { it > soundAt || it in 0.0..1.0 }
-        })
-
-        val backAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
-        app.pressBack()
-        // The sound plays on while Facebook loads the reel again (up to 9 s on the emulator), and
-        // until the reel plays in step with it (20 s at most).
-        assertTrue("Back from the comments didn't hand the sound back to the reel, playing (${eval(VIDEO_STATE_JS)}; " +
-            "the sound at ${eval(REEL_COMMENTS_SOUND_JS)} s)", app.waitFor(40_000) {
-            eval("location.pathname === '$reelPath' && $REEL_COMMENTS_SOUND_JS < 0 && $PLAYING_JS") == "true"
-        })
-        assertEquals("the reel back was left muted", "false", eval("document.querySelector('video').muted"))
-        val reelAt = eval("(function (v) { return v.duration - v.currentTime < 2 ? -1 : v.currentTime; })(document.querySelector('video'))").toDouble()
-        // -1: the sound was at the reel's end, which starts it again.
-        assertTrue("the reel came back at $reelAt s, not where the sound was ($backAt s)", reelAt < 0 || reelAt >= backAt - 1)
+        reelCommentsAndBack(reelPath)
+        // Again: Facebook brings the reel back in the same <video>, which Web Audio takes only once,
+        // and a second Back heard the reel along with the sound (v1.39.2-v1.39.7, on the phone).
+        reelCommentsAndBack(reelPath)
 
         // And it plays on through its end, from its start again: moved before Facebook had loaded its
         // start, the reel stopped there for good (v1.39.2-v1.39.4). Taken near its end once loaded.
@@ -426,6 +403,47 @@ class LiveFacebookCanaryTest {
         assertTrue("the reel back stopped at its start again (${eval(VIDEO_STATE_JS)})", app.waitFor(20_000) {
             eval("(function (v) { return !v.paused && v.currentTime > 1 && v.currentTime < 10; })(document.querySelector('video'))") == "true"
         })
+    }
+
+    // A tap on the playing reel's comment button a few seconds into it, the reel's sound in the
+    // comments from there, then Back: the sound handed back to the reel at its position, never heard
+    // along with the reel (Back's reel silenced until then).
+    private fun reelCommentsAndBack(reelPath: String) {
+        // A few seconds in, so a sound that starts again from 0 shows (v1.39.0's did: Facebook sets
+        // the reel back to 0 as it removes it).
+        eval("(function (v) { if (v.currentTime < 4 || v.duration - v.currentTime < 12) v.currentTime = 5; })(document.querySelector('video')); 1")
+        Thread.sleep(1000)
+        val reelAtTap = eval("document.querySelector('video').currentTime").toDouble()
+        assertTrue("no comment button on the reel on screen", app.tapOn(app.mainWebView(), REEL_COMMENT_BUTTON_JS, scroll = false))
+        // A tap soon after Back was missed now and then (the comments never opened, either script).
+        if (!app.waitFor(8_000) { eval("location.pathname !== '$reelPath'") == "true" }) {
+            note("the reel's comment button needed a second tap")
+            assertTrue("no comment button on the reel on screen", app.tapOn(app.mainWebView(), REEL_COMMENT_BUTTON_JS, scroll = false))
+        }
+        assertTrue("the comments opened without the reel's sound (${eval(VIDEO_STATE_JS)}; ${pageShape()})", app.waitFor(20_000) {
+            eval("location.pathname !== '$reelPath' && $REEL_COMMENTS_SOUND_JS > 0") == "true"
+        })
+        val soundAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
+        assertTrue("the sound started at $soundAt s, not where the reel was ($reelAtTap s)", soundAt >= reelAtTap - 0.5)
+        assertTrue("the reel's sound stopped in the comments", app.waitFor(10_000) {
+            eval(REEL_COMMENTS_SOUND_JS).toDouble().let { it > soundAt || it in 0.0..1.0 }
+        })
+
+        val backAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
+        app.pressBack()
+        // The sound plays on while Facebook loads the reel again (up to 9 s on the emulator), and
+        // until the reel plays in step with it (20 s at most).
+        var heardTwice = ""
+        assertTrue("Back from the comments didn't hand the sound back to the reel, playing (${eval(VIDEO_STATE_JS)}; " +
+            "the sound at ${eval(REEL_COMMENTS_SOUND_JS)} s)", app.waitFor(40_000) {
+            if (heardTwice.isEmpty() && eval(REEL_HEARD_WITH_SOUND_JS) == "true") heardTwice = eval(VIDEO_STATE_JS)
+            eval("location.pathname === '$reelPath' && $REEL_COMMENTS_SOUND_JS < 0 && $PLAYING_JS") == "true"
+        })
+        assertEquals("the reel back was heard along with the comments' sound", "", heardTwice)
+        assertEquals("the reel back was left muted", "false", eval("document.querySelector('video').muted"))
+        val reelAt = eval("(function (v) { return v.duration - v.currentTime < 2 ? -1 : v.currentTime; })(document.querySelector('video'))").toDouble()
+        // -1: the sound was at the reel's end, which starts it again.
+        assertTrue("the reel came back at $reelAt s, not where the sound was ($backAt s)", reelAt < 0 || reelAt >= backAt - 1)
     }
 
     // A plain picture of [width] x [height] shared to the app's [alias] (ShareToFeed, ...), as the
@@ -1697,6 +1715,10 @@ class LiveFacebookCanaryTest {
             ".filter(function (b) { var r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })[0]"
         // Where reel_comments_audio.js's sound is (s), -1 while none plays.
         private const val REEL_COMMENTS_SOUND_JS = "window.__astryxReelCommentsAudio.position()"
+        // The comments' sound playing while the reel on the page plays heard (not muted, not
+        // silenced through reel_comments_audio.js's gain).
+        private const val REEL_HEARD_WITH_SOUND_JS = "(function (v) { return $REEL_COMMENTS_SOUND_JS >= 0 && !!v && " +
+            "!v.paused && !v.muted && !(v.__astryxSilencer && v.__astryxSilencer.gain.value === 0); })(document.querySelector('video'))"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"

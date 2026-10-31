@@ -255,7 +255,12 @@ user-visible change.
   instead, and moved only once. Facebook brings it back from its own memory (no network requests),
   and moved before that had loaded it from its start, Facebook loaded it from there on only and, at
   its end, started it again with its start missing and never loaded it: frozen for good. So it's
-  moved once loaded from its start to the sound (`loadedTo`; within about a second on the emulator; after 3 s anyway, for a long reel).
+  moved once loaded from its start to the sound (`loadedTo`; within about a second on the emulator; after 3 s anyway, for a long reel),
+  held still meanwhile (`playbackRate` 0.0625, Chromium's slowest). Facebook brings the reel back in
+  the same `<video>`, which Web Audio routes only once (`InvalidStateError` after): the silencing
+  gain is kept on the element. To check the sound's timing against the reel, record the reel through
+  a `ScriptProcessor` and calibrate the recording's delay with a click in a generated WAV: uncalibrated,
+  one run showed a 64 ms offset that wasn't there.
 - *Wrap text when zoomed* (`text_wrap.js`, main view only, with pinch to zoom on) narrows text
   blocks to the visual viewport after a pinch settles. m.facebook.com is laid out on the
   server: text is `white-space: pre` with the line breaks in the text, and every box has a

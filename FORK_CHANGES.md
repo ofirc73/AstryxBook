@@ -165,6 +165,13 @@ rewritten to the new one, keeping its schedule.
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
   player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
+- Back from a reel's comments, a second time on the same reel, played the reel's own sound along
+  with the comments' sound (v1.39.2-v1.39.7): Facebook brings the reel back in the same `<video>`,
+  which Web Audio takes only once, so it couldn't be silenced again; its silencing is now kept on
+  it. Back also looked uneven (v1.39.5-v1.39.7): the reel played from its start until Facebook had
+  loaded it, then jumped, then played at half or 1.5x speed until in step. It's now held still while
+  it loads, moved by the seek time kept from earlier Backs (a first guess of 0.3 s, not 0.8 s), held
+  still again if it lands far ahead, and otherwise played only a little slower or faster for a moment.
 - A reel back from its comments froze at its start when it got to its end and started again
   (v1.39.2-v1.39.4, every time on the emulator once the reel had loaded whole). Facebook brings the
   reel back from its memory; moved to the sound's position before it had loaded its start, it loaded
@@ -613,9 +620,10 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   comment button (which must still carry the icon `reel_comments_audio.js` finds it by in other
   languages, its player still listing the stream's audio track; the reel loaded whole first, as one
   watched for a while is) opening the comments with the reel's sound playing on from where the reel was, and
-  Back handing it back to the reel, playing at or past the sound's position, not muted, and the reel
-  then playing through its end and from its start again (a gap when a long reel never loads whole;
-  `ReelCommentsAudioJsTest`).
+  Back handing it back to the reel, playing at or past the sound's position, not muted and never
+  heard along with the sound; the same twice on one reel (Facebook brings it back in the same
+  `<video>`); then the reel playing through its end and from its start again (a gap when a long reel
+  never loads whole; `ReelCommentsAudioJsTest`).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
