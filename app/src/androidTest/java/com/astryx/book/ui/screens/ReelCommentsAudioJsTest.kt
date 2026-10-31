@@ -95,7 +95,7 @@ class ReelCommentsAudioJsTest {
                 window.__fakeVideo = function (v, time, playing, muted) {
                   v.__time = time; v.__paused = !playing; v.muted = muted; v.__rs = 4; v.__buf = [[0, 30]];
                   Object.defineProperty(v, 'paused', { get: function () { return this.__paused; } });
-                  Object.defineProperty(v, 'duration', { get: function () { return 30; } });
+                  Object.defineProperty(v, 'duration', { get: function () { return 30; }, configurable: true });
                   Object.defineProperty(v, 'readyState', { get: function () { return this.__rs; } });
                   Object.defineProperty(v, 'seeking', { get: function () { return false; } });
                   Object.defineProperty(v, 'buffered', { get: function () {
@@ -141,12 +141,12 @@ class ReelCommentsAudioJsTest {
         // Back to the reel as Facebook does it: /watch/ (the new reel's 'play'), then the reel's
         // path ('playing'), then its query. The new reel, at [newTime], is still loading (__rs = 4
         // when it's ready), loaded from its start to [loadedTo] s.
-        fun backToTheReel(newTime: Double = 0.0, loadedTo: Double = 30.0) {
+        fun backToTheReel(newTime: Double = 0.0, loadedTo: Double = 30.0, setup: String = "") {
             eval(
                 "history.pushState(null, '', '/watch/');" +
                     " var d = document.createElement('div'); d.setAttribute('data-video-url', '$MP4');" +
                     " d.innerHTML = '<video id=\"v2\"></video>'; document.body.appendChild(d);" +
-                    " var v = document.getElementById('v2'); __fakeVideo(v, $newTime, true, false); v.__rs = 1; v.__buf = [[0, $loadedTo]];" +
+                    " var v = document.getElementById('v2'); __fakeVideo(v, $newTime, true, false); v.__rs = 1; v.__buf = [[0, $loadedTo]]; $setup" +
                     " v.dispatchEvent(new Event('play')); 1"
             )
             Thread.sleep(300)
@@ -257,6 +257,29 @@ class ReelCommentsAudioJsTest {
         assertTrue("the reel back wasn't moved once loaded (${h.eval("${h.v2}.currentTime")})",
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
         assertEquals("1", h.eval("${h.v2}.playbackRate"))
+    }
+
+    @Test
+    fun back_aLongVideo_isMovedAtOnce() {
+        // Facebook doesn't load it whole soon: waiting held it still for the 3 s (165 s, on the phone).
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel(loadedTo = 5.0, setup = "Object.defineProperty(v, 'duration', { get: function () { return 165; } });")
+        assertTrue("the long video back wasn't moved at once (${h.eval("${h.v2}.currentTime")})",
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05", ms = 1000))
+    }
+
+    @Test
+    fun aPagesVideoInTheReelsViewer_isAReelToo() {
+        // /<page>/videos/<title>/<id>/, as the phone's Reels tab and the feed open them: the comments'
+        // sound stopped there (on the phone).
+        val h = Harness()
+        h.load(path = "/IsraelHayom/videos/%D7%93%D7%92%D7%9C/1950956952955532/")
+        h.openComments()
+        assertTrue("no sound in a Page video's comments", h.soundPlaying())
     }
 
     @Test
