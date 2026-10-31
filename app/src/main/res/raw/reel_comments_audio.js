@@ -41,6 +41,9 @@
   // within about a second) before it's moved anyway (a long reel, loaded as it plays). It's held
   // still meanwhile.
   var LOAD_WAIT_MS = 3000;
+  // A video longer than this isn't waited for at all: Facebook doesn't load it whole soon, and
+  // waiting held it still for the 3 s (a 165 s video, on the phone).
+  var LONG_S = 90;
   // A sound fetched for a touch that brought no tap is let go after this.
   var EARLY_MS = 5000;
 
@@ -62,8 +65,11 @@
     return window.location.pathname === heard.reelPath;
   }
 
+  // A reel's page: /reel/<id>, the Reels tab, or a Page's video in the reels viewer
+  // (/<page>/videos/<title>/<id>/, as the phone's Reels tab and the feed open them: the comments'
+  // sound stopped there, on the phone).
   function isReelPage() {
-    return /^\/reels?\//.test(window.location.pathname);
+    return /^\/(reels?\/|[^\/]+\/videos\/)/.test(window.location.pathname);
   }
 
   function hasCommentIcon(button) {
@@ -240,7 +246,7 @@
     if (!onReel() || !heard.source || heard.moves >= 2) return;
     if (heard.placed && v.currentTime > 1) return;
     var time = heard.catchUp.target();
-    if (!loadedTo(v, time) && Date.now() - heard.backAt < LOAD_WAIT_MS) return;
+    if (!(v.duration > LONG_S) && !loadedTo(v, time) && Date.now() - heard.backAt < LOAD_WAIT_MS) return;
     heard.placed = true;
     if (heard.catchUp.move(time)) heard.moves++;
   }

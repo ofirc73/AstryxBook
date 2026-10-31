@@ -165,6 +165,10 @@ rewritten to the new one, keeping its schedule.
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
   player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
+- A reel's sound in its comments works for a Page's videos too: the phone's Reels tab and the feed
+  open many reels at the Page's own address (`/<page>/videos/<title>/<id>/`), where the comments'
+  sound stopped at once (only `/reel/` pages were reels to it). Back no longer waits for a long
+  video (over 90 s) to load from its start, which held it still for 3 s.
 - Unlocking with a video in PiP gets the video in step with the lock-screen sound the same gentle
   way as a reel back from its comments: held still while far ahead, otherwise a little slower or
   faster for a moment (it played at 0.5x or 1.5x until in step, which could show as slow motion).
@@ -633,7 +637,9 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   Back handing it back to the reel, playing at or past the sound's position, not muted and never
   heard along with the sound; the same twice on one reel (Facebook brings it back in the same
   `<video>`); then the reel playing through its end and from its start again (a gap when a long reel
-  never loads whole; `ReelCommentsAudioJsTest`).
+  never loads whole; `ReelCommentsAudioJsTest`). It opens the test reel at `/reel/<id>` (the test
+  account's Reels tab shows "Content not found"); a Page's `/videos/` address, which the phone's Reels
+  tab uses, is a path check only, in `ReelCommentsAudioJsTest`.
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).

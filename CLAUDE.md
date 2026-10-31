@@ -251,7 +251,8 @@ user-visible change.
   `data-extra` (`dash_prefetch_representations`; a track's `base_url` without byte ranges is its
   whole fragmented MP4, which `decodeAudioData` and ExoPlayer read). The reel comments sound and the
   lock-screen hand-off play that (`reel_comments_audio.js` `soundUrl`).
-- A reel's comments (mobile site) are a screen of their own at "/" (pushState): Facebook removes the
+- A reel's comments (mobile site) are a screen of their own at "/" (pushState; a reel is at `/reel/<id>`,
+  or at its Page's `/<page>/videos/<title>/<id>/`, as the phone's Reels tab opens it): Facebook removes the
   reel's `<video>` (about a second after the tap, set back to 0 on the way out), and Back draws it again from 0, passing through `/watch/` (the new
   reel's `play` fires there, its `playing` at the reel's path, the query comes back later).
   `reel_comments_audio.js` plays the stream's audio track meanwhile through Web Audio (an `<audio>` took
