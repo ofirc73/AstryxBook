@@ -3,6 +3,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.eepiemi.materialbook.R
 import org.json.JSONObject
 import org.json.JSONTokener
 import org.junit.Assert.assertEquals
@@ -23,7 +24,8 @@ class PipHandoffJsTest {
 
     private fun String.unquoted() = removeSurrounding("\"")
 
-    private class Harness {
+    // [catchUp]: video_catch_up.js, the page script the handback uses, ran on the page.
+    private class Harness(private val catchUp: Boolean = true) {
         // The handoff events told to the app ("sync <src>", "hidden", "visible", "handbackDone"),
         // and the last sync's data.
         val events: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
@@ -42,7 +44,10 @@ class PipHandoffJsTest {
         private val page = PageFixture(interfaces = mapOf("PipBridge" to FakePipBridge()))
 
         // With DOM storage, where the handback keeps its lead, as the app's WebView has it.
-        fun loadHtml(html: String) = page.load("https://example.com/", html) { it.settings.domStorageEnabled = true }
+        fun loadHtml(html: String) {
+            page.load("https://example.com/", html) { it.settings.domStorageEnabled = true }
+            if (catchUp) page.run(R.raw.video_catch_up)
+        }
 
         fun eval(js: String) = page.eval(js)
 
@@ -334,15 +339,34 @@ class PipHandoffJsTest {
     }
 
     @Test
-    fun handback_aheadOfTheNativePlayer_playsSlower_andBehindIt_faster() {
+    fun handback_farAheadOfTheNativePlayer_isHeldStill_aLittleAhead_slower_andBehind_faster() {
+        // video_catch_up.js, as for a reel back from its comments: at 0.5x or 1.5x until in step, the
+        // video was seen in slow motion (on the phone).
         val h = Harness()
         h.locked()
         val at = System.currentTimeMillis()
         h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = at, play = true, rearm = false))
-        assertTrue(h.waitFor { h.eval("$pip.playbackRate") == "0.5" })
-        h.inStepWithNative(45_250, at, offsetS = -1.0)
-        assertTrue(h.waitFor { h.eval("$pip.playbackRate") == "1.5" })
+        // (The fake video stands still while the native player's clock runs: each gap set below
+        // shrinks by the time it takes the next step to see it.)
+        h.inStepWithNative(45_250, at, offsetS = 1.5)
+        assertTrue(h.eval("$pip.playbackRate"), h.waitFor { h.eval("$pip.playbackRate") == "0.0625" })
+        h.inStepWithNative(45_250, at, offsetS = 0.3)
+        assertTrue(h.eval("$pip.playbackRate"), h.waitFor { h.eval("$pip.playbackRate").toDouble() in 0.65..0.8 })
+        h.inStepWithNative(45_250, at, offsetS = -0.3)
+        assertTrue(h.eval("$pip.playbackRate"), h.waitFor { h.eval("$pip.playbackRate").toDouble() in 1.25..1.4 })
         assertEquals("true", h.eval("$pip.muted"))
+    }
+
+    @Test
+    fun handback_withoutVideoCatchUp_putsTheVideoAtTheNativePlayer_andUnmutesIt() {
+        // A page script that failed: the video isn't left muted.
+        val h = Harness(catchUp = false)
+        h.locked()
+        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("handbackDone") })
+        assertEquals(45.25, h.eval("$pip.currentTime").toDouble(), 0.2)
+        assertEquals("play:pip", h.eval("window.__calls.join(',')").unquoted())
+        assertEquals("false", h.eval("$pip.muted"))
     }
 
     @Test
@@ -376,7 +400,8 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked(duration = 260)
         h.eval(pipHandbackJs(positionMs = 259_766, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
-        assertEquals(0.0, h.eval("$pip.currentTime").toDouble(), 0.001)
+        // Where the native player, looping, plays then: near the start.
+        assertEquals(0.4, h.eval("$pip.currentTime").toDouble(), 0.4)
     }
 
     @Test

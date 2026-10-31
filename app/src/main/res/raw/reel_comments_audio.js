@@ -32,32 +32,15 @@
   var POLL_MS = 50;
   // Off from the reel by more than this, the silent sound is started again at the reel's time.
   var DRIFT_S = 0.05;
-  // How far past the sound the reel coming back is moved: what its seek took last time (it's
-  // ready at the sound's position then), kept in localStorage, at first BACK_LEAD_S (a seek within
-  // what's loaded: 0.28 s on the emulator; a first guess of 0.8 s put the reel ahead, played slower
-  // for a moment, seen on the phone).
+  // The reel back is got in step with the sound by video_catch_up.js, with its own remembered seek
+  // time, at first BACK_LEAD_S (a seek within what's loaded: 0.28 s on the emulator; a first guess
+  // of 0.8 s put the reel ahead, played slower for a moment, seen on the phone).
   var BACK_LEAD_S = 0.3;
-  var MAX_LEAD_S = 4;
   var LEAD_KEY = 'astryxReelBackLead';
   // How long the reel back may take to load from its start to the sound (Facebook's memory has it
-  // within about a second) before it's moved anyway (a long reel, loaded as it plays).
+  // within about a second) before it's moved anyway (a long reel, loaded as it plays). It's held
+  // still meanwhile.
   var LOAD_WAIT_MS = 3000;
-  var backLead = BACK_LEAD_S;
-  try { backLead = parseFloat(localStorage.getItem(LEAD_KEY)) || BACK_LEAD_S; } catch (e) {}
-  // Meanwhile the reel back plays this slowly, still to the eye (Chromium's slowest): played from
-  // its start for that second, then moved, it was seen to jump.
-  var HOLD_RATE = 0.0625;
-  // The reel back plays at the sound's position when this close: the sound hands over.
-  var IN_STEP_S = 0.1;
-  // Up to this far ahead of the sound, the reel back plays slower to let it catch up; up to
-  // BEHIND_S behind, faster, by the gap per second (a little slower or faster for a second or so;
-  // 0.5x or 1.5x until in step before, seen on the phone; half the gap took 5 s on the emulator).
-  // Past HOLD_AHEAD_S ahead it's held still (HOLD_RATE) until the sound gets there: a moment's stop
-  // rather than slow motion or a jump in the sound (its seek took 1-3 s on the emulator, each time
-  // different). Further apart, the reel just takes over.
-  var AHEAD_S = 4;
-  var HOLD_AHEAD_S = 0.5;
-  var BEHIND_S = 1.5;
   // A sound fetched for a touch that brought no tap is let go after this.
   var EARLY_MS = 5000;
 
@@ -172,7 +155,7 @@
     if (!heard) return;
     if (heard.video) delete heard.video.pause;
     if (heard.source) heard.source.stop();
-    if (heard.back) heard.back.playbackRate = 1;
+    if (heard.catchUp) heard.catchUp.release();
     if (heard.silencer) heard.silencer.gain.value = 1;
     heard = null;
     rest();
@@ -256,37 +239,18 @@
     var v = heard.back;
     if (!onReel() || !heard.source || heard.moves >= 2) return;
     if (heard.placed && v.currentTime > 1) return;
-    var time = (soundAt() + backLead) % heard.sound.duration;
-    if (isFinite(v.duration) && time >= v.duration - 0.5) time = 0;
+    var time = heard.catchUp.target();
     if (!loadedTo(v, time) && Date.now() - heard.backAt < LOAD_WAIT_MS) return;
     heard.placed = true;
-    v.playbackRate = 1;
-    if (Math.abs(v.currentTime - time) <= 1) return;
-    heard.moves++;
-    heard.movedAt = Date.now();
-    v.currentTime = time;
+    if (heard.catchUp.move(time)) heard.moves++;
   }
 
-  // The reel back, silenced, playing: a little slower while it's ahead of the sound, faster while
-  // behind, until it plays in step with it; then heard, and the sound stops. Further apart, it
-  // takes over at once. Never moved again: any seek, even within what it had loaded, stalled
-  // Facebook's player for seconds on the emulator.
+  // The reel back, silenced, playing: got in step with the sound (video_catch_up.js); then heard,
+  // and the sound stops. Too far apart, it takes over at once. Never moved again: any seek, even
+  // within what it had loaded, stalled Facebook's player for seconds on the emulator.
   function caughtUp() {
-    var v = heard.back;
     if (!heard.source) { stop(); return true; }
-    if (v.paused || v.seeking || v.readyState < 3 || !heard.placed) return false;
-    if (heard.movedAt) {
-      // Averaged with the last ones: it varies from one seek to the next.
-      backLead = Math.min(MAX_LEAD_S, Math.max(0.1, (backLead + (Date.now() - heard.movedAt) / 1000) / 2));
-      try { localStorage.setItem(LEAD_KEY, String(backLead)); } catch (e) {}
-      heard.movedAt = 0;
-    }
-    var ahead = v.currentTime - soundAt();
-    if (Math.abs(ahead) > IN_STEP_S && ahead < AHEAD_S && ahead > -BEHIND_S) {
-      v.playbackRate = ahead > HOLD_AHEAD_S ? HOLD_RATE :
-        Math.min(1.5, Math.max(0.5, Math.round((1 - ahead) * 20) / 20));
-      return false;
-    }
+    if (!heard.placed || heard.catchUp.step() === 'wait') return false;
     stop();
     return true;
   }
@@ -363,7 +327,7 @@
     stop();
     heard = { phase: 'opening', reelPath: window.location.pathname, video: video, time: video.currentTime,
       timeAt: Date.now(), sound: null, source: null, played: false, offset: 0, startedAt: 0, back: null, placed: false,
-      moves: 0, movedAt: 0, backAt: 0, silencer: null };
+      moves: 0, catchUp: null, backAt: 0, silencer: null };
     load(tap.src);
     // Facebook stops the reel for the comments with its pause(): the sound comes in right then, at
     // the reel's time just before it. Only this reel's own pause, and only until it's stopped.
@@ -417,8 +381,9 @@
     heard.phase = 'back';
     heard.back = e.target;
     heard.backAt = Date.now();
+    heard.catchUp = window.__astryxCatchUp(e.target, soundAt, { leadKey: LEAD_KEY, firstLead: BACK_LEAD_S });
     silence(e.target);
-    e.target.playbackRate = HOLD_RATE;
+    heard.catchUp.hold();
   }, true);
   document.addEventListener('playing', function (e) {
     if (heard && e.target === heard.back) moveBack();

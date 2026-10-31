@@ -213,8 +213,13 @@ user-visible change.
   takes no audio focus (Chromium pauses the page on losing it) and shows no notification; turned
   up, it takes both, which also brings it to the foreground (`triggerNotificationUpdate`: Media3
   decides foreground from the player). On unlock the native player plays on while `pipHandbackJs`
-  plays the page's video muted, past it by the last seek's time (kept in `localStorage`), slower
-  or faster until in step, then unmuted (`handbackDone` stops the native player).
+  gets the page's video, muted, in step with it, then unmutes it (`handbackDone` stops the native
+  player). Getting a video in step with a sound elsewhere is `video_catch_up.js` (a page script,
+  before `reel_comments_audio.js`), shared by this and the reel back from its comments: one
+  instance per use, each with its own clock and its own remembered seek time (`localStorage` keys
+  `astryxHandbackLead`, `astryxReelBackLead`); keep use-specific steps (silencing, muting, waiting
+  for the page to be visible or the reel to load) in the callers. The emulator's native player ran
+  slower than the wall clock (2.5 s behind in 9 s), so unlocks there can end by the 8 s timeout.
   To read the timing, `dumpsys audio` lists each player's start and stop and the focus changes.
 - Page scripts use optional chaining (`?.`, Chrome 80+), so on a WebView older than
   that (e.g. the stock API 26 emulator image, Chrome 69) `scripts.js` and most others

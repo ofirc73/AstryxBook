@@ -110,6 +110,7 @@ class ReelCommentsAudioJsTest {
                 1
                 """.trimIndent()
             )
+            page.run(R.raw.video_catch_up)
             page.run(R.raw.reel_comments_audio)
         }
 

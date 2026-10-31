@@ -699,17 +699,15 @@ internal const val PIP_HANDOFF_READ_JS = """
  * as the page's Date.now()); null for an aborted handoff (the time is then
  * left alone). Not [play] (paused from the lock screen): the video is put at
  * that position, unmuted, and done at once. [play]: once the page is visible
- * (Chromium pauses a hidden page's video), the video, still muted, is moved a
- * little past the native player (by as long as its last move took to play,
- * kept in localStorage: 0.6 s on a Galaxy A56, the first guess, 1.7 s on the
- * emulator; a first guess of 1 s put the phone's video ahead, played slower
- * for a moment, seen as jitter), played,
- * and played a little slower or faster until in step with it (up to 2 s
- * ahead, 3 s behind: 1.5 s behind at first on the emulator); then unmuted:
- * done. At the start instead of the video's very end, which Facebook takes
- * for a finished video and closes its viewer. Done after 8 s anyway, or at
- * once if the video can't play. Done also clears the handoff listener and
- * snapshot, re-installing them if [rearm].
+ * (Chromium pauses a hidden page's video), the video, still muted, is got in
+ * step with it by video_catch_up.js (a page script; its own remembered seek
+ * time under astryxHandbackLead: 0.6 s on a Galaxy A56, the first guess, 1.7 s
+ * on the emulator), then unmuted: done. At the start instead of the video's
+ * very end, which Facebook takes for a finished video and closes its viewer.
+ * Done after 8 s anyway, at once if the video can't play, or without
+ * video_catch_up.js (a page script that failed: put at the native player's
+ * position and unmuted). Done also clears the handoff listener and snapshot,
+ * re-installing them if [rearm].
  */
 internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean, rearm: Boolean): String = """
 (function() {
@@ -720,46 +718,41 @@ internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean,
   var v = document.querySelector('[data-astryx-handoff-muted]');
   if (!v) { rearm(); return 'none'; }
   var position = ${if (positionMs != null) positionMs / 1000.0 else "null"}, at = $positionAtMs;
-  var started = Date.now(), movedAt = 0, timer = null, lead = 0.6;
-  try { lead = parseFloat(localStorage.getItem('astryxHandbackLead')) || lead; } catch (e) {}
-  function length() { return isFinite(v.duration) && v.duration > 0 ? v.duration : Infinity; }
+  var started = Date.now(), moved = false, timer = null;
   // Where the native player is now (it loops the video).
-  function nativeAt() { return (position + (Date.now() - at) / 1000) % length(); }
-  function placed(t) { return t >= length() - 0.5 ? 0 : t; }
+  function nativeAt() {
+    var length = isFinite(v.duration) && v.duration > 0 ? v.duration : Infinity;
+    return (position + (Date.now() - at) / 1000) % length;
+  }
+  var catchUp = window.__astryxCatchUp ? window.__astryxCatchUp(v, nativeAt, { leadKey: 'astryxHandbackLead', firstLead: 0.6 }) : null;
   function done() {
     if (timer) clearInterval(timer);
-    v.playbackRate = 1;
+    if (catchUp) catchUp.release();
     v.muted = v.getAttribute('data-astryx-handoff-muted') === 'true';
     v.removeAttribute('data-astryx-handoff-muted');
-    // Before re-arming, whose 'prepare' the app takes only once the handback is done.
+    // Before re-arming, whose 'sync' the app takes only once the handback is done.
     if (window.__astryxHandoffTell) window.__astryxHandoffTell('handbackDone');
     rearm();
   }
-  if (position === null || !$play) {
-    if (position !== null) v.currentTime = placed(nativeAt());
+  function play() {
+    var p = v.play();
+    if (p && p.catch) p.catch(done);
+  }
+  if (position === null || !$play || !catchUp) {
+    if (position !== null) v.currentTime = catchUp ? catchUp.place(nativeAt()) : nativeAt();
+    if (position !== null && $play) play();
     done();
     return 'ok';
   }
   function step() {
     if (document.visibilityState === 'hidden') return;
-    if (!movedAt) {
-      movedAt = Date.now();
-      v.currentTime = placed(nativeAt() + lead);
-      var p = v.play();
-      if (p && p.catch) p.catch(done);
+    if (!moved) {
+      moved = true;
+      catchUp.move(catchUp.target());
+      play();
       return;
     }
-    if (Date.now() - started > 8000) { done(); return; }
-    if (v.paused || v.seeking || v.readyState < 3) return;
-    if (movedAt > 0) {
-      lead = Math.min(4, Math.max(0.2, (Date.now() - movedAt) / 1000));
-      try { localStorage.setItem('astryxHandbackLead', String(lead)); } catch (e) {}
-      movedAt = -1;
-    }
-    var ahead = v.currentTime - nativeAt();
-    if (ahead > 0.08 && ahead < 2) { v.playbackRate = 0.5; return; }
-    if (ahead < -0.08 && ahead > -3) { v.playbackRate = 1.5; return; }
-    done();
+    if (Date.now() - started > 8000 || catchUp.step() !== 'wait') done();
   }
   timer = setInterval(step, 50);
   step();
