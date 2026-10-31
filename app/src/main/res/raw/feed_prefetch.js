@@ -10,9 +10,10 @@
 // LEAD was three windows in v1.38.1, which made no visible difference on the phone (2026-10-31,
 // nothing hidden): a batch of 7 posts is 3.5-6 windows tall and the server answers each ask in
 // 2-7 s, one batch at a time, while a fast fling covers 3+ windows a second, so it reached the
-// placeholder under a second after the early ask. Ten windows is about one round trip of
-// flinging, and the feed keeps loading while the user stops to read, so the next fling has more
-// to go through before it reaches the placeholder.
+// placeholder under a second after the early ask. Ten windows (v1.38.2) still left waits: read in
+// the app (2026-11-01), each came 7-25 windows into a long scroll, after a pause that left only
+// 3-14 windows loaded, and the server sat idle (answered, nothing asked) for about 25 s of 160.
+// Thirty windows keeps it loading through those pauses, so the next scroll starts with more.
 // Only rows of a list (data-type="vscroller"): other first-visibility marks log what the user
 // saw and keep their own timing. ES5, like the other document-start scripts.
 (function () {
@@ -20,7 +21,7 @@
   if (!Native || window.__astryxFeedPrefetch) return;
   window.__astryxFeedPrefetch = true;
 
-  var LEAD = '0px 0px 1000% 0px'; // ten windows below the screen
+  var LEAD = '0px 0px 3000% 0px'; // thirty windows below the screen
 
   function isLoadingRow(target) {
     return !!(target && target.hasAttribute && target.hasAttribute('data-on-first-visibility-action-id') &&
