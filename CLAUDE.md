@@ -224,6 +224,10 @@ user-visible change.
   `currentSrc` is `blob:`. The mobile site's player (`data-mcomponent="MVideo"`) carries
   the whole MP4 in `data-video-url`; downloads (`download_content.js`) and the lock-screen
   audio hand-off (`PIP_HANDOFF_ARM_JS`) use that.
+- A reel's comments (mobile site) are a screen of their own at "/" (pushState): Facebook pauses and
+  removes the reel's `<video>`, and Back draws it again from 0, passing through `/watch/` (the new
+  reel's `play` fires there, its `playing` at the reel's path, the query comes back later).
+  `reel_comments_audio.js` keeps the sound in an `<audio>` of the MP4 meanwhile.
 - *Wrap text when zoomed* (`text_wrap.js`, main view only, with pinch to zoom on) narrows text
   blocks to the visual viewport after a pinch settles. m.facebook.com is laid out on the
   server: text is `white-space: pre` with the line breaks in the text, and every box has a

@@ -119,6 +119,15 @@ rewritten to the new one, keeping its schedule.
   opened from there. `scripts.js` now adds a Settings button at the right end of that
   bar on reel pages whenever no other one is showing (it's hidden in PiP like the rest
   of the page).
+- A reel's sound goes on while its comments are open, and Back picks the reel up where the sound
+  got to, as in Facebook's app. m.facebook.com opens a reel's comments as a screen of their own: it
+  stopped the reel and removed it, and Back started it again from the beginning.
+  `reel_comments_audio.js` (main view) plays the reel's MP4 (its player's `data-video-url`) from
+  where the reel stopped when the comment button of a playing, unmuted reel is tapped (the button
+  found by its icon, in any language), and moves the reel Back brings to the sound's position.
+  Another page from the comments stops the sound; leaving the app pauses it until you come back.
+  Covered by `ReelCommentsAudioJsTest` and the live check
+  `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`.
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen
@@ -544,6 +553,10 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   (`pip_video_detector.js`, the keep-playing guard, focus mode; `PipKeepPlayingJsTest`,
   `PipVideoDetectorJsTest`, `PipFocusModeJsTest`), and no PiP-narrow `vpd` cookie left once it
   ends (`MainActivity.dropPipViewportCookie`, `comingBackToTheApp_dropsTheViewportCookiePipLeft`).
+- `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`: a real tap on a playing reel's
+  comment button (which must still carry the icon `reel_comments_audio.js` finds it by in other
+  languages) opening the comments with the reel's sound playing on, and Back bringing the reel back
+  at the sound's position with the sound stopped (`ReelCommentsAudioJsTest`).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
