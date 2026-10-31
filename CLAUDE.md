@@ -238,7 +238,10 @@ user-visible change.
   `reel_comments_audio.js` plays the stream's audio track meanwhile through Web Audio (an `<audio>` took
   seconds to play after a seek). Facebook's player ignores a seek outside what it has loaded, and
   stalls loading a reel set `muted`: the returning reel is silenced through a Web Audio gain
-  instead, and moved only once, as it starts.
+  instead, and moved only once. Facebook brings it back from its own memory (no network requests),
+  and moved before that had loaded it from its start, Facebook loaded it from there on only and, at
+  its end, started it again with its start missing and never loaded it: frozen for good. So it's
+  moved once loaded from its start to the sound (`loadedTo`; within about a second on the emulator; after 3 s anyway, for a long reel).
 - *Wrap text when zoomed* (`text_wrap.js`, main view only, with pinch to zoom on) narrows text
   blocks to the visual viewport after a pinch settles. m.facebook.com is laid out on the
   server: text is `white-space: pre` with the line breaks in the text, and every box has a

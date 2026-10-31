@@ -380,6 +380,11 @@ class LiveFacebookCanaryTest {
             eval("(function (p) { return !!p && window.__astryxReelCommentsAudio.soundUrl(p) !== p.getAttribute('data-video-url'); })" +
                 "(document.querySelector('video').closest('[data-video-url]'))"))
         val reelPath = eval("location.pathname").removeSurrounding("\"")
+        // Loaded whole first, as a reel watched for a while is: Facebook then brings it back from its
+        // memory, where the reel moved too early stopped at its start again (a long reel isn't).
+        val loaded = "(function (v) { var b = v.buffered; return b.length > 0 && b.start(0) <= 0.5 && b.end(0) >= v.duration - 0.1; })" +
+            "(document.querySelector('video'))"
+        app.waitFor(30_000) { eval(loaded) == "true" }
         // Tapped a few seconds into the reel, so a sound that starts again from 0 shows (v1.39.0's did:
         // Facebook sets the reel back to 0 as it removes it).
         eval("(function (v) { if (v.currentTime < 4 || v.duration - v.currentTime < 12) v.currentTime = 5; })(document.querySelector('video')); 1")
@@ -407,6 +412,20 @@ class LiveFacebookCanaryTest {
         val reelAt = eval("(function (v) { return v.duration - v.currentTime < 2 ? -1 : v.currentTime; })(document.querySelector('video'))").toDouble()
         // -1: the sound was at the reel's end, which starts it again.
         assertTrue("the reel came back at $reelAt s, not where the sound was ($backAt s)", reelAt < 0 || reelAt >= backAt - 1)
+
+        // And it plays on through its end, from its start again: moved before Facebook had loaded its
+        // start, the reel stopped there for good (v1.39.2-v1.39.4). Taken near its end once loaded.
+        if (!app.waitFor(30_000) { eval(loaded) == "true" }) {
+            // Its start missing is how it stopped; loaded from its start but not to its end, a long reel.
+            assertEquals("the reel back has its start missing: it stops there when it starts again (${eval(VIDEO_STATE_JS)})",
+                "true", eval("(function (b) { return b.length > 0 && b.start(0) <= 0.5; })(document.querySelector('video').buffered)"))
+            gap("reel-comments-loop", "the reel back never loaded whole in 30 s (${eval(VIDEO_STATE_JS)}): its start again wasn't checked")
+            return
+        }
+        eval("(function (v) { v.currentTime = v.duration - 1.5; })(document.querySelector('video')); 1")
+        assertTrue("the reel back stopped at its start again (${eval(VIDEO_STATE_JS)})", app.waitFor(20_000) {
+            eval("(function (v) { return !v.paused && v.currentTime > 1 && v.currentTime < 10; })(document.querySelector('video'))") == "true"
+        })
     }
 
     // A plain picture of [width] x [height] shared to the app's [alias] (ShareToFeed, ...), as the
