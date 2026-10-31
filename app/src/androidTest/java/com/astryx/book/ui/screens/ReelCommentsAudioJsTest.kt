@@ -2,18 +2,22 @@ package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
 import com.eepiemi.materialbook.R
+import org.json.JSONTokener
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * reel_comments_audio.js: a reel's sound goes on while its comments are open, and Back moves the
- * reel to where the sound got to. Facebook's moves are the ones read on the emulator (2026-10-31):
- * the comment button opens the comments at "/" (pushState) and removes the reel's <video>, set back
- * to 0 (v1.39.0 read it after that and started the sound at 0); Back passes through /watch/, where the new reel's 'play' fires, then lands on the reel's path (its
- * 'playing' fires there) and gets its query back a moment later. Media is faked: the reel's
- * paused, muted and currentTime, and the script's <audio> (window.__audios).
+ * reel_comments_audio.js: a reel's sound goes on while its comments are open, and Back hands it
+ * back to the reel in step. Facebook's moves are the ones read on the emulator (2026-10-31): about
+ * a second after the tap the comments open at "/" (pushState) and the reel's <video> is set back
+ * to 0 and removed (v1.39.0 read its position after that and started the sound at 0); Back passes
+ * through /watch/, where the new reel's 'play' fires, then lands on the reel's path (its 'playing'
+ * fires there) and gets its query back a moment later. Faked: the reel's paused, muted, currentTime,
+ * readyState and seeking; fetch (window.__fetched); Web Audio, its clock (window.__now, s), the
+ * sounds started (window.__sources: at, stopped), the gains (window.__gains) and the elements routed
+ * through it (window.__routed).
  */
 @RunWith(AndroidJUnit4::class)
 class ReelCommentsAudioJsTest {
@@ -23,10 +27,14 @@ class ReelCommentsAudioJsTest {
 
         fun eval(js: String) = page.eval(js)
 
+        // [js]'s value as JSON text.
+        fun json(js: String) = JSONTokener(eval("JSON.stringify($js)")).nextValue() as String
+
         fun waitFor(js: String, ms: Long = 5000) = page.waitFor(ms) { eval(js) == "true" }
 
         // A reel page: the reel playing at [time] s in its player (data-video-url), and its comment
-        // button with Facebook's icon and [label].
+        // button with Facebook's icon and [label]. [decode]: the sound is decoded at once (else when
+        // window.__decoded() is called); [fetchFails]: its MP4 can't be fetched.
         fun load(
             path: String = REEL_PATH,
             label: String = "Comment on reel by Someone, 107 comments",
@@ -34,6 +42,8 @@ class ReelCommentsAudioJsTest {
             muted: Boolean = false,
             playing: Boolean = true,
             time: Double = 12.5,
+            decode: Boolean = true,
+            fetchFails: Boolean = false,
             setup: String = "",
         ) {
             page.load(
@@ -46,21 +56,43 @@ class ReelCommentsAudioJsTest {
             )
             eval(
                 """
-                window.__audios = [];
-                window.Audio = function () {
-                  var a = { paused: true, currentTime: 0, duration: NaN, src: '', listeners: {},
-                    addEventListener: function (n, f) { this.listeners[n] = f; },
-                    play: function () { this.paused = false; },
-                    pause: function () { this.paused = true; },
-                    removeAttribute: function (n) { if (n === 'src') this.src = ''; },
-                    load: function () {} };
-                  window.__audios.push(a);
-                  return a;
+                window.__fetched = [];
+                window.fetch = function (u) {
+                  window.__fetched.push(u);
+                  return $fetchFails ? Promise.reject(new Error('offline')) :
+                    Promise.resolve({ ok: true, arrayBuffer: function () { return Promise.resolve(new ArrayBuffer(8)); } });
+                };
+                window.__now = 0; window.__sources = []; window.__gains = []; window.__routed = [];
+                window.AudioContext = function () {
+                  this.state = 'running'; this.destination = {};
+                  Object.defineProperty(this, 'currentTime', { get: function () { return window.__now; } });
+                };
+                AudioContext.prototype.suspend = function () { this.state = 'suspended'; window.__ctxState = this.state; };
+                AudioContext.prototype.resume = function () { this.state = 'running'; window.__ctxState = this.state; };
+                AudioContext.prototype.decodeAudioData = function () {
+                  return $decode ? Promise.resolve({ duration: 30 }) :
+                    new Promise(function (r) { window.__decoded = function () { r({ duration: 30 }); }; });
+                };
+                AudioContext.prototype.createBufferSource = function () {
+                  var s = { connect: function () {}, start: function (when, at) { this.at = at; window.__sources.push(this); },
+                    stop: function () { this.stopped = true; } };
+                  return s;
+                };
+                AudioContext.prototype.createGain = function () {
+                  var g = { gain: { value: 1 }, connect: function () {} };
+                  window.__gains.push(g);
+                  return g;
+                };
+                AudioContext.prototype.createMediaElementSource = function (v) {
+                  window.__routed.push(v.id);
+                  return { connect: function () {} };
                 };
                 window.__fakeVideo = function (v, time, playing, muted) {
-                  v.__time = time; v.__paused = !playing; v.muted = muted;
+                  v.__time = time; v.__paused = !playing; v.muted = muted; v.__rs = 4;
                   Object.defineProperty(v, 'paused', { get: function () { return this.__paused; } });
                   Object.defineProperty(v, 'duration', { get: function () { return 30; } });
+                  Object.defineProperty(v, 'readyState', { get: function () { return this.__rs; } });
+                  Object.defineProperty(v, 'seeking', { get: function () { return false; } });
                   Object.defineProperty(v, 'currentTime', {
                     get: function () { return this.__time; }, set: function (t) { this.__time = t; } });
                 };
@@ -84,18 +116,27 @@ class ReelCommentsAudioJsTest {
             commentsOpen()
         }
 
-        fun audio(i: Int = 0) = "window.__audios[$i]"
+        // The last sound started.
+        val sound = "window.__sources[window.__sources.length - 1]"
 
-        fun audioPlaying() = waitFor("!!${audio()} && !${audio()}.paused && ${audio()}.src === '$MP4_URL'")
+        fun soundPlaying() = waitFor("!!$sound && !$sound.stopped")
+
+        fun soundStopped() = waitFor("!!$sound && $sound.stopped && window.__astryxReelCommentsAudio.position() === -1")
+
+        fun position() = eval("window.__astryxReelCommentsAudio.position()").toDouble()
+
+        // The sound's clock moved on to where the sound is at [at] s.
+        fun soundAt(at: Double) = eval("window.__now += $at - window.__astryxReelCommentsAudio.position(); 1")
 
         // Back to the reel as Facebook does it: /watch/ (the new reel's 'play'), then the reel's
-        // path ('playing'), then its query.
+        // path ('playing'), then its query. The new reel, at [newTime], is still loading (__rs = 4
+        // when it's ready).
         fun backToTheReel(newTime: Double = 0.0) {
             eval(
                 "history.pushState(null, '', '/watch/');" +
                     " var d = document.createElement('div'); d.setAttribute('data-video-url', '$MP4');" +
                     " d.innerHTML = '<video id=\"v2\"></video>'; document.body.appendChild(d);" +
-                    " var v = document.getElementById('v2'); __fakeVideo(v, $newTime, true, false);" +
+                    " var v = document.getElementById('v2'); __fakeVideo(v, $newTime, true, false); v.__rs = 1;" +
                     " v.dispatchEvent(new Event('play')); 1"
             )
             Thread.sleep(300)
@@ -103,55 +144,132 @@ class ReelCommentsAudioJsTest {
                 " history.replaceState(null, '', '$REEL_PATH?referral_source=external_link'); 1")
         }
 
-        fun assertNoAudio() {
+        val v2 = "document.getElementById('v2')"
+
+        fun assertNoSound() {
             Thread.sleep(600)
-            assertEquals("no <audio> was to be made", "0", eval("window.__audios.length"))
+            assertEquals("nothing was to be fetched or played", "0,0",
+                eval("window.__fetched.length + ',' + window.__sources.length").removeSurrounding("\""))
         }
     }
 
     @Test
-    fun theCommentButton_keepsTheReelsSoundPlaying_fromWhereItStopped() {
+    fun theCommentButton_playsTheReelsSound_fromWhereFacebookStoppedTheReel() {
         // The reel plays on for a moment after the tap (about a second on the emulator), then
         // Facebook sets it back to 0 as it removes it: the sound starts where it was before that.
         val h = Harness()
         h.load(time = 12.5)
         h.tapComment()
+        assertEquals("[\"$MP4_URL\"]", h.json("window.__fetched"))
         h.eval("document.getElementById('v1').__time = 13.25; 1")
         Thread.sleep(400)
+        assertEquals("the sound played while the reel still did", "0", h.eval("window.__sources.length"))
         h.commentsOpen()
-        assertTrue("the reel's MP4 never played (${h.eval("JSON.stringify(window.__audios)")})", h.audioPlaying())
-        assertEquals("true", h.eval("${h.audio()}.loop"))
-        // Facebook's MP4 isn't loaded yet when it starts: the reel's position is set once it is.
-        h.eval("${h.audio()}.duration = 30; ${h.audio()}.listeners.loadedmetadata(); 1")
-        assertEquals("13.25", h.eval("${h.audio()}.currentTime"))
-        assertEquals("true", h.eval("window.__astryxReelCommentsAudio.audio() === ${h.audio()}"))
+        assertTrue("the reel's sound never played", h.soundPlaying())
+        assertEquals(13.25, h.eval("${h.sound}.at").toDouble(), 0.1)
+        assertEquals("true", h.eval("${h.sound}.loop"))
+        h.eval("window.__now = 2; 1")
+        assertEquals(15.25, h.position(), 0.1)
     }
 
     @Test
-    fun back_movesTheReelToWhereTheSoundGotTo_andStopsTheSound() {
+    fun aSoundDecodedAfterFacebookStoppedTheReel_startsWhereTheReelIsBy_then() {
+        val h = Harness()
+        h.load(time = 12.5, decode = false)
+        h.openComments()
+        Thread.sleep(500)
+        assertEquals("0", h.eval("window.__sources.length"))
+        h.eval("window.__decoded(); 1")
+        assertTrue(h.soundPlaying())
+        val at = h.eval("${h.sound}.at").toDouble()
+        assertTrue("the sound started at $at s, not about 0.5 s on from 12.5 s", at in 12.9..13.5)
+    }
+
+    @Test
+    fun theTouchOnTheButton_fetchesTheSound_andTheTapUsesIt() {
+        val h = Harness()
+        h.load()
+        h.eval("document.getElementById('comment').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1")
+        assertEquals("1", h.eval("window.__fetched.length"))
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        assertEquals("the tap fetched the sound again", "1", h.eval("window.__fetched.length"))
+    }
+
+    @Test
+    fun back_silencesTheReel_untilItPlaysInStepWithTheSound_thenStopsTheSound() {
         val h = Harness()
         h.load()
         h.openComments()
-        assertTrue(h.audioPlaying())
-        h.eval("${h.audio()}.currentTime = 21; 1")
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
         h.backToTheReel()
-        assertTrue("the reel that came back wasn't moved to the sound's 21 s (${h.eval("document.getElementById('v2').currentTime")})",
-            h.waitFor("document.getElementById('v2').currentTime === 21"))
-        assertTrue("the sound went on with the reel back", h.waitFor("${h.audio()}.paused && ${h.audio()}.src === ''"))
-        assertEquals("null", h.eval("window.__astryxReelCommentsAudio.audio()"))
+        assertEquals("the reel back wasn't silenced through Web Audio", "[\"v2\"]", h.json("window.__routed"))
+        assertEquals("0", h.eval("window.__gains[0].gain.value"))
+        assertEquals("the reel back was muted (Facebook's player then stalls loading it)", "false", h.eval("${h.v2}.muted"))
+        // Moved past the sound by the first lead (0.8 s), once.
+        assertTrue("the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})",
+            h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+        // Loaded at 21.8 while the sound is at 21: ahead, so it plays slower.
+        h.eval("${h.v2}.__rs = 4; 1")
+        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.5"))
+        assertEquals("false", h.eval("!!${h.sound}.stopped"))
+        // In step: heard again, at its own speed, and the sound stops.
+        h.soundAt(21.8)
+        assertTrue("the sound went on with the reel in step", h.soundStopped())
+        assertEquals("1", h.eval("window.__gains[0].gain.value"))
+        assertEquals("1", h.eval("${h.v2}.playbackRate"))
     }
 
     @Test
-    fun back_atTheMp4sEnd_startsTheReelAgain() {
+    fun theAudioContext_restsWhileNothingPlaysThroughIt() {
+        // The reel back keeps its sound in Web Audio: the context runs while the reel plays.
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel()
+        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+        h.eval("${h.v2}.__rs = 4; 1")
+        h.soundAt(21.8)
+        assertTrue(h.soundStopped())
+        assertEquals("the context rested with the reel playing through it", "undefined",
+            h.eval("typeof window.__ctxState").removeSurrounding("\""))
+        h.eval("${h.v2}.__paused = true; ${h.v2}.dispatchEvent(new Event('pause')); 1")
+        assertEquals("suspended", h.eval("window.__ctxState").removeSurrounding("\""))
+        h.eval("${h.v2}.__paused = false; ${h.v2}.dispatchEvent(new Event('play')); 1")
+        assertEquals("running", h.eval("window.__ctxState").removeSurrounding("\""))
+    }
+
+    @Test
+    fun back_aReelThatLoadedFarBehindTheSound_takesOverAtOnce() {
+        // Facebook took longer to load it than the lead (up to 9 s on the emulator).
+        val h = Harness()
+        h.load()
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        h.soundAt(21.0)
+        h.backToTheReel()
+        assertTrue(h.waitFor("Math.abs(${h.v2}.currentTime - 21.8) < 0.05"))
+        h.soundAt(24.0)
+        h.eval("${h.v2}.__rs = 4; 1")
+        assertTrue(h.soundStopped())
+        assertEquals("1", h.eval("window.__gains[0].gain.value"))
+        assertEquals("1", h.eval("${h.v2}.playbackRate"))
+    }
+
+    @Test
+    fun back_nearTheMp4sEnd_startsTheReelAgainRatherThanAtItsEnd() {
         // Facebook takes a reel at its very end for a finished one.
         val h = Harness()
         h.load()
         h.openComments()
-        assertTrue(h.audioPlaying())
-        h.eval("${h.audio()}.currentTime = 29.8; 1")
+        assertTrue(h.soundPlaying())
+        h.soundAt(28.9)
         h.backToTheReel(newTime = 0.4)
-        assertTrue(h.waitFor("${h.audio()}.paused"))
-        assertEquals("0", h.eval("document.getElementById('v2').currentTime"))
+        Thread.sleep(300)
+        assertEquals("0.4", h.eval("${h.v2}.currentTime"))
     }
 
     @Test
@@ -160,26 +278,28 @@ class ReelCommentsAudioJsTest {
         val h = Harness()
         h.load()
         h.openComments()
-        assertTrue(h.audioPlaying())
+        assertTrue(h.soundPlaying())
         h.eval("history.pushState(null, '', '/watch/'); 1")
         Thread.sleep(400)
         h.eval("history.pushState(null, '', '/'); 1")
         Thread.sleep(1200)
-        assertEquals("a moment at /watch/ stopped the sound", "false", h.eval("${h.audio()}.paused"))
+        assertEquals("a moment at /watch/ stopped the sound", "false", h.eval("!!${h.sound}.stopped"))
         h.eval("history.pushState(null, '', '/someone.profile/'); 1")
-        assertTrue("the sound went on on another page", h.waitFor("${h.audio()}.paused && ${h.audio()}.src === ''"))
+        assertTrue("the sound went on on another page", h.soundStopped())
     }
 
     @Test
-    fun thePageHidden_pausesTheSound_andShownAgain_playsIt() {
+    fun thePageHidden_pausesTheSound_andShownAgain_playsItOnFromThere() {
         val h = Harness()
         h.load(setup = "window.__vis = 'visible'; Object.defineProperty(document, 'visibilityState', { get: function () { return window.__vis; } });")
         h.openComments()
-        assertTrue(h.audioPlaying())
+        assertTrue(h.soundPlaying())
+        h.soundAt(20.0)
         h.eval("window.__vis = 'hidden'; document.dispatchEvent(new Event('visibilitychange')); 1")
-        assertEquals("true", h.eval("${h.audio()}.paused"))
-        h.eval("window.__vis = 'visible'; document.dispatchEvent(new Event('visibilitychange')); 1")
-        assertEquals("false", h.eval("${h.audio()}.paused"))
+        assertTrue(h.soundStopped())
+        h.eval("window.__now += 30; window.__vis = 'visible'; document.dispatchEvent(new Event('visibilitychange')); 1")
+        assertTrue(h.soundPlaying())
+        assertEquals(20.0, h.eval("${h.sound}.at").toDouble(), 0.01)
     }
 
     @Test
@@ -189,7 +309,7 @@ class ReelCommentsAudioJsTest {
         h.load(label = "&#x5EA;&#x5D2;&#x5D5;&#x5D1;&#x5D4;")
         assertEquals("true", h.eval("window.__astryxReelCommentsAudio.hasCommentIcon(document.getElementById('comment'))"))
         h.openComments()
-        assertTrue("a translated label lost the sound", h.audioPlaying())
+        assertTrue("a translated label lost the sound", h.soundPlaying())
     }
 
     @Test
@@ -197,19 +317,19 @@ class ReelCommentsAudioJsTest {
         val h = Harness()
         h.load(label = "Share reel by Someone", icon = false)
         h.openComments()
-        h.assertNoAudio()
+        h.assertNoSound()
 
         h.load(muted = true)
         h.openComments()
-        h.assertNoAudio()
+        h.assertNoSound()
 
         h.load(playing = false)
         h.openComments()
-        h.assertNoAudio()
+        h.assertNoSound()
 
         h.load(path = "/someone/posts/123/")
         h.openComments()
-        h.assertNoAudio()
+        h.assertNoSound()
     }
 
     @Test
@@ -220,7 +340,18 @@ class ReelCommentsAudioJsTest {
         h.tapComment()
         Thread.sleep(3500)
         h.eval("document.getElementById('reel').remove(); history.pushState(null, '', '/'); 1")
-        h.assertNoAudio()
+        Thread.sleep(600)
+        assertEquals("0", h.eval("window.__sources.length"))
+    }
+
+    @Test
+    fun anMp4ThatCantBeFetched_leavesTheCommentsQuiet() {
+        val h = Harness()
+        h.load(fetchFails = true)
+        h.openComments()
+        Thread.sleep(600)
+        assertEquals("0", h.eval("window.__sources.length"))
+        assertEquals(-1.0, h.position(), 0.0)
     }
 
     @Test
@@ -228,7 +359,7 @@ class ReelCommentsAudioJsTest {
         val h = Harness()
         h.load(setup = "window.__astryxMessagesLayer = true;")
         h.openComments()
-        h.assertNoAudio()
+        h.assertNoSound()
         assertEquals("undefined", h.eval("typeof window.__astryxReelCommentsAudio").removeSurrounding("\""))
     }
 

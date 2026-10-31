@@ -132,6 +132,14 @@ rewritten to the new one, keeping its schedule.
   sets the reel back to 0 as it removes it, and the script read its position after that. The
   position is now kept while the reel is still on the page; the test and the live check tap a few
   seconds into the reel and check the sound starts there.
+- No more break in the sound going into a reel's comments and back. The sound is fetched from the
+  touch on the comment button and decoded with Web Audio, and starts the moment Facebook stops the
+  reel, at the exact spot (an `<audio>` took 1-8 s to play after a seek on the emulator; going in
+  now leaves 0-1 s there, about how long the fetch and decode take). On Back the sound plays on while
+  Facebook loads the reel again; the reel, silenced through Web Audio (muted, Facebook's player
+  stalled loading it), is moved once past the sound by as long as its last reload took, played a
+  little slower or faster until in step, then heard again as the sound stops. The audio context is
+  suspended while nothing plays through it.
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen
@@ -565,8 +573,9 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   ends (`MainActivity.dropPipViewportCookie`, `comingBackToTheApp_dropsTheViewportCookiePipLeft`).
 - `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`: a real tap on a playing reel's
   comment button (which must still carry the icon `reel_comments_audio.js` finds it by in other
-  languages) opening the comments with the reel's sound playing on, and Back bringing the reel back
-  at the sound's position with the sound stopped (`ReelCommentsAudioJsTest`).
+  languages) opening the comments with the reel's sound playing on from where the reel was, and
+  Back handing it back to the reel, playing at or past the sound's position, not muted
+  (`ReelCommentsAudioJsTest`).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).

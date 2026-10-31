@@ -365,9 +365,9 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere() {
-        // reel_comments_audio.js: the comment button of a playing, unmuted reel plays the reel's MP4
-        // while Facebook shows the comments (it removes the reel's <video>); Back moves the reel
-        // that comes back to where the sound got to.
+        // reel_comments_audio.js: the comment button of a playing, unmuted reel plays the reel's sound
+        // (its MP4, fetched and decoded) while Facebook shows the comments (it removes the reel's
+        // <video>); Back hands the sound back to the reel that comes back, in step with it.
         openPlayingReel()
         // Reels start muted, and a muted reel has no sound to keep: unmuted as a tap on the sound would.
         eval("document.querySelector('video').muted = false; 1")
@@ -393,10 +393,13 @@ class LiveFacebookCanaryTest {
 
         val backAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
         app.pressBack()
-        assertTrue("Back from the comments didn't bring the reel back playing without the sound of its own " +
-            "(${eval(VIDEO_STATE_JS)})", app.waitFor(20_000) {
-            eval("location.pathname === '$reelPath' && !window.__astryxReelCommentsAudio.audio() && $PLAYING_JS") == "true"
+        // The sound plays on while Facebook loads the reel again (up to 9 s on the emulator), and
+        // until the reel plays in step with it (20 s at most).
+        assertTrue("Back from the comments didn't hand the sound back to the reel, playing (${eval(VIDEO_STATE_JS)}; " +
+            "the sound at ${eval(REEL_COMMENTS_SOUND_JS)} s)", app.waitFor(40_000) {
+            eval("location.pathname === '$reelPath' && $REEL_COMMENTS_SOUND_JS < 0 && $PLAYING_JS") == "true"
         })
+        assertEquals("the reel back was left muted", "false", eval("document.querySelector('video').muted"))
         val reelAt = eval("(function (v) { return v.duration - v.currentTime < 2 ? -1 : v.currentTime; })(document.querySelector('video'))").toDouble()
         // -1: the sound was at the reel's end, which starts it again.
         assertTrue("the reel came back at $reelAt s, not where the sound was ($backAt s)", reelAt < 0 || reelAt >= backAt - 1)
@@ -1670,8 +1673,7 @@ class LiveFacebookCanaryTest {
         private val REEL_COMMENT_BUTTON_JS = shownJs("[role=button][aria-label^=\"Comment on reel\"]") +
             ".filter(function (b) { var r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })[0]"
         // Where reel_comments_audio.js's sound is (s), -1 while none plays.
-        private const val REEL_COMMENTS_SOUND_JS =
-            "(function (a) { return a && !a.paused ? a.currentTime : -1; })(window.__astryxReelCommentsAudio.audio())"
+        private const val REEL_COMMENTS_SOUND_JS = "window.__astryxReelCommentsAudio.position()"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"
