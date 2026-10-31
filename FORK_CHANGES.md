@@ -165,6 +165,10 @@ rewritten to the new one, keeping its schedule.
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
   player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
+- Going into a long video's comments, the sound came back only after a moment (0.8 s for a 165 s
+  video on the phone): the app decoded the video's whole audio track first. A long sound (over
+  40 s) is now first played from a slice of it, the 20 s around the video's position, decoded at
+  once from the track's fragments, and the whole track takes over at the same spot when it's ready.
 - A reel's sound in its comments works for a Page's videos too: the phone's Reels tab and the feed
   open many reels at the Page's own address (`/<page>/videos/<title>/<id>/`), where the comments'
   sound stopped at once (only `/reel/` pages were reels to it). Back no longer waits for a long
@@ -639,7 +643,9 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `<video>`); then the reel playing through its end and from its start again (a gap when a long reel
   never loads whole; `ReelCommentsAudioJsTest`). It opens the test reel at `/reel/<id>` (the test
   account's Reels tab shows "Content not found"); a Page's `/videos/` address, which the phone's Reels
-  tab uses, is a path check only, in `ReelCommentsAudioJsTest`.
+  tab uses, is a path check only, in `ReelCommentsAudioJsTest`. It also reads the reel's audio track's
+  index (`sidx`, more than one fragment), by which a long sound is first played from a slice; the
+  slice and the takeover are in `ReelCommentsAudioJsTest` (a fake indexed track and decoder).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
