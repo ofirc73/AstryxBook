@@ -140,6 +140,10 @@ rewritten to the new one, keeping its schedule.
   stalled loading it), is moved once past the sound by as long as its last reload took, played a
   little slower or faster until in step, then heard again as the sound stops. The audio context is
   suspended while nothing plays through it.
+- Going into a reel's comments the sound still cut for a moment (v1.39.2, on the phone): it started
+  only once the script noticed the reel had stopped. It now plays silently in step with the reel as
+  soon as it's decoded and fades in when Facebook calls the reel's `pause()` (on the emulator, in
+  the same millisecond).
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen
