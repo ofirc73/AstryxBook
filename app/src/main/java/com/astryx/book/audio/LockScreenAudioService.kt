@@ -26,11 +26,13 @@ private const val TAG = "AstryxbookPiP"
  * device spike (SM-A566B, Android 16). MainActivity binds a MediaController
  * at PiP entry, while the app is visible, which creates this service idle
  * and not in the foreground (so no notification during an ordinary PiP
- * session). At screen-off the controller sets the item and plays; Media3
- * then promotes the service to the foreground. The system allowed that
- * promotion under ACTIVITY_VISIBILITY_GRACE_PERIOD (the PiP window had just
- * stopped being visible), so playback must start right away at screen-off,
- * not after anything slow. Option C (foreground for the whole PiP session)
+ * session). In PiP the controller plays the video's sound silently along
+ * with the page (volume 0: no notification, no audio focus, onVolumeChanged);
+ * at the lock it turns it up, which shows the notification and promotes the
+ * service to the foreground. The system allowed that promotion under
+ * ACTIVITY_VISIBILITY_GRACE_PERIOD (the PiP window had just stopped being
+ * visible), so it must happen right away at the lock, not after anything
+ * slow. Option C (foreground for the whole PiP session)
  * also worked but shows a media notification on every PiP; option A failed
  * in the spike.
  */
@@ -38,21 +40,19 @@ private const val TAG = "AstryxbookPiP"
 class LockScreenAudioService : MediaSessionService() {
 
     private var session: MediaSession? = null
-    // Whether the sound has played: one loaded for the next lock (LockScreenAudioController
-    // prepare, paused at PiP entry) shows no notification, which Media3 would show for it, paused,
-    // during every PiP.
-    private var played = false
+    // Whether the sound has been heard: playing silently along with the PiP video
+    // (LockScreenAudioController sync, volume 0), it shows no notification, which Media3 would show
+    // during every PiP, and doesn't take the audio focus, which made Chromium pause the page.
+    private var heard = false
+    private val audioAttributes = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+        .build()
 
     override fun onCreate() {
         super.onCreate()
         val player = ExoPlayer.Builder(this)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .build(),
-                /* handleAudioFocus = */ true
-            )
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ false)
             // Streams over the network with the screen off.
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
@@ -66,6 +66,13 @@ class LockScreenAudioService : MediaSessionService() {
             .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
             .build()
         player.addListener(object : Player.Listener {
+            // Turned up at the lock: the audio focus taken from then on, and the notification (the
+            // lock-screen controls) shown, which also brings the service to the foreground.
+            override fun onVolumeChanged(volume: Float) {
+                player.setAudioAttributes(audioAttributes, /* handleAudioFocus = */ volume > 0f)
+                if (volume > 0f) triggerNotificationUpdate()
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 // Typically the signed fbcdn URL expired during a long lock
                 // (403). No refresh in v1: stop, and let handback restore the
@@ -98,8 +105,8 @@ class LockScreenAudioService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        if (session.player.playWhenReady) played = true
-        if (played) super.onUpdateNotification(session, startInForegroundRequired)
+        if (session.player.playWhenReady && session.player.volume > 0f) heard = true
+        if (heard) super.onUpdateNotification(session, startInForegroundRequired)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

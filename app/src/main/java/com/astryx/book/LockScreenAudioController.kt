@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
@@ -23,6 +24,8 @@ import com.astryx.book.audio.isHandoffEligible
 import com.astryx.book.audio.parseHandoffRead
 import com.eepiemi.materialbook.R
 import com.google.common.util.concurrent.ListenableFuture
+import org.json.JSONObject
+import kotlin.math.abs
 
 private const val TAG = "AstryxbookPiP"
 // Cap on PIP_HANDOFF_READ_JS answering after screen-off (it took 5-30ms in
@@ -31,6 +34,13 @@ private const val HANDOFF_READ_TIMEOUT_MS = 300L
 // The page gets in step with the native player within seconds (pipHandbackJs gives up after 8 s);
 // past this the native player stops anyway.
 private const val HANDBACK_TIMEOUT_MS = 10_000L
+// The silent native player is moved to the page past this off (a loop, a stall), a little ahead
+// (seeking takes it a moment); closer, it plays at the page's own speed, a little faster or slower
+// until in step. Moved at the lock (a short gap) past HANDOFF_DRIFT_MS: closer, the sound skips that
+// little rather than stopping for a moment.
+private const val SYNC_MOVE_MS = 500L
+private const val SYNC_MOVE_LEAD_MS = 100L
+private const val HANDOFF_DRIFT_MS = 300L
 
 /**
  * Lock-screen audio (see LockScreenAudioService) for [activity]: while in PiP ([isInPip]) with the
@@ -67,9 +77,20 @@ class LockScreenAudioController(
     // The native player plays on while the page gets in step with it (pipHandbackJs), until the
     // page's 'handbackDone'.
     private var handbackPending = false
-    // The PiP video's sound, loaded paused as the handoff was armed (PiP entry): the native player
-    // then starts at once at the lock (loaded only then, it started 0.5 s later on the emulator).
+    // The PiP video's sound, which the native player plays silently in step with the page while in
+    // PiP (sync), so that the lock only turns it up: started at the lock, it came 0.13 s after the
+    // page stopped, then the phone's output latency, a break heard on a Galaxy A56 (and 0.5 s more
+    // to load it then, on the emulator).
     private var preparedSrc: String? = null
+    // The page's last sync (its time and when, elapsedRealtime), for its speed: the emulator's
+    // WebView played the PiP video at 0.84x, and kept in step by moving it each second, the native
+    // player's audio output was made anew each time.
+    private var lastSyncTimeMs = -1L
+    private var lastSyncAt = 0L
+    // Syncs in a row with the page paused: the native player pauses at the second. Facebook's
+    // players pause the PiP video for a moment now and then (the keep-playing guard plays it
+    // again), and following each, the native player was paused at the lock now and then (a gap).
+    private var pausedSyncs = 0
 
     private val mainHandler = Handler(Looper.getMainLooper())
     // Lazy: the controller is made with the activity, before it has a context.
@@ -89,13 +110,16 @@ class LockScreenAudioController(
     fun onScreenOff() = startHandoff("SCREEN_OFF")
 
     /**
-     * The page's handoff events (PIP_HANDOFF_ARM_JS, pipHandbackJs): 'prepare' loads [src] for the
-     * lock, 'hidden' starts a hand-off when the screen is going off, 'visible' is a handback
-     * signal, 'handbackDone' stops the native player.
+     * The page's handoff events (PIP_HANDOFF_ARM_JS, pipHandbackJs) with their [data] (JSON):
+     * 'sync' keeps the silent native player in step with the PiP video, 'hidden' starts a hand-off
+     * when the screen is going off, 'visible' is a handback signal, 'handbackDone' stops the
+     * native player.
      */
-    fun onHandoffEvent(event: String, src: String) {
+    fun onHandoffEvent(event: String, data: String) {
         when (event) {
-            "prepare" -> prepare(src)
+            "sync" -> runCatching { JSONObject(data) }.getOrNull()?.let {
+                sync(it.optString("src"), (it.optDouble("time", 0.0) * 1000).toLong(), it.optBoolean("playing"))
+            }
             // Hidden in PiP for something else (the PiP window closing) leaves the screen on.
             "hidden" -> if (powerManager?.isInteractive == false) startHandoff("page hidden")
                 else Log.d(TAG, "handoff: page hidden with the screen on, no handoff")
@@ -155,23 +179,43 @@ class LockScreenAudioController(
         activity.stopService(Intent(activity, LockScreenAudioService::class.java))
     }
 
-    // Loads [src] paused (LockScreenAudioService shows no notification for it until it plays).
-    private fun prepare(src: String) {
-        if (!isInPip() || !enabled() || handoffActive || handbackPending || src == preparedSrc ||
+    // Plays [src] silently at the page's [timeMs] while it's [playing] (LockScreenAudioService
+    // neither takes the audio focus, which made Chromium pause the page, nor shows a notification
+    // until it's heard).
+    private fun sync(src: String, timeMs: Long, playing: Boolean) {
+        if (!isInPip() || !enabled() || handoffActive || handoffReadPending || handbackPending ||
             !isHandoffEligible(src, wasPlaying = true)
         ) return
-        preparedSrc = src
         val future = connectAudioController()
         future.addListener({
             val controller = runCatching { future.get() }.getOrNull() ?: return@addListener
-            if (preparedSrc != src || handoffActive) return@addListener
-            // Paused: the service can outlive a handback (rebound at once), still set to play, and
-            // playing it took the audio focus from the page, which Chromium then paused (a break
-            // right after the handback, on the emulator).
-            controller.pause()
-            controller.setMediaItem(soundItem(src))
-            controller.prepare()
-            Log.d(TAG, "handoff: sound loaded for the lock")
+            if (handoffActive || handoffReadPending || handbackPending) return@addListener
+            controller.volume = 0f
+            val now = SystemClock.elapsedRealtime()
+            if (src != preparedSrc || controller.playbackState == Player.STATE_IDLE) {
+                preparedSrc = src
+                controller.setMediaItem(soundItem(src), timeMs)
+                controller.prepare()
+                Log.d(TAG, "handoff: the sound plays silently along")
+            } else if (playing) {
+                val offMs = controller.currentPosition - timeMs
+                if (abs(offMs) > SYNC_MOVE_MS) {
+                    Log.d(TAG, "handoff: silent sound moved to the page (${offMs}ms off)")
+                    controller.seekTo(timeMs + SYNC_MOVE_LEAD_MS)
+                    controller.setPlaybackSpeed(1f)
+                } else {
+                    // The page's speed since the last sync (1 across a loop or a pause), less half of
+                    // the gap per second.
+                    val pageSpeed = if (lastSyncTimeMs in 0 until timeMs && now > lastSyncAt) {
+                        (timeMs - lastSyncTimeMs).toFloat() / (now - lastSyncAt)
+                    } else 1f
+                    controller.setPlaybackSpeed((pageSpeed - offMs / 2000f).coerceIn(0.5f, 1.5f))
+                }
+            }
+            lastSyncTimeMs = if (playing) timeMs else -1L
+            lastSyncAt = now
+            pausedSyncs = if (playing) 0 else pausedSyncs + 1
+            controller.playWhenReady = pausedSyncs < 2
         }, ContextCompat.getMainExecutor(activity))
     }
 
@@ -210,9 +254,16 @@ class LockScreenAudioController(
         future.addListener({
             try {
                 val controller = future.get()
-                // Loaded at PiP entry, unless that failed (the player is then idle).
+                // Playing silently along (sync), unless that failed (the player is then idle).
                 val loaded = read.src == preparedSrc && controller.playbackState != Player.STATE_IDLE
-                if (loaded) {
+                val offMs = controller.currentPosition - read.positionMs
+                // Playing: set to and ready (isPlaying, the controller's estimate, read false at times).
+                val playing = controller.playWhenReady && controller.playbackState == Player.STATE_READY
+                val inStep = loaded && playing && abs(offMs) <= HANDOFF_DRIFT_MS
+                controller.setPlaybackSpeed(1f)
+                if (inStep) {
+                    // Just turned up, below.
+                } else if (loaded) {
                     controller.seekTo(read.positionMs)
                 } else {
                     // Start position goes in with the item: a separate seekTo()
@@ -221,8 +272,10 @@ class LockScreenAudioController(
                     controller.setMediaItem(soundItem(read.src), read.positionMs)
                     controller.prepare()
                 }
+                controller.volume = 1f
                 controller.play()
-                Log.d(TAG, "handoff: native playback started at ${read.positionMs}ms (loaded before: $loaded)")
+                Log.d(TAG, "handoff: native playback heard at ${read.positionMs}ms (in step: $inStep, " +
+                    "${offMs}ms off, playing: $playing, loaded before: $loaded)")
             } catch (e: Exception) {
                 Log.e(TAG, "handoff: starting native playback failed", e)
             }

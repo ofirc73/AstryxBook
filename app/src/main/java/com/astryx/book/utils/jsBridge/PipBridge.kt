@@ -10,7 +10,7 @@ private const val TAG = "AstryxbookPiP"
  */
 class PipBridge(
     private val onVideoStateChanged: (Boolean, Int, Int) -> Unit,
-    private val onHandoffEventCallback: (event: String, src: String) -> Unit = { _, _ -> },
+    private val onHandoffEventCallback: (event: String, data: String) -> Unit = { _, _ -> },
     private val onVideoGoneCallback: () -> Unit = {},
 ) {
     @JavascriptInterface
@@ -38,14 +38,15 @@ class PipBridge(
         Log.w(TAG, "PiP focus mode: unexpected visible element(s): $message")
     }
 
-    // Lock-screen audio handoff events from PIP_HANDOFF_ARM_JS and pipHandbackJs: 'prepare' (armed:
-    // [src], the PiP video's sound), 'hidden' (the screen going off), 'visible' (unlocked, a
-    // handback signal), 'handbackDone' (the page plays in step with the native player). Runs on
-    // the JS bridge thread, not the main thread.
+    // Lock-screen audio handoff events from PIP_HANDOFF_ARM_JS and pipHandbackJs, with their
+    // [data] (JSON): 'sync' (armed, every second: the PiP video's sound, time and whether it
+    // plays), 'hidden' (the screen going off), 'visible' (unlocked, a handback signal),
+    // 'handbackDone' (the page plays in step with the native player). Runs on the JS bridge
+    // thread, not the main thread.
     @JavascriptInterface
-    fun onHandoffEvent(event: String, src: String) {
-        Log.d(TAG, "PipBridge.onHandoffEvent: $event")
-        onHandoffEventCallback(event, src)
+    fun onHandoffEvent(event: String, data: String) {
+        if (event != "sync") Log.d(TAG, "PipBridge.onHandoffEvent: $event")
+        onHandoffEventCallback(event, data)
     }
 
     // Called by PIP_VIDEO_GONE_WATCH_JS when the PiP video has been gone from the page for a

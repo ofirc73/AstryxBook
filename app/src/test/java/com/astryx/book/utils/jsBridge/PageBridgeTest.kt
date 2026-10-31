@@ -16,7 +16,7 @@ class PageBridgeTest {
     private val bridges = PageBridges(
         settings = MaterialbookSettings { calls += "settings" },
         theme = ThemeChange { calls += "theme $it" },
-        pip = PipBridge({ playing, w, h -> calls += "video $playing ${w}x$h" }, { event, src -> calls += "handoff $event $src".trim() }, { calls += "gone" }),
+        pip = PipBridge({ playing, w, h -> calls += "video $playing ${w}x$h" }, { event, data -> calls += "handoff $event $data" }, { calls += "gone" }),
         screen = ScreenBridge { calls += "screen $it" },
         layer = LayerBridge { calls += "layer $it" },
     )
@@ -27,7 +27,7 @@ class PageBridgeTest {
         assertTrue(dispatchPageMessage("""{"call":"themeColor","color":"#ff0000"}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"videoState","playing":true,"width":1280,"height":720}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"pipAnomaly","message":"div#x"}""", bridges))
-        assertTrue(dispatchPageMessage("""{"call":"handoff","event":"prepare","src":"https://video.example/a.mp4"}""", bridges))
+        assertTrue(dispatchPageMessage("""{"call":"handoff","event":"sync","data":"{\"time\":1.5}"}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"pipVideoGone"}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"screenVideoPlaying","playing":true}""", bridges))
         assertTrue(dispatchPageMessage("""{"call":"layerUrl","url":"https://www.facebook.com/friends/"}""", bridges))
@@ -36,7 +36,7 @@ class PageBridgeTest {
                 "settings",
                 "theme ${0xFFFF0000.toInt()}",
                 "video true 1280x720",
-                "handoff prepare https://video.example/a.mp4",
+                """handoff sync {"time":1.5}""",
                 "gone",
                 "screen true",
                 "layer https://www.facebook.com/friends/",

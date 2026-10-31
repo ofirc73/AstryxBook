@@ -146,6 +146,12 @@ rewritten to the new one, keeping its schedule.
   only once the script noticed the reel had stopped. It now plays silently in step with the reel as
   soon as it's decoded and fades in when Facebook calls the reel's `pause()` (on the emulator, in
   the same millisecond).
+- Locking with a video in PiP still had a clear break on the phone (v1.39.6): the page's video
+  stops the moment the page is hidden (Chromium stops it, whatever Facebook does), and the
+  lock-screen player, started then, was heard 0.13 s later plus the phone's audio latency. It now
+  plays the video's sound silently along with the page all through PiP (no notification, no effect
+  on the page) and the lock only turns it up. Unlocking also put the video in slow motion for a
+  moment the first time (the page's seek was quicker than guessed): the seek time is now kept.
 - No more break in the sound when the phone locks or unlocks with a video in PiP (lock-screen
   audio). Locking: the page's video stops as the page is hidden, and the lock-screen player started
   only at the screen-off signal (0.5 s later on the phone) and then loaded the video's MP4 (2.1 s of
@@ -520,8 +526,9 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
 
 - `PipHandoffJsTest` (23, real `WebView`): the snapshot taken at page hide
   even when the video is paused right after, mute/pause and restore of the
-  prior mute state, the events told to the app (the sound to load when armed,
-  hidden, visible again only while a handoff is active, handback done), the
+  prior mute state, the events told to the app (the sound, its time and play
+  state every second while armed, hidden, visible again only while a handoff
+  is active, handback done), the seek time kept in `localStorage`, the
   stream's audio track as the sound, the handback (muted past the native
   player until in step, slower or faster, waiting for the page to be visible,
   done at once for a video that can't play, position/play behaviour), and

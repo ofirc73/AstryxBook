@@ -173,7 +173,7 @@ fun MaterialbookWebView(
     openLinkRequest: OpenLinkRequest? = null,
     shareMediaRequest: ShareMediaRequest? = null,
     onPipHandoffRead: (String?) -> Unit = {},
-    onPipHandoffEvent: (event: String, src: String) -> Unit = { _, _ -> },
+    onPipHandoffEvent: (event: String, data: String) -> Unit = { _, _ -> },
     onPipVideoGone: () -> Unit = {},
     isAppLocked: Boolean = false,
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> }

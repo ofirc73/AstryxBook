@@ -265,7 +265,7 @@ class MainActivity : FragmentActivity() {
                         openLinkRequest = openLinkRequest,
                         shareMediaRequest = shareMediaRequest,
                         onPipHandoffRead = lockScreenAudio::onPageRead,
-                        onPipHandoffEvent = { event, src -> runOnUiThread { lockScreenAudio.onHandoffEvent(event, src) } },
+                        onPipHandoffEvent = { event, data -> runOnUiThread { lockScreenAudio.onHandoffEvent(event, data) } },
                         onPipVideoGone = { runOnUiThread { closeEmptyPip() } },
                         isAppLocked = appLockController.isLocked,
                         onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->

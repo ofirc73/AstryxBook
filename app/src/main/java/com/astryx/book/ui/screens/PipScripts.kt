@@ -579,10 +579,13 @@ internal const val PIP_RELAYOUT_AFTER_FULLSCREEN_JS = PIP_RELEASE_FULLSCREENCHAN
 // (device spike). So this capture-phase listener snapshots the PiP target
 // video (same selection as PIP_TOGGLE_JS) as the page is hidden and tells the
 // app at once ('hidden'), which starts the native player then rather than at
-// SCREEN_OFF. Armed, it tells the app the PiP video's sound ('prepare'), which
-// the native player loads then, paused: loaded at the lock, it started 0.5 s
-// later (emulator). On the way back (visible) it tells the app ('visible')
-// while a handoff is active, one of MainActivity's handback signals. The events go
+// SCREEN_OFF. Armed, it tells the app every second the PiP video's sound,
+// where it is and whether it plays ('sync'), and the native player plays that
+// silently in step, so that the lock only turns it up: started at the lock, it
+// came 0.13 s after the page stopped, then the phone's output latency, a break
+// heard on a Galaxy A56. On the way back (visible) it tells the app
+// ('visible') while a handoff is active, one of MainActivity's handback
+// signals. The events go
 // through AstryxPage (PipBridge on older WebViews), by
 // window.__astryxHandoffTell, which pipHandbackJs uses too. Facebook plays
 // most videos through Media Source Extensions (a blob: currentSrc the native
@@ -592,10 +595,11 @@ internal const val PIP_RELAYOUT_AFTER_FULLSCREEN_JS = PIP_RELEASE_FULLSCREENCHAN
 // MP4 in data-video-url, the fallback, which download_content.js uses).
 internal const val PIP_HANDOFF_ARM_JS = """
 (function() {
-  window.__astryxHandoffTell = window.__astryxHandoffTell || function(event, src) {
+  window.__astryxHandoffTell = window.__astryxHandoffTell || function(event, data) {
     try {
-      if (window.AstryxPage) window.AstryxPage.postMessage(JSON.stringify({ call: 'handoff', event: event, src: src || '' }));
-      else PipBridge.onHandoffEvent(event, src || '');
+      var json = JSON.stringify(data || {});
+      if (window.AstryxPage) window.AstryxPage.postMessage(JSON.stringify({ call: 'handoff', event: event, data: json }));
+      else PipBridge.onHandoffEvent(event, json);
     } catch (e) {}
   };
   if (window.__astryxHandoffListener) return;
@@ -641,8 +645,13 @@ internal const val PIP_HANDOFF_ARM_JS = """
   };
   window.__astryxHandoffListener = listener;
   document.addEventListener('visibilitychange', listener, true);
-  var video = pipVideo();
-  if (video && !video.paused) window.__astryxHandoffTell('prepare', soundOf(video));
+  function sync() {
+    if (document.visibilityState === 'hidden' || document.querySelector('[data-astryx-handoff-muted]')) return;
+    var video = pipVideo();
+    if (video) window.__astryxHandoffTell('sync', { src: soundOf(video), time: video.currentTime, playing: !video.paused });
+  }
+  window.__astryxHandoffSync = setInterval(sync, 1000);
+  sync();
 })();
 """
 
@@ -653,6 +662,7 @@ internal const val PIP_HANDOFF_DISARM_JS = """
   if (window.__astryxHandoffListener) {
     document.removeEventListener('visibilitychange', window.__astryxHandoffListener, true);
   }
+  clearInterval(window.__astryxHandoffSync);
   window.__astryxHandoffListener = null;
   window.__astryxHandoffSnapshot = null;
   window.__astryxHandoffVideo = null;
@@ -691,7 +701,9 @@ internal const val PIP_HANDOFF_READ_JS = """
  * that position, unmuted, and done at once. [play]: once the page is visible
  * (Chromium pauses a hidden page's video), the video, still muted, is moved a
  * little past the native player (by as long as its last move took to play,
- * window.__astryxHandbackLead, at first 1 s; 1.7 s on the emulator), played,
+ * kept in localStorage: 0.6 s on a Galaxy A56, the first guess, 1.7 s on the
+ * emulator; a first guess of 1 s put the phone's video ahead, played slower
+ * for a moment, seen as jitter), played,
  * and played a little slower or faster until in step with it (up to 2 s
  * ahead, 3 s behind: 1.5 s behind at first on the emulator); then unmuted:
  * done. At the start instead of the video's very end, which Facebook takes
@@ -708,7 +720,8 @@ internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean,
   var v = document.querySelector('[data-astryx-handoff-muted]');
   if (!v) { rearm(); return 'none'; }
   var position = ${if (positionMs != null) positionMs / 1000.0 else "null"}, at = $positionAtMs;
-  var started = Date.now(), movedAt = 0, timer = null;
+  var started = Date.now(), movedAt = 0, timer = null, lead = 0.6;
+  try { lead = parseFloat(localStorage.getItem('astryxHandbackLead')) || lead; } catch (e) {}
   function length() { return isFinite(v.duration) && v.duration > 0 ? v.duration : Infinity; }
   // Where the native player is now (it loops the video).
   function nativeAt() { return (position + (Date.now() - at) / 1000) % length(); }
@@ -731,7 +744,7 @@ internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean,
     if (document.visibilityState === 'hidden') return;
     if (!movedAt) {
       movedAt = Date.now();
-      v.currentTime = placed(nativeAt() + (window.__astryxHandbackLead || 1));
+      v.currentTime = placed(nativeAt() + lead);
       var p = v.play();
       if (p && p.catch) p.catch(done);
       return;
@@ -739,7 +752,8 @@ internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean,
     if (Date.now() - started > 8000) { done(); return; }
     if (v.paused || v.seeking || v.readyState < 3) return;
     if (movedAt > 0) {
-      window.__astryxHandbackLead = Math.min(4, Math.max(0.3, (Date.now() - movedAt) / 1000));
+      lead = Math.min(4, Math.max(0.2, (Date.now() - movedAt) / 1000));
+      try { localStorage.setItem('astryxHandbackLead', String(lead)); } catch (e) {}
       movedAt = -1;
     }
     var ahead = v.currentTime - nativeAt();
