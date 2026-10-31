@@ -54,11 +54,11 @@ class FeedPrefetchJsTest {
     }
 
     @Test
-    fun theLoadingRow_isWatchedThreeScreensAhead() {
+    fun theLoadingRow_isWatchedTenScreensAhead() {
         val h = Harness()
         h.load("{}", "post", "loading")
 
-        assertEquals("0px 0px 300% 0px loading", h.early())
+        assertEquals("0px 0px 1000% 0px loading", h.early())
     }
 
     @Test
@@ -101,7 +101,7 @@ class FeedPrefetchJsTest {
 
         h.eval("window.__io.unobserve(document.getElementById('loading'))")
 
-        assertEquals("0px 0px 300% 0px ", h.early())
+        assertEquals("0px 0px 1000% 0px ", h.early())
     }
 
     @Test

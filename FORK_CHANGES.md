@@ -265,14 +265,21 @@ rewritten to the new one, keeping its schedule.
   now hides all of a post's rows, the feed list's children sharing its
   `data-tracking-duration-id`, and the thin gap above it, in either layout (a post opened from a
   link still shows as one card). Covered by `FeedPostJsTest`.
-- The feed's next posts are asked for three screens ahead (`feed_prefetch.js`, document start,
+- The feed's next posts are asked for ten screens ahead (`feed_prefetch.js`, document start,
   main view). m.facebook.com asks for them only when the list's loading row (the grey placeholder
   at the bottom) is on screen: it watches the row with an IntersectionObserver without a margin.
   Read on the phone (2026-10-30): flinging down the feed reached the placeholder about 28 times in
   90 s, mostly for 0.5-1 s, up to 7 s, and since v1.38.0 hid whole posts (44% of that feed) each
   batch is shorter on screen, so it came up more often. The script watches the same row with a
-  margin of three windows and passes that on to Facebook's own callback; other first-visibility
-  marks (which log what the user saw) keep Facebook's timing. Covered by `FeedPrefetchJsTest`.
+  margin and passes that on to Facebook's own callback; other first-visibility marks (which log
+  what the user saw) keep Facebook's timing. Covered by `FeedPrefetchJsTest`. The margin was three
+  windows in v1.38.1, which made no visible difference: read on the phone again (2026-10-31, with
+  nothing hidden), a batch of 7 posts is 3.5-6 screens tall and the server answers each ask in 2-7 s,
+  one batch at a time, while a fast fling covers 3+ screens a second, so it reached the placeholder
+  under a second after the early ask (12 times in 73 s). Hiding posts wasn't the cause: turning
+  Hide suggested posts off changed nothing. Ten windows is about one round trip of flinging, and
+  the feed keeps loading while the user stops to read (up to about 1 MB ahead), so the next fling
+  goes further before the placeholder. A long fast fling still outruns Facebook's server.
 - Reels: Facebook's blue "Open app" button showed in the top bar when *Download* was off (only
   `download_content.js` hid it). `scripts.js`, which always runs, now hides "Open app" buttons,
   found by their icon in any language. The copy button no longer shows on Reels pages: a Like
