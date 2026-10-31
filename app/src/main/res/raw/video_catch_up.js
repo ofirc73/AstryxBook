@@ -20,14 +20,13 @@
   var HOLD_RATE = 0.0625;
   // In step this close: the sound hands over.
   var IN_STEP_S = 0.1;
-  // Up to AHEAD_S ahead of the sound the video plays slower, up to BEHIND_S behind faster, by the
-  // gap per second (a little slower or faster for a second or so; at 0.5x or 1.5x until in step,
-  // the video was seen in slow motion on the phone). Past HOLD_AHEAD_S ahead it's held still until
-  // the sound gets there: a moment's stop rather than slow motion (a seek took 1-3 s on the
-  // emulator, each time different). Further apart, 'apart': the caller lets the video take over.
+  // Up to AHEAD_S ahead of the sound the video is held still until the sound gets there, then plays
+  // at its own speed: played slower (0.5x, then by the gap per second), it was seen in slow motion
+  // and jittering on the phone (its speed changed every poll), where a reel's seek took 0.09 s and
+  // a still frame shows anyway. Up to BEHIND_S behind it plays faster, by the gap per second.
+  // Further apart, 'apart': the caller lets the video take over.
   var AHEAD_S = 4;
   var BEHIND_S = 2;
-  var HOLD_AHEAD_S = 0.5;
   var MAX_LEAD_S = 4;
 
   window.__astryxCatchUp = function (video, clock, options) {
@@ -68,8 +67,7 @@
         var ahead = video.currentTime - clock();
         if (Math.abs(ahead) <= IN_STEP_S) return 'inStep';
         if (ahead >= AHEAD_S || ahead <= -BEHIND_S) return 'apart';
-        video.playbackRate = ahead > HOLD_AHEAD_S ? HOLD_RATE :
-          Math.min(1.5, Math.max(0.5, Math.round((1 - ahead) * 20) / 20));
+        video.playbackRate = ahead > 0 ? HOLD_RATE : Math.min(1.5, Math.round((1 - ahead) * 20) / 20);
         return 'wait';
       },
 

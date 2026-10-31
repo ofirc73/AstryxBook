@@ -226,10 +226,10 @@ class ReelCommentsAudioJsTest {
         // Moved past the sound by the first lead (0.3 s), once.
         assertTrue("the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})",
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
-        // Ready at 21.3 while the sound is at 21: ahead, so it plays slower, by the gap per second
-        // (0.5x until in step before, seen on the phone).
+        // Ready at 21.3 while the sound is at 21: ahead, so it's held still until the sound gets
+        // there (played slower, it was seen in slow motion and jittering on the phone).
         h.eval("${h.v2}.__rs = 4; 1")
-        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.7"))
+        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.0625"))
         assertEquals("false", h.eval("!!${h.sound}.stopped"))
         // In step: heard again, at its own speed, and the sound stops.
         h.soundAt(21.3)

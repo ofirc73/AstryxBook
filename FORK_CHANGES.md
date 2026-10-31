@@ -165,6 +165,10 @@ rewritten to the new one, keeping its schedule.
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
   player's `data-extra`; the MP4 only when that's missing), which is also a much smaller download.
+- Back from a reel's comments, the reel no longer plays in slow motion to get in step with the sound
+  (seen as jitter on the phone, its speed changing every moment): landed ahead of the sound, it's held
+  still until the sound gets there, a moment's still frame where the seek shows one anyway. The same
+  for the video back from the lock screen.
 - Going into a long video's comments, the sound came back only after a moment (0.8 s for a 165 s
   video on the phone): the app decoded the video's whole audio track first. A long sound (over
   40 s) is now first played from a slice of it, the 20 s around the video's position, decoded at
@@ -174,8 +178,8 @@ rewritten to the new one, keeping its schedule.
   sound stopped at once (only `/reel/` pages were reels to it). Back no longer waits for a long
   video (over 90 s) to load from its start, which held it still for 3 s.
 - Unlocking with a video in PiP gets the video in step with the lock-screen sound the same gentle
-  way as a reel back from its comments: held still while far ahead, otherwise a little slower or
-  faster for a moment (it played at 0.5x or 1.5x until in step, which could show as slow motion).
+  way as a reel back from its comments: held still while ahead, a little faster for a moment while
+  behind (it played at 0.5x or 1.5x until in step, which could show as slow motion).
   Both now use one page script for it, `video_catch_up.js`, each with its own remembered timing.
 - Back from a reel's comments, a second time on the same reel, played the reel's own sound along
   with the comments' sound (v1.39.2-v1.39.7): Facebook brings the reel back in the same `<video>`,
@@ -183,7 +187,7 @@ rewritten to the new one, keeping its schedule.
   it. Back also looked uneven (v1.39.5-v1.39.7): the reel played from its start until Facebook had
   loaded it, then jumped, then played at half or 1.5x speed until in step. It's now held still while
   it loads, moved by the seek time kept from earlier Backs (a first guess of 0.3 s, not 0.8 s), held
-  still again if it lands far ahead, and otherwise played only a little slower or faster for a moment.
+  still again if it lands ahead until the sound gets there, and played a little faster if behind.
 - A reel back from its comments froze at its start when it got to its end and started again
   (v1.39.2-v1.39.4, every time on the emulator once the reel had loaded whole). Facebook brings the
   reel back from its memory; moved to the sound's position before it had loaded its start, it loaded
@@ -545,7 +549,7 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
 
 - `VideoCatchUpJsTest` (4, real `WebView`): `video_catch_up.js`, shared by the two below: each
   use's own clock and remembered seek time (one learning leaves the other alone), the steps (in
-  step, slower or faster by the gap, held still far ahead, too far apart, not ready), the start
+  step, held still ahead, faster by the gap behind, too far apart, not ready), the start
   instead of the very end, holding and releasing. Its live check is the reel comments one (it runs
   through it twice); the lock-screen use can't be checked live.
 - `PipHandoffJsTest` (24, real `WebView`): the snapshot taken at page hide
@@ -554,7 +558,7 @@ Lock-screen audio, fullscreen and auto-desktop have their own suites:
   state every second while armed, hidden, visible again only while a handoff
   is active, handback done), the seek time kept in `localStorage`, the
   stream's audio track as the sound, the handback (muted past the native
-  player until in step (held still far ahead, a little slower or faster),
+  player until in step (held still ahead, a little faster behind),
   waiting for the page to be visible, done at once for a video that can't play
   or without `video_catch_up.js`, position/play behaviour), and
   listener cleanup/re-arming. No live check: Facebook's part, the player's

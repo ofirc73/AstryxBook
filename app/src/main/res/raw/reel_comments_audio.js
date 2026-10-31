@@ -13,7 +13,8 @@
 // second there, about when Facebook stops the reel; when later, it starts as soon as it can). A long
 // sound is first played from a slice of it (quickSound()) while the whole one decodes, then the
 // whole one takes over at the same spot (swap()). Back: the reel that comes back is silenced, moved a little past the
-// sound (seeking takes it a moment), then played a little slower or faster until it's in step
+// sound (seeking takes it a moment), then held still until the sound gets there (or played a
+// little faster if behind), so it's in step
 // with the sound; then it's heard again and the sound stops. Silenced through Web Audio (its sound
 // routed through a gain of 0), not muted: muted, Facebook's player stalled loading it, until it
 // was unmuted. And moved only once, once loaded up to the sound (moveBack()): a second seek

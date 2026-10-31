@@ -70,17 +70,17 @@ class VideoCatchUpJsTest {
     }
 
     @Test
-    fun step_inStep_slowerOrFaster_heldStill_orApart() {
+    fun step_inStep_heldStillAhead_fasterBehind_orApart() {
         load()
         val a = "document.getElementById('a')"
         fun stepAt(time: Double) = eval("$a.__time = $time; __a.step()").removeSurrounding("\"")
         assertEquals("inStep", stepAt(10.05))
         assertEquals("wait", stepAt(10.3))
-        assertEquals("0.7", eval("$a.playbackRate"))
+        assertEquals("ahead: held still", "0.0625", eval("$a.playbackRate"))
         assertEquals("wait", stepAt(9.7))
-        assertEquals("1.3", eval("$a.playbackRate"))
-        assertEquals("wait", stepAt(11.0))
-        assertEquals("far ahead: held still", "0.0625", eval("$a.playbackRate"))
+        assertEquals("behind: faster by the gap", "1.3", eval("$a.playbackRate"))
+        assertEquals("wait", stepAt(13.0))
+        assertEquals("0.0625", eval("$a.playbackRate"))
         assertEquals("apart", stepAt(15.0))
         assertEquals("apart", stepAt(7.0))
         eval("$a.__rs = 1; 1")
