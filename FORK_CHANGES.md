@@ -128,6 +128,10 @@ rewritten to the new one, keeping its schedule.
   Another page from the comments stops the sound; leaving the app pauses it until you come back.
   Covered by `ReelCommentsAudioJsTest` and the live check
   `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`.
+- The sound in a reel's comments started the reel again from the beginning (v1.39.0): Facebook
+  sets the reel back to 0 as it removes it, and the script read its position after that. The
+  position is now kept while the reel is still on the page; the test and the live check tap a few
+  seconds into the reel and check the sound starts there.
 - HTML5 fullscreen video support: the WebView's chrome client now implements
   `onShowCustomView` / `onHideCustomView`, so Facebook's fullscreen button
   shows the video in a real fullscreen overlay (system bars hidden, screen

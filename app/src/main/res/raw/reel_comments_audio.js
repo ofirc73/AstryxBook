@@ -5,7 +5,8 @@
 // Home's address "/"): it pauses the reel and removes its <video>, and Back draws the reel again
 // from its start. So when the comment button of a playing, unmuted reel is tapped, this plays the
 // reel's MP4 (the player's data-video-url, as download_content.js and the lock-screen hand-off
-// use; the <video> itself plays a blob:) in an <audio> of its own, from where the reel stopped.
+// use; the <video> itself plays a blob:) in an <audio> of its own, from where the reel stopped
+// (Facebook sets the <video> back to 0 as it removes it: its position is kept from before).
 // Back to the reel's address: the reel that comes back is moved to the sound's position and the
 // sound stops. Going anywhere else from the comments, or the page being hidden, stops it.
 //
@@ -103,13 +104,14 @@
       var href = window.location.href;
       var now = Date.now();
       if (!heard.audio) {
-        // Waiting for the comments to open: the reel's <video> goes when they do.
+        // Waiting for the comments to open: the reel's <video> goes when they do. Facebook sets it
+        // back to 0 on the way out, so its position is kept while it plays, never read after.
         if (document.documentElement.contains(heard.video)) {
+          if (heard.video.currentTime > heard.time) heard.time = heard.video.currentTime;
           if (now - started > OPEN_WAIT_MS) { clearInterval(timer); heard = null; }
           return;
         }
         if (isReelPage()) { clearInterval(timer); heard = null; return; }
-        heard.time = heard.video.currentTime;
         heard.video = null;
         heard.commentsHref = href;
         heard.audio = startAudio(heard.src, heard.time);

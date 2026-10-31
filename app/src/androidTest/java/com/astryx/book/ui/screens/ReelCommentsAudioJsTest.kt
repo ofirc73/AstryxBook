@@ -10,8 +10,8 @@ import org.junit.runner.RunWith
 /**
  * reel_comments_audio.js: a reel's sound goes on while its comments are open, and Back moves the
  * reel to where the sound got to. Facebook's moves are the ones read on the emulator (2026-10-31):
- * the comment button opens the comments at "/" (pushState) and removes the reel's <video>; Back
- * passes through /watch/, where the new reel's 'play' fires, then lands on the reel's path (its
+ * the comment button opens the comments at "/" (pushState) and removes the reel's <video>, set back
+ * to 0 (v1.39.0 read it after that and started the sound at 0); Back passes through /watch/, where the new reel's 'play' fires, then lands on the reel's path (its
  * 'playing' fires there) and gets its query back a moment later. Media is faked: the reel's
  * paused, muted and currentTime, and the script's <audio> (window.__audios).
  */
@@ -72,10 +72,16 @@ class ReelCommentsAudioJsTest {
             page.run(R.raw.reel_comments_audio)
         }
 
-        // Facebook's comments opening after the tap: the reel's <video> goes, the address is "/".
+        fun tapComment() = eval("document.getElementById('comment').click(); 1")
+
+        // Facebook's comments opening after the tap: the address is "/", the reel's <video> is set
+        // back to 0 and goes.
+        fun commentsOpen() = eval("history.pushState(null, '', '/'); var v = document.getElementById('v1');" +
+            " if (v) v.__time = 0; document.getElementById('reel').remove(); 1")
+
         fun openComments() {
-            eval("document.getElementById('comment').click(); history.pushState(null, '', '/');" +
-                " document.getElementById('reel').remove(); 1")
+            tapComment()
+            commentsOpen()
         }
 
         fun audio(i: Int = 0) = "window.__audios[$i]"
@@ -105,14 +111,19 @@ class ReelCommentsAudioJsTest {
 
     @Test
     fun theCommentButton_keepsTheReelsSoundPlaying_fromWhereItStopped() {
+        // The reel plays on for a moment after the tap (about a second on the emulator), then
+        // Facebook sets it back to 0 as it removes it: the sound starts where it was before that.
         val h = Harness()
         h.load(time = 12.5)
-        h.openComments()
+        h.tapComment()
+        h.eval("document.getElementById('v1').__time = 13.25; 1")
+        Thread.sleep(400)
+        h.commentsOpen()
         assertTrue("the reel's MP4 never played (${h.eval("JSON.stringify(window.__audios)")})", h.audioPlaying())
         assertEquals("true", h.eval("${h.audio()}.loop"))
         // Facebook's MP4 isn't loaded yet when it starts: the reel's position is set once it is.
         h.eval("${h.audio()}.duration = 30; ${h.audio()}.listeners.loadedmetadata(); 1")
-        assertEquals("12.5", h.eval("${h.audio()}.currentTime"))
+        assertEquals("13.25", h.eval("${h.audio()}.currentTime"))
         assertEquals("true", h.eval("window.__astryxReelCommentsAudio.audio() === ${h.audio()}"))
     }
 
@@ -206,7 +217,7 @@ class ReelCommentsAudioJsTest {
         // The tap reached the button but Facebook drew nothing new: the reel keeps its <video>.
         val h = Harness()
         h.load()
-        h.eval("document.getElementById('comment').click(); 1")
+        h.tapComment()
         Thread.sleep(3500)
         h.eval("document.getElementById('reel').remove(); history.pushState(null, '', '/'); 1")
         h.assertNoAudio()

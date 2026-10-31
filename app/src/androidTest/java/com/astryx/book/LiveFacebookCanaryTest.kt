@@ -376,11 +376,17 @@ class LiveFacebookCanaryTest {
             "English label (${pageShape()})", "true",
             eval("(function (b) { return !!b && window.__astryxReelCommentsAudio.hasCommentIcon(b); })($REEL_COMMENT_BUTTON_JS)"))
         val reelPath = eval("location.pathname").removeSurrounding("\"")
+        // Tapped a few seconds into the reel, so a sound that starts again from 0 shows (v1.39.0's did:
+        // Facebook sets the reel back to 0 as it removes it).
+        eval("(function (v) { if (v.currentTime < 4 || v.duration - v.currentTime < 12) v.currentTime = 5; })(document.querySelector('video')); 1")
+        Thread.sleep(1000)
+        val reelAtTap = eval("document.querySelector('video').currentTime").toDouble()
         assertTrue("no comment button on the reel on screen", app.tapOn(app.mainWebView(), REEL_COMMENT_BUTTON_JS, scroll = false))
         assertTrue("the comments opened without the reel's sound (${eval(VIDEO_STATE_JS)}; ${pageShape()})", app.waitFor(20_000) {
-            eval("location.pathname !== '$reelPath' && $REEL_COMMENTS_SOUND_JS > 0.5") == "true"
+            eval("location.pathname !== '$reelPath' && $REEL_COMMENTS_SOUND_JS > 0") == "true"
         })
         val soundAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
+        assertTrue("the sound started at $soundAt s, not where the reel was ($reelAtTap s)", soundAt >= reelAtTap - 0.5)
         assertTrue("the reel's sound stopped in the comments", app.waitFor(10_000) {
             eval(REEL_COMMENTS_SOUND_JS).toDouble().let { it > soundAt || it in 0.0..1.0 }
         })
