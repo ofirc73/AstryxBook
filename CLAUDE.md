@@ -205,13 +205,16 @@ user-visible change.
   (`pipKeepPlayingActivateJs`) undoes that while in PiP.
 - Lock-screen audio hand-off (`LockScreenAudioController`, the `PIP_HANDOFF_*` scripts): at a lock
   the page's video stops as the page is hidden (Chromium pauses it too, not only Facebook), so the
-  native player starts on the page's `hidden` event (`handoff` page call), not at
-  `ACTION_SCREEN_OFF` (0.5 s later on the phone), from the sound loaded paused at PiP entry
-  (`prepare`; `LockScreenAudioService` shows no notification for it until it plays): a 0.1 s gap on
-  the emulator, 2.1 s before. On unlock the native player plays on while `pipHandbackJs` plays the
-  page's video muted, past it by the last seek's time, slower or faster until in step, then
-  unmuted (`handbackDone` stops the native player). ExoPlayer requests audio focus when it plays,
-  and Chromium pauses the page on losing it: a native player left set to play took it once.
+  native player must already be playing: in PiP it plays the video's sound at volume 0 in step
+  with the page (`sync` page calls every second: moved past 0.5 s off, else at the page's own speed,
+  the emulator's WebView playing PiP video at 0.84x), and the page's `hidden` (not
+  `ACTION_SCREEN_OFF`, 0.5 s later) only turns it up. Started at the lock, it was heard 0.13 s after
+  the page stopped plus the phone's output latency (Galaxy A56). Silent, `LockScreenAudioService`
+  takes no audio focus (Chromium pauses the page on losing it) and shows no notification; turned
+  up, it takes both, which also brings it to the foreground (`triggerNotificationUpdate`: Media3
+  decides foreground from the player). On unlock the native player plays on while `pipHandbackJs`
+  plays the page's video muted, past it by the last seek's time (kept in `localStorage`), slower
+  or faster until in step, then unmuted (`handbackDone` stops the native player).
   To read the timing, `dumpsys audio` lists each player's start and stop and the focus changes.
 - Page scripts use optional chaining (`?.`, Chrome 80+), so on a WebView older than
   that (e.g. the stock API 26 emulator image, Chrome 69) `scripts.js` and most others

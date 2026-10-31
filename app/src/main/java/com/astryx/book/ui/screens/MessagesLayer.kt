@@ -108,7 +108,7 @@ fun MessagesLayer(
     hidden: Boolean = false,
     onPipTarget: (PipTarget?) -> Unit = {},
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
-    onPipHandoffEvent: (event: String, src: String) -> Unit = { _, _ -> },
+    onPipHandoffEvent: (event: String, data: String) -> Unit = { _, _ -> },
     onPipVideoGone: () -> Unit = {},
     trackVideoPlaying: Boolean = false,
     onScreenVideoPlayingChanged: (Boolean) -> Unit = {},

@@ -24,19 +24,25 @@ class PipHandoffJsTest {
     private fun String.unquoted() = removeSurrounding("\"")
 
     private class Harness {
-        // The handoff events told to the app ("prepare <src>", "hidden", "visible", "handbackDone").
+        // The handoff events told to the app ("sync <src>", "hidden", "visible", "handbackDone"),
+        // and the last sync's data.
         val events: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+        @Volatile
+        var lastSync: JSONObject? = null
 
         inner class FakePipBridge {
             @JavascriptInterface
-            fun onHandoffEvent(event: String, src: String) {
-                events += "$event $src".trim()
+            fun onHandoffEvent(event: String, data: String) {
+                val json = JSONObject(data)
+                if (event == "sync") lastSync = json
+                events += "$event ${json.optString("src")}".trim()
             }
         }
 
         private val page = PageFixture(interfaces = mapOf("PipBridge" to FakePipBridge()))
 
-        fun loadHtml(html: String) = page.load("https://example.com/", html)
+        // With DOM storage, where the handback keeps its lead, as the app's WebView has it.
+        fun loadHtml(html: String) = page.load("https://example.com/", html) { it.settings.domStorageEnabled = true }
 
         fun eval(js: String) = page.eval(js)
 
@@ -67,6 +73,7 @@ class PipHandoffJsTest {
         )
         eval(
             """
+            localStorage.clear();
             window.__vis = 'visible';
             Object.defineProperty(document, 'visibilityState', { get: function() { return window.__vis; } });
             window.__calls = [];
@@ -210,11 +217,24 @@ class PipHandoffJsTest {
     // ── Events to the app ────────────────────────────────────────────────────
 
     @Test
-    fun arming_tellsTheAppThePlayingPipVideosSound_toLoadForTheLock() {
+    fun armed_tellsTheAppEverySecond_wherePipVideosSoundIs_forTheNativePlayerToPlayItSilently() {
+        // Started only at the lock, the native player was heard 0.13 s after the page stopped, then
+        // the phone's output latency: a break (Galaxy A56).
         val h = Harness()
         h.loadFixture(pipPlaying = true)
         h.eval(PIP_HANDOFF_ARM_JS)
-        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("prepare https://video.example.net/pip.mp4") })
+        assertTrue(h.events.toString(), h.waitFor { h.events.firstOrNull() == "sync https://video.example.net/pip.mp4" })
+        assertEquals(12.5, h.lastSync!!.getDouble("time"), 0.001)
+        assertTrue(h.lastSync!!.getBoolean("playing"))
+        h.eval("$pip.__time = 14; $pip.__paused = true;")
+        assertTrue("no sync a second later", h.waitFor { h.lastSync!!.getDouble("time") == 14.0 })
+        assertEquals(false, h.lastSync!!.getBoolean("playing"))
+
+        // Not while the page is hidden.
+        h.setVisibility("hidden")
+        h.events.clear()
+        Thread.sleep(1500)
+        assertEquals(emptyList<String>(), h.events.filter { it.startsWith("sync") })
     }
 
     @Test
@@ -232,7 +252,7 @@ class PipHandoffJsTest {
         paused.setVisibility("hidden")
         paused.eval("1")
         Thread.sleep(300)
-        assertEquals("a paused video has nothing to hand off", emptyList<String>(), paused.events.toList())
+        assertTrue("a paused video has nothing to hand off", "hidden" !in paused.events)
     }
 
     @Test
@@ -259,12 +279,12 @@ class PipHandoffJsTest {
         h.setVisibility("visible") // no handoff happened yet
         h.eval("1") // flush
         Thread.sleep(300)
-        assertEquals(emptyList<String>(), h.events.toList())
+        assertTrue(h.events.toString(), "visible" !in h.events)
 
         h.setVisibility("hidden")
         h.read()
         h.setVisibility("visible")
-        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("visible") })
+        assertTrue(h.events.toString(), h.waitFor { h.events.count { it == "visible" } == 1 })
     }
 
     // ── Handback ─────────────────────────────────────────────────────────────
@@ -298,7 +318,7 @@ class PipHandoffJsTest {
         val at = System.currentTimeMillis()
         h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = at, play = true, rearm = false))
 
-        assertEquals("moved past the native player by the first lead (1 s)", 46.25, h.eval("$pip.currentTime").toDouble(), 0.2)
+        assertEquals("moved past the native player by the first lead (0.6 s)", 45.85, h.eval("$pip.currentTime").toDouble(), 0.2)
         assertEquals("play:pip", h.eval("window.__calls.join(',')").unquoted())
         assertEquals("unmuted before in step with the native player", "true", h.eval("$pip.muted"))
         assertEquals(emptyList<String>(), h.events.toList())
@@ -308,6 +328,9 @@ class PipHandoffJsTest {
         assertEquals("false", h.eval("$pip.muted"))
         assertEquals("false", h.eval("$pip.hasAttribute('data-astryx-handoff-muted')"))
         assertEquals("1", h.eval("$pip.playbackRate"))
+        // How long its move took to play, for the next handback, in later sessions too: a first
+        // guess of 1 s put the phone's video ahead, played slower for a moment (seen as jitter).
+        assertTrue(h.eval("localStorage.getItem('astryxHandbackLead')"), h.eval("parseFloat(localStorage.getItem('astryxHandbackLead')) > 0") == "true")
     }
 
     @Test
@@ -361,7 +384,7 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked(duration = 260)
         h.eval(pipHandbackJs(positionMs = 200_000, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
-        assertEquals(201.0, h.eval("$pip.currentTime").toDouble(), 0.2)
+        assertEquals(200.6, h.eval("$pip.currentTime").toDouble(), 0.2)
     }
 
     @Test
