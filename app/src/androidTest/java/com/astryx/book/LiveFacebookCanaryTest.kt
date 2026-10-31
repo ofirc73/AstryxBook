@@ -363,6 +363,39 @@ class LiveFacebookCanaryTest {
         })
     }
 
+    @Test
+    fun aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere() {
+        // reel_comments_audio.js: the comment button of a playing, unmuted reel plays the reel's MP4
+        // while Facebook shows the comments (it removes the reel's <video>); Back moves the reel
+        // that comes back to where the sound got to.
+        openPlayingReel()
+        // Reels start muted, and a muted reel has no sound to keep: unmuted as a tap on the sound would.
+        eval("document.querySelector('video').muted = false; 1")
+        assertTrue("reel_comments_audio.js never ran", app.waitFor(30_000) { eval("!!window.__astryxReelCommentsAudio") == "true" })
+        assertEquals("the reel's comment button lost its icon (U+F0379): reel_comments_audio.js then finds it only by its " +
+            "English label (${pageShape()})", "true",
+            eval("(function (b) { return !!b && window.__astryxReelCommentsAudio.hasCommentIcon(b); })($REEL_COMMENT_BUTTON_JS)"))
+        val reelPath = eval("location.pathname").removeSurrounding("\"")
+        assertTrue("no comment button on the reel on screen", app.tapOn(app.mainWebView(), REEL_COMMENT_BUTTON_JS, scroll = false))
+        assertTrue("the comments opened without the reel's sound (${eval(VIDEO_STATE_JS)}; ${pageShape()})", app.waitFor(20_000) {
+            eval("location.pathname !== '$reelPath' && $REEL_COMMENTS_SOUND_JS > 0.5") == "true"
+        })
+        val soundAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
+        assertTrue("the reel's sound stopped in the comments", app.waitFor(10_000) {
+            eval(REEL_COMMENTS_SOUND_JS).toDouble().let { it > soundAt || it in 0.0..1.0 }
+        })
+
+        val backAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
+        app.pressBack()
+        assertTrue("Back from the comments didn't bring the reel back playing without the sound of its own " +
+            "(${eval(VIDEO_STATE_JS)})", app.waitFor(20_000) {
+            eval("location.pathname === '$reelPath' && !window.__astryxReelCommentsAudio.audio() && $PLAYING_JS") == "true"
+        })
+        val reelAt = eval("(function (v) { return v.duration - v.currentTime < 2 ? -1 : v.currentTime; })(document.querySelector('video'))").toDouble()
+        // -1: the sound was at the reel's end, which starts it again.
+        assertTrue("the reel came back at $reelAt s, not where the sound was ($backAt s)", reelAt < 0 || reelAt >= backAt - 1)
+    }
+
     // A plain picture of [width] x [height] shared to the app's [alias] (ShareToFeed, ...), as the
     // share sheet would: served through the app's own FileProvider.
     private fun sharePicture(alias: String, width: Int = 64, height: Int = 64) {
@@ -1627,6 +1660,12 @@ class LiveFacebookCanaryTest {
         // it; undefined on the chat list, which keeps a box with no size.
         private val MESSAGE_BOX_FIND_JS = shownJs("[role=textbox][contenteditable=true]") + "[0]"
         private val MESSAGE_BOX_TEXT_JS = "(function () { var e = $MESSAGE_BOX_FIND_JS; return e ? e.innerText : ''; })()"
+        // The comment button of the reel on screen (the test account's Facebook is in English).
+        private val REEL_COMMENT_BUTTON_JS = shownJs("[role=button][aria-label^=\"Comment on reel\"]") +
+            ".filter(function (b) { var r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })[0]"
+        // Where reel_comments_audio.js's sound is (s), -1 while none plays.
+        private const val REEL_COMMENTS_SOUND_JS =
+            "(function (a) { return a && !a.paused ? a.currentTime : -1; })(window.__astryxReelCommentsAudio.audio())"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"
