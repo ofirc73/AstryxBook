@@ -1,14 +1,22 @@
 // A reel's sound goes on while its comments are open, and Back picks the reel up where the sound
-// got to. Main view only (the Messages layer's desktop reels show comments beside the reel).
+// got to, without a break either way. Main view only (the Messages layer's desktop reels show
+// comments beside the reel).
 //
 // m.facebook.com opens a reel's comments as a new screen in the same document (pushState, at
-// Home's address "/"): it pauses the reel and removes its <video>, and Back draws the reel again
-// from its start. So when the comment button of a playing, unmuted reel is tapped, this plays the
-// reel's MP4 (the player's data-video-url, as download_content.js and the lock-screen hand-off
-// use; the <video> itself plays a blob:) in an <audio> of its own, from where the reel stopped
-// (Facebook sets the <video> back to 0 as it removes it: its position is kept from before).
-// Back to the reel's address: the reel that comes back is moved to the sound's position and the
-// sound stops. Going anywhere else from the comments, or the page being hidden, stops it.
+// Home's address "/"): about a second after the tap it pauses the reel, sets it back to 0 and
+// removes its <video>, and Back draws the reel again from its start. So when the comment button
+// of a playing, unmuted reel is tapped, this fetches the reel's MP4 (the player's data-video-url,
+// as download_content.js and the lock-screen hand-off use; the <video> itself plays a blob:),
+// decodes its sound (Web Audio) and, the moment Facebook stops the reel, plays it from where the
+// reel was. An <audio> took 1-8 s on the emulator to play after a seek, even from memory; a decoded
+// sound starts at once, at the exact spot (fetched and decoded in about a second there, about when
+// Facebook stops the reel). Back: the reel that comes back is silenced, moved a little past the
+// sound (seeking takes it a moment), then played a little slower or faster until it's in step
+// with the sound; then it's heard again and the sound stops. Silenced through Web Audio (its sound
+// routed through a gain of 0), not muted: muted, Facebook's player stalled loading it, until it
+// was unmuted. And moved only once, as it starts playing: a seek after that stalled Facebook's
+// player, past what it had loaded for good. Going anywhere else from the comments
+// stops the sound; the page hidden pauses it.
 //
 // The comment button is found by its icon, the same in every language (the label is
 // translated), or by its English label. ES5, like the PiP scripts.
@@ -18,12 +26,36 @@
   var COMMENT_ICON = '\uDB80\uDF79'; // U+F0379, the reel's comment button
   var COMMENT_LABEL = 'Comment on reel';
   var OPEN_WAIT_MS = 3000;
-  var BACK_WAIT_MS = 8000;
+  // Facebook took 2-8 s on the emulator to load the reel back; the sound plays on meanwhile.
+  var BACK_WAIT_MS = 20000;
   var AWAY_MS = 1000;
-  var POLL_MS = 100;
+  var POLL_MS = 50;
+  // How far past the sound the reel coming back is moved: what its seek took last time (it's
+  // ready at the sound's position then), at first BACK_LEAD_S.
+  var BACK_LEAD_S = 0.8;
+  var MAX_LEAD_S = 4;
+  var backLead = BACK_LEAD_S;
+  // The reel back plays at the sound's position when this close: the sound hands over.
+  var IN_STEP_S = 0.08;
+  // Up to this far ahead of the sound, the reel back plays slower to let it catch up; up to
+  // BEHIND_S behind, faster. Further apart, the reel just takes over.
+  var AHEAD_S = 1;
+  var BEHIND_S = 1.5;
+  // A sound fetched for a touch that brought no tap is let go after this.
+  var EARLY_MS = 5000;
 
-  // The reel being heard: its page, its MP4, the <audio> playing it.
+  // The reel being heard: its page, its <video> (until Facebook stops it), where it was and when,
+  // its decoded sound (once fetched) and where that plays, and the reel that comes back. phase is
+  // 'opening' (the reel still plays), 'comments' (the sound plays) or 'back' (the reel back,
+  // silenced, getting in step with the sound).
   var heard = null;
+  // One Web Audio context for the page (Chrome allows only a few), suspended while nothing plays
+  // through it.
+  var context = null;
+  // The reels whose sound goes through it (silence()).
+  var routed = [];
+  // The last sound fetched, from the touch on the comment button: { src, sound (a promise) }.
+  var early = null;
 
   // Back lands on the reel's path first; Facebook adds its query a moment later.
   function onReel() {
@@ -42,9 +74,16 @@
     return (button.getAttribute('aria-label') || '').indexOf(COMMENT_LABEL) === 0 || hasCommentIcon(button);
   }
 
-  // For the tests and the live checks: the <audio> playing while the comments are open.
+  // Where the sound is (s), -1 while none plays.
+  function soundAt() {
+    if (!heard || !heard.source) return -1;
+    var t = heard.offset + context.currentTime - heard.startedAt;
+    return t % heard.sound.duration;
+  }
+
+  // For the tests and the live checks.
   window.__astryxReelCommentsAudio = {
-    audio: function () { return heard && heard.audio; },
+    position: soundAt,
     hasCommentIcon: hasCommentIcon
   };
 
@@ -63,102 +102,246 @@
     return best;
   }
 
+  // Where the reel is: its own time while it plays, then counted on from there.
+  function reelTime() {
+    var t = heard.time + (heard.video ? 0 : (Date.now() - heard.timeAt) / 1000);
+    return t % heard.sound.duration;
+  }
+
+  function play(at) {
+    if (context.state === 'suspended') context.resume();
+    var source = context.createBufferSource();
+    source.buffer = heard.sound;
+    source.loop = true;
+    source.connect(context.destination);
+    source.start(0, at);
+    heard.source = source;
+    heard.played = true;
+    heard.offset = at;
+    heard.startedAt = context.currentTime;
+  }
+
+  // The context suspended when neither the sound nor a reel routed through it plays: a running
+  // one keeps the device's audio output open.
+  function rest() {
+    if (!context || (heard && heard.source)) return;
+    routed = routed.filter(function (v) { return document.documentElement.contains(v); });
+    for (var i = 0; i < routed.length; i++) if (!routed[i].paused) return;
+    context.suspend();
+  }
+
+  function pause() {
+    if (!heard.source) return;
+    heard.offset = soundAt();
+    heard.source.stop();
+    heard.source = null;
+    rest();
+  }
+
   function stop() {
     if (!heard) return;
-    var audio = heard.audio;
+    if (heard.source) heard.source.stop();
+    if (heard.back) heard.back.playbackRate = 1;
+    if (heard.silencer) heard.silencer.gain.value = 1;
     heard = null;
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute('src');
-      audio.load();
+    rest();
+  }
+
+  // The sound plays once the reel has stopped and the sound is decoded, whichever comes last.
+  function playWhenReady() {
+    if (heard.phase === 'comments' && heard.sound && !heard.source && document.visibilityState !== 'hidden') {
+      play(reelTime());
     }
   }
 
-  function startAudio(src, time) {
-    var audio = new Audio();
-    audio.preload = 'auto';
-    audio.loop = true;
-    audio.addEventListener('loadedmetadata', function () {
-      audio.currentTime = isFinite(audio.duration) && time < audio.duration ? time : 0;
+  // The reel's decoded sound, fetched from the touch on the button (the tap's click comes about
+  // 0.1 s later) and kept for the tap.
+  function fetchSound(src) {
+    if (early && early.src === src) return early.sound;
+    if (!context) context = new (window.AudioContext || window.webkitAudioContext)();
+    var mine = early = { src: src };
+    mine.sound = fetch(src).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.arrayBuffer();
+    }).then(function (data) {
+      return context.decodeAudioData(data);
     });
-    audio.src = src;
-    var p = audio.play();
-    if (p && p.catch) p.catch(function () {});
-    return audio;
+    setTimeout(function () { if (early === mine && !heard) early = null; }, EARLY_MS);
+    return mine.sound;
   }
 
-  // Back on the reel's page: the reel Facebook draws again starts from 0. It's moved to where the
-  // sound got to as it starts playing, and the sound stops.
-  function handBack(video) {
-    var audio = heard.audio;
-    var time = audio ? audio.currentTime : heard.time;
+  function load(src) {
+    var mine = heard;
+    fetchSound(src).then(function (sound) {
+      early = null;
+      if (heard !== mine) return;
+      heard.sound = sound;
+      playWhenReady();
+    }, function () {
+      early = null;
+      // No sound to play: the comments stay quiet, as Facebook has them.
+      if (heard === mine) stop();
+    });
+  }
+
+  // Facebook stopped the reel (paused it, or took it off the page): the sound takes over.
+  function reelStopped() {
+    if (!heard || heard.phase !== 'opening') return;
+    heard.phase = 'comments';
+    heard.video = null;
+    heard.timeAt = Date.now();
+    playWhenReady();
+  }
+
+  // The reel still playing: its position kept (Facebook sets it back to 0 on the way out).
+  function track() {
+    var v = heard.video;
+    if (!document.documentElement.contains(v) || (v.paused && !onReel())) { reelStopped(); return; }
+    if (v.paused || v.currentTime <= heard.time) return;
+    heard.time = v.currentTime;
+    heard.timeAt = Date.now();
+  }
+
+  // The reel back, as it starts playing from 0: moved once a little past the sound, again only if
+  // Facebook starts it from 0 again (twice at most).
+  function moveBack() {
+    var v = heard.back;
+    if (!onReel() || !heard.source || heard.moves >= 2) return;
+    if (heard.placed && v.currentTime > 1) return;
+    heard.placed = true;
+    var time = (soundAt() + backLead) % heard.sound.duration;
+    if (isFinite(v.duration) && time >= v.duration - 0.5) time = 0;
+    if (Math.abs(v.currentTime - time) <= 1) return;
+    heard.moves++;
+    heard.movedAt = Date.now();
+    v.currentTime = time;
+  }
+
+  // The reel back, silenced, playing: a little slower while it's ahead of the sound, faster while
+  // behind, until it plays in step with it; then heard, and the sound stops. Further apart, it
+  // takes over at once. Never moved again: any seek, even within what it had loaded, stalled
+  // Facebook's player for seconds on the emulator.
+  function caughtUp() {
+    var v = heard.back;
+    if (!heard.source) { stop(); return true; }
+    if (v.paused || v.seeking || v.readyState < 3 || !heard.placed) return false;
+    if (heard.movedAt) {
+      backLead = Math.min(MAX_LEAD_S, Math.max(0.3, (Date.now() - heard.movedAt) / 1000));
+      heard.movedAt = 0;
+    }
+    var ahead = v.currentTime - soundAt();
+    if (ahead > IN_STEP_S && ahead < AHEAD_S) { v.playbackRate = 0.5; return false; }
+    if (ahead < -IN_STEP_S && ahead > -BEHIND_S) { v.playbackRate = 1.5; return false; }
     stop();
-    if (isFinite(video.duration) && time >= video.duration - 0.5) time = 0;
-    video.currentTime = time;
+    return true;
   }
 
   function watch() {
     var started = Date.now();
     var timer = setInterval(function () {
       if (!heard) { clearInterval(timer); return; }
-      var href = window.location.href;
       var now = Date.now();
-      if (!heard.audio) {
-        // Waiting for the comments to open: the reel's <video> goes when they do. Facebook sets it
-        // back to 0 on the way out, so its position is kept while it plays, never read after.
-        if (document.documentElement.contains(heard.video)) {
-          if (heard.video.currentTime > heard.time) heard.time = heard.video.currentTime;
-          if (now - started > OPEN_WAIT_MS) { clearInterval(timer); heard = null; }
-          return;
-        }
-        if (isReelPage()) { clearInterval(timer); heard = null; return; }
-        heard.video = null;
-        heard.commentsHref = href;
-        heard.audio = startAudio(heard.src, heard.time);
+      if (heard.phase === 'opening') {
+        track();
+        if (heard.phase === 'opening' && now - started > OPEN_WAIT_MS) { clearInterval(timer); stop(); }
         return;
       }
-      var onComments = href === heard.commentsHref;
+      var href = window.location.href;
+      // The comments' address, once Facebook has moved there.
+      if (!heard.commentsHref) {
+        if (!onReel()) heard.commentsHref = href;
+        return;
+      }
+      if (heard.back) {
+        if (caughtUp()) { clearInterval(timer); return; }
+        // Its 'playing' came before the reel's path did.
+        if (!heard.placed && heard.back.currentTime < 2) moveBack();
+      }
       // Back passes through /watch/ for a moment on its way to the reel: only a page that stays
       // stops the sound.
-      if (onComments || onReel()) heard.awaySince = 0;
+      if (href === heard.commentsHref || onReel()) heard.awaySince = 0;
       else if (!heard.awaySince) heard.awaySince = now;
       else if (now - heard.awaySince > AWAY_MS) { clearInterval(timer); stop(); return; }
-      // Back on the reel: the 'play' listener below hands over; this gives up if no reel plays.
+      // Back on the reel: the listeners below hand over; this gives up if no reel gets in step.
       if (!onReel()) heard.backSince = 0;
       else if (!heard.backSince) heard.backSince = now;
       else if (now - heard.backSince > BACK_WAIT_MS) { clearInterval(timer); stop(); }
     }, POLL_MS);
   }
 
-  document.addEventListener('click', function (e) {
-    if (!isReelPage() || !e.target || !e.target.closest) return;
+  // The playing reel and its MP4 when [e] is on the comment button of a reel page, else null.
+  function commentTap(e) {
+    if (!isReelPage() || !e.target || !e.target.closest) return null;
     var button = e.target.closest('[role="button"]');
-    if (!button || !isCommentButton(button)) return;
+    if (!button || !isCommentButton(button)) return null;
     var video = playingReel();
     var player = video && video.closest('[data-video-url]');
     var src = player && player.getAttribute('data-video-url');
-    if (!video || video.muted || !src || src.indexOf('https://') !== 0) return;
+    if (!video || video.muted || !src || src.indexOf('https://') !== 0) return null;
+    return { video: video, src: src };
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    var tap = commentTap(e);
+    if (tap) fetchSound(tap.src).then(null, function () {});
+  }, true);
+
+  document.addEventListener('click', function (e) {
+    var tap = commentTap(e);
+    if (!tap) return;
+    var video = tap.video;
     stop();
-    heard = { reelPath: window.location.pathname, src: src, video: video, time: video.currentTime, audio: null };
+    heard = { phase: 'opening', reelPath: window.location.pathname, video: video, time: video.currentTime,
+      timeAt: Date.now(), sound: null, source: null, played: false, offset: 0, startedAt: 0, back: null, placed: false,
+      moves: 0, movedAt: 0, silencer: null };
+    load(tap.src);
+    // Facebook pauses the reel as it removes it, and the document no longer sees the event then:
+    // listened to on the reel itself (a reel that ends and starts again pauses too, on the page).
+    video.addEventListener('pause', function () {
+      if (heard && heard.video === video) track();
+    });
     watch();
   }, true);
 
-  // Media events don't bubble, but a capture listener on the document sees them.
-  // Back fires the reel's 'play' while still at /watch/, its 'playing' at the reel's path.
-  function onReelPlay(e) {
-    if (!heard || !heard.audio || e.target.tagName !== 'VIDEO') return;
-    if (onReel()) handBack(e.target);
+  // The reel's sound through a gain of 0, for good: an element's sound can't be taken back out of
+  // Web Audio, so the gain is set to 1 when it's heard again. Without it (Web Audio refused the
+  // element), the reel is heard from 0 for a moment, as before.
+  function silence(v) {
+    try {
+      var gain = context.createGain();
+      gain.gain.value = 0;
+      context.createMediaElementSource(v).connect(gain);
+      gain.connect(context.destination);
+      heard.silencer = gain;
+      routed.push(v);
+    } catch (e) {}
   }
-  document.addEventListener('play', onReelPlay, true);
-  document.addEventListener('playing', onReelPlay, true);
+
+  // A reel routed through the context is heard only while it runs.
+  document.addEventListener('play', function (e) {
+    if (routed.indexOf(e.target) >= 0 && context.state === 'suspended') context.resume();
+  }, true);
+  document.addEventListener('pause', function (e) {
+    if (routed.indexOf(e.target) >= 0) rest();
+  }, true);
+
+  // A capture listener on the document sees media events. Back fires the reel's 'play' while
+  // still at /watch/ (silenced from the start), its 'playing' at the reel's path (moved on then).
+  document.addEventListener('play', function (e) {
+    if (!heard || heard.phase !== 'comments' || e.target.tagName !== 'VIDEO') return;
+    if (!heard.commentsHref || window.location.href === heard.commentsHref) return;
+    heard.phase = 'back';
+    heard.back = e.target;
+    silence(e.target);
+  }, true);
+  document.addEventListener('playing', function (e) {
+    if (heard && e.target === heard.back) moveBack();
+  }, true);
 
   document.addEventListener('visibilitychange', function () {
-    if (!heard || !heard.audio) return;
-    if (document.visibilityState === 'hidden') {
-      heard.audio.pause();
-    } else {
-      var p = heard.audio.play();
-      if (p && p.catch) p.catch(function () {});
-    }
+    if (!heard) return;
+    if (document.visibilityState === 'hidden') pause();
+    else if (heard.played && !heard.source) play(heard.offset);
+    else playWhenReady();
   });
 })();
