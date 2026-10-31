@@ -572,30 +572,34 @@ internal const val PIP_RELAYOUT_AFTER_FULLSCREEN_JS = PIP_RELEASE_FULLSCREENCHAN
 """
 
 // Lock-screen audio handoff (see LockScreenAudioService). Installed on PiP
-// entry when the setting is on. Observed on the device spike: at lock the
-// page first gets visibilitychange -> hidden, Facebook's own handler pauses
-// the video 25-60ms later, and ACTION_SCREEN_OFF reaches the app only ~0.5s
-// after that, so the live `paused` is always true by then. This capture-phase
-// listener snapshots the PiP target video (same selection as PIP_TOGGLE_JS)
-// at the moment the page is hidden. On the way back (visible) it reports to
-// the app (AstryxPage, or PipBridge on older WebViews) while a handoff is active, one of
-// MainActivity's handback signals. Facebook plays most videos through Media Source
-// Extensions (a blob: currentSrc the native player can't open); the player around such a
-// video (data-mcomponent="MVideo") carries the whole MP4 in data-video-url, so the
-// snapshot uses that instead, as download_content.js does.
+// entry when the setting is on. At lock the page first gets visibilitychange
+// -> hidden, and the video is paused right after (by Facebook's handler, and
+// by Chromium itself: a video kept from Facebook's pause still stopped, on
+// the emulator); ACTION_SCREEN_OFF reaches the app only ~0.5s after that
+// (device spike). So this capture-phase listener snapshots the PiP target
+// video (same selection as PIP_TOGGLE_JS) as the page is hidden and tells the
+// app at once ('hidden'), which starts the native player then rather than at
+// SCREEN_OFF. Armed, it tells the app the PiP video's sound ('prepare'), which
+// the native player loads then, paused: loaded at the lock, it started 0.5 s
+// later (emulator). On the way back (visible) it tells the app ('visible')
+// while a handoff is active, one of MainActivity's handback signals. The events go
+// through AstryxPage (PipBridge on older WebViews), by
+// window.__astryxHandoffTell, which pipHandbackJs uses too. Facebook plays
+// most videos through Media Source Extensions (a blob: currentSrc the native
+// player can't open); the player around such a video
+// (data-mcomponent="MVideo") lists the stream's own audio track, which
+// reel_comments_audio.js reads (soundUrl: as loud as the video, unlike the
+// MP4 in data-video-url, the fallback, which download_content.js uses).
 internal const val PIP_HANDOFF_ARM_JS = """
 (function() {
+  window.__astryxHandoffTell = window.__astryxHandoffTell || function(event, src) {
+    try {
+      if (window.AstryxPage) window.AstryxPage.postMessage(JSON.stringify({ call: 'handoff', event: event, src: src || '' }));
+      else PipBridge.onHandoffEvent(event, src || '');
+    } catch (e) {}
+  };
   if (window.__astryxHandoffListener) return;
-  var listener = function() {
-    if (document.visibilityState !== 'hidden') {
-      if (document.querySelector('[data-astryx-handoff-muted]')) {
-        try {
-          if (window.AstryxPage) window.AstryxPage.postMessage(JSON.stringify({ call: 'pageVisible' }));
-          else PipBridge.onPageVisible();
-        } catch (e) {}
-      }
-      return;
-    }
+  function pipVideo() {
     var best = document.querySelector('[data-astryx-pip-video]');
     if (!best) {
       best = window.__astryxLastActiveVideo;
@@ -611,19 +615,34 @@ internal const val PIP_HANDOFF_ARM_JS = """
         if (area > bestArea) { bestArea = area; best = videos[i]; }
       }
     }
-    var src = best ? String(best.currentSrc || '') : '';
-    if (src.indexOf('blob:') === 0 && best.closest) {
-      var player = best.closest('[data-video-url]');
-      var fileUrl = player && player.getAttribute('data-video-url');
+    return best;
+  }
+  function soundOf(video) {
+    var src = String(video.currentSrc || '');
+    if (src.indexOf('blob:') === 0 && video.closest) {
+      var player = video.closest('[data-video-url]');
+      var sounds = window.__astryxReelCommentsAudio;
+      var fileUrl = player && (sounds ? sounds.soundUrl(player) : player.getAttribute('data-video-url'));
       if (fileUrl && fileUrl.indexOf('https://') === 0) src = fileUrl;
     }
+    return src;
+  }
+  var listener = function() {
+    if (document.visibilityState !== 'hidden') {
+      if (document.querySelector('[data-astryx-handoff-muted]')) window.__astryxHandoffTell('visible');
+      return;
+    }
+    var best = pipVideo();
     window.__astryxHandoffVideo = best || null;
     window.__astryxHandoffSnapshot = best
-      ? { src: src, time: best.currentTime, wasPlaying: !best.paused }
+      ? { src: soundOf(best), time: best.currentTime, wasPlaying: !best.paused }
       : null;
+    if (best && !best.paused) window.__astryxHandoffTell('hidden');
   };
   window.__astryxHandoffListener = listener;
   document.addEventListener('visibilitychange', listener, true);
+  var video = pipVideo();
+  if (video && !video.paused) window.__astryxHandoffTell('prepare', soundOf(video));
 })();
 """
 
@@ -640,12 +659,13 @@ internal const val PIP_HANDOFF_DISARM_JS = """
 })();
 """
 
-// Runs at ACTION_SCREEN_OFF while in PiP. Returns the snapshot taken when the
-// page was hidden ({ src, time, wasPlaying }), then mutes and pauses that
-// video: Facebook restarts it by itself after unlock, so it must stay muted
-// until handback or there's double audio. The prior muted state is kept in
-// data-astryx-handoff-muted, which also marks the video for pipHandbackJs
-// (the PiP marker itself is removed by PIP_RESTORE_MODE_JS on PiP exit).
+// Runs as the handoff starts (the page hidden, or ACTION_SCREEN_OFF) while in
+// PiP. Returns the snapshot taken when the page was hidden ({ src, time,
+// wasPlaying }), then mutes and pauses that video: Facebook restarts it by
+// itself after unlock, so it must stay muted until handback or there's double
+// audio. The prior muted state is kept in data-astryx-handoff-muted, which
+// also marks the video for pipHandbackJs (the PiP marker itself is removed by
+// PIP_RESTORE_MODE_JS on PiP exit).
 internal const val PIP_HANDOFF_READ_JS = """
 (function() {
   var snapshot = window.__astryxHandoffSnapshot;
@@ -663,23 +683,75 @@ internal const val PIP_HANDOFF_READ_JS = """
 """
 
 /**
- * Hands playback back to the video PIP_HANDOFF_READ_JS muted: seeks to
- * [positionMs] (skipped when null, e.g. an aborted handoff; the start instead when it's at the
- * video's very end, which Facebook takes for a finished video and closes its viewer), restores its
- * muted state, removes the marker, calls play() only if [play], then clears
- * the handoff listener and snapshot, re-installing them if [rearm].
+ * Hands playback back to the video PIP_HANDOFF_READ_JS muted, from the native
+ * player, which plays on until the page tells the app 'handbackDone'.
+ * [positionMs] is where the native player was at [positionAtMs] (wall clock,
+ * as the page's Date.now()); null for an aborted handoff (the time is then
+ * left alone). Not [play] (paused from the lock screen): the video is put at
+ * that position, unmuted, and done at once. [play]: once the page is visible
+ * (Chromium pauses a hidden page's video), the video, still muted, is moved a
+ * little past the native player (by as long as its last move took to play,
+ * window.__astryxHandbackLead, at first 1 s; 1.7 s on the emulator), played,
+ * and played a little slower or faster until in step with it (up to 2 s
+ * ahead, 3 s behind: 1.5 s behind at first on the emulator); then unmuted:
+ * done. At the start instead of the video's very end, which Facebook takes
+ * for a finished video and closes its viewer. Done after 8 s anyway, or at
+ * once if the video can't play. Done also clears the handoff listener and
+ * snapshot, re-installing them if [rearm].
  */
-internal fun pipHandbackJs(positionMs: Long?, play: Boolean, rearm: Boolean): String = """
+internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean, rearm: Boolean): String = """
 (function() {
+  function rearm() {
+    $PIP_HANDOFF_DISARM_JS
+    ${if (rearm) PIP_HANDOFF_ARM_JS else ""}
+  }
   var v = document.querySelector('[data-astryx-handoff-muted]');
-  if (!v) return 'none';
-  ${if (positionMs != null) "var t = ${positionMs / 1000.0}; if (isFinite(v.duration) && v.duration > 0 && t >= v.duration - 0.5) t = 0; v.currentTime = t;" else ""}
-  v.muted = v.getAttribute('data-astryx-handoff-muted') === 'true';
-  v.removeAttribute('data-astryx-handoff-muted');
-  ${if (play) "var p = v.play(); if (p && p.catch) p.catch(function() {});" else ""}
+  if (!v) { rearm(); return 'none'; }
+  var position = ${if (positionMs != null) positionMs / 1000.0 else "null"}, at = $positionAtMs;
+  var started = Date.now(), movedAt = 0, timer = null;
+  function length() { return isFinite(v.duration) && v.duration > 0 ? v.duration : Infinity; }
+  // Where the native player is now (it loops the video).
+  function nativeAt() { return (position + (Date.now() - at) / 1000) % length(); }
+  function placed(t) { return t >= length() - 0.5 ? 0 : t; }
+  function done() {
+    if (timer) clearInterval(timer);
+    v.playbackRate = 1;
+    v.muted = v.getAttribute('data-astryx-handoff-muted') === 'true';
+    v.removeAttribute('data-astryx-handoff-muted');
+    // Before re-arming, whose 'prepare' the app takes only once the handback is done.
+    if (window.__astryxHandoffTell) window.__astryxHandoffTell('handbackDone');
+    rearm();
+  }
+  if (position === null || !$play) {
+    if (position !== null) v.currentTime = placed(nativeAt());
+    done();
+    return 'ok';
+  }
+  function step() {
+    if (document.visibilityState === 'hidden') return;
+    if (!movedAt) {
+      movedAt = Date.now();
+      v.currentTime = placed(nativeAt() + (window.__astryxHandbackLead || 1));
+      var p = v.play();
+      if (p && p.catch) p.catch(done);
+      return;
+    }
+    if (Date.now() - started > 8000) { done(); return; }
+    if (v.paused || v.seeking || v.readyState < 3) return;
+    if (movedAt > 0) {
+      window.__astryxHandbackLead = Math.min(4, Math.max(0.3, (Date.now() - movedAt) / 1000));
+      movedAt = -1;
+    }
+    var ahead = v.currentTime - nativeAt();
+    if (ahead > 0.08 && ahead < 2) { v.playbackRate = 0.5; return; }
+    if (ahead < -0.08 && ahead > -3) { v.playbackRate = 1.5; return; }
+    done();
+  }
+  timer = setInterval(step, 50);
+  step();
   return 'ok';
 })();
-""" + PIP_HANDOFF_DISARM_JS + (if (rearm) PIP_HANDOFF_ARM_JS else "")
+"""
 
 // Runs right after PIP_FOCUS_MODE_JS (and kept separate from it, see CLAUDE.md). Facebook's reels
 // scroller can re-wrap the PiP video after focus mode marked its ancestors: the new wrappers carry

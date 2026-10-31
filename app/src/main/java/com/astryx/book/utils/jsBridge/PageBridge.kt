@@ -74,7 +74,7 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
             pip.setVideoState(msg.optBoolean("playing"), msg.optInt("width"), msg.optInt("height"))
         }
         "pipAnomaly" -> bridges.pip?.logPipAnomaly(msg.optString("message")) ?: return false
-        "pageVisible" -> bridges.pip?.onPageVisible() ?: return false
+        "handoff" -> bridges.pip?.onHandoffEvent(msg.optString("event"), msg.optString("src")) ?: return false
         "pipVideoGone" -> bridges.pip?.onPipVideoGone() ?: return false
         "screenVideoPlaying" -> bridges.screen?.setVideoPlaying(msg.optBoolean("playing")) ?: return false
         "shareLink" -> {

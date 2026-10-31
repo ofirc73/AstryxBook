@@ -108,7 +108,7 @@ fun MessagesLayer(
     hidden: Boolean = false,
     onPipTarget: (PipTarget?) -> Unit = {},
     onVideoPlayingChanged: (Boolean, Int, Int) -> Unit = { _, _, _ -> },
-    onPipPageVisible: () -> Unit = {},
+    onPipHandoffEvent: (event: String, src: String) -> Unit = { _, _ -> },
     onPipVideoGone: () -> Unit = {},
     trackVideoPlaying: Boolean = false,
     onScreenVideoPlayingChanged: (Boolean) -> Unit = {},
@@ -396,7 +396,7 @@ fun MessagesLayer(
                             theme = ThemeChange { currentOnThemeColor(Color(it)) },
                             pip = PipBridge(
                                 { playing, width, height -> currentOnVideoPlayingChanged(playing, width, height) },
-                                onPipPageVisible,
+                                onPipHandoffEvent,
                                 onPipVideoGone
                             ),
                             screen = ScreenBridge { currentOnScreenVideoPlayingChanged(it) },

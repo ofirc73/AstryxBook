@@ -14,7 +14,8 @@ import org.junit.runner.RunWith
  * Tests for the lock-screen audio handoff scripts (PIP_HANDOFF_ARM_JS,
  * PIP_HANDOFF_READ_JS, PIP_HANDOFF_DISARM_JS, pipHandbackJs) against a real
  * WebView with a synthetic fixture, same harness approach as
- * PipFocusModeJsTest. The page's hidden/visible transitions are simulated by
+ * PipFocusModeJsTest. The events told to the app go through a fake PipBridge
+ * (the page has no AstryxPage). The page's hidden/visible transitions are simulated by
  * overriding document.visibilityState and dispatching visibilitychange.
  */
 @RunWith(AndroidJUnit4::class)
@@ -23,13 +24,13 @@ class PipHandoffJsTest {
     private fun String.unquoted() = removeSurrounding("\"")
 
     private class Harness {
-        @Volatile
-        var pageVisibleCalls = 0
+        // The handoff events told to the app ("prepare <src>", "hidden", "visible", "handbackDone").
+        val events: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
         inner class FakePipBridge {
             @JavascriptInterface
-            fun onPageVisible() {
-                pageVisibleCalls++
+            fun onHandoffEvent(event: String, src: String) {
+                events += "$event $src".trim()
             }
         }
 
@@ -38,6 +39,8 @@ class PipHandoffJsTest {
         fun loadHtml(html: String) = page.load("https://example.com/", html)
 
         fun eval(js: String) = page.eval(js)
+
+        fun waitFor(check: () -> Boolean) = page.waitFor(check = check)
     }
 
     // Fixture: a marked PiP video plus a bigger unmarked one. currentSrc,
@@ -76,6 +79,8 @@ class PipHandoffJsTest {
               var src = id === 'pip' && ${if (pipSrc == null) "null" else "'$pipSrc'"};
               Object.defineProperty(v, 'currentSrc', { get: function() { return src || 'https://video.example.net/' + id + '.mp4'; } });
               v.__time = 12.5;
+              Object.defineProperty(v, 'readyState', { get: function() { return 4; } });
+              Object.defineProperty(v, 'seeking', { get: function() { return false; } });
               Object.defineProperty(v, 'currentTime', {
                 get: function() { return this.__time; },
                 set: function(t) { this.__time = t; }
@@ -202,46 +207,143 @@ class PipHandoffJsTest {
         )
     }
 
-    // ── Visible signal ───────────────────────────────────────────────────────
+    // ── Events to the app ────────────────────────────────────────────────────
+
+    @Test
+    fun arming_tellsTheAppThePlayingPipVideosSound_toLoadForTheLock() {
+        val h = Harness()
+        h.loadFixture(pipPlaying = true)
+        h.eval(PIP_HANDOFF_ARM_JS)
+        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("prepare https://video.example.net/pip.mp4") })
+    }
+
+    @Test
+    fun hidingThePage_tellsTheAppAtOnce_whileThePipVideoPlays() {
+        // The app starts the native player then: ACTION_SCREEN_OFF came 0.5 s later (device spike).
+        val h = Harness()
+        h.loadFixture(pipPlaying = true)
+        h.eval(PIP_HANDOFF_ARM_JS)
+        h.setVisibility("hidden")
+        assertTrue(h.events.toString(), h.waitFor { h.events.lastOrNull() == "hidden" })
+
+        val paused = Harness()
+        paused.loadFixture(pipPlaying = false)
+        paused.eval(PIP_HANDOFF_ARM_JS)
+        paused.setVisibility("hidden")
+        paused.eval("1")
+        Thread.sleep(300)
+        assertEquals("a paused video has nothing to hand off", emptyList<String>(), paused.events.toList())
+    }
+
+    @Test
+    fun theSound_isTheStreamsAudioTrack_whenReelCommentsAudioReadsOne() {
+        // As loud as the video, where the MP4 in data-video-url is quieter (reel_comments_audio.js).
+        val h = Harness()
+        h.loadFixture(
+            pipSrc = "blob:https://m.facebook.com/1234",
+            pipPlayerUrl = "https://video.fbcdn.example/v/pip.mp4",
+        )
+        h.eval("window.__astryxReelCommentsAudio = { soundUrl: function (p) { return 'https://video.fbcdn.example/m412/audio.mp4'; } };")
+        h.eval(PIP_HANDOFF_ARM_JS)
+        h.setVisibility("hidden")
+        assertEquals("https://video.fbcdn.example/m412/audio.mp4", h.read().getString("src"))
+    }
 
     @Test
     fun visibleAgain_notifiesBridge_onlyWhileHandoffActive() {
         val h = Harness()
-        h.loadFixture()
+        h.loadFixture(pipPlaying = false)
         h.eval(PIP_HANDOFF_ARM_JS)
 
         h.setVisibility("hidden")
         h.setVisibility("visible") // no handoff happened yet
         h.eval("1") // flush
-        assertEquals(0, h.pageVisibleCalls)
+        Thread.sleep(300)
+        assertEquals(emptyList<String>(), h.events.toList())
 
         h.setVisibility("hidden")
         h.read()
         h.setVisibility("visible")
-        h.eval("1")
-        assertEquals(1, h.pageVisibleCalls)
+        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("visible") })
     }
 
     // ── Handback ─────────────────────────────────────────────────────────────
 
+    // Hidden at a lock while playing, read (muted and paused, as the native player takes over),
+    // visible again (unlocked).
+    private fun Harness.locked(pipMuted: Boolean = false, duration: Int? = null) {
+        loadFixture(pipPlaying = true, pipMuted = pipMuted)
+        duration?.let { eval("Object.defineProperty(document.getElementById('pip'), 'duration', { get: function () { return $it; } });") }
+        eval(PIP_HANDOFF_ARM_JS)
+        setVisibility("hidden")
+        read()
+        setVisibility("visible")
+        eval("window.__calls = [];")
+        waitFor { events.lastOrNull() == "visible" }
+        events.clear()
+    }
+
+    // The page's video put where the native player is now ([positionMs] at [atMs], playing on).
+    private fun Harness.inStepWithNative(positionMs: Long, atMs: Long, offsetS: Double = 0.0) =
+        eval("document.getElementById('pip').__time = ${positionMs / 1000.0} + (Date.now() - $atMs) / 1000 + $offsetS;")
+
+    private val pip = "document.getElementById('pip')"
+
     @Test
-    fun handback_setsTime_restoresMute_removesMarker_andPlaysWhenAsked() {
+    fun handback_playsTheVideoMuted_pastTheNativePlayer_andUnmutesItOnceInStep() {
+        // Stopped first, the native player left a break: Facebook took 1.7 s to play the video
+        // again (its seek, on the emulator).
         val h = Harness()
-        h.loadFixture(pipPlaying = true, pipMuted = false)
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
-        h.eval("window.__calls = [];")
+        h.locked()
+        val at = System.currentTimeMillis()
+        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = at, play = true, rearm = false))
 
-        h.eval(pipHandbackJs(positionMs = 45_250, play = true, rearm = false))
-
-        assertEquals(45.25, h.eval("document.getElementById('pip').currentTime").toDouble(), 0.001)
-        assertEquals("false", h.eval("document.getElementById('pip').muted"))
-        assertEquals(
-            "false",
-            h.eval("document.getElementById('pip').hasAttribute('data-astryx-handoff-muted')")
-        )
+        assertEquals("moved past the native player by the first lead (1 s)", 46.25, h.eval("$pip.currentTime").toDouble(), 0.2)
         assertEquals("play:pip", h.eval("window.__calls.join(',')").unquoted())
+        assertEquals("unmuted before in step with the native player", "true", h.eval("$pip.muted"))
+        assertEquals(emptyList<String>(), h.events.toList())
+
+        h.inStepWithNative(45_250, at)
+        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("handbackDone") })
+        assertEquals("false", h.eval("$pip.muted"))
+        assertEquals("false", h.eval("$pip.hasAttribute('data-astryx-handoff-muted')"))
+        assertEquals("1", h.eval("$pip.playbackRate"))
+    }
+
+    @Test
+    fun handback_aheadOfTheNativePlayer_playsSlower_andBehindIt_faster() {
+        val h = Harness()
+        h.locked()
+        val at = System.currentTimeMillis()
+        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = at, play = true, rearm = false))
+        assertTrue(h.waitFor { h.eval("$pip.playbackRate") == "0.5" })
+        h.inStepWithNative(45_250, at, offsetS = -1.0)
+        assertTrue(h.waitFor { h.eval("$pip.playbackRate") == "1.5" })
+        assertEquals("true", h.eval("$pip.muted"))
+    }
+
+    @Test
+    fun handback_waitsForThePageToBeVisible() {
+        // Chromium pauses a hidden page's video: onStart comes before the page is visible.
+        val h = Harness()
+        h.locked()
+        h.eval("window.__vis = 'hidden'; 1")
+        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        Thread.sleep(300)
+        assertEquals(12.5, h.eval("$pip.currentTime").toDouble(), 0.001)
+        assertEquals("", h.eval("window.__calls.join(',')").unquoted())
+        h.setVisibility("visible")
+        assertTrue(h.waitFor { h.eval("window.__calls.join(',')").unquoted() == "play:pip" })
+    }
+
+    @Test
+    fun handback_ofAVideoThatCantPlay_isDoneAtOnce() {
+        val h = Harness()
+        h.locked()
+        h.eval("HTMLMediaElement.prototype.play = function () { return Promise.reject(new Error('no source')); };")
+        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("handbackDone") })
+        assertEquals("false", h.eval("$pip.muted"))
     }
 
     @Test
@@ -249,89 +351,61 @@ class PipHandoffJsTest {
         // The lock-screen player reached the end of a 260 s video; seeking the page's video
         // there made Facebook close the viewer (back to the feed, a black PiP window).
         val h = Harness()
-        h.loadFixture(pipPlaying = true)
-        h.eval("Object.defineProperty(document.getElementById('pip'), 'duration', { get: function () { return 260; } });")
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
-
-        h.eval(pipHandbackJs(positionMs = 259_766, play = true, rearm = false))
-
-        assertEquals(0.0, h.eval("document.getElementById('pip').currentTime").toDouble(), 0.001)
+        h.locked(duration = 260)
+        h.eval(pipHandbackJs(positionMs = 259_766, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        assertEquals(0.0, h.eval("$pip.currentTime").toDouble(), 0.001)
     }
 
     @Test
     fun handback_beforeTheEnd_keepsThePosition() {
         val h = Harness()
-        h.loadFixture(pipPlaying = true)
-        h.eval("Object.defineProperty(document.getElementById('pip'), 'duration', { get: function () { return 260; } });")
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
-
-        h.eval(pipHandbackJs(positionMs = 200_000, play = true, rearm = false))
-
-        assertEquals(200.0, h.eval("document.getElementById('pip').currentTime").toDouble(), 0.001)
+        h.locked(duration = 260)
+        h.eval(pipHandbackJs(positionMs = 200_000, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        assertEquals(201.0, h.eval("$pip.currentTime").toDouble(), 0.2)
     }
 
     @Test
     fun handback_doesNotPlay_whenNativePlayerWasPaused() {
         val h = Harness()
-        h.loadFixture(pipPlaying = true)
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
-        h.eval("window.__calls = [];")
-
-        h.eval(pipHandbackJs(positionMs = 20_000, play = false, rearm = false))
-
+        h.locked()
+        h.eval(pipHandbackJs(positionMs = 20_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
         assertEquals("", h.eval("window.__calls.join(',')").unquoted())
+        assertEquals(20.0, h.eval("$pip.currentTime").toDouble(), 0.2)
+        assertEquals("false", h.eval("$pip.muted"))
+        assertTrue(h.events.toString(), h.waitFor { h.events == listOf("handbackDone") })
     }
 
     @Test
     fun handback_restoresMutedTrue_whenVideoWasMutedBefore() {
         val h = Harness()
-        h.loadFixture(pipPlaying = true, pipMuted = true)
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
-
-        h.eval(pipHandbackJs(positionMs = 1_000, play = false, rearm = false))
-
-        assertEquals("true", h.eval("document.getElementById('pip').muted"))
+        h.locked(pipMuted = true)
+        h.eval(pipHandbackJs(positionMs = 1_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
+        assertEquals("true", h.eval("$pip.muted"))
     }
 
     @Test
     fun abortedHandback_withoutPosition_leavesTimeAlone() {
         val h = Harness()
-        h.loadFixture(pipPlaying = true)
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
-
-        h.eval(pipHandbackJs(positionMs = null, play = false, rearm = false))
-
-        assertEquals(12.5, h.eval("document.getElementById('pip').currentTime").toDouble(), 0.001)
-        assertEquals("false", h.eval("document.getElementById('pip').muted"))
+        h.locked()
+        h.eval(pipHandbackJs(positionMs = null, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
+        assertEquals(12.5, h.eval("$pip.currentTime").toDouble(), 0.001)
+        assertEquals("false", h.eval("$pip.muted"))
     }
 
     @Test
     fun handback_clearsSnapshotAndListener_andRearmsWhenAsked() {
         val h = Harness()
-        h.loadFixture(pipPlaying = true)
-        h.eval(PIP_HANDOFF_ARM_JS)
-        h.setVisibility("hidden")
-        h.read()
+        h.locked()
 
-        h.eval(pipHandbackJs(positionMs = 1_000, play = false, rearm = false))
+        h.eval(pipHandbackJs(positionMs = 1_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
         assertEquals("null", h.eval("window.__astryxHandoffSnapshot"))
         assertEquals("null", h.eval("window.__astryxHandoffListener"))
         h.setVisibility("hidden")
         assertEquals("null", h.eval("window.__astryxHandoffSnapshot"))
 
-        h.eval(pipHandbackJs(positionMs = null, play = false, rearm = true))
+        h.eval(pipHandbackJs(positionMs = null, positionAtMs = System.currentTimeMillis(), play = false, rearm = true))
         h.setVisibility("visible")
-        h.eval("document.getElementById('pip').__paused = false;")
+        h.eval("$pip.__paused = false;")
         h.setVisibility("hidden")
         assertEquals("true", h.eval("window.__astryxHandoffSnapshot.wasPlaying"))
     }

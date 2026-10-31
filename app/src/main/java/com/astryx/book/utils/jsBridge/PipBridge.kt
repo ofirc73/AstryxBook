@@ -10,7 +10,7 @@ private const val TAG = "AstryxbookPiP"
  */
 class PipBridge(
     private val onVideoStateChanged: (Boolean, Int, Int) -> Unit,
-    private val onPageVisibleCallback: () -> Unit = {},
+    private val onHandoffEventCallback: (event: String, src: String) -> Unit = { _, _ -> },
     private val onVideoGoneCallback: () -> Unit = {},
 ) {
     @JavascriptInterface
@@ -38,13 +38,14 @@ class PipBridge(
         Log.w(TAG, "PiP focus mode: unexpected visible element(s): $message")
     }
 
-    // Called by PIP_HANDOFF_ARM_JS when the page becomes visible again while
-    // a lock-screen audio handoff is active (the user unlocked): one of the
-    // handback signals. Runs on the JS bridge thread, not the main thread.
+    // Lock-screen audio handoff events from PIP_HANDOFF_ARM_JS and pipHandbackJs: 'prepare' (armed:
+    // [src], the PiP video's sound), 'hidden' (the screen going off), 'visible' (unlocked, a
+    // handback signal), 'handbackDone' (the page plays in step with the native player). Runs on
+    // the JS bridge thread, not the main thread.
     @JavascriptInterface
-    fun onPageVisible() {
-        Log.d(TAG, "PipBridge.onPageVisible")
-        onPageVisibleCallback()
+    fun onHandoffEvent(event: String, src: String) {
+        Log.d(TAG, "PipBridge.onHandoffEvent: $event")
+        onHandoffEventCallback(event, src)
     }
 
     // Called by PIP_VIDEO_GONE_WATCH_JS when the PiP video has been gone from the page for a

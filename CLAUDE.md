@@ -203,6 +203,16 @@ user-visible change.
   `onPictureInPictureModeChanged`/`isInPipMode`, not `pipEnteringTrigger`. Facebook's
   players pause the video on each resize; the keep-playing guard
   (`pipKeepPlayingActivateJs`) undoes that while in PiP.
+- Lock-screen audio hand-off (`LockScreenAudioController`, the `PIP_HANDOFF_*` scripts): at a lock
+  the page's video stops as the page is hidden (Chromium pauses it too, not only Facebook), so the
+  native player starts on the page's `hidden` event (`handoff` page call), not at
+  `ACTION_SCREEN_OFF` (0.5 s later on the phone), from the sound loaded paused at PiP entry
+  (`prepare`; `LockScreenAudioService` shows no notification for it until it plays): a 0.1 s gap on
+  the emulator, 2.1 s before. On unlock the native player plays on while `pipHandbackJs` plays the
+  page's video muted, past it by the last seek's time, slower or faster until in step, then
+  unmuted (`handbackDone` stops the native player). ExoPlayer requests audio focus when it plays,
+  and Chromium pauses the page on losing it: a native player left set to play took it once.
+  To read the timing, `dumpsys audio` lists each player's start and stop and the focus changes.
 - Page scripts use optional chaining (`?.`, Chrome 80+), so on a WebView older than
   that (e.g. the stock API 26 emulator image, Chrome 69) `scripts.js` and most others
   fail to parse. Keep new PiP scripts ES5-style; they also run there. On such a WebView the app
@@ -227,11 +237,12 @@ user-visible change.
   reel ad, turn *Remove ads* off (otherwise the reel is emptied first).
 - Facebook plays most videos through Media Source Extensions, so a `<video>`'s
   `currentSrc` is `blob:`. The mobile site's player (`data-mcomponent="MVideo"`) carries
-  the whole MP4 in `data-video-url`; downloads (`download_content.js`) and the lock-screen
-  audio hand-off (`PIP_HANDOFF_ARM_JS`) use that. Its sound is quieter than what the player streams
+  the whole MP4 in `data-video-url`; downloads (`download_content.js`) use that. Its sound is
+  quieter than what the player streams
   (8.7 dB on the emulator's test reel, read 2026-10-31): the stream's own tracks are in the player's
   `data-extra` (`dash_prefetch_representations`; a track's `base_url` without byte ranges is its
-  whole fragmented MP4, which `decodeAudioData` reads).
+  whole fragmented MP4, which `decodeAudioData` and ExoPlayer read). The reel comments sound and the
+  lock-screen hand-off play that (`reel_comments_audio.js` `soundUrl`).
 - A reel's comments (mobile site) are a screen of their own at "/" (pushState): Facebook removes the
   reel's `<video>` (about a second after the tap, set back to 0 on the way out), and Back draws it again from 0, passing through `/watch/` (the new
   reel's `play` fires there, its `playing` at the reel's path, the query comes back later).

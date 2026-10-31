@@ -301,7 +301,7 @@ internal fun PipEffects(
     LaunchedEffect(pipHandback) {
         pipHandback?.let { request ->
             pipNavigator.evaluateJavaScript(
-                pipHandbackJs(request.positionMs, request.play, request.rearm)
+                pipHandbackJs(request.positionMs, request.positionAtMs, request.play, request.rearm)
             ) {
                 Log.d("AstryxbookPiP", "handback JS: $request -> $it")
             }

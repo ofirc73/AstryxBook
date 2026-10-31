@@ -38,6 +38,10 @@ private const val TAG = "AstryxbookPiP"
 class LockScreenAudioService : MediaSessionService() {
 
     private var session: MediaSession? = null
+    // Whether the sound has played: one loaded for the next lock (LockScreenAudioController
+    // prepare, paused at PiP entry) shows no notification, which Media3 would show for it, paused,
+    // during every PiP.
+    private var played = false
 
     override fun onCreate() {
         super.onCreate()
@@ -92,6 +96,11 @@ class LockScreenAudioService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        if (session.player.playWhenReady) played = true
+        if (played) super.onUpdateNotification(session, startInForegroundRequired)
+    }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.d(TAG, "LockScreenAudioService: task removed, stopping")
