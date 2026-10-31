@@ -284,6 +284,12 @@ rewritten to the new one, keeping its schedule.
   about 25 s of it. Thirty windows keeps the feed loading through those pauses (a batch is about
   230 KB), so the next scroll starts with more. A long fast scroll still outruns Facebook's
   server, and Facebook's feed ends after about 240 posts ("No more posts to fetch").
+- An early ask for the feed's next posts that brings nothing is made once more after 9 s. Read on
+  the phone with thirty windows (2026-11-01): early asks are answered in 0.7-1.4 s (slow ones up to
+  8 s), but about once a session one brings nothing until the placeholder reaches the screen (35 s
+  at the start of a session, 15 s in another), so the pause before it filled nothing. Facebook took
+  repeated asks for the same row (11 in that session) without sending a post twice. At the feed's
+  end the list stops growing, and it's asked again only once. Covered by `FeedPrefetchJsTest`.
 - Reels: Facebook's blue "Open app" button showed in the top bar when *Download* was off (only
   `download_content.js` hid it). `scripts.js`, which always runs, now hides "Open app" buttons,
   found by their icon in any language. The copy button no longer shows on Reels pages: a Like
@@ -604,7 +610,9 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   the app passes it on to Facebook while it's still below the window (`window.__astryxFeedPrefetched`;
   `FeedPrefetchJsTest`). That the next posts then arrive is untestable for now: the test account's
   feed stops after one batch, in Chrome on the emulator too (2026-10-30, after it followed NASA,
-  National Geographic and BBC News); the check counts them and says so.
+  National Geographic and BBC News); the check counts them and says so. Asking again when an early
+  ask brings nothing has no live check: it waits for Facebook to drop an ask, which no run can
+  bring about.
 - `backOnTheFeed_scrollsToTheTop_thenLeavesTheApp`: `scripts.js` `isFeed()` still recognising the
   feed, and Back on it scrolling to the top, then sending the app to the background
   (`BackHandlerJsTest`).
