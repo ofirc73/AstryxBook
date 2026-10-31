@@ -17,6 +17,8 @@ data class HandoffRead(
 data class PipHandback(
     val seq: Int,
     val positionMs: Long?,
+    /** When the native player was at [positionMs] (wall clock, as the page's Date.now()). */
+    val positionAtMs: Long,
     val play: Boolean,
     /** Re-install the handoff listener afterwards (still in PiP). */
     val rearm: Boolean,

@@ -146,6 +146,15 @@ rewritten to the new one, keeping its schedule.
   only once the script noticed the reel had stopped. It now plays silently in step with the reel as
   soon as it's decoded and fades in when Facebook calls the reel's `pause()` (on the emulator, in
   the same millisecond).
+- No more break in the sound when the phone locks or unlocks with a video in PiP (lock-screen
+  audio). Locking: the page's video stops as the page is hidden, and the lock-screen player started
+  only at the screen-off signal (0.5 s later on the phone) and then loaded the video's MP4 (2.1 s of
+  silence in all on the emulator). It now starts the moment the page is hidden, from the video's
+  sound loaded (paused, with no notification) when PiP started: 0.1 s on the emulator. Unlocking:
+  the lock-screen player stopped first, and the page's video took 2.2 s to play again there. It
+  now plays on until the page's video, started muted just past it, plays in step, then the two
+  swap. The lock-screen sound is now the stream's own audio track (as loud as the video, unlike the
+  MP4, and quick to load), which also loops without the half-second gap the MP4 had.
 - The sound in a reel's comments was a little quieter than the reel (v1.39.3, on the phone): it came
   from the reel's MP4 (`data-video-url`), whose sound is quieter than the one Facebook's player
   streams (8.7 dB on the emulator's test reel). It's now the stream's own audio track (listed in the
@@ -509,10 +518,16 @@ than live Facebook):
 
 Lock-screen audio, fullscreen and auto-desktop have their own suites:
 
-- `PipHandoffJsTest` (12, real `WebView`): the snapshot taken at page hide
+- `PipHandoffJsTest` (23, real `WebView`): the snapshot taken at page hide
   even when the video is paused right after, mute/pause and restore of the
-  prior mute state, the visible-again signal only while a handoff is active,
-  handback position/play behaviour, and listener cleanup/re-arming.
+  prior mute state, the events told to the app (the sound to load when armed,
+  hidden, visible again only while a handoff is active, handback done), the
+  stream's audio track as the sound, the handback (muted past the native
+  player until in step, slower or faster, waiting for the page to be visible,
+  done at once for a video that can't play, position/play behaviour), and
+  listener cleanup/re-arming. No live check: Facebook's part, the player's
+  audio track, is checked by the reel comments one; the lock itself runs on
+  the emulator (`MainActivityPipTest`, `-e pin`).
 - `LockScreenHandoffTest` (8): handoff eligibility (`https://` only, not
   `blob:`/empty, not already paused) and parsing of the page's answer.
 - `FullscreenControllerTest` (6): the show/hide contract (second show
