@@ -124,8 +124,8 @@ rewritten to the new one, keeping its schedule.
 - On the Reels tab the Settings gear sat on Facebook's tab bar, over its last tab (Marketplace):
   the phone shows the tab bar above the reel there. The gear now goes just below the tab bar
   whenever one is showing. Covered by `ReelsSettingsButtonJsTest` and the live check
-  `theReelsSettingsGear_isShown_clearOfFacebooksTabBar` (a gap while the test account's reel page
-  has no tab bar).
+  `theReelsSettingsGear_isShown_clearOfFacebooksTabBar` (the tab bar part untestable: the test
+  account's reel page never has one).
 - A reel's sound goes on while its comments are open, and Back picks the reel up where the sound
   got to, as in Facebook's app. m.facebook.com opens a reel's comments as a screen of their own: it
   stopped the reel and removed it, and Back started it again from the beginning.
