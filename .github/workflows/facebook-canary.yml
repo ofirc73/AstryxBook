@@ -1,5 +1,9 @@
 name: Daily Facebook check
 
+# By hand only (workflow_dispatch): the daily check runs on the owner's PC, tools/canary.ps1 every
+# day by tools/schedule-canary.ps1, on its emulator's own login. Here, every run is a new emulator
+# on a new IP replaying the same cookies, and Facebook ended that session every few days.
+#
 # Runs LiveFacebookCanaryTest, the app against today's real m.facebook.com, to catch Facebook
 # changing the pages the app's scripts rely on (the CI checks run on fixed test pages and can't).
 # Logged in to a Facebook TEST account through its session cookies in the FB_TEST_COOKIES secret
@@ -16,12 +20,6 @@ name: Daily Facebook check
 # the checks with nothing to check (no ad came) 7 runs in a row opens a second issue ("Report gaps").
 
 on:
-  # GitHub starts scheduled runs hours late or not at all (in this repo about half of them;
-  # three slots a day still missed whole days), so the check is scheduled every 2 hours from
-  # 05:37 to 17:37 UTC and the later runs stand down once one has run (the due job). Off the
-  # full hour, when GitHub delays the most runs.
-  schedule:
-    - cron: '37 5-17/2 * * *' # from 08:37 in Israel in summer, 07:37 in winter
   # Runs a day are capped (MAX_A_DAY in the due job); force is for the run that checks freshly
   # renewed cookies (tools/renew-fb-cookies.ps1).
   workflow_dispatch:
@@ -51,7 +49,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          EVENT: ${{ github.event_name }}
           FORCE: ${{ inputs.force }}
           # Full runs a UTC day, any branch, by hand or not. Facebook ended the test account's
           # session the night after each day of 10+ runs (2026-10-26, 2026-10-30): every run is a
@@ -63,7 +60,7 @@ jobs:
           # Today's (UTC) other runs whose checks got to a result, passing or failing; one that was
           # cancelled, timed out or stood down doesn't count. The latest runs are filtered here:
           # the API's own branch= and created= filters once returned nothing for a run that day,
-          # and the late slot ran the checks a second time.
+          # and a run late in the day ran the checks a second time.
           TODAY=$(date -u +%F)
           RUNS=$(gh api "repos/$GH_REPO/actions/workflows/facebook-canary.yml/runs?per_page=50" \
             -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and (.created_at | startswith(\"$TODAY\")))
@@ -76,12 +73,6 @@ jobs:
               -q '.jobs[] | select(.name == "canary") | .conclusion') || continue
             [ "$RESULT" = success ] || [ "$RESULT" = failure ] || continue
             COUNT=$((COUNT + 1))
-            # A scheduled run: once a day on its branch.
-            if [ "$EVENT" = schedule ] && [ "$BRANCH" = "$GITHUB_REF_NAME" ]; then
-              echo "Today's check already ran: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$ID"
-              echo run=false >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
           done <<< "$RUNS"
           if [ "$COUNT" -ge "$MAX_A_DAY" ]; then
             echo "::notice title=Daily Facebook check::$COUNT runs today already (at most $MAX_A_DAY, to keep the test account's session): stood down. Check branches on the local emulator (tools/canary.ps1)."
