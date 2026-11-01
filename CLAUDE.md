@@ -83,26 +83,27 @@ user-visible change.
   Messages layer or to Back runs the whole live suite on the local emulator, with the chat
   (`-e fbChat`), before it's merged: each check starts a fresh app, so only the sequence check
   (`aPostThenAReelFromAChat_backEndsOnTheFeed_withNothingLeftBehind`) catches one flow breaking the
-  next (v1.35.16 shipped a reel that replayed on every Back that way). `facebook-canary.yml` runs them daily on GitHub (from 08:37 Israel; GitHub drops many scheduled
-  runs, so it's scheduled every 2 hours until 17:37 UTC, and the later runs stand down once one
-  has run),
-  logged in to a Facebook test account through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64; the Messages
-  layer checks open the chat in `-e fbChat`: its address, `e2ee/t/<id>` or a bare id; skipped without
-  it), and reports failures
-  in one "Daily Facebook check failed" issue; a check that passed only after a workaround (the reel
-  check's second Home) prints a `CANARY NOTE:` line (`note()`), shown as a warning on the run. A part
+  next (v1.35.16 shipped a reel that replayed on every Back that way). The daily check runs on the
+  owner's PC since 2026-11-01: a Windows scheduled task (`tools/schedule-canary.ps1`, registers it;
+  `-Remove`) runs `tools/canary.ps1 -Chat … -Pin …` every day (as soon as it can if the PC was off),
+  on the emulator's own login, the Messages layer checks included. It reports through
+  `.github/scripts/canary-issue.sh`, as the workflow does: failures in one "Daily Facebook check
+  failed" issue, closed when the checks pass again; a check that passed only after a workaround (the
+  reel check's second Home) prints a `CANARY NOTE:` line (`note()`), listed in the issue. A part
   Facebook gave nothing to check this run (no ad came) is a `gap(key, …)`; the same key 7 runs in a
-  row opens a "parts unchecked" issue. A part no run can check (the test account never sees it) is
-  `untestable(…)`: in the output, not a warning. A check that finds none of what it checks fails: never a note
-  or gap for that (the feed check's "no feed posts" note hid Remove ads breaking for days). Never put a
-  personal account's cookies there. At most 2 full runs a UTC day (`MAX_A_DAY`, any branch, by
-  hand too): Facebook ended the test account's session the night after each day of 10+ runs, so
-  check a branch on the local emulator (`tools/canary.ps1`), not with `gh workflow run`. When the
-  issue says the session expired, the user renews it with `tools/renew-fb-cookies.ps1` (from the
-  emulator's debug app login; it never shows the values, and starts one run past the limit).
-  The Messages layer checks run only on the local emulator
-  (`tools/canary.ps1 -Chat e2ee/t/<id>`): the test account's chat is end-to-end encrypted, and
-  GitHub's emulator, logged in by cookies alone, gets its restore prompt instead of its messages
+  row opens a "parts unchecked" issue (each run's gaps in `%LOCALAPPDATA%\Astryxbook\canary\gaps`).
+  A part no run can check (the test account never sees it) is `untestable(…)`: in the output, not a
+  warning. A check that finds none of what it checks fails: never a note or gap for that (the feed
+  check's "no feed posts" note hid Remove ads breaking for days). `facebook-canary.yml` (GitHub, by
+  hand only now) runs them logged in through the `FB_TEST_COOKIES` secret (`-e fbCookies`, base64);
+  every run there is a new emulator on a new IP replaying the same cookies, and Facebook ended the
+  session every few days (and sooner after a day of many runs, local ones on the same account
+  included: keep local live runs to what a change needs). At most 2 of its runs a UTC day
+  (`MAX_A_DAY`); `tools/renew-fb-cookies.ps1` renews the secret from the emulator's login (it never
+  shows the values; the user runs it). Never put a personal account's cookies there. The Messages
+  layer checks open the chat in `-e fbChat` (its address, `e2ee/t/<id>` or a bare id; skipped
+  without it) and run only on the local emulator: the test account's chat is end-to-end encrypted,
+  and GitHub's emulator, logged in by cookies alone, gets its restore prompt instead of its messages
   (tried 2026-10-24 with an `FB_TEST_CHAT` secret: all three failed). Leave that secret unset.
 - Release builds are minified (R8 full mode); debug builds and the tests aren't. A class or
   constructor something creates by reflection needs a keep rule in `proguard-rules.pro` (v1.25.1
