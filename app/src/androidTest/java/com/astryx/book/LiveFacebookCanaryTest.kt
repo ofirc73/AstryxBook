@@ -311,7 +311,9 @@ class LiveFacebookCanaryTest {
             eval("!!$gear && $gear.getClientRects().length > 0") == "true"
         })
         if (eval("!!document.querySelector('div[role=tablist] [role=tab]')") != "true") {
-            gap("reels-tab-bar", "no tab bar above the reel: the gear's place below it wasn't checked")
+            // The test account's reel page never has it (its Reels tab shows "Content not found"):
+            // a gap every run would open the "parts unchecked" issue for nothing.
+            untestable("no tab bar above the reel for the test account: the gear's place below it wasn't checked")
             return
         }
         assertEquals("the reel page's Settings gear is on a tab of Facebook's tab bar (${pageShape()})", "true", eval(
