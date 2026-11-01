@@ -79,8 +79,8 @@ class ReelCommentsAudioJsTest {
                 };
                 AudioContext.prototype.createBufferSource = function () {
                   return { connect: function (g) { this.out = g; },
-                    start: function (when, at) { this.at = at; window.__sources.push(this); },
-                    stop: function () { this.stopped = true; } };
+                    start: function (when, at) { this.when = when; this.at = at; window.__sources.push(this); },
+                    stop: function (when) { this.stopped = true; this.stopWhen = when; } };
                 };
                 AudioContext.prototype.createGain = function () {
                   return { gain: { value: 1, setTargetAtTime: function (v) { this.value = v; } }, connect: function () {} };
@@ -226,10 +226,10 @@ class ReelCommentsAudioJsTest {
         // Moved past the sound by the first lead (0.3 s), once.
         assertTrue("the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})",
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
-        // Ready at 21.3 while the sound is at 21: ahead, so it plays slower, by the gap per second
-        // (0.5x until in step before, seen on the phone).
+        // Ready at 21.3 while the sound is at 21: ahead, so it's held still until the sound gets
+        // there (played slower, it was seen in slow motion and jittering on the phone).
         h.eval("${h.v2}.__rs = 4; 1")
-        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.7"))
+        assertTrue(h.waitFor("${h.v2}.playbackRate === 0.0625"))
         assertEquals("false", h.eval("!!${h.sound}.stopped"))
         // In step: heard again, at its own speed, and the sound stops.
         h.soundAt(21.3)
@@ -492,6 +492,42 @@ class ReelCommentsAudioJsTest {
     }
 
     @Test
+    fun aLongSound_playsFromASliceFirst_thenTheWholeOneTakesOverAtTheSameSpot() {
+        // The whole of a 165 s video's sound took 0.7 s to decode on the phone, more than Facebook
+        // takes to stop the reel: a break going into the comments. A slice of it decodes at once.
+        val h = Harness()
+        h.load(time = 30.0, setup = streamJs(fragments = 30))
+        h.tapComment()
+        assertTrue(h.waitFor("window.__sources.length >= 2"))
+        assertEquals("the slice (from just before the reel's time, 20 s of it) decoded first, then the whole",
+            "[\"slice 14+10\",\"whole\"]", h.json("window.__decodes"))
+        // The slice played silently along with the reel at 30 s: 1.885 s into it (it's taken to start
+        // 114.7 ms after its first fragment, at 28 s).
+        val slice = "window.__sources[0]"
+        assertEquals(1.885, h.eval("$slice.at").toDouble(), 0.01)
+        assertEquals("false", h.eval("$slice.loop"))
+        // The whole one takes over 50 ms on, through the same gain, at the slice's spot then, found
+        // by matching the two: the slice really starts 100 ms after its fragment.
+        val whole = "window.__sources[1]"
+        assertEquals(0.05, h.eval("$whole.when").toDouble(), 0.001)
+        assertEquals(30.035, h.eval("$whole.at").toDouble(), 0.005)
+        assertEquals("true", h.eval("$whole.loop"))
+        assertEquals(0.05, h.eval("$slice.stopWhen").toDouble(), 0.001)
+        assertEquals("true", h.eval("$whole.out === $slice.out"))
+        h.commentsOpen()
+        assertTrue("the whole sound wasn't heard in the comments", h.waitFor("$whole.out.gain.value === 1"))
+    }
+
+    @Test
+    fun aShortSound_isDecodedWhole_only() {
+        val h = Harness()
+        h.load(time = 12.5, setup = streamJs(fragments = 15))
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        assertEquals("[\"whole\"]", h.json("window.__decodes"))
+    }
+
+    @Test
     fun theMessagesLayer_isLeftAlone() {
         val h = Harness()
         h.load(setup = "window.__astryxMessagesLayer = true;")
@@ -502,6 +538,45 @@ class ReelCommentsAudioJsTest {
 
     private companion object {
         const val REEL_PATH = "/reel/1360854416127071/"
+
+        // A stream audio track as Facebook serves it: an init, an index (sidx) and [fragments] of
+        // 2 s each, and a decoder that, like the real one, returns a slice's sound starting 100 ms
+        // after its first fragment (none for the first). The sound is the same noise in both, at
+        // 1000 samples a second. window.__decodes: 'whole' or 'slice <first>+<count>'.
+        fun streamJs(fragments: Int) = """
+            (function () {
+              var RATE = 1000, FRAGS = $fragments, FRAG_S = 2, FRAG_BYTES = 100, DELAY = 0.1;
+              // Smoothed over 4 samples, as sound is: matched every second sample, as the script does.
+              function white(i) { var x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x) - 0.5; }
+              function noise(i) { return white(i) + white(i + 1) + white(i + 2) + white(i + 3); }
+              var init = 32, sidx = 32 + 12 * FRAGS, total = init + sidx + FRAGS * FRAG_BYTES;
+              var data = new ArrayBuffer(total), dv = new DataView(data), b = new Uint8Array(data);
+              dv.setUint32(0, 16); b.set([102, 116, 121, 112], 4);
+              dv.setUint32(16, 16); b.set([109, 111, 111, 118], 20);
+              dv.setUint32(init, sidx); b.set([115, 105, 100, 120], init + 4);
+              dv.setUint32(init + 12, 1); dv.setUint32(init + 16, RATE); dv.setUint16(init + 30, FRAGS);
+              for (var i = 0; i < FRAGS; i++) {
+                dv.setUint32(init + 32 + 12 * i, FRAG_BYTES); dv.setUint32(init + 36 + 12 * i, FRAG_S * RATE);
+                b[init + sidx + i * FRAG_BYTES] = i;
+              }
+              window.fetch = function (u) {
+                window.__fetched.push(u);
+                return Promise.resolve({ ok: true, arrayBuffer: function () { return Promise.resolve(data.slice(0)); } });
+              };
+              function sound(from, seconds) {
+                var n = Math.round(seconds * RATE), c = new Float32Array(n), at = Math.round(from * RATE);
+                for (var j = 0; j < n; j++) c[j] = noise(at + j);
+                return { duration: seconds, sampleRate: RATE, getChannelData: function () { return c; } };
+              }
+              window.__decodes = [];
+              AudioContext.prototype.decodeAudioData = function (d) {
+                if (d.byteLength === total) { __decodes.push('whole'); return Promise.resolve(sound(0, FRAGS * FRAG_S)); }
+                var k = new Uint8Array(d)[init], count = (d.byteLength - init) / FRAG_BYTES, skip = k ? DELAY : 0;
+                __decodes.push('slice ' + k + '+' + count);
+                return Promise.resolve(sound(k * FRAG_S + skip, count * FRAG_S - skip));
+              };
+            })();
+        """.trimIndent()
         // As the page's attribute holds it, and as the script reads it.
         const val MP4 = "https://video.fbcdn.example/v/reel.mp4?oh=1&amp;oe=2"
         const val MP4_URL = "https://video.fbcdn.example/v/reel.mp4?oh=1&oe=2"

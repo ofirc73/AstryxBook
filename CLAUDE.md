@@ -266,7 +266,11 @@ user-visible change.
   the same `<video>`, which Web Audio routes only once (`InvalidStateError` after): the silencing
   gain is kept on the element. To check the sound's timing against the reel, record the reel through
   a `ScriptProcessor` and calibrate the recording's delay with a click in a generated WAV: uncalibrated,
-  one run showed a 64 ms offset that wasn't there.
+  one run showed a 64 ms offset that wasn't there. The stream's audio track is a fragmented MP4 with an
+  index (`sidx`, fragments of about 2 s): `decodeAudioData` decodes the init plus any run of fragments
+  (20 s in ~30 ms; the whole 165 s took 0.7 s on the phone), its sound starting 105-115 ms after the
+  first fragment's start (the padding it drops from every decode), which the script measures against
+  the whole sound and keeps (`astryxSliceDelay`).
 - *Wrap text when zoomed* (`text_wrap.js`, main view only, with pinch to zoom on) narrows text
   blocks to the visual viewport after a pinch settles. m.facebook.com is laid out on the
   server: text is `white-space: pre` with the line breaks in the text, and every box has a

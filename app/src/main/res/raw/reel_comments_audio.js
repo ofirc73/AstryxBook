@@ -10,8 +10,11 @@
 // the reel's pause() it's faded in, at once (v1.39.2 started it only then, after noticing the reel
 // had stopped: a short cut, on the phone). An <audio> took 1-8 s on the emulator to play after a
 // seek, even from memory; a decoded sound starts at the exact spot (fetched and decoded in about a
-// second there, about when Facebook stops the reel; when later, it starts as soon as it can). Back: the reel that comes back is silenced, moved a little past the
-// sound (seeking takes it a moment), then played a little slower or faster until it's in step
+// second there, about when Facebook stops the reel; when later, it starts as soon as it can). A long
+// sound is first played from a slice of it (quickSound()) while the whole one decodes, then the
+// whole one takes over at the same spot (swap()). Back: the reel that comes back is silenced, moved a little past the
+// sound (seeking takes it a moment), then held still until the sound gets there (or played a
+// little faster if behind), so it's in step
 // with the sound; then it's heard again and the sound stops. Silenced through Web Audio (its sound
 // routed through a gain of 0), not muted: muted, Facebook's player stalled loading it, until it
 // was unmuted. And moved only once, once loaded up to the sound (moveBack()): a second seek
@@ -46,6 +49,18 @@
   var LONG_S = 90;
   // A sound fetched for a touch that brought no tap is let go after this.
   var EARLY_MS = 5000;
+  // A sound longer than this is first played from a slice of it, decoded at once, while the whole
+  // one decodes: the whole of a 165 s video's took 0.7 s on the phone, more than Facebook takes to
+  // stop the reel (a break going into the comments); 20 s of it, about 30 ms. The slice: the
+  // stream's fragments (its sidx) from just before the reel's time, QUICK_S of them.
+  var QUICK_FROM_S = 40;
+  var QUICK_S = 20;
+  // Where a slice's sound starts, after its first fragment's start: each decode drops the stream's
+  // starting padding (5058 samples) and a little more (114.7 ms in all on the emulator; none for
+  // the first fragment). Measured against the whole sound every time it takes over, and kept.
+  var SLICE_DELAY_KEY = 'astryxSliceDelay';
+  var sliceDelay = 0.1147;
+  try { sliceDelay = parseFloat(localStorage.getItem(SLICE_DELAY_KEY)) || sliceDelay; } catch (e) {}
 
   // The reel being heard: its page, its <video> (until Facebook stops it), where it was and when,
   // its decoded sound (once fetched) and where that plays, and the reel that comes back. phase is
@@ -57,7 +72,8 @@
   var context = null;
   // The reels whose sound goes through it (silence()).
   var routed = [];
-  // The last sound fetched, from the touch on the comment button: { src, sound (a promise) }.
+  // The last sound fetched, from the touch on the comment button: { src, quick, whole } (promises:
+  // a slice of it or null, and the whole decoded sound).
   var early = null;
 
   // Back lands on the reel's path first; Facebook adds its query a moment later.
@@ -84,14 +100,15 @@
   function soundAt() {
     if (!heard || !heard.source) return -1;
     var t = heard.offset + context.currentTime - heard.startedAt;
-    return t % heard.sound.duration;
+    return t % heard.length;
   }
 
   // For the tests and the live checks.
   window.__astryxReelCommentsAudio = {
     position: soundAt,
     hasCommentIcon: hasCommentIcon,
-    soundUrl: soundUrl
+    soundUrl: soundUrl,
+    fragments: fragments
   };
 
   // The reel playing on screen (the reels scroller keeps the ones next to it too).
@@ -112,26 +129,31 @@
   // Where the reel is: its own time while it plays, then counted on from there.
   function reelTime() {
     var t = heard.time + (heard.video ? 0 : (Date.now() - heard.timeAt) / 1000);
-    return t % heard.sound.duration;
+    return t % heard.length;
   }
 
-  // The sound from [at] s, heard or (while the reel still plays) silent.
+  // The sound from [at] s, heard or (while the reel still plays) silent. heard.sound is the whole
+  // sound or a slice of it ({ buffer, base: its time at the buffer's start, whole }); [at] past the
+  // slice waits for the whole one (false).
   function play(at, heardNow) {
+    var sound = heard.sound, from = sound.whole ? at : at - sound.base;
+    if (!sound.whole && (from < 0 || from > sound.buffer.duration - 1)) return false;
     if (heard.source) heard.source.stop();
     if (context.state === 'suspended') context.resume();
     var gain = context.createGain();
     gain.gain.value = heardNow ? 1 : 0;
     gain.connect(context.destination);
     var source = context.createBufferSource();
-    source.buffer = heard.sound;
-    source.loop = true;
+    source.buffer = sound.buffer;
+    source.loop = sound.whole;
     source.connect(gain);
-    source.start(0, at);
+    source.start(0, from);
     heard.source = source;
     heard.volume = gain;
     heard.played = heard.played || heardNow;
     heard.offset = at;
     heard.startedAt = context.currentTime;
+    return true;
   }
 
   // The silent sound heard, faded in over about 10 ms (no click).
@@ -172,31 +194,126 @@
   function playWhenReady() {
     if (!heard.sound || heard.source || document.visibilityState === 'hidden') return;
     if (heard.phase === 'comments') play(reelTime(), true);
-    else if (!heard.video.paused) play(heard.video.currentTime % heard.sound.duration, false);
+    else if (!heard.video.paused) play(heard.video.currentTime % heard.length, false);
   }
 
-  // The reel's decoded sound, fetched from the touch on the button (the tap's click comes about
-  // 0.1 s later) and kept for the tap.
-  function fetchSound(src) {
-    if (early && early.src === src) return early.sound;
+  // The stream's fragments, from its index (sidx): [{ start (s), off, size }], and where they begin
+  // (the part before is the init, which every decode needs); null without an index (the MP4).
+  function fragments(data) {
+    var b = new Uint8Array(data), dv = new DataView(data), o = 0;
+    while (o + 8 <= b.length) {
+      var size = dv.getUint32(o);
+      if (size < 8) return null;
+      if (String.fromCharCode(b[o + 4], b[o + 5], b[o + 6], b[o + 7]) === 'sidx') break;
+      o += size;
+    }
+    if (o + 8 > b.length) return null;
+    var sidx = o, p = o + 8, version = b[p], timescale = dv.getUint32(p + 8), t, first;
+    if (version === 0) { t = dv.getUint32(p + 12); first = dv.getUint32(p + 16); p += 20; }
+    else { t = dv.getUint32(p + 16); first = dv.getUint32(p + 24); p += 28; }
+    var count = dv.getUint16(p + 2), at = sidx + dv.getUint32(sidx) + first, list = [];
+    p += 4;
+    for (var i = 0; i < count; i++) {
+      var bytes = dv.getUint32(p) & 0x7fffffff;
+      list.push({ start: t / timescale, off: at, size: bytes });
+      at += bytes;
+      t += dv.getUint32(p + 4);
+      p += 12;
+    }
+    return { initEnd: sidx, list: list, length: t / timescale };
+  }
+
+  // A slice of a long sound, decoded at once: the init and QUICK_S of fragments from just before
+  // [from] s; null for a short sound or one without an index.
+  function quickSound(data, from) {
+    var f = fragments(data);
+    if (!f || f.length < QUICK_FROM_S) return Promise.resolve(null);
+    var k = 0;
+    while (k + 1 < f.list.length && f.list[k + 1].start <= from - 0.5) k++;
+    var end = k;
+    while (end + 1 < f.list.length && f.list[end + 1].start < f.list[k].start + QUICK_S) end++;
+    var last = f.list[end], bytes = new Uint8Array(f.initEnd + last.off + last.size - f.list[k].off);
+    bytes.set(new Uint8Array(data, 0, f.initEnd), 0);
+    bytes.set(new Uint8Array(data, f.list[k].off, last.off + last.size - f.list[k].off), f.initEnd);
+    var start = f.list[k].start;
+    return context.decodeAudioData(bytes.buffer).then(function (buffer) {
+      return { buffer: buffer, base: start + (k ? sliceDelay : 0), start: start, whole: false, length: f.length };
+    });
+  }
+
+  // The reel's sound, fetched from the touch on the button (the tap's click comes about 0.1 s
+  // later; the reel at [from] s then) and kept for the tap: a slice of a long one first, then the
+  // whole one (decoded after the slice: decodes run one after the other).
+  function fetchSound(src, from) {
+    if (early && early.src === src) return early;
     if (!context) context = new (window.AudioContext || window.webkitAudioContext)();
     var mine = early = { src: src };
-    mine.sound = fetch(src).then(function (r) {
+    var data = fetch(src).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.arrayBuffer();
-    }).then(function (data) {
-      return context.decodeAudioData(data);
+    });
+    mine.quick = data.then(function (d) { return quickSound(d, from); }).then(null, function () { return null; });
+    mine.whole = Promise.all([data, mine.quick]).then(function (got) {
+      return context.decodeAudioData(got[0]);
     });
     setTimeout(function () { if (early === mine && !heard) early = null; }, EARLY_MS);
-    return mine.sound;
+    return mine;
+  }
+
+  // Where the slice's buffer starts in the whole sound (s): its first quarter second after 0.3 s,
+  // matched within 60 ms of where it was taken to start. NaN when nothing matches (silence).
+  function sliceStart(slice, whole) {
+    var a = slice.buffer.getChannelData(0), b = whole.getChannelData(0), rate = whole.sampleRate;
+    var from = Math.round(0.3 * rate), n = Math.round(0.25 * rate), around = Math.round(slice.base * rate) + from;
+    var reach = Math.round(0.06 * rate), best = 0, bestAt = NaN;
+    if (rate !== slice.buffer.sampleRate || from + n > a.length) return NaN;
+    for (var d = -reach; d <= reach; d += 2) {
+      var s = 0;
+      for (var i = 0; i < n; i += 4) s += a[from + i] * (b[around + d + i] || 0);
+      if (s > best) { best = s; bestAt = d; }
+    }
+    return bestAt === bestAt ? slice.base + bestAt / rate : NaN;
+  }
+
+  // The whole sound takes over from the slice at the same spot, at a set moment just ahead (no gap,
+  // through the same gain): the slice's spot then, from where its buffer was found to start.
+  function swap(buffer) {
+    var slice = heard.sound, start = sliceStart(slice, buffer);
+    if (start === start && slice.start !== slice.base) {
+      sliceDelay = start - slice.start;
+      try { localStorage.setItem(SLICE_DELAY_KEY, String(sliceDelay)); } catch (e) {}
+    }
+    if (start !== start) start = slice.base;
+    heard.sound = { buffer: buffer, base: 0, whole: true };
+    heard.length = buffer.duration;
+    if (!heard.source) { playWhenReady(); return; }
+    var when = context.currentTime + 0.05;
+    var at = (start + heard.offset - slice.base + when - heard.startedAt) % heard.length;
+    var source = context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(heard.volume);
+    source.start(when, at);
+    heard.source.stop(when);
+    heard.source = source;
+    heard.offset = at;
+    heard.startedAt = when;
   }
 
   function load(src) {
-    var mine = heard;
-    fetchSound(src).then(function (sound) {
+    var mine = heard, sound = fetchSound(src, heard.time);
+    sound.quick.then(function (slice) {
+      if (heard !== mine || !slice || heard.sound) return;
+      heard.sound = slice;
+      heard.length = slice.length;
+      playWhenReady();
+    });
+    sound.whole.then(function (buffer) {
       early = null;
       if (heard !== mine) return;
-      heard.sound = sound;
+      if (heard.sound) { swap(buffer); return; }
+      heard.sound = { buffer: buffer, base: 0, whole: true };
+      heard.length = buffer.duration;
       playWhenReady();
     }, function () {
       early = null;
@@ -213,8 +330,8 @@
     heard.video = null;
     heard.timeAt = Date.now();
     if (!heard.source) { playWhenReady(); return; }
-    if (Math.abs(soundAt() - reelTime()) > DRIFT_S) play(reelTime(), true);
-    else fadeIn();
+    // Off the reel (and within the slice, if it's one): started again there; else faded in.
+    if (!(Math.abs(soundAt() - reelTime()) > DRIFT_S && play(reelTime(), true))) fadeIn();
   }
 
   // The reel still playing: its position kept (Facebook sets it back to 0 on the way out), and the
@@ -323,7 +440,7 @@
 
   document.addEventListener('pointerdown', function (e) {
     var tap = commentTap(e);
-    if (tap) fetchSound(tap.src).then(null, function () {});
+    if (tap) fetchSound(tap.src, tap.video.currentTime).whole.then(null, function () {});
   }, true);
 
   document.addEventListener('click', function (e) {
@@ -332,7 +449,7 @@
     var video = tap.video;
     stop();
     heard = { phase: 'opening', reelPath: window.location.pathname, video: video, time: video.currentTime,
-      timeAt: Date.now(), sound: null, source: null, played: false, offset: 0, startedAt: 0, back: null, placed: false,
+      timeAt: Date.now(), sound: null, length: 0, source: null, played: false, offset: 0, startedAt: 0, back: null, placed: false,
       moves: 0, catchUp: null, backAt: 0, silencer: null };
     load(tap.src);
     // Facebook stops the reel for the comments with its pause(): the sound comes in right then, at

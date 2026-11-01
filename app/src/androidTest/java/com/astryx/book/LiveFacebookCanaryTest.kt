@@ -379,6 +379,16 @@ class LiveFacebookCanaryTest {
             "sound, quieter than the reel's (${pageShape()})", "true",
             eval("(function (p) { return !!p && window.__astryxReelCommentsAudio.soundUrl(p) !== p.getAttribute('data-video-url'); })" +
                 "(document.querySelector('video').closest('[data-video-url]'))"))
+        // Its index (sidx), by which a long sound is first played from a slice of it.
+        eval("window.__canaryIndex = 'pending'; (function (a, p) { fetch(a.soundUrl(p)).then(function (r) { return r.arrayBuffer(); })" +
+            ".then(function (d) { var f = a.fragments(d); window.__canaryIndex = f ? 'fragments=' + f.list.length : 'none'; }," +
+            " function (e) { window.__canaryIndex = 'failed: ' + e; }); })(window.__astryxReelCommentsAudio," +
+            " document.querySelector('video').closest('[data-video-url]')); 1")
+        assertTrue("the reel's audio track never came", app.waitFor(20_000) { eval("window.__canaryIndex !== 'pending'") == "true" })
+        val index = eval("window.__canaryIndex").removeSurrounding("\"")
+        assertTrue("the reel's audio track has no index of its fragments (sidx): reel_comments_audio.js then decodes a long " +
+            "sound whole before playing it, a break going into the comments ($index)",
+            (index.removePrefix("fragments=").toIntOrNull() ?: 0) > 1)
         val reelPath = eval("location.pathname").removeSurrounding("\"")
         // Loaded whole first, as a reel watched for a while is: Facebook then brings it back from its
         // memory, where the reel moved too early stopped at its start again (a long reel isn't).

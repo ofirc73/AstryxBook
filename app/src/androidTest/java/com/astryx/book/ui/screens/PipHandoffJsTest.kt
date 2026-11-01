@@ -339,9 +339,9 @@ class PipHandoffJsTest {
     }
 
     @Test
-    fun handback_farAheadOfTheNativePlayer_isHeldStill_aLittleAhead_slower_andBehind_faster() {
-        // video_catch_up.js, as for a reel back from its comments: at 0.5x or 1.5x until in step, the
-        // video was seen in slow motion (on the phone).
+    fun handback_aheadOfTheNativePlayer_isHeldStill_andBehind_playsFaster() {
+        // video_catch_up.js, as for a reel back from its comments: played slower until in step, the
+        // video was seen in slow motion and jittering (on the phone).
         val h = Harness()
         h.locked()
         val at = System.currentTimeMillis()
@@ -350,8 +350,6 @@ class PipHandoffJsTest {
         // shrinks by the time it takes the next step to see it.)
         h.inStepWithNative(45_250, at, offsetS = 1.5)
         assertTrue(h.eval("$pip.playbackRate"), h.waitFor { h.eval("$pip.playbackRate") == "0.0625" })
-        h.inStepWithNative(45_250, at, offsetS = 0.3)
-        assertTrue(h.eval("$pip.playbackRate"), h.waitFor { h.eval("$pip.playbackRate").toDouble() in 0.65..0.8 })
         h.inStepWithNative(45_250, at, offsetS = -0.3)
         assertTrue(h.eval("$pip.playbackRate"), h.waitFor { h.eval("$pip.playbackRate").toDouble() in 1.25..1.4 })
         assertEquals("true", h.eval("$pip.muted"))
