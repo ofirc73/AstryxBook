@@ -54,7 +54,8 @@ class VideoCatchUpJsTest {
         assertEquals(50.6, eval("__b.target()").toDouble(), 0.001)
         // A's move takes a moment, and A learns from it: B doesn't.
         eval("__a.move(__a.target()); document.getElementById('a').__rs = 1; 1")
-        Thread.sleep(300)
+        // Averaged with the first guess (0.3 s): at 300 ms it came out at 0.3 on CI, not past it.
+        Thread.sleep(600)
         eval("document.getElementById('a').__rs = 4; __a.step(); 1")
         assertEquals("true", eval("parseFloat(localStorage.getItem('leadA')) > 0.3"))
         assertEquals("null", eval("localStorage.getItem('leadB')"))
