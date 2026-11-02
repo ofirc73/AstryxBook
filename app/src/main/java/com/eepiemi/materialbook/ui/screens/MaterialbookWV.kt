@@ -54,6 +54,7 @@ import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
 import com.astryx.book.audio.PipHandback
+import com.astryx.book.notifications.StoryPosting
 import com.astryx.book.ui.components.ExternalLinkDialog
 import com.astryx.book.ui.components.MessengerLinkDialog
 import com.eepiemi.materialbook.ui.components.NetworkErrorDialog
@@ -1055,12 +1056,13 @@ fun MaterialbookWebView(
         navigator = navigator,
         loadingState = loadingState,
         pageStarts = pageStarts,
-        onOpenLayer = { layerUrl ->
-            messagesLayer.open(layerUrl)
-            messagesLayer.generation++
-        },
+        onOpenLayer = { layerUrl -> messagesLayer.openCreator(layerUrl) },
         onCloseLayer = { messagesLayer.close() },
     )
+    // A tap on a story's posting notification (StoryPosting): the story creator, if it's kept.
+    LaunchedEffect(StoryPosting.showRequests) {
+        if (StoryPosting.showRequests > 0) messagesLayer.showStory()
+    }
     messagesLayer.url?.let { layerUrl ->
         // A new Messages link while the layer is open (a notification, say) recreates it, and
         // so does a lost renderer (onRendererGone), at the page it was showing.
@@ -1101,6 +1103,8 @@ fun MaterialbookWebView(
                 onRendererGone = { pageUrl ->
                     messagesLayer.onRendererGone(pageUrl, layerUrl, SystemClock.elapsedRealtime())
                 },
+                onStoryPosting = { messagesLayer.storyPosting = it },
+                onHide = { messagesLayer.hidden = true },
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
         }

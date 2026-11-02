@@ -334,7 +334,14 @@ user-visible change.
   The emulator account joined the public group "Android Developer With Android Studio" (2026-10-15)
   for testing group shares; never post there, discard drafts. A group page's Photo button has no
   `role="button"` (a `data-action-id` container), so composer buttons are looked up by both.
-  Nothing ever presses Post/Share: when testing, discard drafts. `am start --eu` can't grant a gallery
+  Nothing ever presses Post/Share: when testing, discard drafts. A story posting
+  (`story_posting.js`, Share to story's `aria-busy`) hides the layer and keeps it, with
+  `StoryPostingService`'s notification, until the page moves to `/stories` (posted) or the editor
+  comes back (failed); `MessagesLayerState.storyPosting` makes opening anything else show it
+  instead. To see Facebook's posting and failure screens without posting, hold every request of
+  every DevTools target (`Fetch.enable`, pattern `*`) before Share, then fail them: the story's
+  photo goes over HTTP. Not the feed's: m.facebook.com's Post goes over its WebSocket (a held test
+  posted, 2026-11-02). `am start --eu` can't grant a gallery
   item or pass several files; serve test files through the app's own FileProvider instead.
 - "Keep screen on" uses the host view's `keepScreenOn`, not the window flag the fullscreen
   host adds and clears.

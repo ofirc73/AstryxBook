@@ -1,8 +1,14 @@
 package com.astryx.book.ui.screens
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import android.webkit.CookieManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +40,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import com.astryx.book.notifications.AppVisibility
+import com.astryx.book.notifications.StoryPosting
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.astryx.book.utils.FullscreenController
@@ -119,6 +127,8 @@ fun MessagesLayer(
     linkToSend: String? = null,
     onLinkToSendDone: () -> Unit = {},
     onRendererGone: (pageUrl: String?) -> Unit = { onClose() },
+    onStoryPosting: (Boolean) -> Unit = {},
+    onHide: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -127,6 +137,7 @@ fun MessagesLayer(
     val currentOnOpenSettings by rememberUpdatedState(onOpenSettings)
     val currentOnThemeColor by rememberUpdatedState(onThemeColor)
     val currentOnRendererGone by rememberUpdatedState(onRendererGone)
+    val currentOnClose by rememberUpdatedState(onClose)
 
     // The user agent is applied by the library when it creates the WebView, before the
     // first load (setting it is idempotent, so doing it on every composition is fine).
@@ -143,6 +154,34 @@ fun MessagesLayer(
     // That page reached: Back then closes the layer, to the feed (stepping back would go to the
     // creator).
     var showSharedStory by remember { mutableStateOf(false) }
+    // Share to story pressed and the story not posted yet (story_posting.js): the creator goes out
+    // of sight ([onHide]) and goes on posting in the background, with a notification meanwhile
+    // (StoryPosting), as the Facebook app does.
+    var storyPosting by remember { mutableStateOf(false) }
+    val currentOnStoryPosting by rememberUpdatedState(onStoryPosting)
+    val currentOnHide by rememberUpdatedState(onHide)
+    val currentHidden by rememberUpdatedState(hidden)
+    // The notifications are the only sign of how it went once the creator is out of sight.
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    fun startStoryPosting() {
+        if (storyPosting) return
+        storyPosting = true
+        currentOnStoryPosting(true)
+        StoryPosting.started(context)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        else Toast.makeText(context, R.string.story_posting, Toast.LENGTH_SHORT).show()
+        currentOnHide()
+    }
+    // Said in a notification when the user can't see it: the creator out of sight, or the app.
+    fun endStoryPosting(outcome: StoryPosting.Outcome) {
+        if (!storyPosting) return
+        storyPosting = false
+        currentOnStoryPosting(false)
+        val seen = !currentHidden && AppVisibility.onScreen
+        StoryPosting.ended(context, outcome, notify = outcome == StoryPosting.Outcome.INTERRUPTED || !seen)
+    }
     // The last chat the layer showed, for [onLeave]: a reel opened from it goes back there on
     // Back. Only Messages pages count: a reel shared in a chat comes as Facebook's share link
     // (/share/r/...), which redirects to the reel; kept as the page to go back to, Back opened the
@@ -178,6 +217,11 @@ fun MessagesLayer(
     // Composed after the main view's handlers, so it gets Back first; disabled while a
     // video is fullscreen, so Back leaves fullscreen through the main view's handler.
     BackHandler(enabled = !isFullscreen && !hidden) {
+        // Shown again while it posts (its notification, Create story): out of sight again.
+        if (storyPosting) {
+            onHide()
+            return@BackHandler
+        }
         if (showSharedStory) {
             onClose()
             return@BackHandler
@@ -207,7 +251,8 @@ fun MessagesLayer(
     LaunchedEffect(hidden) {
         val webView = runCatching { state.nativeWebView }.getOrNull() ?: return@LaunchedEffect
         webView.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
-        if (!hidden) return@LaunchedEffect
+        // A story creator stays where it is: it's posting, or its story failed to.
+        if (!hidden || storyShare) return@LaunchedEffect
         // The page's own history: the site moves in-page (pushState), which WebView's doesn't
         // always count.
         navigator.evaluateJavaScript(STEP_BACK_TO_CHAT_JS) {}
@@ -238,11 +283,13 @@ fun MessagesLayer(
         if (loadingState !is LoadingState.Finished) return@LaunchedEffect
         val page = state.lastLoadedUrl
         if (isStoryCreatePage(page)) {
-            val layout = resources.openRawResource(R.raw.story_layout).bufferedReader().use { it.readText() }
+            val (layout, posting) = listOf(R.raw.story_layout, R.raw.story_posting).map { id ->
+                resources.openRawResource(id).bufferedReader().use { it.readText() }
+            }
             val done = JSONObject.quote(resources.getString(R.string.story_panel_done))
             navigator.evaluateJavaScript(
                 "window.__astryxStoryDone = $done;" +
-                    layout
+                    layout + "\n" + posting
             ) {}
         }
         val target = when {
@@ -277,6 +324,10 @@ fun MessagesLayer(
             delay(SHARED_STORY_RETRY_MS)
         }
         currentOnLeave(null, pageUrl)
+    }
+    // The creator gone while its story was posting (the app closed, a lost renderer): so was the upload.
+    DisposableEffect(Unit) {
+        onDispose { endStoryPosting(StoryPosting.Outcome.INTERRUPTED) }
     }
 
     // A post sent with Send as a message: the chat the user opens from the chat list gets the post's
@@ -403,13 +454,19 @@ fun MessagesLayer(
                             layer = LayerBridge { newUrl ->
                                 val exit = messagesLayerExit(newUrl)?.takeUnless { reelShare && isReelCreatePage(newUrl) }
                                 ContextCompat.getMainExecutor(context).execute {
+                                    // After Share to story Facebook moves on to its stories page.
+                                    val posted = storyShare && isStoriesPage(newUrl)
+                                    if (posted) endStoryPosting(StoryPosting.Outcome.POSTED)
                                     // Once only: the viewer may come back to the page when it ends.
-                                    if (exit != null && storyShare && isStoriesPage(newUrl) && !showSharedStory &&
-                                        !ShareMediaQueue.pending(ShareTarget.STORY)
-                                    ) showSharedStory = true
-                                    else if (exit != null) currentOnLeave(exit.mainUrl, pageUrl)
+                                    // Posted out of sight: the user has moved on, the layer closes.
+                                    if (exit != null && posted && !showSharedStory && !ShareMediaQueue.pending(ShareTarget.STORY)) {
+                                        if (currentHidden) currentOnClose() else showSharedStory = true
+                                    } else if (exit != null) currentOnLeave(exit.mainUrl, pageUrl)
                                     else if (isDesktopMessagesUrl(newUrl)) pageUrl = newUrl
                                 }
+                            },
+                            storyPosting = { posting ->
+                                if (posting) startStoryPosting() else endStoryPosting(StoryPosting.Outcome.FAILED)
                             },
                         )
                     )

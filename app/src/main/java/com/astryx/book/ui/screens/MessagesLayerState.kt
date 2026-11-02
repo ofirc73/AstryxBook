@@ -12,6 +12,7 @@ import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.isMobilePostPage
 import com.astryx.book.utils.isMobileReelPage
+import com.astryx.book.utils.isStoryCreatePage
 import com.astryx.book.utils.messagesDesktopUrl
 import com.astryx.book.utils.messengerShareLink
 import com.astryx.book.utils.rendererRecoveryUrl
@@ -72,6 +73,16 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      */
     var linkToSend by mutableStateOf<String?>(null)
 
+    /**
+     * The story creator's story is posting (MessagesLayer, story_posting.js): the layer is kept,
+     * out of sight once the user moves on, until it's posted. Opening the layer for anything else
+     * meanwhile shows the creator instead (replaced, it would take the upload with it).
+     */
+    var storyPosting by mutableStateOf(false)
+
+    /** The story creator is kept out of sight: posting, or with the story that failed to post. */
+    val keepsStory: Boolean get() = hidden && isStoryCreatePage(url)
+
     /** The layer exists (shown or hidden). */
     val isOpen: Boolean get() = url != null
 
@@ -80,6 +91,10 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
 
     /** Opens the layer at [url] (shows it, if it's the hidden one at that page). */
     fun open(url: String) {
+        if (storyPosting) {
+            hidden = false
+            return
+        }
         this.url = url
         hidden = false
     }
@@ -90,7 +105,23 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      */
     fun openMessages(link: String) {
         open(messagesDesktopUrl(link))
+        if (storyPosting) return
         linkToSend = messengerShareLink(link)
+    }
+
+    /** Opens the layer anew at a share's creator [url] (or shows the one still posting). */
+    fun openCreator(url: String) {
+        if (storyPosting) {
+            hidden = false
+            return
+        }
+        open(url)
+        generation++
+    }
+
+    /** Shows the story creator kept out of sight (a tap on its notification). */
+    fun showStory() {
+        if (keepsStory) hidden = false
     }
 
     /** Closes the layer, shown or hidden. */
@@ -106,6 +137,8 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      * [mainBeforeReel], read first). Either way the chat is forgotten (Back on another page leaves it).
      */
     fun backToChat(mainUrl: String?, mainIndex: Int? = null): Boolean {
+        // The story creator kept out of sight stays: Back is the main view's.
+        if (keepsStory) return false
         val place = mainBeforeReel
         // A reel's page, or the main view one step past where it was: m.facebook.com shows a post
         // as Home with the post at the top, at Home's address.
@@ -147,6 +180,7 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         // story creator again instead.
         if (ShareMediaQueue.pending(ShareTarget.STORY)) {
             url = STORY_CREATE_URL
+            hidden = false
             generation++
             return
         }

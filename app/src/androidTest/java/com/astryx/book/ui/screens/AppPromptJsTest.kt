@@ -29,6 +29,7 @@ class AppPromptJsTest {
         }
 
         fun eval(js: String) = page.eval(js)
+        fun stubPageCalls() = page.stubPageCalls()
 
         fun waitFor(js: String, ms: Long = 3000) = page.waitFor(ms) { eval(js) == "true" }
 
@@ -103,9 +104,9 @@ class AppPromptJsTest {
     fun addStoryInStoryViewer_opensTheInAppCreatorAndDoesNotOpenFacebooksAppGate() {
         val h = Harness()
         h.load()
+        h.stubPageCalls()
         h.eval(
-            "window.__pageCalls = []; window.__facebookClicks = 0;" +
-                "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } };" +
+            "window.__facebookClicks = 0;" +
                 "history.replaceState({}, '', '/stories/123/story-id');" +
                 "var button = document.createElement('div'); button.id = 'add-story';" +
                 "button.setAttribute('role', 'button'); button.setAttribute('data-action-id', '32732');" +
@@ -130,9 +131,9 @@ class AppPromptJsTest {
     fun createStoryOnMainFeed_opensTheInAppCreatorAndAvoidsFacebooksOpenAppSheet() {
         val h = Harness()
         h.load()
+        h.stubPageCalls()
         h.eval(
-            "window.__pageCalls = []; window.__facebookClicks = 0;" +
-                "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } };" +
+            "window.__facebookClicks = 0;" +
                 "history.replaceState({}, '', '/');" +
                 "var button = document.createElement('div'); button.id = 'create-story-card';" +
                 "button.setAttribute('role', 'button'); button.setAttribute('data-action-id', '32526');" +
@@ -155,9 +156,9 @@ class AppPromptJsTest {
         // card (story-sized buttons side by side). A friend's story card is left to Facebook.
         val h = Harness()
         h.load()
+        h.stubPageCalls()
         h.eval(
-            "window.__pageCalls = []; window.__facebookClicks = 0;" +
-                "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } };" +
+            "window.__facebookClicks = 0;" +
                 "history.replaceState({}, '', '/');" +
                 "var tray = document.createElement('div'); tray.style.cssText = 'display:flex;direction:rtl';" +
                 "['create', 'mine', 'friend'].forEach(function (id) {" +

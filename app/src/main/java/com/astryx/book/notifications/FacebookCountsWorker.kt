@@ -259,7 +259,7 @@ class FacebookCountsWorker(context: Context, params: WorkerParameters) : Corouti
     }
 }
 
-/** Whether MainActivity is started (on screen, or in PiP), for the counts worker. */
+/** Whether MainActivity is started (on screen, or in PiP), for the counts worker and StoryPosting. */
 object AppVisibility {
     @Volatile
     var onScreen = false

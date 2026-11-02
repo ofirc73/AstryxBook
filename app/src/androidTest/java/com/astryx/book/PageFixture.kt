@@ -100,6 +100,15 @@ class PageFixture(
         """.trimIndent()
     )
 
+    /**
+     * The app's AstryxPage listener (installPageBridges) as a stub: each call the page posts is
+     * kept, parsed, in `window.__pageCalls`.
+     */
+    fun stubPageCalls(): String = eval(
+        "window.__pageCalls = [];" +
+            "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } }; 1"
+    )
+
     /** Whether [check] became true within [ms], checked every [everyMs]. */
     fun waitFor(ms: Long = 5_000, everyMs: Long = 100, check: () -> Boolean): Boolean {
         val until = System.currentTimeMillis() + ms

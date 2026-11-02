@@ -124,4 +124,9 @@
     <string name="share_media_adding_several">Dodawanie zdjęć (%1$d)…</string>
     <string name="send_post_pick_chat">Otwórz czat, aby wysłać post: jego link trafi do pola wiadomości.</string>
     <string name="send_post_cancel">Nie wysyłaj posta</string>
+    <string name="story_posting_channel">Publikowanie relacji</string>
+    <string name="story_posting">Publikowanie relacji…</string>
+    <string name="story_posted">Twoja relacja została opublikowana</string>
+    <string name="story_post_failed">Nie udało się opublikować relacji. Dotknij, aby spróbować ponownie.</string>
+    <string name="story_post_interrupted">Relacja nie została opublikowana: aplikację zamknięto w trakcie publikowania.</string>
 </resources>

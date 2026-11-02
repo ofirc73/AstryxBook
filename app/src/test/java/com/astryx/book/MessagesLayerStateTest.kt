@@ -194,6 +194,52 @@ class MessagesLayerStateTest {
     }
 
     @Test
+    fun aStoryPosting_outOfSight_isKept_andShownForAnythingThatWouldReplaceIt() {
+        val layer = openAt(STORY_CREATE_URL)
+        layer.storyPosting = true
+        layer.hidden = true
+        assertTrue(layer.keepsStory)
+        // Back in the main view is the main view's.
+        assertFalse(layer.backToChat("https://m.facebook.com/", 3))
+        assertTrue(layer.isOpen)
+        // Messages, another share and Create story show the creator instead of replacing it.
+        val generation = layer.generation
+        layer.openMessages(chat)
+        assertEquals(STORY_CREATE_URL, layer.url)
+        assertTrue(layer.isShown)
+        assertNull(layer.linkToSend)
+        layer.hidden = true
+        layer.openCreator(STORY_CREATE_URL)
+        assertEquals(generation, layer.generation)
+        assertTrue(layer.isShown)
+        // Failed: still kept out of sight, and its notification shows it again.
+        layer.storyPosting = false
+        layer.hidden = true
+        layer.showStory()
+        assertTrue(layer.isShown)
+        // Once it's done, Messages replaces it again.
+        layer.openMessages(chat)
+        assertEquals("https://www.facebook.com/messages/t/4567", layer.url)
+    }
+
+    @Test
+    fun aStoryPosted_outOfSight_withMoreToShare_showsTheCreatorAgain() {
+        ShareMediaQueue.start(ShareTarget.STORY, listOf(SharedFile(File("a.png"), "a.png", "image/png")))
+        val layer = openAt(STORY_CREATE_URL).apply { hidden = true }
+        layer.onLeave(null, null) { loaded += it }
+        assertTrue(layer.isShown)
+        assertEquals(STORY_CREATE_URL, layer.url)
+    }
+
+    @Test
+    fun aChat_isNotAStoryKept() {
+        val layer = openAt(chat).apply { hidden = true }
+        assertFalse(layer.keepsStory)
+        layer.showStory()
+        assertFalse(layer.isShown)
+    }
+
+    @Test
     fun closingTheLayer_givesUpAStoryShare() {
         ShareMediaQueue.start(ShareTarget.STORY, listOf(SharedFile(File("a.png"), "a.png", "image/png")))
         val layer = openAt(STORY_CREATE_URL)

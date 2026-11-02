@@ -896,13 +896,24 @@ class LiveFacebookCanaryTest {
         )
     }
 
-    @Test
-    fun sharingAPhotoToYourStory_laysOutTheStoryEditor() {
+    // A plain picture shared to Your story: the story creator in the Messages layer.
+    private fun shareToStory(): WebView {
         sharePicture("ShareToStory", 720, 1280)
         assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
             app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
         })
-        val layer = app.layerWebView()!!
+        return app.layerWebView()!!
+    }
+
+    private fun assertStoryEditorLaidOut(layer: WebView) {
+        assertTrue("story_layout.js never laid out the story editor", app.waitFor(60_000) {
+            app.eval(STORY_LAYOUT_JS, layer).trim('"').startsWith("ok ")
+        })
+    }
+
+    @Test
+    fun sharingAPhotoToYourStory_laysOutTheStoryEditor() {
+        val layer = shareToStory()
         var shape = ""
         val laidOut = app.waitFor(60_000) {
             shape = app.eval(STORY_LAYOUT_JS, layer).trim('"')
@@ -920,14 +931,8 @@ class LiveFacebookCanaryTest {
         // 2026-10-27): story_layout.js dims Discard and Share while one is open and a tap on either
         // only closes it, through its close button. Tried with Discard, never Share: had the tap
         // gone through, it would only ask "Discard story?".
-        sharePicture("ShareToStory", 720, 1280)
-        assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
-            app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
-        })
-        val layer = app.layerWebView()!!
-        assertTrue("story_layout.js never laid out the story editor", app.waitFor(60_000) {
-            app.eval(STORY_LAYOUT_JS, layer).trim('"').startsWith("ok ")
-        })
+        val layer = shareToStory()
+        assertStoryEditorLaidOut(layer)
         val opened = app.eval(
             "(function () { var t = [].filter.call(document.querySelectorAll('[data-astryx-story=tool]'), function (b) {" +
                 " return /music/i.test(b.innerText); })[0]; if (!t) return false; t.click(); return true; })()", layer
@@ -948,17 +953,29 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun theStoryEditorsShare_saysWhenItsBusy_asStoryPostingReadsIt() {
+        // story_posting.js knows a story is posting by Share to story's aria-busy (in the bottom
+        // row story_layout.js marks): "true" while it posts, "false" otherwise (read on the emulator
+        // 2026-11-02 with every request held). Here, never pressed: it's there and "false".
+        val layer = shareToStory()
+        assertStoryEditorLaidOut(layer)
+        assertEquals("Share to story has no aria-busy in story_layout.js's bottom row (story_posting.js reads it)",
+            "\"false\"", app.eval(
+                "(function () { var b = document.querySelector('[data-astryx-story=actions] [aria-busy]');" +
+                    " return b ? b.getAttribute('aria-busy') : 'none'; })()", layer
+            ))
+        assertEquals("story_posting.js didn't run on the story creator", "true",
+            app.eval("window.__astryxStoryPosting === true", layer))
+    }
+
+    @Test
     fun facebooksStoriesPage_afterAStory_showsYourStoriesOrClosesTheStoryScreen() {
         // After Share to story the creator moves in-page to Facebook's stories page (seen on a
         // Galaxy A56, 2026-10-27; nothing is posted here): that page must still be at
         // www.facebook.com/stories, with the Add to story link open_own_story.js finds the user's
         // own card by; the user's stories open there (laid out full screen, layer_story_viewer.js)
         // and Back closes the story screen, or, with no story of the account's own, it closes at once.
-        sharePicture("ShareToStory", 720, 1280)
-        assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
-            app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
-        })
-        val layer = app.layerWebView()!!
+        val layer = shareToStory()
         // With the photo still waiting, the stories page would open the creator again for it.
         assertTrue("the story creator never took the shared photo (share_media.js)", app.waitFor(60_000) {
             !ShareMediaQueue.pending(ShareTarget.STORY)
