@@ -21,12 +21,24 @@ runs:
     # every run cold-booted). Install both up front and put their versions in
     # the cache key, so a runner image update makes a fresh snapshot once. "bash -e", a job's
     # own default: a composite's plain "bash" adds pipefail, and yes's broken pipe then failed it.
+    # Tried up to 3 times: Google's download can come back broken ("Error reading Zip content from
+    # a SeekableByteChannel", two jobs of one run on 2026-11-02), which failed the job before any test.
     - name: Install Emulator and System Image
       id: avd-versions
       shell: bash -e {0}
       run: |
         SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-        yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null
+        for attempt in 1 2 3; do
+          if yes | "$SDKMANAGER" --install emulator "system-images;android-34;google_apis;x86_64" > /dev/null; then
+            break
+          fi
+          if [ "$attempt" = 3 ]; then
+            echo "::error::sdkmanager couldn't install the emulator and system image (3 tries)"
+            exit 1
+          fi
+          echo "::warning::sdkmanager install failed (try $attempt of 3), trying again in 15 s"
+          sleep 15
+        done
         VERSIONS=$("$SDKMANAGER" --list_installed 2>/dev/null |
           grep -E '^ *(emulator|system-images;android-34;google_apis;x86_64) ' |
           awk -F'|' '{gsub(/ /, "", $2); printf "%s-", $2}')
