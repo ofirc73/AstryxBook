@@ -12,7 +12,6 @@ import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.isMobilePostPage
 import com.astryx.book.utils.isMobileReelPage
-import com.astryx.book.utils.isStoryCreatePage
 import com.astryx.book.utils.messagesDesktopUrl
 import com.astryx.book.utils.messengerShareLink
 import com.astryx.book.utils.rendererRecoveryUrl
@@ -79,9 +78,19 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
      * meanwhile shows the creator instead (replaced, it would take the upload with it).
      */
     var storyPosting by mutableStateOf(false)
+        private set
+
+    /** The story creator holds a story: posting, or one that failed to post (for another try). */
+    private var storyKept = false
 
     /** The story creator is kept out of sight: posting, or with the story that failed to post. */
-    val keepsStory: Boolean get() = hidden && isStoryCreatePage(url)
+    val keepsStory: Boolean get() = hidden && storyKept
+
+    /** The creator's story started posting, or ended ([failed]: kept for another try). */
+    fun onStoryPosting(posting: Boolean, failed: Boolean = false) {
+        storyPosting = posting
+        storyKept = posting || failed
+    }
 
     /** The layer exists (shown or hidden). */
     val isOpen: Boolean get() = url != null
@@ -128,6 +137,7 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
     fun close() {
         url = null
         hidden = false
+        storyKept = false
         linkToSend = null
     }
 

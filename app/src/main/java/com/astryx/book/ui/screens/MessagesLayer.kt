@@ -127,7 +127,7 @@ fun MessagesLayer(
     linkToSend: String? = null,
     onLinkToSendDone: () -> Unit = {},
     onRendererGone: (pageUrl: String?) -> Unit = { onClose() },
-    onStoryPosting: (Boolean) -> Unit = {},
+    onStoryPosting: (posting: Boolean, failed: Boolean) -> Unit = { _, _ -> },
     onHide: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -158,6 +158,8 @@ fun MessagesLayer(
     // of sight ([onHide]) and goes on posting in the background, with a notification meanwhile
     // (StoryPosting), as the Facebook app does.
     var storyPosting by remember { mutableStateOf(false) }
+    // Its story failed to post: kept, out of sight, for another try.
+    var storyFailed by remember { mutableStateOf(false) }
     val currentOnStoryPosting by rememberUpdatedState(onStoryPosting)
     val currentOnHide by rememberUpdatedState(onHide)
     val currentHidden by rememberUpdatedState(hidden)
@@ -166,7 +168,8 @@ fun MessagesLayer(
     fun startStoryPosting() {
         if (storyPosting) return
         storyPosting = true
-        currentOnStoryPosting(true)
+        storyFailed = false
+        currentOnStoryPosting(true, false)
         StoryPosting.started(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -178,7 +181,8 @@ fun MessagesLayer(
     fun endStoryPosting(outcome: StoryPosting.Outcome) {
         if (!storyPosting) return
         storyPosting = false
-        currentOnStoryPosting(false)
+        storyFailed = outcome == StoryPosting.Outcome.FAILED
+        currentOnStoryPosting(false, storyFailed)
         val seen = !currentHidden && AppVisibility.onScreen
         StoryPosting.ended(context, outcome, notify = outcome == StoryPosting.Outcome.INTERRUPTED || !seen)
     }
@@ -252,7 +256,7 @@ fun MessagesLayer(
         val webView = runCatching { state.nativeWebView }.getOrNull() ?: return@LaunchedEffect
         webView.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
         // A story creator stays where it is: it's posting, or its story failed to.
-        if (!hidden || storyShare) return@LaunchedEffect
+        if (!hidden || storyPosting || storyFailed) return@LaunchedEffect
         // The page's own history: the site moves in-page (pushState), which WebView's doesn't
         // always count.
         navigator.evaluateJavaScript(STEP_BACK_TO_CHAT_JS) {}

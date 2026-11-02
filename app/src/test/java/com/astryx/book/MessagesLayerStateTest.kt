@@ -196,7 +196,7 @@ class MessagesLayerStateTest {
     @Test
     fun aStoryPosting_outOfSight_isKept_andShownForAnythingThatWouldReplaceIt() {
         val layer = openAt(STORY_CREATE_URL)
-        layer.storyPosting = true
+        layer.onStoryPosting(true)
         layer.hidden = true
         assertTrue(layer.keepsStory)
         // Back in the main view is the main view's.
@@ -213,7 +213,7 @@ class MessagesLayerStateTest {
         assertEquals(generation, layer.generation)
         assertTrue(layer.isShown)
         // Failed: still kept out of sight, and its notification shows it again.
-        layer.storyPosting = false
+        layer.onStoryPosting(false, failed = true)
         layer.hidden = true
         layer.showStory()
         assertTrue(layer.isShown)
@@ -233,7 +233,8 @@ class MessagesLayerStateTest {
 
     @Test
     fun aChat_isNotAStoryKept() {
-        val layer = openAt(chat).apply { hidden = true }
+        // Not even one the story creator moved on to (Create story, then Messages in the layer).
+        val layer = openAt(STORY_CREATE_URL).apply { hidden = true }
         assertFalse(layer.keepsStory)
         layer.showStory()
         assertFalse(layer.isShown)

@@ -1103,7 +1103,7 @@ fun MaterialbookWebView(
                 onRendererGone = { pageUrl ->
                     messagesLayer.onRendererGone(pageUrl, layerUrl, SystemClock.elapsedRealtime())
                 },
-                onStoryPosting = { messagesLayer.storyPosting = it },
+                onStoryPosting = { posting, failed -> messagesLayer.onStoryPosting(posting, failed) },
                 onHide = { messagesLayer.hidden = true },
                 onExternalUrl = { externalUrl -> openExternalUrl(fbRedirectSanitizer(externalUrl)) }
             )
