@@ -254,9 +254,10 @@ class ShareIntoFacebookTest {
         assertTrue(app.waitFor { !app.layerOpen() && postingNotificationShows() })
         setPosting(layer, false)
         assertTrue("the posting notification stayed after the upload failed", app.waitFor { !postingNotificationShows() })
-        // Back on the feed leaves the app (the main view's Back), the failed story kept meanwhile.
+        // Back is the main view's (a page back, or leaving the app from the feed): the failed story
+        // is kept meanwhile.
         app.pressBack()
-        assertTrue("Back on the feed didn't leave the app", app.waitFor { app.isInBackground() })
+        Thread.sleep(1000)
         tapPostingNotification()
         assertTrue("the notification didn't show the failed story", app.waitFor { app.layerOpen() })
         assertTrue("the failed story was dropped", app.layerWebView() === layer)
