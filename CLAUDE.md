@@ -326,7 +326,10 @@ user-visible change.
   activity-aliases (Your story, Feed, Set as profile picture, Your groups, Reels, in the Facebook app's
   order); files are copied to the cache and handed to the page through the `AstryxShare` listener.
   Feed, group and profile picture: a mobile button's click on its hidden file input is answered with
-  the files. Story and reel: the desktop creators in the Messages layer (m.facebook.com sends them to
+  the files. A Feed share with Home showing opens the composer from Home's box instead of loading
+  `/composer/` (which has the server draw Home's whole feed first: 9 s at 1 Mbps): the app taps the
+  box for real (`AstryxShare` `tap`; after a script's `click()` Chromium's Back skipped the composer
+  and left the app), and loads the composer when the box can't (`openComposer`). Story and reel: the desktop creators in the Messages layer (m.facebook.com sends them to
   the app). The story editor is laid out like the app's by `story_layout.js` (phone width, tools on
   the story, a bottom bar; the frame sized through a reported `innerHeight`; finger drags replayed
   as mouse drags, which is all Facebook's editor follows); the reel creator is laid out wide

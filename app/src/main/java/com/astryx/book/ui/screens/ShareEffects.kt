@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalResources
 import com.eepiemi.materialbook.R
 import com.astryx.book.utils.REEL_CREATE_URL
 import com.astryx.book.utils.STORY_CREATE_URL
+import com.astryx.book.utils.isMobileHomePage
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.shareStartPageUrl
@@ -23,22 +24,27 @@ private const val SHARE_LOAD_WAIT_MS = 2000L
 /** Photos or videos shared into the app for [target]; [seq] tells two shares apart. */
 data class ShareMediaRequest(val seq: Int, val target: ShareTarget)
 
-/** share_media.js for [target], with the target it's run for. */
-internal fun shareMediaScript(resources: android.content.res.Resources, target: ShareTarget): String {
+/** share_media.js for [target], with the target it's run for; [fromHome]: a feed share run on Home. */
+internal fun shareMediaScript(
+    resources: android.content.res.Resources,
+    target: ShareTarget,
+    fromHome: Boolean = false,
+): String {
     val script = resources.openRawResource(R.raw.share_media).bufferedReader().use { it.readText() }
     // The note shown while Facebook prepares the photos (share_media.js showAdding).
     val count = ShareMediaQueue.remaining(target)
     val adding = if (count > 1) resources.getString(R.string.share_media_adding_several, count)
     else resources.getString(R.string.share_media_adding_one)
-    return "window.__astryxShareTarget = '${target.key}';\n" +
+    return "window.__astryxShareTarget = '${target.key}'; window.__astryxShareId = ${ShareMediaQueue.id};\n" +
+        (if (fromHome) "window.__astryxShareFromHome = true;\n" else "") +
         "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
 }
 
 /**
  * Photos and videos shared into the app (ShareMedia), on MaterialbookWebView's side: the page
  * [shareMediaRequest] asks for opens in the main view ([navigator], whose page is in
- * [loadingState]) and gets share_media.js, or the story or reel creator opens in the Messages layer
- * ([onOpenLayer]; [onCloseLayer] closes it for a main-view share). The layer's own side is in
+ * [loadingState], at [pageUrl]) and gets share_media.js, or the story or reel creator opens in the
+ * Messages layer ([onOpenLayer]; [onCloseLayer] closes it for a main-view share). The layer's own side is in
  * MessagesLayer. Covered end to end by ShareIntoFacebookTest.
  */
 @Composable
@@ -47,6 +53,7 @@ internal fun MainViewShareEffects(
     navigator: WebViewNavigator,
     loadingState: LoadingState,
     pageStarts: Int = 0,
+    pageUrl: () -> String? = { null },
     onOpenLayer: (String) -> Unit,
     onCloseLayer: () -> Unit,
 ) {
@@ -59,15 +66,24 @@ internal fun MainViewShareEffects(
     var pageShareTarget by remember { mutableStateOf<ShareTarget?>(null) }
     var pageShareLoadSeen by remember { mutableStateOf(false) }
     var shareStartsAt by remember { mutableIntStateOf(0) }
+    // On Home, a feed share's script opens the composer from Home's box (share_media.js; it asks
+    // for the composer's load when it can't): loaded, the composer has Facebook's server draw Home's
+    // whole feed first. Home can be the share's page after all: m.facebook.com reloads it by script
+    // a moment after the app starts, and a load of the composer can end on it.
+    fun script(target: ShareTarget) =
+        shareMediaScript(resources, target, fromHome = target == ShareTarget.FEED && isMobileHomePage(pageUrl()))
     LaunchedEffect(shareMediaRequest?.seq) {
         val request = shareMediaRequest ?: return@LaunchedEffect
-        val pageUrl = shareStartPageUrl(request.target)
-        if (pageUrl != null) {
+        val startUrl = shareStartPageUrl(request.target)
+        if (startUrl != null) {
             onCloseLayer()
             pageShareTarget = request.target
-            pageShareLoadSeen = false
             shareStartsAt = pageStarts
-            navigator.loadUrl(pageUrl)
+            // With Home showing, a feed share stays on it (script).
+            pageShareLoadSeen = request.target == ShareTarget.FEED && loadingState is LoadingState.Finished &&
+                isMobileHomePage(pageUrl())
+            if (pageShareLoadSeen) navigator.evaluateJavaScript(script(request.target)) {}
+            else navigator.loadUrl(startUrl)
         } else {
             onOpenLayer(if (request.target == ShareTarget.REEL) REEL_CREATE_URL else STORY_CREATE_URL)
         }
@@ -82,7 +98,7 @@ internal fun MainViewShareEffects(
         delay(SHARE_LOAD_WAIT_MS)
         if (!pageShareLoadSeen && loadingState is LoadingState.Finished && ShareMediaQueue.pending(target)) {
             pageShareLoadSeen = true
-            navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
+            navigator.evaluateJavaScript(script(target)) {}
         }
     }
     LaunchedEffect(loadingState, pageStarts, pageShareTarget) {
@@ -95,11 +111,11 @@ internal fun MainViewShareEffects(
             // it (on a cold start m.facebook.com redirects its first load to "/?wtsid=…", and a
             // share that opens the app ended on the feed). Up to SHARE_PAGE_MS; a group share
             // waits while the user picks the group (opening one can be a full load), for up to
-            // GROUP_PICK_MS. share_media.js runs only once per page.
+            // GROUP_PICK_MS. share_media.js runs only once per share on a page.
             val wait = if (target == ShareTarget.GROUP) ShareMediaQueue.GROUP_PICK_MS else ShareMediaQueue.SHARE_PAGE_MS
             if (ShareMediaQueue.olderThan(wait)) ShareMediaQueue.clear()
             if (ShareMediaQueue.pending(target)) {
-                navigator.evaluateJavaScript(shareMediaScript(resources, target)) {}
+                navigator.evaluateJavaScript(script(target)) {}
             } else {
                 pageShareTarget = null
             }

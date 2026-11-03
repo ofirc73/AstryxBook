@@ -39,9 +39,18 @@ const val STORY_CREATE_URL = "https://www.facebook.com/stories/create"
 /**
  * The mobile composer, opened directly (empty, "What's on your mind?"): it shows at once and the
  * shared photos go in through its Photos button. Through Home's Photo button the composer opened
- * only once Facebook had read the photos, seconds later.
+ * only once Facebook had read the photos, seconds later. With Home already showing, the share
+ * opens the composer from Home's own box instead ([isMobileHomePage]): loaded, the server draws
+ * Home's whole feed before it.
  */
 const val FEED_COMPOSER_PAGE_URL = "https://m.facebook.com/composer/"
+
+/** Whether [url] is the mobile site's Home (the feed), whose composer box a feed share can tap. */
+fun isMobileHomePage(url: String?): Boolean {
+    val uri = url?.let { runCatching { java.net.URI(it) }.getOrNull() } ?: return false
+    val path = uri.path ?: ""
+    return uri.host?.lowercase() == "m.facebook.com" && (path.isEmpty() || path == "/" || path == "/home.php")
+}
 
 /** The user's own profile on the mobile site, where the profile picture is changed. */
 const val PROFILE_PAGE_URL = "https://m.facebook.com/profile.php"
@@ -136,12 +145,18 @@ object ShareMediaQueue {
     private var next = 0
     private var startedAt = 0L
 
+    /** The share in progress's number, telling share_media.js runs for two shares apart. */
+    @get:Synchronized
+    var id = 0
+        private set
+
     @Synchronized
     fun start(newTarget: ShareTarget, newFiles: List<SharedFile>, now: Long = System.currentTimeMillis()) {
         target = newTarget
         files = newFiles
         next = 0
         startedAt = now
+        id++
     }
 
     /** Whether the share in progress started more than [ms] ago. */

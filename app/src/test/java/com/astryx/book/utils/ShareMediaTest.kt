@@ -124,6 +124,29 @@ class ShareMediaTest {
     }
 
     @Test
+    fun eachShare_hasItsOwnId() {
+        // share_media.js runs once per share on a page, and again for the next share on that page.
+        ShareMediaQueue.start(ShareTarget.FEED, listOf(SharedFile(File("a"), "a", "image/jpeg")))
+        val first = ShareMediaQueue.id
+        ShareMediaQueue.clear()
+        assertEquals(first, ShareMediaQueue.id)
+        ShareMediaQueue.start(ShareTarget.FEED, listOf(SharedFile(File("b"), "b", "image/jpeg")))
+        assertTrue(ShareMediaQueue.id != first)
+    }
+
+    @Test
+    fun theMobileHome_isRecognized() {
+        assertTrue(isMobileHomePage("https://m.facebook.com/"))
+        assertTrue(isMobileHomePage("https://m.facebook.com"))
+        assertTrue(isMobileHomePage("https://m.facebook.com/?wtsid=rdr_0"))
+        assertTrue(isMobileHomePage("https://m.facebook.com/home.php"))
+        assertFalse(isMobileHomePage("https://m.facebook.com/composer/"))
+        assertFalse(isMobileHomePage("https://m.facebook.com/profile.php"))
+        assertFalse(isMobileHomePage("https://www.facebook.com/"))
+        assertFalse(isMobileHomePage(null))
+    }
+
+    @Test
     fun theStoryCreator_isRecognized() {
         assertTrue(isStoryCreatePage("https://www.facebook.com/stories/create"))
         assertTrue(isStoryCreatePage("https://www.facebook.com/stories/create/?ref=x"))

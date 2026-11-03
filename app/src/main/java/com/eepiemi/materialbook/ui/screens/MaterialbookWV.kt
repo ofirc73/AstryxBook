@@ -1056,6 +1056,8 @@ fun MaterialbookWebView(
         navigator = navigator,
         loadingState = loadingState,
         pageStarts = pageStarts,
+        // The WebView's own URL follows Facebook's in-page navigation, lastLoadedUrl may not.
+        pageUrl = { runCatching { state.nativeWebView.url }.getOrNull() ?: state.lastLoadedUrl },
         onOpenLayer = { layerUrl -> messagesLayer.openCreator(layerUrl) },
         onCloseLayer = { messagesLayer.close() },
     )

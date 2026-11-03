@@ -20,12 +20,14 @@ import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.StoryBackgrounds
+import com.astryx.book.utils.jsBridge.HomeComposer
 import com.astryx.book.utils.TextZoom
 import com.astryx.book.utils.adsPixelBlocks
 import com.astryx.book.utils.lookUpPhotoPost
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -504,9 +506,44 @@ class LiveFacebookCanaryTest {
         assertTrue("the composer never opened (share_media.js, FEED_COMPOSER_PAGE_URL)", app.waitFor(45_000) {
             app.url(app.mainWebView()).contains("/composer")
         })
-        assertTrue("the photo never reached the composer (share_media.js: the Photos button or its file input)", app.waitFor(45_000) {
-            eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true"
+        awaitComposerPhoto()
+    }
+
+    private fun awaitComposerPhoto() = assertTrue(
+        "the photo never reached the composer (share_media.js: the Photos button or its file input)",
+        app.waitFor(45_000) { eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true" }
+    )
+
+    @Test
+    fun sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp() {
+        openFeed()
+        val taps = HomeComposer.taps.get()
+        val loads = HomeComposer.loads.get()
+        sharePicture("ShareToFeed")
+        assertTrue("the composer never opened (${pageShape()})", app.waitFor(30_000) {
+            eval("location.pathname") == "\"/composer/\""
         })
+        awaitComposerPhoto()
+        // Tapped once more when Facebook reloads Home a moment after the app starts (the share's
+        // script runs again on the new page).
+        assertTrue(
+            "the composer was loaded, not opened from Home's box (share_media.js homeComposerBox: the widest " +
+                "button in the Photo button's row, tapped by the app; ${pageShape()})",
+            HomeComposer.taps.get() > taps && HomeComposer.loads.get() == loads
+        )
+        // Back asks "Discard post?" (the draft has the photo); discarded, the composer goes back to Home.
+        // The sheet's button: its icon, then "Discard post".
+        app.pressBack()
+        val discard = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), function (b) {" +
+            " return /(^|\\s)Discard post$/.test((b.innerText || '').trim()); }).pop()"
+        assertTrue("Back from the composer didn't ask to discard the draft (${pageShape()}; ${appState()})", app.waitFor(15_000) {
+            eval("!!($discard)") == "true"
+        })
+        eval("($discard).click(); 1")
+        assertTrue("discarding the draft didn't go back to Home (${pageShape()})", app.waitFor(15_000) {
+            eval("location.pathname") == "\"/\""
+        })
+        assertFalse("Back from the composer left the app", app.isInBackground())
     }
 
     @Test

@@ -24,8 +24,13 @@
 (function () {
   var target = window.__astryxShareTarget;
   var bridge = window.AstryxShare;
-  if (!target || !bridge || window.__astryxShareRunning) return;
-  window.__astryxShareRunning = true;
+  // One run per share on a page (the app runs this on every page that loads until the files are
+  // taken). A feed share opened from Home stays on Home's page, so a later share runs there too:
+  // each share has its own id (window.__astryxShareId), and a run whose share was replaced stops.
+  var share = window.__astryxShareId || 1;
+  if (!target || !bridge || window.__astryxShareRunning === share) return;
+  window.__astryxShareRunning = share;
+  function replaced() { return window.__astryxShareRunning !== share; }
 
   var PHOTO_ICON = String.fromCharCode(0xDB8C, 0xDE3C); // U+F323C, the Photo button's icon
   var UPLOAD_ICON = String.fromCharCode(0xDB85, 0xDEE6); // U+F16E6, the profile menu's Upload photo
@@ -135,6 +140,7 @@
   function waitFor(find, ms, callback) {
     var started = Date.now();
     (function check() {
+      if (replaced()) return;
       var found = find();
       if (found) { callback(found); return; }
       if (ms && Date.now() - started > ms) { callback(null); return; }
@@ -225,21 +231,74 @@
     });
   }
 
-  // The feed share opens the composer itself (FEED_COMPOSER_PAGE_URL): its Photos button, found
-  // by the add-photo icon. Home's Photo button still works where the composer isn't open.
+  // The feed share's composer (FEED_COMPOSER_PAGE_URL): its Photos button, found by the add-photo
+  // icon. Home's Photo button still works where the composer isn't open.
+  function onComposerPage() {
+    return /^\/composer\/?$/.test(window.location.pathname);
+  }
   function feedPhotoButton() {
-    if (/^\/composer\/?$/.test(window.location.pathname)) return addPhotoButton();
+    if (onComposerPage()) return addPhotoButton();
     return photoButton();
   }
 
+  // Home's "What's on your mind?" box: the widest button in the row of Home's Photo button (any
+  // language), with that row ({box, row}). The app runs this on Home when the share comes with Home
+  // showing (window.__astryxShareFromHome): tapped, the composer opens in-page, which Facebook's server
+  // draws alone (under a second at 1 Mbps), where a load of /composer/ had it draw all of Home's
+  // feed first (9 s; read on the emulator 2026-11-03). The tap is the app's, a real one: Chromium's
+  // Back skips the history entry a script's click() adds, and Back from the composer left the app.
+  // With the box off screen, or no composer COMPOSER_MS after the tap, the app loads /composer/.
+  var COMPOSER_MS = window.__astryxShareComposerMs || 8000; // tests shorten it
+  function homeComposerBox() {
+    var photo = photoButton();
+    for (var row = photo && photo.parentElement; row; row = row.parentElement) {
+      var buttons = row.querySelectorAll('[role="button"]');
+      var widest = null;
+      for (var i = 0; i < buttons.length; i++) {
+        if (buttons[i] === photo || buttons[i].contains(photo) || photo.contains(buttons[i])) continue;
+        if (!widest || buttons[i].getBoundingClientRect().width > widest.getBoundingClientRect().width) widest = buttons[i];
+      }
+      if (widest) return { box: widest, row: row };
+    }
+    return null;
+  }
+
+  // The middle of element on the visual viewport, in its CSS px, with the viewport's width (the app
+  // scales it to the WebView), or null when it isn't on screen or something outside its row covers
+  // it (a sheet; the box's own text is drawn over it, beside it in the row).
+  function screenPoint(element, row) {
+    var box = element.getBoundingClientRect();
+    var viewport = window.visualViewport || { offsetLeft: 0, offsetTop: 0, width: window.innerWidth, height: window.innerHeight };
+    var middleX = box.left + box.width / 2;
+    var middleY = box.top + box.height / 2;
+    var x = middleX - viewport.offsetLeft;
+    var y = middleY - viewport.offsetTop;
+    if (box.width <= 0 || x < 0 || y < 0 || x > viewport.width || y > viewport.height) return null;
+    var top = document.elementFromPoint(middleX, middleY);
+    if (!top || !row.contains(top)) return null;
+    return { x: x, y: y, width: viewport.width };
+  }
+
+  function composerFromHome(done) {
+    var home = homeComposerBox();
+    var point = home && screenPoint(home.box, home.row);
+    if (!point) { send({ call: 'openComposer', reason: home ? 'boxHidden' : 'noBox' }); return; }
+    send({ call: 'tap', x: point.x, y: point.y, width: point.width });
+    waitFor(function () { return onComposerPage() && addPhotoButton(); }, COMPOSER_MS, function (button) {
+      if (button) done(button); else send({ call: 'openComposer', reason: 'notOpened' });
+    });
+  }
+
   function shareToFeed() {
-    waitFor(feedPhotoButton, FIND_MS, function (button) {
+    function give(button) {
       if (!button) { send({ call: 'failed', reason: 'noComposer' }); return; }
       receiveFiles('all', function (files) {
         if (!files.length) { send({ call: 'finished' }); return; }
         answerFileClick(button, files);
       });
-    });
+    }
+    if (window.__astryxShareFromHome && !onComposerPage()) composerFromHome(give);
+    else waitFor(feedPhotoButton, FIND_MS, give);
   }
 
   // A group's own page (not the groups list or one of its tabs) with its composer's Photo button.
