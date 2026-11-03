@@ -1,4 +1,5 @@
 package com.astryx.book
+import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
@@ -6,6 +7,9 @@ import android.graphics.Color
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.astryx.book.notifications.StoryPosting
+import com.astryx.book.notifications.StoryPostingService
+import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import org.junit.After
@@ -85,7 +89,40 @@ class ShareIntoFacebookTest {
         if (!inLayer) assertTrue("$target opened the Messages layer", app.webViews().size == 1)
     }
 
+    // The story creator laid out by story_layout.js (StoryLayoutJsTest's), its photo shown.
+    private fun openCreator(): android.webkit.WebView {
+        share("ShareToStory", photo("story.png"))
+        assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+        ShareMediaQueue.clear()
+        val layer = app.layerWebView()!!
+        // Logged out (CI), the real creator went on redirecting under the test page: a late move to
+        // the stories page then counted as the story posted.
+        app.keepOffTheNetwork(layer)
+        app.loadPage(STORY_CREATE_URL, CREATOR, layer)
+        assertTrue("story_layout.js never marked Discard / Share", app.waitFor {
+            app.eval("!!document.querySelector('[data-astryx-story=\"actions\"]')", layer) == "true"
+        })
+        return layer
+    }
+
+    // Facebook's Share to story while the story posts (aria-busy, read on the emulator 2026-11-02).
+    private fun setPosting(layer: android.webkit.WebView, posting: Boolean) = app.eval(
+        "var share = document.querySelectorAll('#actions [role=\"button\"]')[1];" +
+            "share.setAttribute('aria-busy', '$posting'); share.setAttribute('aria-disabled', '$posting'); 1",
+        layer
+    )
+
+    @Suppress("DEPRECATION") // getRunningServices still lists the app's own services
+    private fun postingNotificationShows(): Boolean =
+        app.context.getSystemService(ActivityManager::class.java).getRunningServices(Int.MAX_VALUE)
+            .any { it.service.className == StoryPostingService::class.java.name && it.foreground }
+
+    private fun tapPostingNotification() =
+        app.start(Intent(StoryPosting.ACTION_SHOW, null, app.context, com.eepiemi.materialbook.MainActivity::class.java))
+
     private companion object {
+        const val CREATOR = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head><body>" +
+            StoryLayoutJsTest.CREATOR + "<script>window.__showFrame(); window.__testPage = true;</script></body></html>"
         const val STORY_CREATE_URL = "https://www.facebook.com/stories/create/"
         const val PAGE =
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
@@ -185,5 +222,47 @@ class ShareIntoFacebookTest {
     fun asProfilePicture_opensTheProfile() {
         share("ShareToProfilePicture", photo("profile.png"))
         assertOpens(ShareTarget.PROFILE_PICTURE, inLayer = false, path = "/profile.php")
+    }
+
+    // Share to story pressed: the creator goes out of sight and the story goes on posting there, in
+    // the background, with "Posting your story" in the notification shade (as the Facebook app does);
+    // the notification shows the creator again, Back hides it. Posted, it closes.
+    @Test
+    fun aStoryPosting_goesOnOutOfSight_withItsNotification_untilItsPosted() {
+        val layer = openCreator()
+        setPosting(layer, true)
+        assertTrue("the creator stayed on screen while the story posts", app.waitFor { !app.layerOpen() })
+        assertTrue("the posting notification never showed", app.waitFor { postingNotificationShows() })
+        assertTrue("the creator was closed, and the upload with it", app.layerWebView() === layer)
+
+        tapPostingNotification()
+        assertTrue("the notification didn't show the creator", app.waitFor { app.layerOpen() })
+        app.pressBack()
+        assertTrue("Back closed the posting creator instead of hiding it", app.waitFor { !app.layerOpen() })
+        assertTrue(app.layerWebView() === layer)
+
+        // Posted: Facebook moves on to its stories page.
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        setPosting(layer, false)
+        assertTrue("the posting notification stayed after the story was posted", app.waitFor { !postingNotificationShows() })
+        assertTrue("the creator stayed after the story was posted", app.waitFor { app.layerWebView() == null })
+    }
+
+    // A failed upload: Facebook's editor comes back (still the creator), kept out of sight until the
+    // notification shows it again, for another try.
+    @Test
+    fun aStoryThatFailsToPost_isKept_forTheNotificationToShowAgain() {
+        val layer = openCreator()
+        setPosting(layer, true)
+        assertTrue(app.waitFor { !app.layerOpen() && postingNotificationShows() })
+        setPosting(layer, false)
+        assertTrue("the posting notification stayed after the upload failed", app.waitFor { !postingNotificationShows() })
+        // Back is the main view's (a page back, or leaving the app from the feed): the failed story
+        // is kept meanwhile.
+        app.pressBack()
+        Thread.sleep(1000)
+        tapPostingNotification()
+        assertTrue("the notification didn't show the failed story", app.waitFor { app.layerOpen() })
+        assertTrue("the failed story was dropped", app.layerWebView() === layer)
     }
 }

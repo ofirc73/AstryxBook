@@ -410,7 +410,8 @@ class StoryLayoutJsTest {
         )
     }
 
-    private companion object {
+    // Also the creator ShareIntoFacebookTest posts from.
+    internal companion object {
         // Facebook's creator: the sidebar (privacy in its header, the tools and the AI label row,
         // Discard / Share at its foot) beside the preview, whose 316 px column holds the frame.
         // Facebook sizes the frame (innerHeight - 256) x 9/16 wide on every resize. Its narrow

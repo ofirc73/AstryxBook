@@ -53,7 +53,7 @@ class MessagesLayerZoomTest {
         assertTrue("the Messages layer can't be pinch-zoomed", zooms(layer))
 
         // And it does zoom (a test page: no login here).
-        app.onActivity { layer.settings.blockNetworkLoads = true; layer.stopLoading() }
+        app.keepOffTheNetwork(layer)
         app.loadPage(
             "https://www.facebook.com/messages/t/4567/",
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=2'></head>" +

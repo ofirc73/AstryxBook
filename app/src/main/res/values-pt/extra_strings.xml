@@ -110,4 +110,9 @@
     <string name="share_media_adding_several">A adicionar %1$d fotos…</string>
     <string name="send_post_pick_chat">Abra uma conversa para enviar a publicação: o link dela vai para a caixa de mensagem.</string>
     <string name="send_post_cancel">Não enviar a publicação</string>
+    <string name="story_posting_channel">Publicação de story</string>
+    <string name="story_posting">Publicando seu story…</string>
+    <string name="story_posted">Seu story foi publicado</string>
+    <string name="story_post_failed">Não foi possível publicar seu story. Toque para tentar novamente.</string>
+    <string name="story_post_interrupted">Seu story não foi publicado: o app foi fechado durante a publicação.</string>
 </resources>

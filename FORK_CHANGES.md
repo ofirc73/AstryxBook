@@ -621,7 +621,8 @@ on their own can't:
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
   the story screen when there's no story of yours on it, or opening the creator again for the next
-  file.
+  file; a story posting going on out of sight with its notification (shown again by the
+  notification, hidden again by Back) until it's posted, and one that failed kept for another try.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -661,6 +662,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`).
+- `theStoryEditorsShare_saysWhenItsBusy_asStoryPostingReadsIt`: the real Share to story in
+  `story_layout.js`'s bottom row carrying `aria-busy` (`"false"`, never pressed), which
+  `story_posting.js` reads (`StoryPostingJsTest`). Its `"true"` while posting and the failure that
+  follows can't be checked live without posting: they were read on the emulator with every request
+  held (2026-11-02).
 - `theStoryEditorsMusicList_isClosedByATapOnDiscard`: the real music list seen as an open panel,
   and a tap on Discard closing it through its close button without going through (tried on
   Discard, never Share; `StoryLayoutJsTest`).
@@ -1493,6 +1499,24 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   page, which shows Facebook's "Discard post?", instead of leaving the app: Back asks the WebView
   whether it can go back, as the Messages layer already did. Covered by `ShareMediaTest` and
   `ShareMediaJsTest`.
+- **A story posts in the background**, as in the Facebook app: once Share to story starts posting
+  (Facebook's "Posting your story..."), the creator goes out of sight and the user is back on the
+  feed, free to browse or leave the app, while **Posting your story** shows in the notification
+  shade. Facebook's page still does the upload, in the layer's WebView, which is kept (out of sight)
+  until the story is posted; a foreground service (`StoryPostingService`, type `dataSync`) shows the
+  notification and keeps Android from ending the app, and the upload with it, while it's out of
+  sight. Posted, the creator closes, with **Your story is posted** if the user wasn't looking. If
+  the upload fails (Facebook's editor comes back, "You are currently offline"), **Couldn't post your
+  story** says so; a tap on it, or on the posting notification, shows the creator again (Back hides
+  it while it posts). Opening Messages, Create story or another share while a story posts shows that
+  creator instead of replacing it. The app asks for the notification permission at the first post
+  if it doesn't have it. `story_posting.js` reads the posting from Share to story's `aria-busy`
+  (`"true"` while posting; read on the emulator with every request held over DevTools, 2026-11-02),
+  found in the bottom row `story_layout.js` marks, never by its label. The feed isn't done this way:
+  m.facebook.com uploads a post's photos as they're attached in the composer, and Post goes to its
+  server over the page's WebSocket, which finishes the post on its own (seen on the emulator the
+  same day), so leaving the app after Post loses nothing. Covered by `StoryPostingJsTest`,
+  `ShareIntoFacebookTest`, `MessagesLayerStateTest` and `PageBridgeTest`.
 
 ## Known limitations
 

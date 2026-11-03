@@ -25,6 +25,8 @@ class PageBridges(
     val share: ((String) -> Unit)? = null,
     // memory_photos.js: a photo's post (PhotoPost), looked up and answered to the page as JSON.
     val photoPost: ((fbid: String, reply: (String) -> Unit) -> Unit)? = null,
+    // story_posting.js: Share to story started posting (true) or failed (false). WebView 83+ only.
+    val storyPosting: ((posting: Boolean) -> Unit)? = null,
 )
 
 /**
@@ -85,6 +87,14 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
         }
         "layerUrl" -> bridges.layer?.onUrlChanged(msg.optString("url").takeIf { it.isNotEmpty() } ?: return false)
             ?: return false
+        "storyPosting" -> {
+            val storyPosting = bridges.storyPosting ?: return false
+            when (msg.optString("state")) {
+                "posting" -> storyPosting(true)
+                "failed" -> storyPosting(false)
+                else -> return false
+            }
+        }
         else -> return false
     }
     return true

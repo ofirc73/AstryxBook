@@ -75,4 +75,17 @@ class PageBridgeTest {
         // A view without the share bridge doesn't take it.
         assertFalse(dispatchPageMessage("""{"call":"shareLink","url":"https://www.facebook.com/share/1abc/"}""", bridges))
     }
+
+    @Test
+    fun storyPosting_passesOnPostingAndFailed() {
+        val states = mutableListOf<Boolean>()
+        val layer = PageBridges(storyPosting = { states += it })
+        assertTrue(dispatchPageMessage("""{"call":"storyPosting","state":"posting"}""", layer))
+        assertTrue(dispatchPageMessage("""{"call":"storyPosting","state":"failed"}""", layer))
+        assertFalse(dispatchPageMessage("""{"call":"storyPosting","state":"posted"}""", layer))
+        assertFalse(dispatchPageMessage("""{"call":"storyPosting"}""", layer))
+        assertEquals(listOf(true, false), states)
+        // The main view has no story creator.
+        assertFalse(dispatchPageMessage("""{"call":"storyPosting","state":"posting"}""", bridges))
+    }
 }

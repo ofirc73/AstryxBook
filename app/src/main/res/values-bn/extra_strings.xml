@@ -105,4 +105,9 @@
     <string name="share_media_adding_several">%1$d টি ছবি যোগ করা হচ্ছে…</string>
     <string name="send_post_pick_chat">পোস্টটি পাঠাতে একটি চ্যাট খুলুন: এর লিংক মেসেজ বক্সে বসবে।</string>
     <string name="send_post_cancel">পোস্টটি পাঠাবেন না</string>
+    <string name="story_posting_channel">স্টোরি পোস্ট করা</string>
+    <string name="story_posting">আপনার স্টোরি পোস্ট হচ্ছে…</string>
+    <string name="story_posted">আপনার স্টোরি পোস্ট হয়েছে</string>
+    <string name="story_post_failed">আপনার স্টোরি পোস্ট করা যায়নি। আবার চেষ্টা করতে ট্যাপ করুন।</string>
+    <string name="story_post_interrupted">আপনার স্টোরি পোস্ট হয়নি: পোস্ট করার সময় অ্যাপটি বন্ধ হয়ে গেছে।</string>
 </resources>
