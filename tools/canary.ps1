@@ -122,9 +122,10 @@ try {
         com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | Out-String
     Write-Host $output
     if ($output -notmatch 'OK \(\d+ tests?\)') {
-        # The failing checks and their messages, without stack traces.
+        # The failing checks and their messages, without stack traces (a crash's line follows the
+        # passed checks' dots).
         $failure = ($output -split "`r?`n" | Where-Object {
-            $_ -match '^(Error in |\d+\) |[a-z][a-z0-9_]*(\.[A-Za-z0-9_$]+)+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)'
+            $_ -match '^\.*(Error in |\d+\) |[a-z][a-z0-9_]*(\.[A-Za-z0-9_$]+)+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)'
         }) -join "`n"
         if (-not $failure) { $failure = 'No test result (see the log on the PC)' }
     }
@@ -147,8 +148,8 @@ if ($ran) { Set-Content -Path (Join-Path $gapsDir "$stamp.txt") -Value $gaps }
 if (-not $NoIssue) {
     try {
         if ($failure) {
-            $body = "**$date** on the PC's emulator${at}:`n`n``````n$failure`n``````" +
-                $(if ($notes) { "`n`nNotes:`n``````n$notes`n``````" } else { '' }) +
+            $body = "**$date** on the PC's emulator${at}:`n`n```````n$failure`n``````" +
+                $(if ($notes) { "`n`nNotes:`n```````n$notes`n``````" } else { '' }) +
                 "`n`nLiveFacebookCanaryTest against today's m.facebook.com. Full log on the PC: ``$log``."
             Update-Issue comment $issueTitle $body
         } else {
@@ -165,7 +166,7 @@ if (-not $NoIssue) {
             })
             if ($long.Count) {
                 Update-Issue edit $gapsTitle ("**$date**${at}: not checked in this run nor the $($gapRuns - 1) before it, so " +
-                    "these parts may be broken without a check failing:`n``````n$($long -join "`n")`n``````")
+                    "these parts may be broken without a check failing:`n```````n$($long -join "`n")`n``````")
             } else {
                 Update-Issue close $gapsTitle "Checked again on $date$at."
             }
