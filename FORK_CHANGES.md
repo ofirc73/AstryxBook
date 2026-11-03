@@ -622,7 +622,8 @@ on their own can't:
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
   the story screen when there's no story of yours on it, or opening the creator again for the next
   file; a story share answering the creator's text-story backgrounds empty while its files wait
-  (Create story loading them); a story posting going on out of sight with its notification (shown again by the
+  (Create story loading them); a Feed share with Home showing opening the composer from Home's box
+  with a real tap, and Back from it back on Home; a story posting going on out of sight with its notification (shown again by the
   notification, hidden again by Back) until it's posted, and one that failed kept for another try.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
@@ -660,6 +661,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
+- `sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp`: with
+  the feed showing, the share's composer opened by the app's tap on Home's box, never loaded
+  (`HomeComposer`'s counts), with the photo in it; Back asks Facebook's "Discard post?", and the
+  discarded draft goes back to Home, in the app (`share_media.js` `homeComposerBox`,
+  `ShareMediaJsTest`, `ShareIntoFacebookTest`).
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`), with the creator's text-story backgrounds requested and answered empty
@@ -1529,6 +1535,17 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   on the feed loads them. A first share after the cache was emptied still waits for Facebook's
   scripts (4.6 MB: 32 s at 1 Mbps), so *Clear cache when leaving* makes every share that slow.
   Covered by `StoryBackgroundsTest` and `ShareIntoFacebookTest`.
+- **A Feed share opens fast on a weak connection when Home is showing**: a load of
+  `m.facebook.com/composer/` has Facebook's server draw all of Home's feed first (about 290 KB of
+  screens over its WebSocket, while ~530 KB of feed photos load), so at 1 Mbps (emulator, DevTools
+  throttling) the composer showed after about 9 s and the shared photo's preview after 7-16 s. With
+  Home showing, the share now opens the composer from Home's own "What's on your mind?" box, which
+  the server draws alone: composer in under a second, preview in about 2 s. The box is the widest
+  button in the row of Home's Photo button (any language), and the app taps it for real (a script's
+  click() made Chromium's Back skip the composer's history entry, and Back left the app). With the
+  box off screen (the feed scrolled down) or covered, or no composer 8 s after the tap, the app
+  loads the composer page as before; a share that starts the app does too. Covered by
+  `ShareMediaTest`, `ShareMediaJsTest` and `ShareIntoFacebookTest`.
 
 ## Known limitations
 

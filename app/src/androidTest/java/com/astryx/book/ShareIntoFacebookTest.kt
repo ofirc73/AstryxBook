@@ -9,11 +9,13 @@ import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.notifications.StoryPosting
 import com.astryx.book.notifications.StoryPostingService
+import com.astryx.book.ui.screens.ShareMediaJsTest
 import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -154,6 +156,34 @@ class ShareIntoFacebookTest {
         assertOpens(ShareTarget.FEED, inLayer = false, path = "/composer")
         assertTrue("the first photo is missing", ShareMediaQueue.take(ShareTarget.FEED) != null)
         assertTrue("the second photo is missing", ShareMediaQueue.take(ShareTarget.FEED) != null)
+    }
+
+    @Test
+    fun toFeed_withHomeShowing_opensTheComposerFromHomesBox_withARealTap_thatBackGoesBackFrom() {
+        // No load of /composer/ (Facebook's server would draw all of Home's feed first): the app taps
+        // Home's box, a real tap, so Back's history keeps the composer's entry (from a script's
+        // click(), Chromium's Back skipped it and left the app).
+        app.start()
+        app.loadPage(
+            "https://m.facebook.com/",
+            "<html><body>${ShareMediaJsTest.homePage()}<script>${ShareMediaJsTest.PHOTO_ICON} ${ShareMediaJsTest.ADD_PHOTO_ICON}" +
+                "document.getElementById('field').addEventListener('click', function () {" +
+                "  window.__realTap = !!(navigator.userActivation && navigator.userActivation.isActive); });" +
+                "document.getElementById('in').addEventListener('change', function (e) { window.__taken = e.target.files.length; });" +
+                "window.__testPage = true;</script></body></html>",
+            asHistory = true,
+        )
+        share("ShareToFeed", photo("feed.png"))
+
+        assertTrue("the composer opened from Home never took the photo (${app.eval("location.pathname")})", app.waitFor(15_000) {
+            app.eval("window.__taken === 1 && location.pathname === '/composer/' && !!window.__testPage") == "true"
+        })
+        assertEquals("the box's tap wasn't a real one", "true", app.eval("window.__realTap"))
+        app.pressBack()
+        assertTrue("Back didn't go back to Home (${app.eval("location.pathname")})", app.waitFor {
+            app.eval("location.pathname") == "\"/\""
+        })
+        assertFalse("Back left the app", app.isInBackground())
     }
 
     @Test

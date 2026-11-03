@@ -35,8 +35,9 @@ class ShareMediaJsTest {
                 files.joinToString(",") { (n, t, s) -> "{name:'$n',type:'$t',bytes:$s}" } + "];"
         )
 
-        fun run(target: String) {
-            eval("window.__astryxShareFindMs = 1500; window.__astryxShareTarget = '$target';\n${page.script(R.raw.share_media)}")
+        /** share_media.js for [target], after [setup] (the flags the app sets, ShareEffects). */
+        fun run(target: String, setup: String = "") {
+            eval("window.__astryxShareFindMs = 1500; window.__astryxShareTarget = '$target'; $setup\n${page.script(R.raw.share_media)}")
         }
 
         fun eval(js: String) = page.eval(js)
@@ -68,13 +69,75 @@ class ShareMediaJsTest {
         // add-photo icon U+F18BB) gets the files.
         val h = Harness()
         h.load("https://m.facebook.com/composer/", COMPOSER_PAGE)
-        h.eval("document.getElementById('cicon').textContent = String.fromCharCode(0xDB86, 0xDCBB);")
+        h.eval(ADD_PHOTO_ICON)
         h.files(Triple("0_a.jpg", "image/jpeg", 5))
         h.run("feed")
 
         assertTrue("the composer never got the files", h.waitFor("!!window.__got"))
         assertEquals("0_a.jpg:image/jpeg:5", h.eval("window.__got.join(',')").unquoted())
         assertEquals("0", h.eval("window.__pickerOpened"))
+    }
+
+    @Test
+    fun feed_fromHome_hasTheAppTapItsComposerBox_thenGivesTheFilesToTheComposer() {
+        // A share that comes with Home showing: the app taps the box (a real tap, which Back's
+        // history needs), the composer opens in-page, and its Photos button gets the files.
+        val h = Harness()
+        h.load("https://m.facebook.com/", homePage())
+        h.eval(PHOTO_ICON)
+        h.eval(ADD_PHOTO_ICON)
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed", "window.__astryxShareFromHome = true;")
+
+        assertTrue("the composer never got the files (${h.calls()})", h.waitFor("!!window.__got"))
+        assertEquals("0_a.jpg:image/jpeg:5", h.eval("window.__got.join(',')").unquoted())
+        assertEquals("/composer/", h.eval("location.pathname").unquoted())
+        assertTrue(h.calls(), h.calls().startsWith("tap:feed all:feed"))
+    }
+
+    // A feed share run on Home whose box can't open the composer: the app's asked to load it, for
+    // [reason]; the page is [page], changed by [change], and the script runs after [setup].
+    private fun assertTheAppLoadsTheComposer(reason: String, page: String, change: String = "", setup: String = "") {
+        val h = Harness()
+        h.load("https://m.facebook.com/", page)
+        h.eval(PHOTO_ICON + change)
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed", "window.__astryxShareFromHome = true; $setup")
+
+        assertTrue(h.calls(), h.waitFor("window.__calls.indexOf('openComposer:feed:$reason') >= 0"))
+        assertEquals("the files went somewhere", "false", h.eval("!!window.__got"))
+    }
+
+    @Test
+    fun feed_fromHome_withTheBoxOffScreen_hasTheAppLoadTheComposer() =
+        assertTheAppLoadsTheComposer("boxHidden", homePage(boxTop = 5000))
+
+    @Test
+    fun feed_fromHome_withASheetOverTheBox_hasTheAppLoadTheComposer() =
+        assertTheAppLoadsTheComposer("boxHidden", homePage(), change = SHEET_OVER_THE_PAGE)
+
+    @Test
+    fun feed_fromHome_whenTheTapOpensNoComposer_hasTheAppLoadIt() =
+        assertTheAppLoadsTheComposer(
+            "notOpened", homePage(opensComposer = false), setup = "window.__astryxShareComposerMs = 600;"
+        )
+
+    @Test
+    fun aShareRunsOncePerPage_andTheNextShareRunsThereToo() {
+        // Opened from Home, the composer stays in Home's page, where the next share runs too.
+        val h = Harness()
+        h.load("https://m.facebook.com/composer/", COMPOSER_PAGE)
+        h.eval(ADD_PHOTO_ICON)
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed", "window.__astryxShareId = 1;")
+        assertTrue(h.waitFor("!!window.__got"))
+        h.run("feed", "window.__astryxShareId = 1;")
+        Thread.sleep(500)
+        assertEquals("the same share ran twice", "all:feed", h.calls().substringBefore(" finished"))
+
+        h.files(Triple("1_b.jpg", "image/jpeg", 7))
+        h.run("feed", "window.__astryxShareId = 2;")
+        assertTrue("the next share never ran", h.waitFor("window.__got.join(',') === '1_b.jpg:image/jpeg:7'"))
     }
 
     @Test
@@ -240,7 +303,7 @@ class ShareMediaJsTest {
         assertEquals("0_a.jpg:image/jpeg:6", h.eval("window.__got[0]").unquoted())
     }
 
-    private companion object {
+    internal companion object {
         // Answers share_media.js like ShareMediaBridge: a header, then each file as an ArrayBuffer
         // (or base64), from window.__files; records the calls as "call:target[:reason]".
         const val FAKE_BRIDGE = """
@@ -254,6 +317,8 @@ class ShareMediaJsTest {
             window.AstryxShare = { postMessage: function (text) {
               var m = JSON.parse(text), self = this;
               window.__calls.push(m.call + ':' + m.target + (m.reason ? ':' + m.reason : ''));
+              // The app's tap lands on what's at that point of the screen (no zoom here).
+              if (m.call === 'tap') { var hit = document.elementFromPoint(m.x, m.y); if (hit) hit.click(); }
               setTimeout(function () {
                 if (m.call !== 'all' && m.call !== 'next') return;
                 var files = m.call === 'all' ? window.__files.splice(0) : window.__files.splice(0, 1);
@@ -287,6 +352,33 @@ class ShareMediaJsTest {
                 "document.getElementById('in').addEventListener('change', function (e) {" +
                 "  window.__got = Array.prototype.map.call(e.target.files, function (f) { return f.name + ':' + f.type + ':' + f.size; }); });" +
                 "</script>"
+
+        // Home's composer row: the profile picture, the "What's on your mind?" box (Hebrew here: found
+        // by being the row's widest button; Facebook draws its text over it, beside it in the row, and
+        // the box's field takes the tap) and the Photo button. The field opens the composer in-page
+        // (a moment later, at /composer/, as Facebook's server draws it), whose Photos button (the
+        // add-photo icon) takes the files. [boxTop]: the row's distance from the page's top.
+        fun homePage(opensComposer: Boolean = true, boxTop: Int = 0) =
+            "<div id='home' style='display:flex;margin-top:${boxTop}px'>" +
+                "<div role='button' aria-label='Go to profile' style='width:40px;height:40px'></div>" +
+                "<div id='field' style='position:relative'>" +
+                "<div role='button' aria-label='על מה אתה חושב?' style='width:240px;height:36px'></div>" +
+                "<div style='position:absolute;left:16px;top:0;height:36px'>על מה אתה חושב?</div></div>" +
+                "<div role='button' id='photo' aria-label='תמונה' style='width:48px;height:40px'><span id='icon'></span></div></div>" +
+                "<div id='composer' style='display:none'>$COMPOSER_PAGE</div>" +
+                "<script>document.getElementById('field').addEventListener('click', function () {" +
+                (if (opensComposer) "  setTimeout(function () { history.pushState({}, '', '/composer/');" +
+                    "    document.getElementById('home').style.display = 'none';" +
+                    "    document.getElementById('composer').style.display = 'block'; }, 200);" else "") +
+                "});</script>"
+
+        // A sheet over the whole page (Facebook's "better on the app" one), the box under it.
+        const val SHEET_OVER_THE_PAGE = "var sheet = document.createElement('div');" +
+            " sheet.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;background:#fff';" +
+            " document.body.appendChild(sheet);"
+
+        // The composer's Photos button's icon (U+F18BB), put in by script.
+        const val ADD_PHOTO_ICON = "document.getElementById('cicon').textContent = String.fromCharCode(0xDB86, 0xDCBB);"
 
         // The Photo button's icon glyph (U+F323C), put in by script: no private-use character here.
         const val PHOTO_ICON = "document.getElementById('icon').textContent = String.fromCharCode(0xDB8C, 0xDE3C);"
