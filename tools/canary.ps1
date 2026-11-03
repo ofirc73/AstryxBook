@@ -22,6 +22,12 @@
 
   Logs: %LOCALAPPDATA%\Astryxbook\canary\<date>.log; each run's gaps in its gaps\ folder.
 
+  The emulator is shared with the work on the app: a run killed by another session's install or
+  force-stop said "Process crashed" (issue 147, 2026-11-03). So a run holds
+  %LOCALAPPDATA%\Astryxbook\canary\running.lock (its PowerShell process's id) from start to end,
+  which sessions check before they touch the emulator (CLAUDE.md), and it waits, up to an hour,
+  while another test run is on the emulator; still busy then, it skips the day without a report.
+
 .PARAMETER NoBuild
   Test the debug app already installed instead of building origin/main.
 .PARAMETER NoIssue
@@ -55,6 +61,17 @@ $stamp = Get-Date -Format 'yyyy-MM-dd_HHmm'
 $log = Join-Path $logDir "$stamp.log"
 Start-Transcript -Path $log | Out-Null
 
+# This run holds the lock until it's done; one whose process is gone (a run that was stopped) is stale.
+$lock = Join-Path $logDir 'running.lock'
+$held = if (Test-Path $lock) { [int]((Get-Content $lock -Raw) -split '\s+')[0] } else { 0 }
+$holder = if ($held) { Get-Process -Id $held -ErrorAction SilentlyContinue }
+if ($held -ne $PID -and $holder.ProcessName -match '^(pwsh|powershell)$') {
+    Write-Host "Another daily check is running (process $held): skipped"
+    Stop-Transcript | Out-Null
+    exit 0
+}
+Set-Content -Path $lock -Value "$PID $(Get-Date -Format o)"
+
 # The issues are opened, commented on and closed by the script facebook-canary.yml uses, through
 # Git's own bash (a plain `bash` can be WSL's).
 $gitBash = Join-Path (Split-Path (Split-Path (Get-Command git).Source -Parent) -Parent) 'bin\bash.exe'
@@ -63,6 +80,7 @@ function Update-Issue([string]$action, [string]$title, [string]$text) {
 }
 
 $startedEmulator = $false
+$skipped = $null
 $failure = $null
 $output = ''
 $commit = ''
@@ -86,6 +104,16 @@ try {
     }
     $env:ANDROID_SERIAL = $serial
     Write-Host "Device: $serial"
+
+    # Another test run on the emulator (a session's `am instrument`, listed by the activity manager
+    # only while it runs): installing over it would end it, and its installs would end this run.
+    $busyUntil = (Get-Date).AddHours(1)
+    while (& $adb shell 'dumpsys activity processes | grep -q ActiveInstrumentation && echo busy') {
+        if ((Get-Date) -gt $busyUntil) { $skipped = 'another test run kept the emulator busy for an hour'; break }
+        Write-Host 'Another test run is on the emulator: waiting'
+        Start-Sleep 30
+    }
+    if ($skipped) { throw $skipped }
 
     # 2. Awake and unlocked (WebView fails in tests behind the lock screen). The PIN pad comes up
     # for a swipe through the touchscreen source (a plain swipe was ignored at times).
@@ -123,16 +151,17 @@ try {
     Write-Host $output
     if ($output -notmatch 'OK \(\d+ tests?\)') {
         # The failing checks and their messages, without stack traces (a crash's line follows the
-        # passed checks' dots).
+        # passed checks' dots, and the class's name when it crashed in the first check).
         $failure = ($output -split "`r?`n" | Where-Object {
-            $_ -match '^\.*(Error in |\d+\) |[a-z][a-z0-9_]*(\.[A-Za-z0-9_$]+)+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)'
+            $_ -match '^(\S+:)?\.*(Error in|\d+\) |[a-z][a-z0-9_]*(\.[A-Za-z0-9_$]+)+(Error|Exception)|Process crashed|INSTRUMENTATION_RESULT: shortMsg|Tests run:)'
         }) -join "`n"
         if (-not $failure) { $failure = 'No test result (see the log on the PC)' }
     }
 } catch {
-    $failure = "The check couldn't run: $($_.Exception.Message)"
+    if (-not $skipped) { $failure = "The check couldn't run: $($_.Exception.Message)" }
 } finally {
     if ($startedEmulator -and $env:ANDROID_SERIAL) { & $adb emu kill 2>$null | Out-Null }
+    Remove-Item $lock -Force -ErrorAction SilentlyContinue
 }
 
 # 5. Report.
@@ -145,7 +174,7 @@ $notes = ($lines | Select-String '^CANARY NOTE: (.*)' | ForEach-Object { $_.Matc
 $ran = $output -match 'Tests run:|OK \(\d+ tests?\)'
 $gaps = @($lines | Select-String '^CANARY GAP: (.*)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
 if ($ran) { Set-Content -Path (Join-Path $gapsDir "$stamp.txt") -Value $gaps }
-if (-not $NoIssue) {
+if (-not $NoIssue -and -not $skipped) {
     try {
         if ($failure) {
             $body = "**$date** on the PC's emulator${at}:`n`n```````n$failure`n``````" +
@@ -177,7 +206,8 @@ if (-not $NoIssue) {
 }
 
 if ($notes) { Write-Host "Notes:`n$notes" }
-if ($failure) { Write-Host "FAILED:`n$failure" } else { Write-Host 'All live checks passed' }
+if ($skipped) { Write-Host "Skipped: $skipped" }
+elseif ($failure) { Write-Host "FAILED:`n$failure" } else { Write-Host 'All live checks passed' }
 Stop-Transcript | Out-Null
 # Keep a month of logs and gaps.
 Get-ChildItem $logDir, $gapsDir -File | Where-Object LastWriteTime -lt (Get-Date).AddDays(-30) | Remove-Item -Force

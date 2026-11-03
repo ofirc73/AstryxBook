@@ -86,7 +86,13 @@ user-visible change.
   next (v1.35.16 shipped a reel that replayed on every Back that way). The daily check runs on the
   owner's PC since 2026-11-01: a Windows scheduled task (`tools/schedule-canary.ps1`, registers it;
   `-Remove`) runs `tools/canary.ps1 -Chat … -Pin …` every day (as soon as it can if the PC was off),
-  on the emulator's own login, the Messages layer checks included. It reports through
+  on the emulator's own login, the Messages layer checks included. It shares the emulator with the
+  work on the app: an install or force-stop during its run killed it ("Process crashed", issue 147).
+  While it runs it holds `%LOCALAPPDATA%\Astryxbook\canary\running.lock` (its PowerShell process's
+  id first): before installing on, force-stopping or testing on the emulator, check the lock, and
+  while it's there with that process running, wait (a run takes about 20 minutes plus the build). It
+  waits for another test run itself (`ActiveInstrumentation` in `dumpsys activity processes`), up
+  to an hour, then skips the day. It reports through
   `.github/scripts/canary-issue.sh`, as the workflow does: failures in one "Daily Facebook check
   failed" issue, closed when the checks pass again; a check that passed only after a workaround (the
   reel check's second Home) prints a `CANARY NOTE:` line (`note()`), listed in the issue. A part
