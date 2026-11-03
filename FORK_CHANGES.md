@@ -661,7 +661,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   slice and the takeover are in `ReelCommentsAudioJsTest` (a fake indexed track and decoder).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
-  `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
+  `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`). Both, and the next check, also
+  check the composer as `feed_posting.js` needs it to keep a post (or a group's) going from its
+  tap on Post: at `/composer/`, with one Post found by `isPostButton` (`FeedPostingJsTest`). The
+  posting notification's channel (its status-bar icon, for stories too) doesn't depend on
+  Facebook's page: `PostingTest`.
 - `sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp`: with
   the feed showing, the share's composer opened by the app's tap on Home's box, never loaded
   (`HomeComposer`'s counts), with the photo in it; Back asks Facebook's "Discard post?", and the
@@ -1538,13 +1542,22 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   right after Post went on uploading for 24 s and arrived, photo and all. `feed_posting.js`
   (document start, main view) wraps the page's WebSocket. Posting starts at the tap on Post with a
   photo in the composer (Post, which has no label, is the button right of the back button in the
-  composer's top row), or as the composer closes with a photo in it and without its "Discard
+  composer's top row; the finger's `pointerup`, since on the phone a real tap there brought no
+  `click`), or as the composer closes with a photo in it and without its "Discard
   post?" dialog (a `[role="dialog"]`): not only once Facebook's snackbar shows
   (`.snackbar-container`), nor once the composer closes, which over a slow link both came seconds
   after Post. It's posted once the snackbar shows a text other than its first ("Posted", after a
   while with no text); the sockets' `bufferedAmount` couldn't tell, at 0 long before "Posted" while
-  Facebook sent the photo a piece at a time. With no "Posted" seen (the page hidden, its timers
-  slowed), it ends without a word 30 s after the photo's last piece went. No text is read, so it
+  Facebook sent the photo a piece at a time. The snackbar is watched with a `MutationObserver`
+  while posting: with the app in the background the page's timers ran seconds apart, and on the
+  phone (Galaxy A56, v1.41.0) a brief "Posted" was missed. With no "Posted" seen, it ends without a
+  word 30 s after the photo's last piece went. On the phone, a post with the app sent to the
+  background and Android asked to close it kept the app (the posting notification) and arrived.
+  The posting notifications (stories and posts alike) go to a channel of default importance with
+  no sound or vibration, so an icon shows in the status bar while posting, as in the Facebook app:
+  the low-importance channel before showed them only in the shade's Silent section, unseen on the
+  phone. Android won't raise a channel's importance, so it's a new channel (`posting`); the old
+  one (`story_posting`) is deleted. Covered by `PostingTest`. No text is read, so it
   works in any language. Nothing on the page was found to tell a failure. A new page in the main
   view takes the upload with it: the notification goes without a word. Covered by
   `FeedPostingJsTest`, `PostingTest`, `PageBridgeTest` and `ShareIntoFacebookTest`.

@@ -72,9 +72,24 @@
     }
     return row.indexOf(button) >= 0 && button !== back;
   }
+  state.isPostButton = isPostButton; // the live checks try it on Facebook's real composers
+
+
+  // Facebook's snackbar while posting, at each change of the page too: with the page hidden (the
+  // app left) its timers run seconds to a minute apart, and "Posted" shows for a few seconds (missed
+  // on the phone, 2026-11-03). A MutationObserver isn't slowed. Whether it said "Posted".
+  function postedSeen() {
+    var text = snackbarText();
+    if (text !== null && firstText === null) firstText = text;
+    return text !== null && text !== firstText;
+  }
+  var observer = window.MutationObserver && new MutationObserver(function () {
+    if (state.posting && postedSeen()) report('posted');
+  });
 
   function report(posting) {
     state.posting = posting === 'posting';
+    if (observer && !state.posting) observer.disconnect();
     if (window.AstryxPage) window.AstryxPage.postMessage(JSON.stringify({ call: 'feedPosting', state: posting }));
   }
 
@@ -88,13 +103,18 @@
     startedAt = Date.now();
     firstText = snackbarText();
     report('posting');
+    if (observer) observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
-  document.addEventListener('click', function (event) {
+  // A finger lifted on Post: a real tap there brought no click event (on the phone, 2026-11-03,
+  // where posting started only as the composer closed, 4 s on); a script's click() has no pointerup.
+  function onTap(event) {
     if (state.posting || !/^\/composer\/?$/.test(location.pathname)) return;
     var button = event.target && event.target.closest && event.target.closest('[role="button"]');
     if (button && isPostButton(button) && document.querySelector('img[src^="data:image"]')) start();
-  }, true);
+  }
+  document.addEventListener('pointerup', onTap, true);
+  document.addEventListener('click', onTap, true);
 
   setInterval(function () {
     var composer = /^\/composer\/?$/.test(location.pathname);
@@ -108,9 +128,7 @@
       if (closed && withPhoto && Date.now() - dialogAt > DIALOG_MS) start();
       return;
     }
-    var text = snackbarText();
-    if (text !== null && firstText === null) firstText = text;
-    if (text !== null && text !== firstText) report('posted');
+    if (postedSeen()) report('posted');
     else if (Date.now() - Math.max(startedAt, bigSendAt) > SETTLE_MS) report('ended');
   }, 500);
 })();

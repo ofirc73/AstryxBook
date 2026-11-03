@@ -26,8 +26,12 @@ import com.eepiemi.materialbook.MainActivity
 import com.eepiemi.materialbook.R
 
 private const val TAG = "Astryxbook"
-// The channel's id from when it was for stories only: kept, so users' channel settings stay.
-private const val CHANNEL_ID = "story_posting"
+// Default importance, for an icon in the status bar while posting as the Facebook app shows, but
+// without a sound. Its low-importance predecessor (stories only, then posts) showed only in the
+// shade's Silent section, which went unseen on the phone (2026-11-03); Android won't raise a
+// channel's importance, so it's a new channel and the old one is deleted.
+private const val CHANNEL_ID = "posting"
+private const val OLD_CHANNEL_ID = "story_posting"
 private const val POSTING_NOTIFICATION_ID = 2101
 
 /**
@@ -136,12 +140,20 @@ object Posting {
             .onFailure { Log.w(TAG, "Posting: service not started", it) }
     }
 
-    internal fun builder(context: Context, kind: Kind): NotificationCompat.Builder {
-        NotificationManagerCompat.from(context).createNotificationChannel(
-            NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
-                .setName(context.getString(R.string.posting_channel))
+    /** The channel a story's and a post's notifications go to, called [name]; the old one deleted. */
+    internal fun createChannel(notifications: NotificationManagerCompat, name: CharSequence) {
+        notifications.deleteNotificationChannel(OLD_CHANNEL_ID)
+        notifications.createNotificationChannel(
+            NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
+                .setName(name)
+                .setSound(null, null)
+                .setVibrationEnabled(false)
                 .build()
         )
+    }
+
+    internal fun builder(context: Context, kind: Kind): NotificationCompat.Builder {
+        createChannel(NotificationManagerCompat.from(context), context.getString(R.string.posting_channel))
         val open = PendingIntent.getActivity(
             context, kind.outcomeId,
             Intent(kind.action, null, context, MainActivity::class.java),

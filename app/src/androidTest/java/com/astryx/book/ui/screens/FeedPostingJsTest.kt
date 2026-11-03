@@ -43,7 +43,10 @@ class FeedPostingJsTest {
                 " bar.textContent = '$text'; document.body.appendChild(bar);") + " 1"
     )
 
-    private fun tap(id: String) = page.eval("document.querySelector('#$id div').click(); 1")
+    // A finger's tap as Facebook's page gets it on the phone: a pointerup, and no click.
+    private fun tap(id: String) = page.eval(
+        "document.querySelector('#$id div').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); 1"
+    )
 
     private fun snackbar(text: String) = page.eval("document.querySelector('.snackbar-container').textContent = '$text'; 1")
 
@@ -68,6 +71,19 @@ class FeedPostingJsTest {
         Thread.sleep(CHECK_MS)
         assertEquals("posted before Facebook said so", "\"feedPosting posting\"", calls())
         snackbar("Posted")
+        awaitPosted()
+    }
+
+    @Test
+    fun aPostedShownOnlyAMoment_isSeen() {
+        // With the page hidden its timers ran seconds apart, and "Posted" was missed (on the phone).
+        open()
+        post()
+        awaitPosting()
+        page.eval(
+            "var bar = document.querySelector('.snackbar-container'); bar.textContent = 'Posted';" +
+                " setTimeout(function () { bar.remove(); }, 50); 1"
+        )
         awaitPosted()
     }
 
