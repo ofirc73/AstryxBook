@@ -1542,7 +1542,8 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   right after Post went on uploading for 24 s and arrived, photo and all. `feed_posting.js`
   (document start, main view) wraps the page's WebSocket. Posting starts at the tap on Post with a
   photo in the composer (Post, which has no label, is the button right of the back button in the
-  composer's top row), or as the composer closes with a photo in it and without its "Discard
+  composer's top row; the finger's `pointerup`, since on the phone a real tap there brought no
+  `click`), or as the composer closes with a photo in it and without its "Discard
   post?" dialog (a `[role="dialog"]`): not only once Facebook's snackbar shows
   (`.snackbar-container`), nor once the composer closes, which over a slow link both came seconds
   after Post. It's posted once the snackbar shows a text other than its first ("Posted", after a

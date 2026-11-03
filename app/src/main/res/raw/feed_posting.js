@@ -106,11 +106,15 @@
     if (observer) observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
-  document.addEventListener('click', function (event) {
+  // A finger lifted on Post: a real tap there brought no click event (on the phone, 2026-11-03,
+  // where posting started only as the composer closed, 4 s on); a script's click() has no pointerup.
+  function onTap(event) {
     if (state.posting || !/^\/composer\/?$/.test(location.pathname)) return;
     var button = event.target && event.target.closest && event.target.closest('[role="button"]');
     if (button && isPostButton(button) && document.querySelector('img[src^="data:image"]')) start();
-  }, true);
+  }
+  document.addEventListener('pointerup', onTap, true);
+  document.addEventListener('click', onTap, true);
 
   setInterval(function () {
     var composer = /^\/composer\/?$/.test(location.pathname);
