@@ -241,9 +241,11 @@ class ShareIntoFacebookTest {
         assertTrue("Back closed the posting creator instead of hiding it", app.waitFor { !app.layerOpen() })
         assertTrue(app.layerWebView() === layer)
 
-        // Posted: Facebook moves on to its stories page.
-        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        // Posted: Share no longer busy, and Facebook moves on to its stories page (within the 2 s
+        // story_posting.js waits before calling it a failure). In that order: the layer, out of
+        // sight, closes on the move, and a WebView gone by then never answers.
         setPosting(layer, false)
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
         assertTrue("the posting notification stayed after the story was posted", app.waitFor { !postingNotificationShows() })
         assertTrue("the creator stayed after the story was posted", app.waitFor { app.layerWebView() == null })
     }
