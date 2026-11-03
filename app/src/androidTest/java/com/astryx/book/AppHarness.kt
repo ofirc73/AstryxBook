@@ -7,8 +7,11 @@ import android.os.SystemClock
 import android.util.Rational
 import android.view.InputDevice
 import android.view.MotionEvent
+import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
@@ -194,6 +197,19 @@ class AppHarness {
 
     /** The Messages layer's WebView, once it's open. */
     fun layerWebView(): WebView? = webViews().getOrNull(1)
+
+    /** What [webView]'s own client answers a subresource request for [url] with (null: loaded as usual). */
+    fun clientAnswer(webView: WebView, url: String): WebResourceResponse? {
+        val request = object : WebResourceRequest {
+            override fun getUrl(): Uri = Uri.parse(url)
+            override fun isForMainFrame() = false
+            override fun isRedirect() = false
+            override fun hasGesture() = false
+            override fun getMethod() = "GET"
+            override fun getRequestHeaders() = emptyMap<String, String>()
+        }
+        return onActivity { webView.webViewClient.shouldInterceptRequest(webView, request) }
+    }
 
     /**
      * Keeps [webView] off the network and stops what it's loading: the real page the layer opened

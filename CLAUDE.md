@@ -182,11 +182,13 @@ user-visible change.
 - `MainActivity` is `singleTask`: a link sent while the app runs arrives in `onNewIntent`
   and reaches the WebView as `openLinkRequest`. Start links are checked with `appLinkUrl`
   (the start page skips the request interceptor); outgoing links with `externalLinkAction`.
-- Both WebViews share one `WebViewClient` (`RendererGoneClient`, built on `AdsPixelBlockingClient`
+- Both WebViews share one `WebViewClient` (`RendererGoneClient`, built on `RequestBlockingClient`
   in `utils/AdsPixel.kt`), the only place requests are seen below navigations
   (`shouldInterceptRequest`; it can't see WebSocket traffic, which carries the main view's feed
   data). It answers Facebook's Google Ads pixel frames (`www.fbsbx.com/paid_ads_pixel/`) with an
-  empty 204. To see what a page requests, record `Network.*` events over DevTools from every
+  empty 204, and the story creator's text-story backgrounds (`scontent…/v/t39.10873-6/`, 30
+  preloaded 1350x2400 JPEGs, 16 MB) during a story share (`StoryBackgrounds`: at 1 Mbps the
+  editor was usable after 84 s with them, 3.9 s without). To see what a page requests, record `Network.*` events over DevTools from every
   target (the page, its service worker, the layer's workers).
 - Effects that act on each new page key on `pageStarts` (`PageStarts`, counted by the WebView
   client) next to `loadingState`: a page that starts and finishes within one frame leaves the

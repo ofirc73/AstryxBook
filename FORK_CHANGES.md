@@ -621,7 +621,8 @@ on their own can't:
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
   the story screen when there's no story of yours on it, or opening the creator again for the next
-  file; a story posting going on out of sight with its notification (shown again by the
+  file; a story share answering the creator's text-story backgrounds empty while its files wait
+  (Create story loading them); a story posting going on out of sight with its notification (shown again by the
   notification, hidden again by Back) until it's posted, and one that failed kept for another try.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
@@ -661,7 +662,8 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
-  (`StoryLayoutJsTest`).
+  (`StoryLayoutJsTest`), with the creator's text-story backgrounds requested and answered empty
+  (`StoryBackgrounds`, `ShareIntoFacebookTest`).
 - `theStoryEditorsShare_saysWhenItsBusy_asStoryPostingReadsIt`: the real Share to story in
   `story_layout.js`'s bottom row carrying `aria-busy` (`"false"`, never pressed), which
   `story_posting.js` reads (`StoryPostingJsTest`). Its `"true"` while posting and the failure that
@@ -690,7 +692,7 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `theFeed_showsNoGetTheAppSheet`: the "Facebook is better on the app" sheet pressed away
   (`AppPromptJsTest`). It shows only now and then, so most runs pass without seeing it.
 - `theFeed_hasItsAdsPixelBlocked`: the feed's Google Ads pixel frames answered empty by
-  `AdsPixelBlockingClient` (`AdsPixelBlockTest`; the client counts what it blocked, `adsPixelBlocks`).
+  `RequestBlockingClient` (`AdsPixelBlockTest`; the client counts what it blocked, `adsPixelBlocks`).
 - `aPhotosDesktopPage_namesThePostItsTilesShow`: the desktop photo page naming its post, which
   memory photos open (`PhotoPost.kt`, `memory_photos.js`, `MemoryPhotosJsTest`), checked on a
   public NASA post with three photos since memories are rare.
@@ -1517,6 +1519,16 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   server over the page's WebSocket, which finishes the post on its own (seen on the emulator the
   same day), so leaving the app after Post loses nothing. Covered by `StoryPostingJsTest`,
   `ShareIntoFacebookTest`, `MessagesLayerStateTest` and `PageBridgeTest`.
+- **A story share opens fast on a weak connection**: the story creator's page has the browser
+  preload all 30 of its text-story backgrounds (full-size 1350x2400 JPEGs, 16 MB), which a photo
+  or video story never shows. On a 1 Mbps link (emulator, DevTools throttling, warm cache) they held
+  the shared photo's editor back for 84 s, and its music list for another 22 s. During a story
+  share the app answers them empty (`StoryBackgrounds`, in the WebViews' shared client) while the
+  shared files wait: the editor is now usable after 3-4 s and the music list after about 3 s more.
+  Once the files are taken they load as usual (a text story made there afterwards), and Create story
+  on the feed loads them. A first share after the cache was emptied still waits for Facebook's
+  scripts (4.6 MB: 32 s at 1 Mbps), so *Clear cache when leaving* makes every share that slow.
+  Covered by `StoryBackgroundsTest` and `ShareIntoFacebookTest`.
 
 ## Known limitations
 
