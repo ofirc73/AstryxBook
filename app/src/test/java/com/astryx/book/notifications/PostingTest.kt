@@ -1,10 +1,14 @@
 package com.astryx.book.notifications
+import androidx.core.app.NotificationChannelCompat
+import androidx.core.app.NotificationManagerCompat
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 // Robolectric: Posting starts and stops PostingService.
 @RunWith(RobolectricTestRunner::class)
@@ -21,6 +25,23 @@ class PostingTest {
         assertEquals(Posting.Kind.STORY, Posting.showing())
         Posting.ended(context, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
         assertNull(Posting.showing())
+    }
+
+    // Notification channels came in Android 8 (Robolectric runs these at its lowest SDK otherwise).
+    @Test
+    @Config(sdk = [34])
+    fun storiesAndPosts_notifyOnAChannelWithAnIconAndNoSound_replacingTheSilentOne() {
+        // One channel for both kinds (Posting.builder): a story's posting shows the icon too.
+        val notifications = NotificationManagerCompat.from(context)
+        notifications.createNotificationChannel(
+            NotificationChannelCompat.Builder("story_posting", NotificationManagerCompat.IMPORTANCE_LOW).setName("old").build()
+        )
+        Posting.createChannel(notifications, "Posting")
+        val channel = notifications.getNotificationChannelCompat("posting")
+        assertEquals(NotificationManagerCompat.IMPORTANCE_DEFAULT, channel?.importance)
+        assertNull("it makes a sound", channel?.sound)
+        assertFalse("it vibrates", channel!!.shouldVibrate())
+        assertNull("the silent channel is still there", notifications.getNotificationChannelCompat("story_posting"))
     }
 
     @Test
