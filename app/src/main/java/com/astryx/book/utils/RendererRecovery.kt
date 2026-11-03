@@ -11,13 +11,13 @@ import android.webkit.WebView
  * reports it instead, through [onGone] (on the main thread), and the screen replaces the
  * WebView: the one passed to [onGone] can't be used again, so only read its URL and destroy
  * it once it's out of the layout. Several WebViews can share one renderer (the main view and
- * the Messages layer), and each one that loses it gets its own call. It also blocks Facebook's
- * Google Ads pixel ([AdsPixelBlockingClient]).
+ * the Messages layer), and each one that loses it gets its own call. It also answers requests the
+ * pages don't need, such as Facebook's Google Ads pixel, empty ([RequestBlockingClient]).
  */
 class RendererGoneClient(
     private val onPageStarted: () -> Unit = {},
     private val onGone: (WebView) -> Unit,
-) : AdsPixelBlockingClient() {
+) : RequestBlockingClient() {
     // A new page (not Facebook's in-page navigation, which doesn't start one); see PageStarts.
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)

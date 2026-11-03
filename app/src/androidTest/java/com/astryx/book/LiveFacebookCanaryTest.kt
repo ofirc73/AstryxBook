@@ -19,6 +19,7 @@ import com.astryx.book.notifications.FacebookCountsWorker
 import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
+import com.astryx.book.utils.StoryBackgrounds
 import com.astryx.book.utils.TextZoom
 import com.astryx.book.utils.adsPixelBlocks
 import com.astryx.book.utils.lookUpPhotoPost
@@ -913,6 +914,7 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun sharingAPhotoToYourStory_laysOutTheStoryEditor() {
+        val skippedBefore = StoryBackgrounds.skipped.get()
         val layer = shareToStory()
         var shape = ""
         val laidOut = app.waitFor(60_000) {
@@ -923,6 +925,11 @@ class LiveFacebookCanaryTest {
             fail("story_layout.js never laid out the story editor with the shared photo (found by role: the " +
                 "preview, the tools sidebar, Discard / Share): $shape")
         }
+        // The creator's page preloads its text-story backgrounds (16 MB, 2026-11-03), which a story share
+        // answers empty (StoryBackgrounds); none seen means Facebook moved them, and shares are slow again
+        // on a weak link, or the page no longer preloads them.
+        assertTrue("the story creator requested no text-story backgrounds (scontent…/v/t39.10873-6/, " +
+            "isStoryBackgroundUrl) for StoryBackgrounds to skip", StoryBackgrounds.skipped.get() > skippedBefore)
     }
 
     @Test
@@ -1095,19 +1102,19 @@ class LiveFacebookCanaryTest {
     @Test
     fun theFeed_hasItsAdsPixelBlocked() {
         // Every full m.facebook.com load adds Facebook's Google Ads pixel frames
-        // (www.fbsbx.com/paid_ads_pixel/), which AdsPixelBlockingClient answers with an empty 204.
+        // (www.fbsbx.com/paid_ads_pixel/), which RequestBlockingClient answers with an empty 204.
         val before = adsPixelBlocks.get()
         openFeed()
         Thread.sleep(5000) // the pixel's frames come after the feed
         val frames = eval(FRAMES_JS).trim('"')
         val blocked = adsPixelBlocks.get() - before
         if (GOOGLE_ADS_FRAME.containsMatchIn(frames)) {
-            fail("the feed has frames from Google's ad hosts: AdsPixelBlockingClient (isAdsPixelUrl) no longer " +
+            fail("the feed has frames from Google's ad hosts: RequestBlockingClient (isAdsPixelUrl) no longer " +
                 "catches Facebook's ads pixel. Frames: $frames")
         }
         if (blocked == 0) {
             if ("paid_ads_pixel" in frames) {
-                fail("the ads pixel's frames are on the feed but AdsPixelBlockingClient answered none of their " +
+                fail("the ads pixel's frames are on the feed but RequestBlockingClient answered none of their " +
                     "requests (isAdsPixelUrl). Frames: $frames")
             }
             gap("ads-pixel", "no ads pixel on the feed: Facebook no longer adds www.fbsbx.com/paid_ads_pixel/ frames, or " +

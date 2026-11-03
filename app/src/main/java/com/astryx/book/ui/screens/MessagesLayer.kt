@@ -48,6 +48,7 @@ import com.astryx.book.utils.FullscreenController
 import com.astryx.book.utils.MessagesLayerRoute
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
+import com.astryx.book.utils.StoryBackgrounds
 import com.eepiemi.materialbook.utils.PageStarts
 import com.eepiemi.materialbook.utils.appWebViewParams
 import com.astryx.book.utils.deadWebViewUrl
@@ -413,6 +414,8 @@ fun MessagesLayer(
             onDispose = { webView -> webView.destroy() },
             onCreated = { webView ->
                 hardenWebView(state, webView)
+                // A story share: the creator's text-story backgrounds aren't loaded (StoryBackgrounds).
+                if (storyShare && ShareMediaQueue.pending(ShareTarget.STORY)) StoryBackgrounds.skipIn(webView)
                 state.webSettings.androidWebSettings.textZoom = layerTextZoom
                 // The story and reel creators (a story or reel share) are laid out for a desktop window:
                 // at phone width their preview is off screen. Lay them out wide and fit them to the screen.

@@ -20,14 +20,20 @@ fun isAdsPixelUrl(url: String): Boolean = ADS_PIXEL_URL.containsMatchIn(url)
 internal val adsPixelBlocks = AtomicInteger()
 
 /**
- * Answers the ads pixel's requests with an empty 204 instead of loading them, so its frame
- * stays empty and Google's scripts never load. Everything else goes on to the library's client.
+ * Answers requests the pages don't need with an empty 204 instead of loading them: the ads
+ * pixel's, so its frame stays empty and Google's scripts never load, and the story creator's
+ * text-story backgrounds during a story share ([StoryBackgrounds]). Everything else goes on to the
+ * library's client.
  */
-open class AdsPixelBlockingClient : AccompanistWebViewClient() {
+open class RequestBlockingClient : AccompanistWebViewClient() {
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         val url = request?.url?.toString()
         if (url != null && isAdsPixelUrl(url)) {
             adsPixelBlocks.incrementAndGet()
+            return emptyResponse()
+        }
+        if (url != null && StoryBackgrounds.skips(view, url)) {
+            StoryBackgrounds.skipped.incrementAndGet()
             return emptyResponse()
         }
         return super.shouldInterceptRequest(view, request)

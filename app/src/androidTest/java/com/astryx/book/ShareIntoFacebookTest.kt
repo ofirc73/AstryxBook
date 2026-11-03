@@ -13,6 +13,7 @@ import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -121,6 +122,9 @@ class ShareIntoFacebookTest {
         app.start(Intent(StoryPosting.ACTION_SHOW, null, app.context, com.eepiemi.materialbook.MainActivity::class.java))
 
     private companion object {
+        // A text-story background, as the creator's page preloads them (2026-11-03), and a story photo.
+        const val BACKGROUND = "https://scontent.ftlv19-3.fna.fbcdn.net/v/t39.10873-6/51627537_2013736385406998_2008135126298394624_n.jpg?_nc_cat=108"
+        const val PHOTO = "https://scontent.ftlv19-1.fna.fbcdn.net/v/t39.30808-6/603899071_71060694897844_31727812138_n.jpg"
         const val CREATOR = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head><body>" +
             StoryLayoutJsTest.CREATOR + "<script>window.__showFrame(); window.__testPage = true;</script></body></html>"
         const val STORY_CREATE_URL = "https://www.facebook.com/stories/create/"
@@ -266,5 +270,31 @@ class ShareIntoFacebookTest {
         tapPostingNotification()
         assertTrue("the notification didn't show the failed story", app.waitFor { app.layerOpen() })
         assertTrue("the failed story was dropped", app.layerWebView() === layer)
+    }
+
+    // The story creator's page preloads all its text-story backgrounds (16 MB): during a story
+    // share they're answered empty while the shared files wait (StoryBackgrounds), then load as
+    // usual (a text story made there afterwards). Create story on the feed loads them.
+    @Test
+    fun aStoryShare_skipsTheCreatorsBackgrounds_untilItsFilesAreTaken() {
+        share("ShareToStory", photo("story.png"))
+        assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+        val layer = app.layerWebView()!!
+        assertEquals("a background was loaded during the story share", 204, app.clientAnswer(layer, BACKGROUND)?.statusCode)
+        assertEquals("other pictures were answered empty", null, app.clientAnswer(layer, PHOTO))
+        ShareMediaQueue.clear()
+        assertEquals("a background stayed empty once the files were taken", null, app.clientAnswer(layer, BACKGROUND))
+    }
+
+    @Test
+    fun createStory_loadsTheCreatorsBackgrounds() {
+        app.start()
+        // As scripts.js's Create story does; asked again until the page (still loading) takes it.
+        assertTrue("Create story never opened the creator", app.waitFor(20_000) {
+            app.eval("window.AstryxPage && window.AstryxPage.postMessage(JSON.stringify({ call: 'layerUrl', url: '$STORY_CREATE_URL' })); 1")
+            Thread.sleep(500)
+            app.layerWebView() != null
+        })
+        assertEquals(null, app.clientAnswer(app.layerWebView()!!, BACKGROUND))
     }
 }

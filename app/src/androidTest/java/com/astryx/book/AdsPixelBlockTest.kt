@@ -1,7 +1,6 @@
 package com.astryx.book
 import android.content.Intent
 import android.net.Uri
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.eepiemi.materialbook.data.local.SettingsDataStore
@@ -39,17 +38,8 @@ class AdsPixelBlockTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
     }
 
-    private fun request(url: String) = object : WebResourceRequest {
-        override fun getUrl(): Uri = Uri.parse(url)
-        override fun isForMainFrame() = false
-        override fun isRedirect() = false
-        override fun hasGesture() = false
-        override fun getMethod() = "GET"
-        override fun getRequestHeaders() = emptyMap<String, String>()
-    }
-
     private fun assertBlocks(webView: WebView) {
-        val response = app.onActivity { webView.webViewClient.shouldInterceptRequest(webView, request(pixel)) }
+        val response = app.clientAnswer(webView, pixel)
         assertNotNull("the pixel was let through", response)
         assertEquals(204, response!!.statusCode)
         assertEquals(-1, response.data.read())

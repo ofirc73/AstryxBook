@@ -32,7 +32,7 @@ class AdsPixelTest {
 
     @Test
     fun client_answersThePixelWithAnEmpty204() {
-        val response = AdsPixelBlockingClient().shouldInterceptRequest(
+        val response = RequestBlockingClient().shouldInterceptRequest(
             null, request("https://www.fbsbx.com/paid_ads_pixel/iframe/?tag_ids%5B0%5D=AW-1")
         )!!
         assertEquals(204, response.statusCode)
