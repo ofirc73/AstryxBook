@@ -108,9 +108,13 @@
     <string name="share_media_adding_several">Aggiunta di %1$d foto…</string>
     <string name="send_post_pick_chat">Apri una chat per inviare il post: il suo link andrà nella casella del messaggio.</string>
     <string name="send_post_cancel">Non inviare il post</string>
-    <string name="story_posting_channel">Pubblicazione della storia</string>
+    <string name="posting_channel">Pubblicazione</string>
     <string name="story_posting">Pubblicazione della tua storia…</string>
     <string name="story_posted">La tua storia è stata pubblicata</string>
     <string name="story_post_failed">Impossibile pubblicare la tua storia. Tocca per riprovare.</string>
     <string name="story_post_interrupted">La tua storia non è stata pubblicata: l\'app è stata chiusa durante la pubblicazione.</string>
+    <string name="post_posting">Pubblicazione del tuo post…</string>
+    <string name="post_posted">Il tuo post è stato pubblicato</string>
+    <string name="post_post_failed">Impossibile pubblicare il tuo post. Tocca per aprire l\'app.</string>
+    <string name="post_post_interrupted">Il tuo post non è stato pubblicato: l\'app è stata chiusa durante la pubblicazione.</string>
 </resources>

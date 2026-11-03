@@ -54,7 +54,7 @@ import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
 import com.astryx.book.audio.PipHandback
-import com.astryx.book.notifications.StoryPosting
+import com.astryx.book.notifications.Posting
 import com.astryx.book.ui.components.ExternalLinkDialog
 import com.astryx.book.ui.components.MessengerLinkDialog
 import com.eepiemi.materialbook.ui.components.NetworkErrorDialog
@@ -125,7 +125,9 @@ import com.astryx.book.ui.screens.PipEffects
 import com.astryx.book.ui.screens.PipTarget
 import com.astryx.book.ui.screens.RELAYOUT_PAGE_JS
 import com.astryx.book.ui.screens.ShareMediaRequest
+import com.astryx.book.ui.screens.installFeedPostingScript
 import com.astryx.book.ui.screens.installFeedPrefetchScript
+import com.astryx.book.ui.screens.rememberFeedPosting
 import com.astryx.book.ui.screens.installOpenFeedsScript
 import com.astryx.book.ui.screens.installPageZoomScript
 import com.astryx.book.ui.screens.installPipVisibilityScript
@@ -627,6 +629,8 @@ fun MaterialbookWebView(
     val loadingState = state.loadingState
     // Next to loadingState in the effects below: see PageStarts.
     val pageStarts = mainPageStarts.count
+    // A post the page is still uploading after Post (feed_posting.js): kept going in the foreground.
+    val feedPosting = rememberFeedPosting(pageStarts)
 
     val pipEnabled by settingsVM.pipEnabled.collectAsState()
 
@@ -1022,6 +1026,7 @@ fun MaterialbookWebView(
                                 }
                             },
                             photoPost = { fbid, reply -> lookUpPhotoPost(fbid, reply) },
+                            feedPosting = feedPosting::on,
                         )
                     )
                     installDownloadBridge(this, context)
@@ -1033,6 +1038,7 @@ fun MaterialbookWebView(
                     )
                     installPipVisibilityScript(this)
                     installFeedPrefetchScript(this)
+                    installFeedPostingScript(this)
                     openFeedsAtDocumentStart = installOpenFeedsScript(this)
 
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -1061,9 +1067,9 @@ fun MaterialbookWebView(
         onOpenLayer = { layerUrl -> messagesLayer.openCreator(layerUrl) },
         onCloseLayer = { messagesLayer.close() },
     )
-    // A tap on a story's posting notification (StoryPosting): the story creator, if it's kept.
-    LaunchedEffect(StoryPosting.showRequests) {
-        if (StoryPosting.showRequests > 0) messagesLayer.showStory()
+    // A tap on a story's posting notification (Posting): the story creator, if it's kept.
+    LaunchedEffect(Posting.showRequests) {
+        if (Posting.showRequests > 0) messagesLayer.showStory()
     }
     messagesLayer.url?.let { layerUrl ->
         // A new Messages link while the layer is open (a notification, say) recreates it, and

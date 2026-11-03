@@ -100,9 +100,13 @@
     <string name="share_media_adding_several">正在新增 %1$d 張相片…</string>
     <string name="send_post_pick_chat">開啟聊天室來傳送貼文：貼文連結會放進訊息框。</string>
     <string name="send_post_cancel">不傳送貼文</string>
-    <string name="story_posting_channel">發佈限時動態</string>
+    <string name="posting_channel">發佈</string>
     <string name="story_posting">正在發佈你的限時動態…</string>
     <string name="story_posted">你的限時動態已發佈</string>
     <string name="story_post_failed">無法發佈你的限時動態。輕觸即可重試。</string>
     <string name="story_post_interrupted">你的限時動態未發佈：發佈時應用程式已關閉。</string>
+    <string name="post_posting">正在發佈你的貼文…</string>
+    <string name="post_posted">你的貼文已發佈</string>
+    <string name="post_post_failed">無法發佈你的貼文。輕觸即可開啟應用程式。</string>
+    <string name="post_post_interrupted">你的貼文未發佈：發佈時應用程式已關閉。</string>
 </resources>

@@ -623,7 +623,8 @@ on their own can't:
   the story screen when there's no story of yours on it, or opening the creator again for the next
   file; a story share answering the creator's text-story backgrounds empty while its files wait
   (Create story loading them); a Feed share with Home showing opening the composer from Home's box
-  with a real tap, and Back from it back on Home; a story posting going on out of sight with its notification (shown again by the
+  with a real tap, and Back from it back on Home; a feed post still uploading keeping the posting
+  notification until it's sent, or until its page goes; a story posting going on out of sight with its notification (shown again by the
   notification, hidden again by Back) until it's posted, and one that failed kept for another try.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
@@ -665,7 +666,10 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   the feed showing, the share's composer opened by the app's tap on Home's box, never loaded
   (`HomeComposer`'s counts), with the photo in it; Back asks Facebook's "Discard post?", and the
   discarded draft goes back to Home, in the app (`share_media.js` `homeComposerBox`,
-  `ShareMediaJsTest`, `ShareIntoFacebookTest`).
+  `ShareMediaJsTest`, `ShareIntoFacebookTest`). It also checks that `feed_posting.js` wraps
+  Facebook's WebSocket and sees the photo go up over it (`FeedPostingJsTest`); the snackbar after
+  Post isn't checked, as the checks never post: it was read by hand with Only-me test posts
+  (2026-11-03).
 - `createStoryOnHome_opensTheStoryCreator`, `sharingAPhotoToYourStory_laysOutTheStoryEditor`: Create
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`), with the creator's text-story backgrounds requested and answered empty
@@ -1511,7 +1515,7 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (Facebook's "Posting your story..."), the creator goes out of sight and the user is back on the
   feed, free to browse or leave the app, while **Posting your story** shows in the notification
   shade. Facebook's page still does the upload, in the layer's WebView, which is kept (out of sight)
-  until the story is posted; a foreground service (`StoryPostingService`, type `dataSync`) shows the
+  until the story is posted; a foreground service (`PostingService`, type `dataSync`) shows the
   notification and keeps Android from ending the app, and the upload with it, while it's out of
   sight. Posted, the creator closes, with **Your story is posted** if the user wasn't looking. If
   the upload fails (Facebook's editor comes back, "You are currently offline"), **Couldn't post your
@@ -1520,11 +1524,24 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   creator instead of replacing it. The app asks for the notification permission at the first post
   if it doesn't have it. `story_posting.js` reads the posting from Share to story's `aria-busy`
   (`"true"` while posting; read on the emulator with every request held over DevTools, 2026-11-02),
-  found in the bottom row `story_layout.js` marks, never by its label. The feed isn't done this way:
-  m.facebook.com uploads a post's photos as they're attached in the composer, and Post goes to its
-  server over the page's WebSocket, which finishes the post on its own (seen on the emulator the
-  same day), so leaving the app after Post loses nothing. Covered by `StoryPostingJsTest`,
+  found in the bottom row `story_layout.js` marks, never by its label. Covered by `StoryPostingJsTest`,
   `ShareIntoFacebookTest`, `MessagesLayerStateTest` and `PageBridgeTest`.
+- **A feed post goes on uploading in the background too**: m.facebook.com sends a post's photos
+  over its WebSocket, much of them only after Post, while its snackbar says "Uploading your
+  post..." (at 128 kbps up, emulator with DevTools throttling: a 4000x3000 photo kept it sending
+  for about 30 s). Closed by Android meanwhile (as it ends a backgrounded app that needs memory),
+  the app lost the post, without a word. While a post is still uploading, the app now stays in the
+  foreground (the same `PostingService`, now `Posting` for stories and posts) with **Posting your
+  post** in the notification shade, until all of it is sent; **Your post is posted** or **Couldn't
+  post** follows if the app is out of sight, and a tap opens the app. `feed_posting.js` (document
+  start, main view) wraps the page's WebSocket: a post is uploading when Facebook's snackbar
+  (`.snackbar-container`) shows just after the composer closes while the socket still has bytes
+  to send (`bufferedAmount`); it's sent once nothing is left and the snackbar changes ("Posted"),
+  and it failed if the socket closes with bytes unsent. No text is read, so it works in any
+  language. A post whose photos were all up before Post finishes on Facebook's server, with no
+  notification. A new page in the main view takes the upload with it: the notification goes
+  without a word. Covered by `FeedPostingJsTest`, `PostingTest`, `PageBridgeTest` and
+  `ShareIntoFacebookTest`.
 - **A story share opens fast on a weak connection**: the story creator's page has the browser
   preload all 30 of its text-story backgrounds (full-size 1350x2400 JPEGs, 16 MB), which a photo
   or video story never shows. On a 1 Mbps link (emulator, DevTools throttling, warm cache) they held

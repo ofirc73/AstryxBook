@@ -118,9 +118,13 @@
     <string name="share_media_adding_several">Adding %1$d photos…</string>
     <string name="send_post_pick_chat">Open a chat to send the post: its link goes in the message box.</string>
     <string name="send_post_cancel">Don\'t send the post</string>
-    <string name="story_posting_channel">Story posting</string>
+    <string name="posting_channel">Posting</string>
     <string name="story_posting">Posting your story…</string>
     <string name="story_posted">Your story is posted</string>
     <string name="story_post_failed">Couldn\'t post your story. Tap to try again.</string>
     <string name="story_post_interrupted">Your story wasn\'t posted: the app was closed while posting it.</string>
+    <string name="post_posting">Posting your post…</string>
+    <string name="post_posted">Your post is posted</string>
+    <string name="post_post_failed">Couldn\'t post. Tap to open the app.</string>
+    <string name="post_post_interrupted">Your post wasn\'t posted: the app was closed while posting it.</string>
 </resources>

@@ -123,9 +123,13 @@
     <string name="share_media_adding_several">جارٍ إضافة الصور (%1$d)…</string>
     <string name="send_post_pick_chat">افتح محادثة لإرسال المنشور: سيُضاف رابطه إلى مربع الرسالة.</string>
     <string name="send_post_cancel">عدم إرسال المنشور</string>
-    <string name="story_posting_channel">نشر القصة</string>
+    <string name="posting_channel">النشر</string>
     <string name="story_posting">جارٍ نشر قصتك…</string>
     <string name="story_posted">تم نشر قصتك</string>
     <string name="story_post_failed">تعذّر نشر قصتك. انقر للمحاولة مرة أخرى.</string>
     <string name="story_post_interrupted">لم تُنشر قصتك: أُغلق التطبيق أثناء نشرها.</string>
+    <string name="post_posting">جارٍ نشر منشورك…</string>
+    <string name="post_posted">تم نشر منشورك</string>
+    <string name="post_post_failed">تعذّر نشر منشورك. انقر لفتح التطبيق.</string>
+    <string name="post_post_interrupted">لم يُنشر منشورك: أُغلق التطبيق أثناء نشره.</string>
 </resources>
