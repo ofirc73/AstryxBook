@@ -125,6 +125,5 @@
     <string name="story_post_interrupted">Your story wasn\'t posted: the app was closed while posting it.</string>
     <string name="post_posting">Posting your post…</string>
     <string name="post_posted">Your post is posted</string>
-    <string name="post_post_failed">Couldn\'t post. Tap to open the app.</string>
     <string name="post_post_interrupted">Your post wasn\'t posted: the app was closed while posting it.</string>
 </resources>

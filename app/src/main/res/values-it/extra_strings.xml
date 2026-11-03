@@ -115,6 +115,5 @@
     <string name="story_post_interrupted">La tua storia non è stata pubblicata: l\'app è stata chiusa durante la pubblicazione.</string>
     <string name="post_posting">Pubblicazione del tuo post…</string>
     <string name="post_posted">Il tuo post è stato pubblicato</string>
-    <string name="post_post_failed">Impossibile pubblicare il tuo post. Tocca per aprire l\'app.</string>
     <string name="post_post_interrupted">Il tuo post non è stato pubblicato: l\'app è stata chiusa durante la pubblicazione.</string>
 </resources>

@@ -1526,22 +1526,28 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (`"true"` while posting; read on the emulator with every request held over DevTools, 2026-11-02),
   found in the bottom row `story_layout.js` marks, never by its label. Covered by `StoryPostingJsTest`,
   `ShareIntoFacebookTest`, `MessagesLayerStateTest` and `PageBridgeTest`.
-- **A feed post goes on uploading in the background too**: m.facebook.com sends a post's photos
-  over its WebSocket, much of them only after Post, while its snackbar says "Uploading your
-  post..." (at 128 kbps up, emulator with DevTools throttling: a 4000x3000 photo kept it sending
-  for about 30 s). Closed by Android meanwhile (as it ends a backgrounded app that needs memory),
-  the app lost the post, without a word. While a post is still uploading, the app now stays in the
-  foreground (the same `PostingService`, now `Posting` for stories and posts) with **Posting your
-  post** in the notification shade, until all of it is sent; **Your post is posted** or **Couldn't
-  post** follows if the app is out of sight, and a tap opens the app. `feed_posting.js` (document
-  start, main view) wraps the page's WebSocket: a post is uploading when Facebook's snackbar
-  (`.snackbar-container`) shows just after the composer closes while the socket still has bytes
-  to send (`bufferedAmount`); it's sent once nothing is left and the snackbar changes ("Posted"),
-  and it failed if the socket closes with bytes unsent. No text is read, so it works in any
-  language. A post whose photos were all up before Post finishes on Facebook's server, with no
-  notification. A new page in the main view takes the upload with it: the notification goes
-  without a word. Covered by `FeedPostingJsTest`, `PostingTest`, `PageBridgeTest` and
-  `ShareIntoFacebookTest`.
+- **A feed post goes on posting in the background too**: m.facebook.com sends a post's photos over
+  its WebSocket, most of them only after Post, while its snackbar says "Uploading your post..."
+  (at 128 kbps up, emulator with DevTools throttling: "Posted" 40 s after Post for a 4000x3000
+  photo). The post needs the page until then: closed by Android 2.6 s after Post (as it ends a
+  backgrounded app that needs memory), the app lost the post, without a word (two such test posts
+  never arrived). From Post until then, the app now stays in the foreground (the same
+  `PostingService`, now `Posting` for stories and posts) with **Posting your post** in the
+  notification shade, and **Your post is posted** follows if the app is out of sight; a tap opens
+  the app. With it, a test post whose app was sent to the background and asked to close by Android
+  right after Post went on uploading for 24 s and arrived, photo and all. `feed_posting.js`
+  (document start, main view) wraps the page's WebSocket. Posting starts at the tap on Post with a
+  photo in the composer (Post, which has no label, is the button right of the back button in the
+  composer's top row), or as the composer closes with a photo in it and without its "Discard
+  post?" dialog (a `[role="dialog"]`): not only once Facebook's snackbar shows
+  (`.snackbar-container`), nor once the composer closes, which over a slow link both came seconds
+  after Post. It's posted once the snackbar shows a text other than its first ("Posted", after a
+  while with no text); the sockets' `bufferedAmount` couldn't tell, at 0 long before "Posted" while
+  Facebook sent the photo a piece at a time. With no "Posted" seen (the page hidden, its timers
+  slowed), it ends without a word 30 s after the photo's last piece went. No text is read, so it
+  works in any language. Nothing on the page was found to tell a failure. A new page in the main
+  view takes the upload with it: the notification goes without a word. Covered by
+  `FeedPostingJsTest`, `PostingTest`, `PageBridgeTest` and `ShareIntoFacebookTest`.
 - **A story share opens fast on a weak connection**: the story creator's page has the browser
   preload all 30 of its text-story backgrounds (full-size 1350x2400 JPEGs, 16 MB), which a photo
   or video story never shows. On a 1 Mbps link (emulator, DevTools throttling, warm cache) they held

@@ -117,6 +117,5 @@
     <string name="story_post_interrupted">Votre story n\'a pas été publiée : l\'application a été fermée pendant la publication.</string>
     <string name="post_posting">Publication de votre publication…</string>
     <string name="post_posted">Votre publication est publiée</string>
-    <string name="post_post_failed">Impossible de publier votre publication. Appuyez pour ouvrir l\'application.</string>
     <string name="post_post_interrupted">Votre publication n\'a pas été publiée : l\'application a été fermée pendant la publication.</string>
 </resources>

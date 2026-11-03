@@ -130,6 +130,5 @@
     <string name="story_post_interrupted">لم تُنشر قصتك: أُغلق التطبيق أثناء نشرها.</string>
     <string name="post_posting">جارٍ نشر منشورك…</string>
     <string name="post_posted">تم نشر منشورك</string>
-    <string name="post_post_failed">تعذّر نشر منشورك. انقر لفتح التطبيق.</string>
     <string name="post_post_interrupted">لم يُنشر منشورك: أُغلق التطبيق أثناء نشره.</string>
 </resources>

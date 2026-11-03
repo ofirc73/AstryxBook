@@ -28,7 +28,8 @@ class PageBridges(
     val photoPost: ((fbid: String, reply: (String) -> Unit) -> Unit)? = null,
     // story_posting.js: Share to story started posting (true) or failed (false). WebView 83+ only.
     val storyPosting: ((posting: Boolean) -> Unit)? = null,
-    // feed_posting.js: a post started uploading (null), or ended (how). Main view, WebView 83+ only.
+    // feed_posting.js: a post started posting (null), Facebook said it's posted (POSTED), or it
+    // ended unseen (INTERRUPTED). Main view, WebView 83+ only.
     val feedPosting: ((ended: Posting.Outcome?) -> Unit)? = null,
 )
 
@@ -103,7 +104,7 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
             when (msg.optString("state")) {
                 "posting" -> feedPosting(null)
                 "posted" -> feedPosting(Posting.Outcome.POSTED)
-                "failed" -> feedPosting(Posting.Outcome.FAILED)
+                "ended" -> feedPosting(Posting.Outcome.INTERRUPTED)
                 else -> return false
             }
         }

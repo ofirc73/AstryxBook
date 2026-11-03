@@ -112,6 +112,5 @@
     <string name="story_post_interrupted">আপনার স্টোরি পোস্ট হয়নি: পোস্ট করার সময় অ্যাপটি বন্ধ হয়ে গেছে।</string>
     <string name="post_posting">আপনার পোস্ট পোস্ট হচ্ছে…</string>
     <string name="post_posted">আপনার পোস্ট পোস্ট হয়েছে</string>
-    <string name="post_post_failed">আপনার পোস্ট পোস্ট করা যায়নি। অ্যাপটি খুলতে ট্যাপ করুন।</string>
     <string name="post_post_interrupted">আপনার পোস্ট পোস্ট হয়নি: পোস্ট করার সময় অ্যাপটি বন্ধ হয়ে গেছে।</string>
 </resources>

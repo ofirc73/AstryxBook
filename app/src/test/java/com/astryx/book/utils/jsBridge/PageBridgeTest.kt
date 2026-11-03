@@ -96,9 +96,9 @@ class PageBridgeTest {
         val main = PageBridges(feedPosting = { states += it })
         assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"posting"}""", main))
         assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"posted"}""", main))
-        assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"failed"}""", main))
-        assertFalse(dispatchPageMessage("""{"call":"feedPosting","state":"other"}""", main))
-        assertEquals(listOf(null, Posting.Outcome.POSTED, Posting.Outcome.FAILED), states)
+        assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"ended"}""", main))
+        assertFalse(dispatchPageMessage("""{"call":"feedPosting","state":"failed"}""", main))
+        assertEquals(listOf(null, Posting.Outcome.POSTED, Posting.Outcome.INTERRUPTED), states)
         // The Messages layer has no feed.
         assertFalse(dispatchPageMessage("""{"call":"feedPosting","state":"posting"}""", bridges))
     }

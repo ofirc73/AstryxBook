@@ -70,11 +70,12 @@ class PostingService : Service() {
 
 object Posting {
     /** What's posting, with what its notifications say; a tap on them opens MainActivity with [action]. */
-    enum class Kind(val posting: Int, val posted: Int, val failed: Int, val interrupted: Int, val outcomeId: Int, val action: String?) {
+    enum class Kind(val posting: Int, val posted: Int, val failed: Int?, val interrupted: Int, val outcomeId: Int, val action: String?) {
         // The story creator in the Messages layer (story_posting.js): a tap shows it again.
         STORY(R.string.story_posting, R.string.story_posted, R.string.story_post_failed, R.string.story_post_interrupted, 2102, ACTION_SHOW),
         // A post from the main view's composer (feed_posting.js): a tap brings the app back.
-        POST(R.string.post_posting, R.string.post_posted, R.string.post_post_failed, R.string.post_post_interrupted, 2103, null),
+        // No failure: nothing found on the page tells one (a cut connection, Facebook carried on after).
+        POST(R.string.post_posting, R.string.post_posted, null, R.string.post_post_interrupted, 2103, null),
     }
 
     /** How a posting ended, for its notification. */
@@ -118,7 +119,7 @@ object Posting {
         ) return
         val text = when (outcome) {
             Outcome.POSTED -> kind.posted
-            Outcome.FAILED -> kind.failed
+            Outcome.FAILED -> kind.failed ?: return
             Outcome.INTERRUPTED -> kind.interrupted
         }
         val notification = builder(context, kind)

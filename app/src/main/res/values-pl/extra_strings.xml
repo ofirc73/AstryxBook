@@ -131,6 +131,5 @@
     <string name="story_post_interrupted">Relacja nie została opublikowana: aplikację zamknięto w trakcie publikowania.</string>
     <string name="post_posting">Publikowanie posta…</string>
     <string name="post_posted">Twój post został opublikowany</string>
-    <string name="post_post_failed">Nie udało się opublikować posta. Dotknij, aby otworzyć aplikację.</string>
     <string name="post_post_interrupted">Post nie został opublikowany: aplikację zamknięto w trakcie publikowania.</string>
 </resources>

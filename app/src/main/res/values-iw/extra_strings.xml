@@ -129,6 +129,5 @@
     <string name="story_post_interrupted">הסטורי לא פורסם: האפליקציה נסגרה בזמן הפרסום.</string>
     <string name="post_posting">הפוסט שלך מתפרסם…</string>
     <string name="post_posted">הפוסט שלך פורסם</string>
-    <string name="post_post_failed">לא ניתן היה לפרסם את הפוסט. אפשר להקיש כדי לפתוח את האפליקציה.</string>
     <string name="post_post_interrupted">הפוסט לא פורסם: האפליקציה נסגרה בזמן הפרסום.</string>
 </resources>

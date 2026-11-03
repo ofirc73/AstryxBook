@@ -348,11 +348,14 @@ user-visible change.
   photo goes over HTTP. Not the feed's: m.facebook.com's Post goes over its WebSocket (a held test
   posted, 2026-11-02), and much of a post's photo only after Post, while its snackbar says
   "Uploading your post...": closed then, the app lost the post (2026-11-03). `feed_posting.js`
-  (document start, main view) wraps the page's WebSocket and reports a post still uploading
-  (`.snackbar-container` just after the composer closes, `bufferedAmount` > 0) until all is sent;
-  `FeedPosting` keeps `PostingService` going meanwhile. Throttle with DevTools: the emulator's own
-  `network speed` (Wi-Fi off, cellular) stalled every load at any speed. `am start --eu` can't grant a gallery
-  item or pass several files; serve test files through the app's own FileProvider instead.
+  (document start, main view) wraps the page's WebSocket and reports a post posting from the tap
+  on the composer's Post (the top row's button right of back) with a photo in it until its snackbar
+  shows a second text ("Posted"; `bufferedAmount` was 0 long before it, and a post closed 2.6 s after
+  Post was lost); `FeedPosting` keeps `PostingService` going meanwhile. Throttle with DevTools,
+  which slows only connections opened after it's set (reload the page first); the emulator's own
+  `network speed` (Wi-Fi off, cellular) stalled every load at any speed. `am start --eu` can't
+  grant a gallery item or pass several files; serve test files through the app's own FileProvider
+  instead.
 - "Keep screen on" uses the host view's `keepScreenOn`, not the window flag the fullscreen
   host adds and clears.
 - A PiP window stops growing at Android's largest PiP size (longest side about the screen's width

@@ -107,6 +107,5 @@
     <string name="story_post_interrupted">你的限時動態未發佈：發佈時應用程式已關閉。</string>
     <string name="post_posting">正在發佈你的貼文…</string>
     <string name="post_posted">你的貼文已發佈</string>
-    <string name="post_post_failed">無法發佈你的貼文。輕觸即可開啟應用程式。</string>
     <string name="post_post_interrupted">你的貼文未發佈：發佈時應用程式已關閉。</string>
 </resources>
