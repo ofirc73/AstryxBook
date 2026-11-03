@@ -73,8 +73,21 @@
     return row.indexOf(button) >= 0 && button !== back;
   }
 
+  // Facebook's snackbar while posting, at each change of the page too: with the page hidden (the
+  // app left) its timers run seconds to a minute apart, and "Posted" shows for a few seconds (missed
+  // on the phone, 2026-11-03). A MutationObserver isn't slowed. Whether it said "Posted".
+  function postedSeen() {
+    var text = snackbarText();
+    if (text !== null && firstText === null) firstText = text;
+    return text !== null && text !== firstText;
+  }
+  var observer = window.MutationObserver && new MutationObserver(function () {
+    if (state.posting && postedSeen()) report('posted');
+  });
+
   function report(posting) {
     state.posting = posting === 'posting';
+    if (observer && !state.posting) observer.disconnect();
     if (window.AstryxPage) window.AstryxPage.postMessage(JSON.stringify({ call: 'feedPosting', state: posting }));
   }
 
@@ -88,6 +101,7 @@
     startedAt = Date.now();
     firstText = snackbarText();
     report('posting');
+    if (observer) observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
   document.addEventListener('click', function (event) {
@@ -108,9 +122,7 @@
       if (closed && withPhoto && Date.now() - dialogAt > DIALOG_MS) start();
       return;
     }
-    var text = snackbarText();
-    if (text !== null && firstText === null) firstText = text;
-    if (text !== null && text !== firstText) report('posted');
+    if (postedSeen()) report('posted');
     else if (Date.now() - Math.max(startedAt, bigSendAt) > SETTLE_MS) report('ended');
   }, 500);
 })();

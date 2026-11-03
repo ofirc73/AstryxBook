@@ -72,6 +72,19 @@ class FeedPostingJsTest {
     }
 
     @Test
+    fun aPostedShownOnlyAMoment_isSeen() {
+        // With the page hidden its timers ran seconds apart, and "Posted" was missed (on the phone).
+        open()
+        post()
+        awaitPosting()
+        page.eval(
+            "var bar = document.querySelector('.snackbar-container'); bar.textContent = 'Posted';" +
+                " setTimeout(function () { bar.remove(); }, 50); 1"
+        )
+        awaitPosted()
+    }
+
+    @Test
     fun aTapOnPost_isPosting_beforeTheComposerCloses() {
         // Over a slow link the composer stayed open for seconds after Post.
         open()
