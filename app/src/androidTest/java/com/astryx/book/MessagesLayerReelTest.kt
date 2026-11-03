@@ -50,7 +50,7 @@ class MessagesLayerReelTest {
         val layer = app.layerWebView()!!
         // The real page the layer opened (the story creator) is heavy and goes on loading; it's
         // kept off the network and stopped, the chat here is a test page anyway.
-        app.onActivity { layer.settings.blockNetworkLoads = true; layer.stopLoading() }
+        app.keepOffTheNetwork(layer)
         app.loadPage("https://www.facebook.com/messages/t/100/", PAGE, layer)
         // messages_layer_nav.js reports the layer's moves. The layer runs it once a load finishes,
         // which a stopped load can leave out; it's run here then, as the layer would.

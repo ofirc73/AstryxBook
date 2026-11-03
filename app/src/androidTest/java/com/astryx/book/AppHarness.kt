@@ -196,6 +196,12 @@ class AppHarness {
     fun layerWebView(): WebView? = webViews().getOrNull(1)
 
     /**
+     * Keeps [webView] off the network and stops what it's loading: the real page the layer opened
+     * (heavy, and logged out it goes on redirecting) can't land over a test page loaded after it.
+     */
+    fun keepOffTheNetwork(webView: WebView) = onActivity { webView.settings.blockNetworkLoads = true; webView.stopLoading() }
+
+    /**
      * Loads [html] into [webView] as if it came from [url] (a Facebook address, so the app's
      * scripts and effects treat it as Facebook's), and waits for the app's scripts to have run.
      * With [asHistory] the WebView also reports [url] as its address (WebView.url), as the app's

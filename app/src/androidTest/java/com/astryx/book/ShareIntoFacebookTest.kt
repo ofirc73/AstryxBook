@@ -95,6 +95,9 @@ class ShareIntoFacebookTest {
         assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
         ShareMediaQueue.clear()
         val layer = app.layerWebView()!!
+        // Logged out (CI), the real creator went on redirecting under the test page: a late move to
+        // the stories page then counted as the story posted.
+        app.keepOffTheNetwork(layer)
         app.loadPage(STORY_CREATE_URL, CREATOR, layer)
         assertTrue("story_layout.js never marked Discard / Share", app.waitFor {
             app.eval("!!document.querySelector('[data-astryx-story=\"actions\"]')", layer) == "true"
