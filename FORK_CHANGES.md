@@ -661,7 +661,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   slice and the takeover are in `ReelCommentsAudioJsTest` (a fake indexed track and decoder).
 - `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
   shared photo reaching Home's composer, and a group's (the public group the test account joined;
-  `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`).
+  `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`). Both, and the next check, also
+  check the composer as `feed_posting.js` needs it to keep a post (or a group's) going from its
+  tap on Post: at `/composer/`, with one Post found by `isPostButton` (`FeedPostingJsTest`). The
+  posting notification's channel (its status-bar icon, for stories too) doesn't depend on
+  Facebook's page: `PostingTest`.
 - `sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp`: with
   the feed showing, the share's composer opened by the app's tap on Home's box, never loaded
   (`HomeComposer`'s counts), with the photo in it; Back asks Facebook's "Discard post?", and the

@@ -509,10 +509,21 @@ class LiveFacebookCanaryTest {
         awaitComposerPhoto()
     }
 
-    private fun awaitComposerPhoto() = assertTrue(
-        "the photo never reached the composer (share_media.js: the Photos button or its file input)",
-        app.waitFor(45_000) { eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true" }
-    )
+    // The shared photo in the composer ([message] if it never comes); then the composer as
+    // feed_posting.js needs it to keep a post going from its tap on Post (Post itself isn't pressed):
+    // at /composer/, with one Post, found as the top row's button right of back (it has no label).
+    private fun awaitComposerPhoto(
+        message: String = "the photo never reached the composer (share_media.js: the Photos button or its file input)",
+        ms: Long = 45_000,
+    ) {
+        assertTrue(message, app.waitFor(ms) { eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true" })
+        val posts = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), __astryxFeedPosting.isPostButton)" +
+            ".map(function (b) { return location.pathname + ' ' + (b.innerText || '').trim(); }).join(' | ')"
+        assertEquals(
+            "feed_posting.js doesn't find the composer's Post (isPostButton: the top row's button right of back; ${pageShape()})",
+            "\"/composer/ Post\"", eval(posts)
+        )
+    }
 
     @Test
     fun sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp() {
@@ -938,10 +949,10 @@ class LiveFacebookCanaryTest {
         Thread.sleep(3000)
         // The user picks the group: the public test group the test account joined.
         eval("location.href = '$TEST_GROUP_URL'; 1")
-        assertTrue(
+        awaitComposerPhoto(
             "the photo never reached the group's composer (share_media.js groupPhotoButton: the Photo button, a " +
                 "data-action-id container on a group's page) (${pageShape()})",
-            app.waitFor(60_000) { eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true" }
+            60_000,
         )
     }
 

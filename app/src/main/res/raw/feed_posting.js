@@ -72,6 +72,8 @@
     }
     return row.indexOf(button) >= 0 && button !== back;
   }
+  state.isPostButton = isPostButton; // the live checks try it on Facebook's real composers
+
 
   // Facebook's snackbar while posting, at each change of the page too: with the page hidden (the
   // app left) its timers run seconds to a minute apart, and "Posted" shows for a few seconds (missed
