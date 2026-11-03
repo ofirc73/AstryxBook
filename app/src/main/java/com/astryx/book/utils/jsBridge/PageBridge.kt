@@ -3,6 +3,7 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.astryx.book.notifications.Posting
 import com.astryx.book.utils.isFacebookWebUrl
 import com.eepiemi.materialbook.utils.jsBridge.FACEBOOK_PAGE_ORIGINS
 import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
@@ -27,6 +28,9 @@ class PageBridges(
     val photoPost: ((fbid: String, reply: (String) -> Unit) -> Unit)? = null,
     // story_posting.js: Share to story started posting (true) or failed (false). WebView 83+ only.
     val storyPosting: ((posting: Boolean) -> Unit)? = null,
+    // feed_posting.js: a post started posting (null), Facebook said it's posted (POSTED), or it
+    // ended unseen (INTERRUPTED). Main view, WebView 83+ only.
+    val feedPosting: ((ended: Posting.Outcome?) -> Unit)? = null,
 )
 
 /**
@@ -92,6 +96,15 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
             when (msg.optString("state")) {
                 "posting" -> storyPosting(true)
                 "failed" -> storyPosting(false)
+                else -> return false
+            }
+        }
+        "feedPosting" -> {
+            val feedPosting = bridges.feedPosting ?: return false
+            when (msg.optString("state")) {
+                "posting" -> feedPosting(null)
+                "posted" -> feedPosting(Posting.Outcome.POSTED)
+                "ended" -> feedPosting(Posting.Outcome.INTERRUPTED)
                 else -> return false
             }
         }

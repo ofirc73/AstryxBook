@@ -177,9 +177,9 @@
             </intent-filter>
         </service>
 
-        <!-- "Posting your story" while Facebook's page uploads a story (StoryPostingService). -->
+        <!-- "Posting your story" or "...post" while Facebook's page uploads one (PostingService). -->
         <service
-            android:name="com.astryx.book.notifications.StoryPostingService"
+            android:name="com.astryx.book.notifications.PostingService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

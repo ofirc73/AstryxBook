@@ -1,4 +1,5 @@
 package com.astryx.book.utils.jsBridge
+import com.astryx.book.notifications.Posting
 import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
 import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
 import org.junit.Assert.assertEquals
@@ -87,5 +88,18 @@ class PageBridgeTest {
         assertEquals(listOf(true, false), states)
         // The main view has no story creator.
         assertFalse(dispatchPageMessage("""{"call":"storyPosting","state":"posting"}""", bridges))
+    }
+
+    @Test
+    fun feedPosting_passesOnItsStartAndHowItEnded() {
+        val states = mutableListOf<Posting.Outcome?>()
+        val main = PageBridges(feedPosting = { states += it })
+        assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"posting"}""", main))
+        assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"posted"}""", main))
+        assertTrue(dispatchPageMessage("""{"call":"feedPosting","state":"ended"}""", main))
+        assertFalse(dispatchPageMessage("""{"call":"feedPosting","state":"failed"}""", main))
+        assertEquals(listOf(null, Posting.Outcome.POSTED, Posting.Outcome.INTERRUPTED), states)
+        // The Messages layer has no feed.
+        assertFalse(dispatchPageMessage("""{"call":"feedPosting","state":"posting"}""", bridges))
     }
 }

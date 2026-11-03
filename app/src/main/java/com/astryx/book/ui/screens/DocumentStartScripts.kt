@@ -41,6 +41,13 @@ internal fun installFeedPrefetchScript(webView: android.webkit.WebView) {
     installDocumentStartScript(webView, R.raw.feed_prefetch, OPEN_FEEDS_ORIGINS, "Astryxbook")
 }
 
+// Installs feed_posting.js (main view; see the script): a post still uploading after Post keeps the
+// app in the foreground with a notification. Without DOCUMENT_START_SCRIPT (Chrome 87+) the page
+// posts as it did, out of the app's sight.
+internal fun installFeedPostingScript(webView: android.webkit.WebView) {
+    installDocumentStartScript(webView, R.raw.feed_posting, OPEN_FEEDS_ORIGINS, "Astryxbook")
+}
+
 // Installs page_zoom.js (page zoom, see the script) for [percent]; its handler removes it when
 // the setting changes. Null at 100% and without DOCUMENT_START_SCRIPT (Chrome 87+).
 internal fun installPageZoomScript(webView: android.webkit.WebView, percent: Int): ScriptHandler? {

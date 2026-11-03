@@ -109,6 +109,9 @@ class PageFixture(
             "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } }; 1"
     )
 
+    /** The page calls [stubPageCalls] got, as "call state" each, comma-separated (JSON-quoted). */
+    fun pageCalls(): String = eval("window.__pageCalls.map(function (c) { return c.call + ' ' + c.state; }).join(', ')")
+
     /** Whether [check] became true within [ms], checked every [everyMs]. */
     fun waitFor(ms: Long = 5_000, everyMs: Long = 100, check: () -> Boolean): Boolean {
         val until = System.currentTimeMillis() + ms

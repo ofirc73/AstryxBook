@@ -38,7 +38,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.astryx.book.notifications.AppVisibility
 import com.astryx.book.notifications.FacebookCountsWorker
-import com.astryx.book.notifications.StoryPosting
+import com.astryx.book.notifications.Posting
 import com.astryx.book.ui.screens.AppLockScreen
 import com.eepiemi.materialbook.ui.screens.MaterialbookWebView
 import com.astryx.book.utils.isAppLockEnabled
@@ -332,8 +332,8 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == StoryPosting.ACTION_SHOW) {
-            StoryPosting.showRequests++
+        if (intent.action == Posting.ACTION_SHOW) {
+            Posting.showRequests++
             return
         }
         mediaShareTarget(intent)?.let {

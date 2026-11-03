@@ -7,8 +7,8 @@ import android.graphics.Color
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.astryx.book.notifications.StoryPosting
-import com.astryx.book.notifications.StoryPostingService
+import com.astryx.book.notifications.Posting
+import com.astryx.book.notifications.PostingService
 import com.astryx.book.ui.screens.ShareMediaJsTest
 import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
@@ -118,10 +118,10 @@ class ShareIntoFacebookTest {
     @Suppress("DEPRECATION") // getRunningServices still lists the app's own services
     private fun postingNotificationShows(): Boolean =
         app.context.getSystemService(ActivityManager::class.java).getRunningServices(Int.MAX_VALUE)
-            .any { it.service.className == StoryPostingService::class.java.name && it.foreground }
+            .any { it.service.className == PostingService::class.java.name && it.foreground }
 
     private fun tapPostingNotification() =
-        app.start(Intent(StoryPosting.ACTION_SHOW, null, app.context, com.eepiemi.materialbook.MainActivity::class.java))
+        app.start(Intent(Posting.ACTION_SHOW, null, app.context, com.eepiemi.materialbook.MainActivity::class.java))
 
     private companion object {
         // A text-story background, as the creator's page preloads them (2026-11-03), and a story photo.
@@ -282,6 +282,28 @@ class ShareIntoFacebookTest {
         app.eval("history.pushState({}, '', '/stories'); 1", layer)
         assertTrue("the posting notification stayed after the story was posted", app.waitFor { !postingNotificationShows() })
         assertTrue("the creator stayed after the story was posted", app.waitFor { app.layerWebView() == null })
+    }
+
+    // A feed post whose photos are still going up after Post (feed_posting.js, in the main view): the
+    // app stays in the foreground with "Posting your post" until it's sent; a new page in the main
+    // view takes the upload with it and ends that.
+    @Test
+    fun aFeedPostStillUploading_postsInTheForeground_untilItsSent() {
+        app.start()
+        app.loadPage("https://m.facebook.com/", "<html><body><script>window.__testPage = true;</script></body></html>")
+        assertEquals("feed_posting.js isn't in the main view", "true", app.eval("!!window.__astryxFeedPosting"))
+        fun report(state: String) =
+            app.eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'feedPosting', state: '$state' })); 1")
+
+        report("posting")
+        assertTrue("the posting notification never showed", app.waitFor { postingNotificationShows() })
+        report("posted")
+        assertTrue("the posting notification stayed after the post was sent", app.waitFor { !postingNotificationShows() })
+
+        report("posting")
+        assertTrue(app.waitFor { postingNotificationShows() })
+        app.loadPage("https://m.facebook.com/?n=2", "<html><body><script>window.__testPage = true;</script></body></html>")
+        assertTrue("the posting notification stayed after its page went", app.waitFor { !postingNotificationShows() })
     }
 
     // A failed upload: Facebook's editor comes back (still the creator), kept out of sight until the

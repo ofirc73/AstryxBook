@@ -24,7 +24,7 @@ class StoryPostingJsTest {
         page.run(R.raw.story_posting)
     }
 
-    private fun calls(): String = page.eval("window.__pageCalls.map(function (c) { return c.call + ' ' + c.state; }).join(', ')")
+    private fun calls(): String = page.pageCalls()
 
     private fun setBusy(busy: Boolean) = page.eval(
         "var share = document.getElementById('share'); share.setAttribute('aria-busy', '$busy');" +

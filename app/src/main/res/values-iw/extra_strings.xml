@@ -122,9 +122,12 @@
     <string name="share_media_adding_several">מוסיף %1$d תמונות…</string>
     <string name="send_post_pick_chat">פתחו צ׳אט כדי לשלוח את הפוסט: הקישור שלו יוכנס לתיבת ההודעה.</string>
     <string name="send_post_cancel">לא לשלוח את הפוסט</string>
-    <string name="story_posting_channel">פרסום סטורי</string>
+    <string name="posting_channel">פרסום</string>
     <string name="story_posting">הסטורי שלך מתפרסם…</string>
     <string name="story_posted">הסטורי שלך פורסם</string>
     <string name="story_post_failed">לא ניתן היה לפרסם את הסטורי. אפשר להקיש כדי לנסות שוב.</string>
     <string name="story_post_interrupted">הסטורי לא פורסם: האפליקציה נסגרה בזמן הפרסום.</string>
+    <string name="post_posting">הפוסט שלך מתפרסם…</string>
+    <string name="post_posted">הפוסט שלך פורסם</string>
+    <string name="post_post_interrupted">הפוסט לא פורסם: האפליקציה נסגרה בזמן הפרסום.</string>
 </resources>

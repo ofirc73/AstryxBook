@@ -531,6 +531,17 @@ class LiveFacebookCanaryTest {
                 "button in the Photo button's row, tapped by the app; ${pageShape()})",
             HomeComposer.taps.get() > taps && HomeComposer.loads.get() == loads
         )
+        // feed_posting.js wraps Facebook's WebSocket, which carries the photo up: it keeps a post
+        // still uploading after Post going (Post itself isn't pressed: the checks never post).
+        assertEquals(
+            "feed_posting.js saw no photo go up over Facebook's WebSocket " +
+                "(${eval("JSON.stringify(window.__astryxFeedPosting && { most: __astryxFeedPosting.mostUnsent, " +
+                    "sockets: __astryxFeedPosting.sockets.map(function (s) { return s.url.split('?')[0]; }) })")})",
+            "true", eval(
+                "!!window.__astryxFeedPosting && __astryxFeedPosting.mostUnsent > 20000 && " +
+                    "__astryxFeedPosting.sockets.some(function (s) { return /facebook\\.com\\//.test(s.url); })"
+            )
+        )
         // Back asks "Discard post?" (the draft has the photo); discarded, the composer goes back to Home.
         // The sheet's button: its icon, then "Discard post".
         app.pressBack()

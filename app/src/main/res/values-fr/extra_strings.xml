@@ -110,9 +110,12 @@
     <string name="share_media_adding_several">Ajout de %1$d photos…</string>
     <string name="send_post_pick_chat">Ouvrez une discussion pour envoyer la publication : son lien ira dans la zone de message.</string>
     <string name="send_post_cancel">Ne pas envoyer la publication</string>
-    <string name="story_posting_channel">Publication de story</string>
+    <string name="posting_channel">Publication</string>
     <string name="story_posting">Publication de votre story…</string>
     <string name="story_posted">Votre story est publiée</string>
     <string name="story_post_failed">Impossible de publier votre story. Appuyez pour réessayer.</string>
     <string name="story_post_interrupted">Votre story n\'a pas été publiée : l\'application a été fermée pendant la publication.</string>
+    <string name="post_posting">Publication de votre publication…</string>
+    <string name="post_posted">Votre publication est publiée</string>
+    <string name="post_post_interrupted">Votre publication n\'a pas été publiée : l\'application a été fermée pendant la publication.</string>
 </resources>

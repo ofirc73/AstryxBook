@@ -1,14 +1,8 @@
 package com.astryx.book.ui.screens
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
 import android.view.View
-import android.widget.Toast
 import android.webkit.CookieManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,7 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import com.astryx.book.notifications.AppVisibility
-import com.astryx.book.notifications.StoryPosting
+import com.astryx.book.notifications.Posting
+import com.astryx.book.notifications.rememberPostingStart
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.astryx.book.utils.FullscreenController
@@ -157,35 +152,30 @@ fun MessagesLayer(
     var showSharedStory by remember { mutableStateOf(false) }
     // Share to story pressed and the story not posted yet (story_posting.js): the creator goes out
     // of sight ([onHide]) and goes on posting in the background, with a notification meanwhile
-    // (StoryPosting), as the Facebook app does.
+    // (Posting), as the Facebook app does.
     var storyPosting by remember { mutableStateOf(false) }
     // Its story failed to post: kept, out of sight, for another try.
     var storyFailed by remember { mutableStateOf(false) }
     val currentOnStoryPosting by rememberUpdatedState(onStoryPosting)
     val currentOnHide by rememberUpdatedState(onHide)
     val currentHidden by rememberUpdatedState(hidden)
-    // The notifications are the only sign of how it went once the creator is out of sight.
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val postingStart = rememberPostingStart(Posting.Kind.STORY)
     fun startStoryPosting() {
         if (storyPosting) return
         storyPosting = true
         storyFailed = false
         currentOnStoryPosting(true, false)
-        StoryPosting.started(context)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        else Toast.makeText(context, R.string.story_posting, Toast.LENGTH_SHORT).show()
+        postingStart()
         currentOnHide()
     }
     // Said in a notification when the user can't see it: the creator out of sight, or the app.
-    fun endStoryPosting(outcome: StoryPosting.Outcome) {
+    fun endStoryPosting(outcome: Posting.Outcome) {
         if (!storyPosting) return
         storyPosting = false
-        storyFailed = outcome == StoryPosting.Outcome.FAILED
+        storyFailed = outcome == Posting.Outcome.FAILED
         currentOnStoryPosting(false, storyFailed)
         val seen = !currentHidden && AppVisibility.onScreen
-        StoryPosting.ended(context, outcome, notify = outcome == StoryPosting.Outcome.INTERRUPTED || !seen)
+        Posting.ended(context, Posting.Kind.STORY, outcome, notify = outcome == Posting.Outcome.INTERRUPTED || !seen)
     }
     // The last chat the layer showed, for [onLeave]: a reel opened from it goes back there on
     // Back. Only Messages pages count: a reel shared in a chat comes as Facebook's share link
@@ -332,7 +322,7 @@ fun MessagesLayer(
     }
     // The creator gone while its story was posting (the app closed, a lost renderer): so was the upload.
     DisposableEffect(Unit) {
-        onDispose { endStoryPosting(StoryPosting.Outcome.INTERRUPTED) }
+        onDispose { endStoryPosting(Posting.Outcome.INTERRUPTED) }
     }
 
     // A post sent with Send as a message: the chat the user opens from the chat list gets the post's
@@ -463,7 +453,7 @@ fun MessagesLayer(
                                 ContextCompat.getMainExecutor(context).execute {
                                     // After Share to story Facebook moves on to its stories page.
                                     val posted = storyShare && isStoriesPage(newUrl)
-                                    if (posted) endStoryPosting(StoryPosting.Outcome.POSTED)
+                                    if (posted) endStoryPosting(Posting.Outcome.POSTED)
                                     // Once only: the viewer may come back to the page when it ends.
                                     // Posted out of sight: the user has moved on, the layer closes.
                                     if (exit != null && posted && !showSharedStory && !ShareMediaQueue.pending(ShareTarget.STORY)) {
@@ -473,7 +463,7 @@ fun MessagesLayer(
                                 }
                             },
                             storyPosting = { posting ->
-                                if (posting) startStoryPosting() else endStoryPosting(StoryPosting.Outcome.FAILED)
+                                if (posting) startStoryPosting() else endStoryPosting(Posting.Outcome.FAILED)
                             },
                         )
                     )
