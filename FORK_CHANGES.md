@@ -734,8 +734,10 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `FeedPostJsTest` (the post as rows and as a card).
 - `theFeed_asksForMorePostsBeforeItsLoadingRowShows`: with Hide suggested posts on, the feed list
   still has its loading row (else it fails: `feed_prefetch.js` would have nothing to watch), and
-  the app passes it on to Facebook while it's still below the window (`window.__astryxFeedPrefetched`;
-  `FeedPrefetchJsTest`). That the next posts then arrive is untestable for now: the test account's
+  the app passes it on to Facebook while it's still below the window (`window.__astryxFeedPrefetched`'s
+  `farthest`; `FeedPrefetchJsTest`). It read the last pass's distance until 2026-11-04, when the
+  daily check failed on a pass made on screen after the first had gone out early: Facebook can
+  watch the row again once it's on screen, after an ask that brought nothing. That the next posts then arrive is untestable for now: the test account's
   feed stops after one batch, in Chrome on the emulator too (2026-10-30, after it followed NASA,
   National Geographic and BBC News); the check counts them and says so. Asking again when an early
   ask brings nothing has no live check: it waits for Facebook to drop an ask, which no run can

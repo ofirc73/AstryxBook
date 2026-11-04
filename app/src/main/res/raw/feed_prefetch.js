@@ -67,12 +67,17 @@
             if (entries[i].isIntersecting && isLoadingRow(entries[i].target)) near.push(entries[i]);
           }
           if (!near.length) return;
-          // For the live check: how often, and how far below the window the row last was (and,
-          // for the tests, how many asks were made again).
+          // For the live check: how often, how far below the window the row last was and was at
+          // the farthest (a row Facebook watches again once it's on screen, after an ask that
+          // brought nothing, comes in on screen: the last distance alone failed the check while
+          // the first ask had gone out early, 2026-11-04), and for the tests how many asks were
+          // made again.
           var was = window.__astryxFeedPrefetched || {};
+          var below = Math.round(near[0].boundingClientRect.top - window.innerHeight);
           window.__astryxFeedPrefetched = {
             count: (was.count || 0) + 1,
-            below: Math.round(near[0].boundingClientRect.top - window.innerHeight),
+            below: below,
+            farthest: Math.max(below, was.count ? was.farthest : below),
             retries: was.retries || 0
           };
           callback.call(observer, near, observer);
