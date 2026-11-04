@@ -17,7 +17,8 @@
 // Posted: the snackbar showing a text other than the first it showed ("Uploading your post..."
 // then, after a while with no text, "Posted"). The sockets' bufferedAmount can't tell: it was 0
 // long before "Posted", while Facebook went on sending the photo a piece at a time. Ended: no
-// photo-sized send (BIG_SEND bytes) for SETTLE_MS, and no "Posted" seen (the page hidden, its
+// photo-sized send (BIG_SEND bytes) and nothing left unsent (bufferedAmount, which a really slow
+// link keeps above 0) for SETTLE_MS, and no "Posted" seen (the page hidden, its
 // timers slowed to a check a minute, or "Posted" the first text seen): nothing is said then. No
 // text is read, only whether there's any and whether it changed, so it works in any language.
 // ES5, like the other document-start scripts.
@@ -52,6 +53,28 @@
 
   var onComposer = false;
   var withPhoto = false;
+  // A photo given to the composer's file input (by the picker or a share): over a slow link its
+  // preview came after Post (the phone through a 128 kbps proxy, 2026-11-04), so the tap on Post
+  // wasn't seen as a post's, and posting started only once the app was in the background, where
+  // Android refused its notification service. Cleared as the composer closes.
+  var photoGiven = false;
+  document.addEventListener('change', function (event) {
+    var input = event.target;
+    if (input && input.type === 'file' && input.files && input.files.length) photoGiven = true;
+  }, true);
+  function hasPhoto() {
+    return photoGiven || !!document.querySelector('img[src^="data:image"]');
+  }
+
+  // Bytes the page handed its sockets that haven't gone yet: through a slow link (the proxy) the
+  // photo's last pieces were handed over long before they went.
+  function unsent() {
+    var bytes = 0;
+    for (var i = 0; i < sockets.length; i++) {
+      if (sockets[i].readyState !== Native.CLOSED) bytes += sockets[i].bufferedAmount;
+    }
+    return bytes;
+  }
   var dialogAt = 0;
   var startedAt = 0;
   var firstText = null;
@@ -111,7 +134,7 @@
   function onTap(event) {
     if (state.posting || !/^\/composer\/?$/.test(location.pathname)) return;
     var button = event.target && event.target.closest && event.target.closest('[role="button"]');
-    if (button && isPostButton(button) && document.querySelector('img[src^="data:image"]')) start();
+    if (button && isPostButton(button) && hasPhoto()) start();
   }
   document.addEventListener('pointerup', onTap, true);
   document.addEventListener('click', onTap, true);
@@ -121,13 +144,15 @@
     var closed = onComposer && !composer;
     onComposer = composer;
     if (composer) {
-      withPhoto = !!document.querySelector('img[src^="data:image"]');
+      withPhoto = hasPhoto();
       if (document.querySelector('[role="dialog"]')) dialogAt = Date.now();
     }
+    if (closed) photoGiven = false;
     if (!state.posting) {
       if (closed && withPhoto && Date.now() - dialogAt > DIALOG_MS) start();
       return;
     }
+    if (unsent() > 0) bigSendAt = Date.now(); // still going out
     if (postedSeen()) report('posted');
     else if (Date.now() - Math.max(startedAt, bigSendAt) > SETTLE_MS) report('ended');
   }, 500);
