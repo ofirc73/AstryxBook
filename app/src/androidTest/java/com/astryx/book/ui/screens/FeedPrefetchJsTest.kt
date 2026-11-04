@@ -18,7 +18,8 @@ import org.junit.runner.RunWith
 class FeedPrefetchJsTest {
 
     private class Harness {
-        private val page = PageFixture()
+        // Laid out, for the rows' distances below the window.
+        private val page = PageFixture(width = 1080, height = 2000)
 
         // The feed list with a post row and its loading row, a first-visibility mark outside any
         // list, and the page's observer ([options] its options) watching [watched].
@@ -88,6 +89,19 @@ class FeedPrefetchJsTest {
         h.eval("window.__deliver(1, 'loading', 0.01)")
 
         assertEquals("loading:true", h.seen())
+    }
+
+    @Test
+    fun theFarthestEarlyAsk_isKept_forTheLiveCheck() {
+        // Facebook can watch the row again once it's on screen (after an ask that brought nothing):
+        // that ask is on screen, the first one wasn't.
+        val h = Harness()
+        h.load("{}", "loading")
+        h.eval("document.getElementById('loading').style.marginTop = '5000px'; window.__deliver(1, 'loading', 0.01)")
+        h.eval("document.getElementById('loading').style.marginTop = '0'; window.__deliver(1, 'loading', 0.01)")
+
+        assertEquals("true", h.eval("window.__astryxFeedPrefetched.below < 0"))
+        assertEquals("true", h.eval("window.__astryxFeedPrefetched.farthest > 3000"))
     }
 
     @Test

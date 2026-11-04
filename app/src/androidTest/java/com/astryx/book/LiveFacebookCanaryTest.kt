@@ -1375,7 +1375,7 @@ class LiveFacebookCanaryTest {
         assertTrue("feed_prefetch.js never passed the loading row on to Facebook early (${eval(FEED_LOADING_JS)})",
             feed.prefetched > 0)
         assertTrue("feed_prefetch.js passed the loading row on only once it was on screen " +
-            "(${feed.prefetchedBelow} px below the window)", (feed.prefetchedBelow ?: 0) > 0)
+            "(at most ${feed.prefetchedBelow} px below the window)", (feed.prefetchedBelow ?: 0) > 0)
         // The test account's feed stopped after one batch, in Chrome too (2026-10-30).
         if (feed.posts <= firstPosts) {
             untestable("the test account's feed got no second batch (${feed.posts} posts): that the next posts " +
@@ -1384,7 +1384,7 @@ class LiveFacebookCanaryTest {
     }
 
     // The feed list's loading (FEED_LOADING_JS): its posts, how far below the window its loading
-    // row is (null without one), and feed_prefetch.js's early passes and the last one's distance.
+    // row is (null without one), and feed_prefetch.js's early passes and the farthest one's distance.
     private data class FeedLoading(val posts: Int, val loaderBelow: Int?, val prefetched: Int, val prefetchedBelow: Int?) {
         companion object {
             fun parse(raw: String): FeedLoading {
@@ -1764,8 +1764,8 @@ class LiveFacebookCanaryTest {
                 if (id && !ids[id]) { ids[id] = true; posts++; }
                 if (rows[i].hasAttribute('data-on-first-visibility-action-id')) loader = rows[i];
               }
-              var p = window.__astryxFeedPrefetched || { count: 0, below: '' };
-              return [posts, loader ? Math.round(loader.getBoundingClientRect().top - innerHeight) : '', p.count, p.below].join('|');
+              var p = window.__astryxFeedPrefetched || { count: 0, farthest: '' };
+              return [posts, loader ? Math.round(loader.getBoundingClientRect().top - innerHeight) : '', p.count, p.farthest].join('|');
             })()
         """
 
