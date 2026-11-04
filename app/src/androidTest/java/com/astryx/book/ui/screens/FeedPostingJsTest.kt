@@ -29,7 +29,7 @@ class FeedPostingJsTest {
             "window.WebSocket = function (url) { this.url = url; this.readyState = 1; this.bufferedAmount = 0; };" +
                 "window.WebSocket.CONNECTING = 0; window.WebSocket.OPEN = 1; window.WebSocket.CLOSING = 2; window.WebSocket.CLOSED = 3;" +
                 "window.WebSocket.prototype.send = function (data) { this.bufferedAmount += data.length; };" +
-                "window.__astryxFeedPostingSettleMs = 3000; 1"
+                "window.__astryxFeedPostingSettleMs = $SETTLE_MS; 1"
         )
         page.run(R.raw.feed_posting)
         page.eval("window.__socket = new WebSocket('wss://kaios-d.facebook.com/ws/1'); 1")
@@ -98,6 +98,32 @@ class FeedPostingJsTest {
     }
 
     @Test
+    fun aTapOnPost_withAPhotoGivenButNoPreviewYet_isPosting() {
+        // Over a slow link (the phone through a 128 kbps proxy) the preview came after Post.
+        open(withPhoto = false)
+        page.eval(
+            "var input = document.createElement('input'); input.type = 'file'; document.body.appendChild(input);" +
+                " var t = new DataTransfer(); t.items.add(new File(['x'], 'a.jpg', { type: 'image/jpeg' })); input.files = t.files;" +
+                " input.dispatchEvent(new Event('change', { bubbles: true })); 1"
+        )
+        tap("post")
+        awaitPosting()
+    }
+
+    @Test
+    fun bytesStillUnsent_keepItPosting_pastTheWhileWithNoSend() {
+        // A really slow link: the photo's last pieces handed over long before they went.
+        open()
+        post()
+        awaitPosting()
+        page.eval("window.__socket.bufferedAmount = 50000; 1")
+        Thread.sleep(SETTLE_MS + CHECK_MS)
+        assertEquals("ended with bytes still to go", "\"feedPosting posting\"", calls())
+        page.eval("window.__socket.bufferedAmount = 0; 1")
+        assertTrue("never ended (${calls()})", page.waitFor(SETTLE_MS + 3000) { calls() == "\"feedPosting posting, feedPosting ended\"" })
+    }
+
+    @Test
     fun aTapOnAnotherButton_orOnPostWithoutAPhoto_isNotPosting() {
         open()
         tap("audience")
@@ -132,7 +158,8 @@ class FeedPostingJsTest {
         open()
         post()
         awaitPosting()
-        repeat(4) { sending(30_000); Thread.sleep(500) }
+        // Each piece goes out before the next (the socket empties).
+        repeat(4) { sending(30_000); page.eval("window.__socket.bufferedAmount = 0; 1"); Thread.sleep(500) }
         assertEquals("ended while the photo went up", "\"feedPosting posting\"", calls())
         assertTrue("never ended (${calls()})", page.waitFor { calls() == "\"feedPosting posting, feedPosting ended\"" })
     }
@@ -177,6 +204,8 @@ class FeedPostingJsTest {
                 "<div role='button' id='back' aria-label='back' style='width:40px'><div>&lt;</div></div>" +
                 "<div role='button' id='post' style='width:160px'><div>Post</div></div></div>" +
                 "<div role='button' id='audience' style='width:114px;height:28px'><div>Only me</div></div>"
+        // The settle time the tests give the script (window.__astryxFeedPostingSettleMs).
+        const val SETTLE_MS = 3000L
         // The script's check (500 ms), twice.
         const val CHECK_MS = 1000L
         const val QUIET_MS = 2000L
