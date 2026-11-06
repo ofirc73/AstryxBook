@@ -7,12 +7,14 @@
 </h1>
 
 <p align="middle">
-    <a href='./LICENSE'><img alt='License: GPL-3.0' src='https://img.shields.io/badge/license-GPL--3.0-blue'/></a>
-    <a href='https://github.com/ofirc73/AstryxBook/releases/latest'><img alt='Android 8.0+' src='https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white'/></a>
-    <a href='https://github.com/ofirc73/AstryxBook/actions/workflows/create-release.yml'><img alt='Release build' src='https://github.com/ofirc73/AstryxBook/actions/workflows/create-release.yml/badge.svg?branch=main'/></a>
+    <a href='./LICENSE'><img alt='License: GPL-3.0' src='https://shields.io></a>
+    <a href='https://github.com/ofirc73/AstryxBook/releases/latest'><img alt='Android 8.0+' src='https://shields.io></a>
+    <a href='https://github.com'><img alt='Release build' src='https://github.com/badge.svg?branch=main'/></a>
 </p>
 
-An open-source, ad-free Android app for Facebook's mobile site, written in Kotlin with Jetpack Compose: picture-in-picture video with lock-screen audio, Messages and Messenger calls in desktop mode, sharing photos and videos into Facebook, downloads, AMOLED black, distraction filters, app lock and Facebook notifications. Not affiliated with Meta (see [NOTICE.md](./NOTICE.md)).
+Astryxbook is a **privacy-friendly Facebook client** and an open-source **alternative Facebook app** for mobile devices. Built natively using **Kotlin** and **Jetpack Compose**, this clean **facebook-wrapper** provides a distraction-free, ad-blocking interface for Facebook's mobile site. It acts as an independent **facebook-client** that bundles premium native features without tracking or telemetry, making it a premier **foss** option for privacy-conscious users looking for an clean **facebook-apk**.
+
+Key features include optimized **webview** navigation, real **picture-in-picture** multitasking, native **material-design** component integration, and complete **adblock** / **no-ads** content filtering out of the box.
 
 > **Kept working as Facebook changes:** a daily check runs the app against the live Facebook site, so when Facebook changes its pages the break shows up on our side within a day and the fix ships in the next release.
 
