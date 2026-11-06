@@ -7,13 +7,9 @@
 </h1>
 
 <p align="middle">
-    <a href="./LICENSE">
-        <img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0">
-    </a>
-    <img src="https://img.shields.io/badge/Android-8.0%2B-green.svg" alt="Android 8.0+">
-    <a href="https://github.com/ofirc73/AstryxBook/actions">
-        <img src="YOUR_GITHUB_ACTIONS_BADGE_URL" alt="Release build">
-    </a>
+    <a href="./LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-blue.svg"></a>
+    <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-green.svg">
+    <a href="https://github.com/ofirc73/AstryxBook/actions/workflows/create-release.yml"><img alt="Release build" src="https://github.com/ofirc73/AstryxBook/actions/workflows/create-release.yml/badge.svg?branch=main"></a>
 </p>
 
 Astryxbook is a **privacy-friendly Facebook client** and an open-source **alternative Facebook app** for mobile devices. Built natively using **Kotlin** and **Jetpack Compose**, this clean **facebook-wrapper** provides a distraction-free, ad-blocking interface for Facebook's mobile site. It acts as an independent **facebook-client** that bundles premium native features without tracking or telemetry, making it a premier **foss** option for privacy-conscious users looking for an clean **facebook-apk**.
