@@ -22,9 +22,13 @@ Key features include optimized **webview** navigation, real **picture-in-picture
     📱 Download
 </h1>
 
-<p align="middle">
-    <a href='https://github.com/ofirc73/AstryxBook/releases/latest'><img alt='Download' height='40' src='./assets/download.svg'/></a>
-    <a href='https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fadd%2Fhttps%3A%2F%2Fgithub.com%2Fofirc73%2FAstryxBook'><img alt='Get it on Obtainium' height='40' src='https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png'/></a>
+<p align="center">
+    <a href="https://github.com/ofirc73/AstryxBook/releases/latest">
+        <img alt="Download" height="48" src="./assets/download.svg" style="vertical-align: middle;"/>
+    </a>
+    <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium%3A%2F%2Fadd%2Fhttps%3A%2F%2Fgithub.com%2Fofirc73%2FAstryxBook">
+        <img alt="Get it on Obtainium" height="48" src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" style="vertical-align: middle;"/>
+    </a>
 </p>
 
 <p align="middle">
