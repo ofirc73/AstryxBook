@@ -120,8 +120,7 @@ class ShareIntoFacebookTest {
         app.context.getSystemService(ActivityManager::class.java).getRunningServices(Int.MAX_VALUE)
             .any { it.service.className == PostingService::class.java.name && it.foreground }
 
-    private fun tapPostingNotification() =
-        app.start(Intent(Posting.ACTION_SHOW, null, app.context, com.eepiemi.materialbook.MainActivity::class.java))
+    private fun tapPostingNotification() = app.start(Posting.ACTION_SHOW)
 
     private companion object {
         // A text-story background, as the creator's page preloads them (2026-11-03), and a story photo.
@@ -282,7 +281,42 @@ class ShareIntoFacebookTest {
         app.eval("history.pushState({}, '', '/stories'); 1", layer)
         assertTrue("the posting notification stayed after the story was posted", app.waitFor { !postingNotificationShows() })
         assertTrue("the creator stayed after the story was posted", app.waitFor { app.layerWebView() == null })
+
+        // On screen: "Your story is posted", whose View opens the user's own stories in the layer.
+        val view = app.context.getString(com.eepiemi.materialbook.R.string.posting_view)
+        assertTrue("no \"Your story is posted\" with View (PostedStoryEffects)", app.waitFor {
+            app.textShown(app.context.getString(com.eepiemi.materialbook.R.string.story_posted)) && app.textShown(view)
+        })
+        assertTrue(app.tapText(view))
+        assertOwnStoriesOpen("View")
     }
+
+    // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is
+    // reloaded then (PostedStoryEffects); not before.
+    @Test
+    fun aStoryPosted_reloadsHomeAtItsTop_aboutHalfAMinuteLater() {
+        app.start()
+        app.loadPage("https://m.facebook.com/", "<html><body><script>window.__testPage = true;</script></body></html>", asHistory = true)
+        app.onActivity {
+            Posting.started(it, Posting.Kind.STORY)
+            Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
+        }
+        Thread.sleep(20_000)
+        assertEquals("Home reloaded before the stories row could have the story", "true", app.eval("!!window.__testPage"))
+        assertTrue("Home wasn't reloaded for the stories row", app.waitFor(20_000) { app.eval("!!window.__testPage") != "true" })
+    }
+
+    // A tap on "Your story is posted" (its notification): the user's own stories, in the layer.
+    @Test
+    fun aPostedStorysNotification_opensYourStoriesInTheLayer() {
+        app.start()
+        app.start(Posting.ACTION_VIEW_STORY)
+        assertOwnStoriesOpen("the notification")
+    }
+
+    // Facebook's stories page in the layer (logged out here: its login page, the stories page in its address).
+    private fun assertOwnStoriesOpen(by: String) = assertTrue("$by didn't open Facebook's stories page in the layer",
+        app.waitFor(20_000) { app.layerWebView()?.let { decoded(app.url(it)).contains("/stories") } == true })
 
     // A feed post whose photos are still going up after Post (feed_posting.js, in the main view): the
     // app stays in the foreground with "Posting your post" until it's sent; a new page in the main
@@ -290,15 +324,20 @@ class ShareIntoFacebookTest {
     @Test
     fun aFeedPostStillUploading_postsInTheForeground_untilItsSent() {
         app.start()
-        app.loadPage("https://m.facebook.com/", "<html><body><script>window.__testPage = true;</script></body></html>")
+        // Its own address: the start page is at m.facebook.com/, and a second page there leaves
+        // evaluateJavascript unanswered.
+        app.loadPage("https://m.facebook.com/?n=1", "<html><body><script>window.__testPage = true;</script></body></html>")
         assertEquals("feed_posting.js isn't in the main view", "true", app.eval("!!window.__astryxFeedPosting"))
         fun report(state: String) =
             app.eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'feedPosting', state: '$state' })); 1")
 
         report("posting")
         assertTrue("the posting notification never showed", app.waitFor { postingNotificationShows() })
+        val postingText = app.context.getString(com.eepiemi.materialbook.R.string.post_posting)
+        assertTrue("no posting bar over the page (PostingBar)", app.waitFor { app.textShown(postingText) })
         report("posted")
         assertTrue("the posting notification stayed after the post was sent", app.waitFor { !postingNotificationShows() })
+        assertTrue("the posting bar stayed after the post was sent", app.waitFor { !app.textShown(postingText) })
 
         report("posting")
         assertTrue(app.waitFor { postingNotificationShows() })

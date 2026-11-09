@@ -131,6 +131,13 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
 }
 
 /** Facebook's stories page with no story named (www.facebook.com/stories), as Share to story moves to. */
+/**
+ * Facebook's stories page opened in the Messages layer to show the user's own stories (a tap on
+ * "Your story is posted"): it has a new story at once, where the feed's stories row gets it some
+ * 30 s later. The fragment tells the layer it's for that (open_own_story.js), not a page to leave for.
+ */
+const val OWN_STORY_URL = "https://www.facebook.com/stories/#astryx-own-story"
+
 fun isStoriesPage(url: String?): Boolean {
     val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
     return isFacebookHost(uri.host?.lowercase() ?: return false) && (uri.rawPath ?: "").trimEnd('/') == "/stories"

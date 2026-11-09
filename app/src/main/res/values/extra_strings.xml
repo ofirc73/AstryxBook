@@ -121,6 +121,7 @@
     <string name="posting_channel">Posting</string>
     <string name="story_posting">Posting your story…</string>
     <string name="story_posted">Your story is posted</string>
+    <string name="posting_view">View</string>
     <string name="story_post_failed">Couldn\'t post your story. Tap to try again.</string>
     <string name="story_post_interrupted">Your story wasn\'t posted: the app was closed while posting it.</string>
     <string name="post_posting">Posting your post…</string>

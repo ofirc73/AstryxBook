@@ -1,6 +1,7 @@
 package com.astryx.book
 import com.astryx.book.ui.screens.MainPlace
 import com.astryx.book.ui.screens.MessagesLayerState
+import com.astryx.book.utils.OWN_STORY_URL
 import com.astryx.book.utils.STORY_CREATE_URL
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
@@ -191,6 +192,23 @@ class MessagesLayerStateTest {
         assertEquals(STORY_CREATE_URL, layer.url)
         assertEquals(before + 1, layer.generation)
         assertTrue(loaded.isEmpty())
+    }
+
+    @Test
+    fun yourStories_openInTheLayer_orThePostingCreatorShowsInstead() {
+        val layer = openAt(chat).apply { close() }
+        val generation = layer.generation
+        layer.showOwnStory()
+        assertEquals(OWN_STORY_URL, layer.url)
+        assertTrue(layer.isShown)
+        assertTrue(layer.generation > generation)
+        // Another story still posting out of sight: its creator shows, not replaced.
+        val posting = openAt(STORY_CREATE_URL)
+        posting.onStoryPosting(true)
+        posting.hidden = true
+        posting.showOwnStory()
+        assertEquals(STORY_CREATE_URL, posting.url)
+        assertTrue(posting.isShown)
     }
 
     @Test

@@ -240,6 +240,8 @@ class MainActivity : FragmentActivity() {
         val startUrl = mediaTarget?.let { shareStartPageUrl(it) }
             ?: startPageUrl(if (mediaTarget == null) linkUrl(this, intent) else null, settingsVM.startOnFeeds.value)
         mediaTarget?.let { receiveSharedMedia(this, intent, it, ::onSharedMediaReady) }
+        // Started by a tap on a posting notification: acted on over the start page.
+        if (savedInstanceState == null) Posting.takeTap(intent)
 
         // An Android System WebView too old for the page scripts (before Chrome 80): asked to
         // update it, once per app start (not again when the activity is recreated).
@@ -332,10 +334,7 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == Posting.ACTION_SHOW) {
-            Posting.showRequests++
-            return
-        }
+        if (Posting.takeTap(intent)) return
         mediaShareTarget(intent)?.let {
             receiveSharedMedia(this, intent, it, ::onSharedMediaReady)
             return

@@ -45,6 +45,21 @@ class PostingTest {
     }
 
     @Test
+    fun whatsPosting_andWhatWasPosted_areThereForTheScreen() {
+        // PostingBar and PostedStoryEffects read them.
+        Posting.started(context, Posting.Kind.STORY)
+        assertEquals(Posting.Kind.STORY, Posting.current)
+        Posting.ended(context, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
+        assertNull(Posting.current)
+        assertEquals(Posting.Kind.STORY, Posting.lastPosted?.kind)
+        val posted = Posting.lastPosted
+        // Interrupted isn't posted.
+        Posting.started(context, Posting.Kind.POST)
+        Posting.ended(context, Posting.Kind.POST, Posting.Outcome.INTERRUPTED, notify = false)
+        assertEquals(posted, Posting.lastPosted)
+    }
+
+    @Test
     fun startedAgain_isStillOnce() {
         Posting.started(context, Posting.Kind.POST)
         Posting.started(context, Posting.Kind.POST)

@@ -111,6 +111,7 @@
     <string name="posting_channel">Pubblicazione</string>
     <string name="story_posting">Pubblicazione della tua storia…</string>
     <string name="story_posted">La tua storia è stata pubblicata</string>
+    <string name="posting_view">Visualizza</string>
     <string name="story_post_failed">Impossibile pubblicare la tua storia. Tocca per riprovare.</string>
     <string name="story_post_interrupted">La tua storia non è stata pubblicata: l\'app è stata chiusa durante la pubblicazione.</string>
     <string name="post_posting">Pubblicazione del tuo post…</string>

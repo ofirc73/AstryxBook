@@ -70,7 +70,9 @@ user-visible change.
   (`?n=2`). The lock-screen
   and app-lock tests need the screen lock's PIN: `-e pin 1234` on the emulator. An emulator stuck
   on its lock screen (plain `input swipe` and `input text` ignored): `input touchscreen swipe`
-  brings up the PIN pad. Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
+  brings up the PIN pad. A cold boot keeps the app's storage locked until the PIN is entered:
+  tests then fail with `ActivityNotFoundException` for `MainActivity` and `ENOENT` in its cache.
+  Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
   never returned"); `adb emu kill` and start it again (minimized: a windowed start may not come
   up), which quick-boots the saved snapshot with older APKs, so reinstall both before testing. The live
   checks against real Facebook (`LiveFacebookCanaryTest`; "canary" in file, class and argument names
@@ -85,7 +87,7 @@ user-visible change.
   (`aPostThenAReelFromAChat_backEndsOnTheFeed_withNothingLeftBehind`) catches one flow breaking the
   next (v1.35.16 shipped a reel that replayed on every Back that way). The daily check runs on the
   owner's PC since 2026-11-01: a Windows scheduled task (`tools/schedule-canary.ps1`, registers it;
-  `-Remove`) runs `tools/canary.ps1 -Chat … -Pin …` every day (as soon as it can if the PC was off),
+  `-Remove`) runs `tools/canary.ps1 -Chat … -Pin …` (this checkout's copy, whatever branch is checked out) every day (as soon as it can if the PC was off),
   on the emulator's own login, the Messages layer checks included. It shares the emulator with the
   work on the app: an install or force-stop during its run killed it ("Process crashed", issue 147).
   While it runs it holds `%LOCALAPPDATA%\Astryxbook\canary\running.lock` (its PowerShell process's
@@ -358,7 +360,10 @@ user-visible change.
   every DevTools target (`Fetch.enable`, pattern `*`) before Share, then fail them: the story's
   photo goes over HTTP. Not the feed's: m.facebook.com's Post goes over its WebSocket (a held test
   posted, 2026-11-02), and much of a post's photo only after Post, while its snackbar says
-  "Uploading your post...": closed then, the app lost the post (2026-11-03). `feed_posting.js`
+  "Uploading your post...": closed then, the app lost the post (2026-11-03). While either posts,
+  `PostingBar` shows over the page (`Posting.current`); a posted story (`Posting.lastPosted`) gets a
+  snackbar whose View, like its notification (`ACTION_VIEW_STORY`), opens `OWN_STORY_URL` in the
+  layer, and Home reloads 30 s later if at its top (the feed's stories row is that slow). `feed_posting.js`
   (document start, main view) wraps the page's WebSocket and reports a post posting from the tap
   on the composer's Post (the top row's button right of back) with a photo in it until its snackbar
   shows a second text ("Posted"; `bufferedAmount` was 0 long before it, and a post closed 2.6 s after
@@ -419,7 +424,8 @@ limitations in `FORK_CHANGES.md`.
 - No duplicated code anywhere: app code, tests and live checks, workflows and scripts. Reuse or
   generalize what's there (`AppHarness`: `tapOn`, `pinch`, `screenBox`; the live checks' helpers
   such as `openFeed`, `loadInMain`, `scrollDown`; `.github/actions/avd` for the emulator setup)
-  and read each diff for repeats before committing.
+  and read each diff for repeats before committing. This is a standing rule: apply it unasked,
+  including to a variant of an existing function (delegate or add a parameter instead of a copy).
 
 - Plan files (`*_PLAN.md`) and `spike.log` are working notes; don't commit them.
 - The `stats` branch is data-only (weekly release download counts written by

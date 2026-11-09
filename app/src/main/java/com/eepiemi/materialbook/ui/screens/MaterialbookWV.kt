@@ -119,6 +119,9 @@ import com.astryx.book.ui.screens.AppLeaveEffects
 import com.astryx.book.ui.screens.MAX_ZOOM_OUT_STEPS
 import com.astryx.book.ui.screens.MainPlace
 import com.astryx.book.ui.screens.MainViewShareEffects
+import com.astryx.book.ui.screens.PostedStoryEffects
+import com.astryx.book.ui.screens.PostingBar
+import com.astryx.book.utils.isMobileHomePage
 import com.astryx.book.ui.screens.MessagesLayer
 import com.astryx.book.ui.screens.PIP_EXIT_SETTLE_MS
 import com.astryx.book.ui.screens.PipEffects
@@ -134,6 +137,9 @@ import com.astryx.book.ui.screens.installPipVisibilityScript
 import com.astryx.book.ui.screens.rememberMessagesLayerState
 
 private const val HOME_URL = HOME_PAGE_URL
+
+// Reloads the page if it's at (or near) its top: the feed's stories row then has a new story.
+private const val RELOAD_AT_TOP_JS = "(function () { if (window.scrollY < 300) location.reload(); return 1; })()"
 
 // The main view's videos while the Messages layer is over it: paused, and paused again whenever
 // they start (Facebook's reel player starts a paused reel again, so a reel went on playing, with
@@ -1067,9 +1073,12 @@ fun MaterialbookWebView(
         onOpenLayer = { layerUrl -> messagesLayer.openCreator(layerUrl) },
         onCloseLayer = { messagesLayer.close() },
     )
-    // A tap on a story's posting notification (Posting): the story creator, if it's kept.
-    LaunchedEffect(Posting.showRequests) {
-        if (Posting.showRequests > 0) messagesLayer.showStory()
+    // A tap on a story's posting notification (Posting): the story creator, if it's kept; on
+    // "Your story is posted", the user's own stories.
+    LaunchedEffect(Posting.tapPending) {
+        val tap = Posting.tapPending ?: return@LaunchedEffect
+        Posting.tapPending = null
+        if (tap == Posting.ACTION_VIEW_STORY) messagesLayer.showOwnStory() else messagesLayer.showStory()
     }
     messagesLayer.url?.let { layerUrl ->
         // A new Messages link while the layer is open (a notification, say) recreates it, and
@@ -1120,6 +1129,15 @@ fun MaterialbookWebView(
 
     // Saved downloads, with an Open action (DownloadBridge shows a toast when this isn't on screen).
     val snackbarHostState = remember { SnackbarHostState() }
+    PostedStoryEffects(
+        snackbarHostState,
+        onView = { messagesLayer.showOwnStory() },
+        // Home at its top only: a reload elsewhere would lose the user's place.
+        onRefreshFeed = {
+            val mainUrl = runCatching { state.nativeWebView.url }.getOrNull()
+            if (messagesLayer.url == null && isMobileHomePage(mainUrl)) navigator.evaluateJavaScript(RELOAD_AT_TOP_JS) {}
+        },
+    )
     LaunchedEffect(Unit) {
         DownloadEvents.saved.collect { download ->
             val result = snackbarHostState.showSnackbar(
@@ -1144,5 +1162,8 @@ fun MaterialbookWebView(
         contentAlignment = Alignment.BottomCenter
     ) {
         SnackbarHost(snackbarHostState)
+    }
+    Box(modifier = Modifier.fillMaxSize().padding(barsInsets), contentAlignment = Alignment.TopCenter) {
+        PostingBar()
     }
 }
