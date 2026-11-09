@@ -53,6 +53,21 @@ class AppPromptJsTest {
     }
 
     @Test
+    fun theEnglishSheet_withoutThePictureOrHeading_isPressedAway() {
+        // Seen again in 2026-11, over Reels: found by its words, not the old shape (a picture, an h1).
+        val h = Harness()
+        h.load()
+        h.addSheet(
+            sheet = "<div class='m dialog-screen' data-mcomponent='MScreen' style='position:fixed;inset:0'>" +
+                "<div class='m fixed-container bottom' style='position:fixed;bottom:0;left:0;right:0'>" +
+                "<span class='logo'>f</span><div>Facebook is better on the app</div><div>Get the latest updates</div>" +
+                "<div role='button' aria-label='Get app'>Get app</div><div role='button' aria-label='Not now'>Not now</div>" +
+                "</div></div>"
+        )
+        assertTrue(h.waitFor("window.__pressed === 'Not now'"))
+    }
+
+    @Test
     fun theEnglishSheet_isPressedAway_evenRightAfterATap() {
         // Its words name it for sure.
         val h = Harness()
