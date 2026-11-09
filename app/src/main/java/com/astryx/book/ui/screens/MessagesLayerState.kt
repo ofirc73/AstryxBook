@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.astryx.book.utils.OWN_STORY_URL
 import com.astryx.book.utils.STORY_CREATE_URL
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
@@ -127,6 +128,12 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         open(url)
         generation++
     }
+
+    /**
+     * The user's own stories, the new one first (a tap on "Your story is posted"); like a creator,
+     * a story still posting shows instead.
+     */
+    fun showOwnStory() = openCreator(OWN_STORY_URL)
 
     /** Shows the story creator kept out of sight (a tap on its notification). */
     fun showStory() {

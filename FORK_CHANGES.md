@@ -624,8 +624,11 @@ on their own can't:
   file; a story share answering the creator's text-story backgrounds empty while its files wait
   (Create story loading them); a Feed share with Home showing opening the composer from Home's box
   with a real tap, and Back from it back on Home; a feed post still uploading keeping the posting
-  notification until it's sent, or until its page goes; a story posting going on out of sight with its notification (shown again by the
-  notification, hidden again by Back) until it's posted, and one that failed kept for another try.
+  notification and the posting bar until it's sent, or until its page goes; a story posting going on
+  out of sight with its notification (shown again by the notification, hidden again by Back) until
+  it's posted, then "Your story is posted" with View opening your stories in the layer, and one that
+  failed kept for another try; the posted-story notification opening your stories; Home reloaded
+  about half a minute after a story is posted, not before.
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -693,6 +696,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   `ShareIntoFacebookTest`). The test account has no story of its own (the checks never post), so
   that case is noted, not failed. That Facebook goes there after Share to story isn't checked:
   only a real post gets there.
+- `aPostedStorysNotification_opensYourStoriesInTheLayer`: a tap on "Your story is posted" loading
+  Facebook's real stories page in the layer (`OWN_STORY_URL`), still at `www.facebook.com/stories`
+  with the Add to story link `open_own_story.js` finds your card by (`ShareIntoFacebookTest`). The
+  test account has no story of its own, so that its card opens is reported untestable. The posting
+  bar and Home's reload don't depend on Facebook's page (`PostingTest`, `ShareIntoFacebookTest`).
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`,
   `FeedPostJsTest`). An ad label it missed, found by its text, fails the check; a run that saw no
   ad reports a gap (`feed-ads`, `reel-ads`). The feed check counts posts through `scripts.js` `feedPostRows` and fails
@@ -1563,6 +1571,19 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   works in any language. Nothing on the page was found to tell a failure. A new page in the main
   view takes the upload with it: the notification goes without a word. Covered by
   `FeedPostingJsTest`, `PostingTest`, `PageBridgeTest` and `ShareIntoFacebookTest`.
+- **What's posting shows in the app, and a posted story can be seen**: once Share to story or Post
+  starts posting, the creator or composer is gone and only the status bar said so (on the phone the
+  user saw no sign of it). Now a bar over the top of the page says **Posting your story** (or post)
+  with a progress line until it's posted (`PostingBar`). A story posted with the app on screen
+  shows **Your story is posted** with **View**, and the notification of the same name does the same
+  when tapped: Facebook's stories page opens in the Messages layer (`OWN_STORY_URL`, a full load the
+  layer's routing lets stay) and the user's own story opens there, as after Share to story. Before,
+  the posted story wasn't on the feed until the user reloaded it: the feed's stories row gets it
+  about 30 s after it's posted (the stories page at once), so then Home reloads, if it's still
+  scrolled to its top (within 300 px) and the app on screen. A tap on a posting notification is now
+  acted on once (`Posting.tapPending`): kept as a count, an old tap opened the creator or the stories
+  again on every new screen. Covered by `PostingTest`, `MessagesLayerStateTest` and
+  `ShareIntoFacebookTest`.
 - **A story share opens fast on a weak connection**: the story creator's page has the browser
   preload all 30 of its text-story backgrounds (full-size 1350x2400 JPEGs, 16 MB), which a photo
   or video story never shows. On a 1 Mbps link (emulator, DevTools throttling, warm cache) they held

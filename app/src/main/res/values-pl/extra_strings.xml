@@ -127,6 +127,7 @@
     <string name="posting_channel">Publikowanie</string>
     <string name="story_posting">Publikowanie relacji…</string>
     <string name="story_posted">Twoja relacja została opublikowana</string>
+    <string name="posting_view">Wyświetl</string>
     <string name="story_post_failed">Nie udało się opublikować relacji. Dotknij, aby spróbować ponownie.</string>
     <string name="story_post_interrupted">Relacja nie została opublikowana: aplikację zamknięto w trakcie publikowania.</string>
     <string name="post_posting">Publikowanie posta…</string>

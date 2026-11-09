@@ -16,6 +16,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.astryx.book.notifications.FacebookCounts
 import com.astryx.book.notifications.FacebookCountsWorker
+import com.astryx.book.notifications.Posting
 import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
@@ -1032,6 +1033,24 @@ class LiveFacebookCanaryTest {
             ))
         assertEquals("story_posting.js didn't run on the story creator", "true",
             app.eval("window.__astryxStoryPosting === true", layer))
+    }
+
+    @Test
+    fun aPostedStorysNotification_opensYourStoriesInTheLayer() {
+        // A tap on "Your story is posted" (its notification or the snackbar's View): Facebook's
+        // stories page loaded in the layer (OWN_STORY_URL, a full load the app's routing lets stay),
+        // with the Add to story link open_own_story.js finds the user's own card by.
+        open("https://m.facebook.com/")
+        app.start(Posting.ACTION_VIEW_STORY)
+        assertTrue("the notification didn't open Facebook's stories page in the layer (${appState()})", app.waitFor(30_000) {
+            app.layerWebView()?.let { app.url(it).startsWith("https://www.facebook.com/stories") } == true
+        })
+        val layer = app.layerWebView()!!
+        assertTrue("Facebook's stories page has no Add to story link, which open_own_story.js finds your card by " +
+            "(${app.eval(STORIES_SHAPE_JS, layer)})", app.waitFor(45_000) {
+            app.eval(ADD_TO_STORY_SHOWN_JS, layer) == "true"
+        })
+        untestable("the test account has no story of its own: that open_own_story.js opens it from the notification wasn't checked")
     }
 
     @Test

@@ -108,6 +108,7 @@
     <string name="posting_channel">Posten</string>
     <string name="story_posting">Deine Story wird gepostet…</string>
     <string name="story_posted">Deine Story ist gepostet</string>
+    <string name="posting_view">Ansehen</string>
     <string name="story_post_failed">Deine Story konnte nicht gepostet werden. Zum erneuten Versuchen tippen.</string>
     <string name="story_post_interrupted">Deine Story wurde nicht gepostet: Die App wurde währenddessen geschlossen.</string>
     <string name="post_posting">Dein Beitrag wird gepostet…</string>

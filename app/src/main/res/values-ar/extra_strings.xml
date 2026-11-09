@@ -126,6 +126,7 @@
     <string name="posting_channel">النشر</string>
     <string name="story_posting">جارٍ نشر قصتك…</string>
     <string name="story_posted">تم نشر قصتك</string>
+    <string name="posting_view">عرض</string>
     <string name="story_post_failed">تعذّر نشر قصتك. انقر للمحاولة مرة أخرى.</string>
     <string name="story_post_interrupted">لم تُنشر قصتك: أُغلق التطبيق أثناء نشرها.</string>
     <string name="post_posting">جارٍ نشر منشورك…</string>

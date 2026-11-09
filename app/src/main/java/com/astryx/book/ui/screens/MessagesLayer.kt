@@ -50,6 +50,7 @@ import com.astryx.book.utils.deadWebViewUrl
 import com.astryx.book.utils.hardenWebView
 import com.astryx.book.utils.isDesktopMessagesUrl
 import com.astryx.book.utils.isReelCreatePage
+import com.astryx.book.utils.OWN_STORY_URL
 import com.astryx.book.utils.isStoriesPage
 import com.astryx.book.utils.isStoryCreatePage
 import com.astryx.book.utils.jsBridge.LayerBridge
@@ -147,6 +148,9 @@ fun MessagesLayer(
     // Opened for a story share: Facebook's stories page, where Share moves to, shows the new story
     // (open_own_story.js) once nothing is left to share, instead of closing the layer.
     val storyShare = isStoryCreatePage(url)
+    // Opened for the user's own stories (a tap on "Your story is posted"): Facebook's stories page
+    // stays in the layer and open_own_story.js opens them, as after a story share.
+    val ownStory = url == OWN_STORY_URL
     // That page reached: Back then closes the layer, to the feed (stepping back would go to the
     // creator).
     var showSharedStory by remember { mutableStateOf(false) }
@@ -188,7 +192,7 @@ fun MessagesLayer(
                 request: WebRequest,
                 navigator: WebViewNavigator
             ): WebRequestInterceptResult =
-                when (val route = layerRoute(request.url, request.isForMainFrame, reelShare)) {
+                when (val route = layerRoute(request.url, request.isForMainFrame, reelShare, ownStory)) {
                     MessagesLayerRoute.Allow -> {
                         if (request.isForMainFrame && isDesktopMessagesUrl(request.url)) pageUrl = request.url
                         WebRequestInterceptResult.Allow
@@ -309,6 +313,9 @@ fun MessagesLayer(
     // After Share to story: the user's own stories, new one included, on Facebook's stories page.
     // The page may draw its Your story card a moment after it moves there: tried for up to 5 s, then
     // the layer closes as it would without this.
+    LaunchedEffect(ownStory, loadingState) {
+        if (ownStory && loadingState is LoadingState.Finished) showSharedStory = true
+    }
     LaunchedEffect(showSharedStory) {
         if (!showSharedStory) return@LaunchedEffect
         val script = resources.openRawResource(R.raw.open_own_story).bufferedReader().use { it.readText() }
@@ -451,6 +458,10 @@ fun MessagesLayer(
                             layer = LayerBridge { newUrl ->
                                 val exit = messagesLayerExit(newUrl)?.takeUnless { reelShare && isReelCreatePage(newUrl) }
                                 ContextCompat.getMainExecutor(context).execute {
+                                    if (ownStory && isStoriesPage(newUrl)) {
+                                        showSharedStory = true
+                                        return@execute
+                                    }
                                     // After Share to story Facebook moves on to its stories page.
                                     val posted = storyShare && isStoriesPage(newUrl)
                                     if (posted) endStoryPosting(Posting.Outcome.POSTED)
@@ -530,8 +541,10 @@ private const val SHARED_STORY_RETRY_MS = 500L
 private const val LAYER_BACK_JS =
     "(function () { return window.__astryxLayerBack ? window.__astryxLayerBack() : 'page'; })()"
 
-// The layer's route for [url]; during a reel share the desktop reels page stays in the layer.
-private fun layerRoute(url: String, isMainFrame: Boolean, reelShare: Boolean): MessagesLayerRoute {
+// The layer's route for [url]; during a reel share the desktop reels page stays in the layer, and
+// opened for the user's own stories ([ownStory]) the stories page does.
+private fun layerRoute(url: String, isMainFrame: Boolean, reelShare: Boolean, ownStory: Boolean): MessagesLayerRoute {
     val route = messagesLayerRoute(url, isMainFrame)
-    return if (reelShare && route is MessagesLayerRoute.Leave && isReelCreatePage(url)) MessagesLayerRoute.Allow else route
+    if (route !is MessagesLayerRoute.Leave) return route
+    return if ((reelShare && isReelCreatePage(url)) || (ownStory && isStoriesPage(url))) MessagesLayerRoute.Allow else route
 }

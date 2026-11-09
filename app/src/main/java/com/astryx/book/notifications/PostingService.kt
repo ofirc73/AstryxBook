@@ -14,7 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.NotificationChannelCompat
@@ -46,8 +46,12 @@ private const val POSTING_NOTIFICATION_ID = 2101
 class PostingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // A service started with startForegroundService must call startForeground, or Android ends the
+    // app ("did not then call Service.startForeground()"): a posting that ended before this ran
+    // (started and posted within a moment) still goes into the foreground, then out at once.
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val kind = Posting.showing() ?: run { stopSelf(); return START_NOT_STICKY }
+        val showing = Posting.showing()
+        val kind = showing ?: Posting.Kind.POST
         val notification = Posting.builder(this, kind)
             .setContentTitle(getString(kind.posting))
             .setProgress(0, 0, true)
@@ -58,12 +62,22 @@ class PostingService : Service() {
             ServiceCompat.startForeground(
                 this, POSTING_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             )
+            Posting.foreground = true
         }.onFailure {
             // Only started from a tap on Share or Post, with the app on screen; never expected.
             Log.w(TAG, "Posting: foreground start failed", it)
             stopSelf()
         }
+        if (showing == null) {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        Posting.foreground = false
+        super.onDestroy()
     }
 
     // Android 15+ gives a data-sync service 6 hours a day: the page goes on posting without it.
@@ -93,11 +107,40 @@ object Posting {
     /** What a tap on a story's notifications opens MainActivity with: the creator, if it's kept hidden. */
     const val ACTION_SHOW = "com.astryx.book.action.SHOW_STORY"
 
-    /** Taps on a story's notifications (MainActivity, ACTION_SHOW): MaterialbookWebView shows the creator again. */
-    var showRequests by mutableIntStateOf(0)
+    /** What a tap on "Your story is posted" opens MainActivity with: the user's own story. */
+    const val ACTION_VIEW_STORY = "com.astryx.book.action.VIEW_STORY"
+
+    /**
+     * The action of a notification tap (takeTap) MaterialbookWebView hasn't acted on yet: the
+     * story creator shows again (ACTION_SHOW) or the user's own stories open (ACTION_VIEW_STORY),
+     * once (a count kept over from an earlier tap opened them again on every new screen).
+     */
+    var tapPending by mutableStateOf<String?>(null)
+
+    /** Keeps [intent]'s action for MaterialbookWebView if it's a notification tap's: true if it is. */
+    fun takeTap(intent: Intent): Boolean {
+        if (intent.action != ACTION_SHOW && intent.action != ACTION_VIEW_STORY) return false
+        tapPending = intent.action
+        return true
+    }
+
+    /** What's posting now (the latest), for the bar over the page (PostingBar); null when nothing is. */
+    var current by mutableStateOf<Kind?>(null)
+        private set
+
+    /** The last posting Facebook said is posted, and when (for the snackbar and the stories row). */
+    data class Posted(val kind: Kind, val at: Long)
+
+    var lastPosted by mutableStateOf<Posted?>(null)
+        private set
 
     // What's posting now, latest last: the ongoing notification shows the latest.
     private val active = mutableListOf<Kind>()
+
+    // PostingService has called startForeground (and isn't destroyed yet): only then may it be stopped
+    // from outside; before that it stops itself, once in the foreground.
+    @Volatile
+    internal var foreground = false
 
     @Synchronized
     internal fun showing(): Kind? = active.lastOrNull()
@@ -106,6 +149,7 @@ object Posting {
     fun started(context: Context, kind: Kind) {
         Log.d(TAG, "Posting: ${kind.name.lowercase()} started")
         synchronized(this) { active.remove(kind); active += kind }
+        current = showing()
         startService(context)
         NotificationManagerCompat.from(context).cancel(kind.outcomeId)
     }
@@ -117,7 +161,9 @@ object Posting {
     fun ended(context: Context, kind: Kind, outcome: Outcome, notify: Boolean) {
         Log.d(TAG, "Posting: ${kind.name.lowercase()} ${outcome.name.lowercase()}")
         val left = synchronized(this) { active.remove(kind); active.isNotEmpty() }
-        if (left) startService(context) else context.stopService(Intent(context, PostingService::class.java))
+        current = showing()
+        if (outcome == Outcome.POSTED) lastPosted = Posted(kind, System.currentTimeMillis())
+        if (left || !foreground) startService(context) else context.stopService(Intent(context, PostingService::class.java))
         if (!notify || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) return
@@ -126,7 +172,9 @@ object Posting {
             Outcome.FAILED -> kind.failed ?: return
             Outcome.INTERRUPTED -> kind.interrupted
         }
-        val notification = builder(context, kind)
+        // A posted story's notification opens it.
+        val action = if (kind == Kind.STORY && outcome == Outcome.POSTED) ACTION_VIEW_STORY else kind.action
+        val notification = builder(context, kind, action)
             .setContentTitle(context.getString(text))
             .setAutoCancel(true)
             .setCategory(if (outcome == Outcome.POSTED) NotificationCompat.CATEGORY_SOCIAL else NotificationCompat.CATEGORY_ERROR)
@@ -152,11 +200,11 @@ object Posting {
         )
     }
 
-    internal fun builder(context: Context, kind: Kind): NotificationCompat.Builder {
+    internal fun builder(context: Context, kind: Kind, action: String? = kind.action): NotificationCompat.Builder {
         createChannel(NotificationManagerCompat.from(context), context.getString(R.string.posting_channel))
         val open = PendingIntent.getActivity(
             context, kind.outcomeId,
-            Intent(kind.action, null, context, MainActivity::class.java),
+            Intent(action, null, context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)

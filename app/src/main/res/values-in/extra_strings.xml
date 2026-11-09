@@ -112,6 +112,7 @@
     <string name="posting_channel">Memposting</string>
     <string name="story_posting">Memposting cerita Anda…</string>
     <string name="story_posted">Cerita Anda sudah diposting</string>
+    <string name="posting_view">Lihat</string>
     <string name="story_post_failed">Tidak dapat memposting cerita Anda. Ketuk untuk mencoba lagi.</string>
     <string name="story_post_interrupted">Cerita Anda tidak diposting: aplikasi ditutup saat memposting.</string>
     <string name="post_posting">Memposting postingan Anda…</string>

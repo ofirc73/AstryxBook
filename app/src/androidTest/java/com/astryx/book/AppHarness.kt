@@ -41,6 +41,9 @@ class AppHarness {
         assertTrue("MainActivity never came up", waitFor(15_000) { activity()?.let { !it.isFinishing } == true })
     }
 
+    /** Starts MainActivity as a tap on an app notification does: with its [action]. */
+    fun start(action: String) = start(Intent(action, null, context, MainActivity::class.java))
+
     private fun anyMainActivity(): Boolean {
         var any = false
         instrumentation.runOnMainSync {
@@ -120,6 +123,12 @@ class AppHarness {
             val scale = webView.width / box[4]
             Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
         }
+        tapAt(x, y)
+        return true
+    }
+
+    /** A finger's tap at ([x], [y]) on the screen, in px. */
+    private fun tapAt(x: Float, y: Float) {
         val downAt = SystemClock.uptimeMillis()
         for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
             if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
@@ -128,7 +137,6 @@ class AppHarness {
             instrumentation.uiAutomation.injectInputEvent(event, true)
             event.recycle()
         }
-        return true
     }
 
     /**
@@ -234,7 +242,7 @@ class AppHarness {
                 webView.loadDataWithBaseURL(url, html, "text/html", "UTF-8", url.takeIf { asHistory })
             }
             loaded = waitFor {
-                eval("location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
+                evalWithin(3_000, "location.href === '$url' && document.readyState === 'complete' && !!window.__testPage", webView) == "true"
             }
             if (loaded) break
             waitFor(20_000) { onActivity { webView.progress } == 100 }
@@ -250,6 +258,29 @@ class AppHarness {
             webView
         )
         Thread.sleep(500)
+    }
+
+    // The screen's elements showing [text], each one's bounds in px: the accessibility tree walked
+    // node by node (the app's Compose UI answers that, not findAccessibilityNodeInfosByText).
+    private fun shownBounds(text: String): List<android.graphics.Rect> {
+        val found = mutableListOf<android.graphics.Rect>()
+        val queue = ArrayDeque(listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow))
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            if (node.text?.toString() == text) found += android.graphics.Rect().also(node::getBoundsInScreen)
+            for (i in 0 until node.childCount) node.getChild(i)?.let(queue::addLast)
+        }
+        return found
+    }
+
+    /** Whether [text] is on screen, in the app's own (Compose) UI too. */
+    fun textShown(text: String): Boolean = shownBounds(text).isNotEmpty()
+
+    /** A tap on the on-screen element with [text] (a snackbar's action, say). */
+    fun tapText(text: String): Boolean {
+        val box = shownBounds(text).firstOrNull() ?: return false
+        tapAt(box.exactCenterX(), box.exactCenterY())
+        return true
     }
 
     /** MainActivity is alive but in the background (Home, or Back leaving the app). */
@@ -269,12 +300,18 @@ class AppHarness {
     fun url(webView: WebView): String = onActivity { webView.url.orEmpty() }
 
     /** [js]'s value as evaluateJavascript gives it (JSON: strings quoted, "null" for none). */
-    fun eval(js: String, webView: WebView = mainWebView()): String {
+    fun eval(js: String, webView: WebView = mainWebView()): String =
+        evalWithin(20_000, js, webView) ?: throw AssertionError("evaluateJavascript never returned")
+
+    /**
+     * [js]'s value, or null when no answer came within [ms]: one sent as a page is replaced can go
+     * unanswered (loadPage's checks while its page loads).
+     */
+    private fun evalWithin(ms: Long, js: String, webView: WebView): String? {
         var result: String? = null
         val latch = CountDownLatch(1)
         instrumentation.runOnMainSync { webView.evaluateJavascript(js) { result = it; latch.countDown() } }
-        assertTrue("evaluateJavascript never returned", latch.await(20, TimeUnit.SECONDS))
-        return result ?: "null"
+        return if (latch.await(ms, TimeUnit.MILLISECONDS)) result ?: "null" else null
     }
 
     fun waitFor(ms: Long = 10_000, check: () -> Boolean): Boolean {
