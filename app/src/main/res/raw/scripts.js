@@ -423,10 +423,14 @@ let lastTapAt = 0;
 document.addEventListener('pointerdown', () => { lastTapAt = Date.now(); }, true);
 const seenPromptSheets = new WeakSet();
 const promptText = (element) => (element ? element.textContent : '').replace(/\s+/g, ' ').trim();
-const knownPromptDismiss = (sheet, buttons) => {
-  const title = promptText(sheet.querySelector('h1'));
+// The dismiss button of a dialog screen's sheet (its bottom sheet, or the screen) that's the app
+// sheet by its known words: its title anywhere in it (in 2026-11 the sheet came up again, over
+// Reels, and the shape check below missed it), or for a language with no known title, its dismiss
+// label on one of exactly two buttons.
+const knownPromptDismiss = (screen, buttons) => {
+  const text = promptText(screen);
   for (const texts of Object.values(APP_PROMPT_TEXTS)) {
-    if (texts.title && title !== texts.title) continue;
+    if (texts.title ? !text.includes(texts.title) : buttons.length !== 2) continue;
     const dismiss = Array.from(buttons).find(button =>
       button.getAttribute('aria-label') === texts.dismiss || promptText(button) === texts.dismiss);
     if (dismiss) return dismiss;
@@ -434,17 +438,23 @@ const knownPromptDismiss = (sheet, buttons) => {
   return null;
 };
 const dismissAppPrompt = () => {
+  for (const screen of document.querySelectorAll('.dialog-screen')) {
+    if (seenPromptSheets.has(screen) || screen.querySelector('input, textarea, [contenteditable]')) continue;
+    const box = screen.querySelector('.bottom.fixed-container') || screen; // its bottom sheet, if any
+    const known = knownPromptDismiss(box, box.querySelectorAll('[role="button"]'));
+    if (known) {
+      seenPromptSheets.add(screen);
+      known.click();
+      return;
+    }
+  }
+  // Other languages: the sheet's shape, and only when it came up by itself.
   const sheet = document.querySelector('.dialog-screen .bottom.fixed-container');
   if (!sheet || seenPromptSheets.has(sheet)) return;
   const buttons = sheet.querySelectorAll('[role="button"]');
   if (buttons.length !== 2 || sheet.querySelectorAll('h1').length !== 1 || !sheet.querySelector('img')
     || sheet.querySelector('input, textarea, [contenteditable]')) return;
   seenPromptSheets.add(sheet);
-  const known = knownPromptDismiss(sheet, buttons);
-  if (known) {
-    known.click();
-    return;
-  }
   if (Date.now() - lastTapAt < APP_PROMPT_TAP_MS) return;
   buttons[1].click();
 };

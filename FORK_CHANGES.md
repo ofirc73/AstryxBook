@@ -401,7 +401,9 @@ rewritten to the new one, keeping its schedule.
   feed when the app opens, is pressed away with Not now (`scripts.js`). It's recognized by its
   shape (a dialog screen whose bottom sheet holds a picture, one title and two buttons, nothing to
   type in) and, where known, by its words: in English its title and "Not now", in Hebrew Facebook's
-  "Not now" (its Hebrew title hasn't been seen yet). Known words make it certain; in other
+  "Not now" (its Hebrew title hasn't been seen yet). Since 2026-11-09 known words find it on any
+  dialog screen without the shape check: it came up again over Reels and stayed (the shape check
+  missed it, most likely its logo no longer an `<img>`). Known words make it certain; in other
   languages the shape alone counts, and only for a sheet that came up by itself: one that opens
   right after a tap (a confirmation the user asked for) is left alone. Covered by
   `AppPromptJsTest`.

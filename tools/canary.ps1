@@ -25,8 +25,16 @@
   The emulator is shared with the work on the app: a run killed by another session's install or
   force-stop said "Process crashed" (issue 147, 2026-11-03). So a run holds
   %LOCALAPPDATA%\Astryxbook\canary\running.lock (its PowerShell process's id) from start to end,
-  which sessions check before they touch the emulator (CLAUDE.md), and it waits, up to an hour,
-  while another test run is on the emulator; still busy then, it skips the day without a report.
+  which sessions check before they touch the emulator (CLAUDE.md), and it waits, up to half an
+  hour, while another test run is on the emulator; still busy then, it skips the day without a
+  report.
+
+  A run must end inside the scheduled task's 2-hour limit: a task Windows ends there runs none of
+  this script's cleanup (the 2026-11-08 and -09 runs hung in the checks; they reported nothing, kept
+  the lock and left the emulator's qemu running). So the checks get -ChecksMinutes, their output
+  goes to <date>.checks.txt as they run, and a run that hangs is stopped and reported with the check
+  it hung in (the test runner's "started:" line in logcat). The emulator it started is shut down
+  when it's done: asked to quit, then its qemu process stopped if it's still there a minute on.
 
 .PARAMETER NoBuild
   Test the debug app already installed instead of building origin/main.
@@ -37,11 +45,15 @@
   bare id. Without it they're skipped.
 .PARAMETER Pin
   The emulator's screen lock PIN, to unlock it.
+.PARAMETER ChecksMinutes
+  How long the checks may run before they're stopped as hung (60: with the build, the boot and a
+  busy emulator's half hour, inside the scheduled task's 2 hours).
 #>
 param(
     [string]$Avd = 'astryx_api36',
     [string]$Chat = '',
     [string]$Pin = $env:ASTRYX_EMULATOR_PIN,
+    [int]$ChecksMinutes = 60,
     [switch]$NoBuild,
     [switch]$NoIssue
 )
@@ -53,7 +65,7 @@ $env:GH_REPO = 'ofirc73/AstryxBook'
 $issueTitle = 'Daily Facebook check failed'
 $gapsTitle = 'Daily Facebook check: parts unchecked for 7 runs'
 $gapRuns = 7
-. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial
+. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial, Stop-Emulator
 $logDir = Join-Path $env:LOCALAPPDATA 'Astryxbook\canary'
 $gapsDir = Join-Path $logDir 'gaps'
 New-Item -ItemType Directory -Force $gapsDir | Out-Null
@@ -107,9 +119,9 @@ try {
 
     # Another test run on the emulator (a session's `am instrument`, listed by the activity manager
     # only while it runs): installing over it would end it, and its installs would end this run.
-    $busyUntil = (Get-Date).AddHours(1)
+    $busyUntil = (Get-Date).AddMinutes(30)
     while (& $adb shell 'dumpsys activity processes | grep -q ActiveInstrumentation && echo busy') {
-        if ((Get-Date) -gt $busyUntil) { $skipped = 'another test run kept the emulator busy for an hour'; break }
+        if ((Get-Date) -gt $busyUntil) { $skipped = 'another test run kept the emulator busy for half an hour'; break }
         Write-Host 'Another test run is on the emulator: waiting'
         Start-Sleep 30
     }
@@ -146,10 +158,20 @@ try {
 
     # 4. The checks.
     $chatArgs = if ($Chat) { @('-e', 'fbChat', $Chat) } else { @() }
-    $output = & $adb shell am instrument -w -e canary true @chatArgs -e class com.astryx.book.LiveFacebookCanaryTest `
-        com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | Out-String
+    $checks = Join-Path $logDir "$stamp.checks.txt"
+    & $adb logcat -c
+    $run = Start-Process -FilePath $adb -PassThru -WindowStyle Hidden -RedirectStandardOutput $checks -RedirectStandardError "$checks.err" `
+        -ArgumentList (@('shell', 'am', 'instrument', '-w', '-e', 'canary', 'true') + $chatArgs + @('-e', 'class',
+            'com.astryx.book.LiveFacebookCanaryTest', 'com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner'))
+    if (-not $run.WaitForExit($ChecksMinutes * 60 * 1000)) {
+        $run.Kill()
+        $hung = (& $adb logcat -d -s TestRunner:I | Select-String 'started: (.+)' | Select-Object -Last 1).Matches.Groups[1].Value
+        & $adb shell am force-stop com.astryx.book.test
+        $failure = "The checks didn't finish in $ChecksMinutes minutes: stopped in $hung"
+    }
+    $output = (Get-Content $checks -Raw) + (Get-Content "$checks.err" -Raw)
     Write-Host $output
-    if ($output -notmatch 'OK \(\d+ tests?\)') {
+    if (-not $failure -and $output -notmatch 'OK \(\d+ tests?\)') {
         # The failing checks and their messages, without stack traces (a crash's line follows the
         # passed checks' dots, and the class's name when it crashed in the first check).
         $failure = ($output -split "`r?`n" | Where-Object {
@@ -160,7 +182,7 @@ try {
 } catch {
     if (-not $skipped) { $failure = "The check couldn't run: $($_.Exception.Message)" }
 } finally {
-    if ($startedEmulator -and $env:ANDROID_SERIAL) { & $adb emu kill 2>$null | Out-Null }
+    if ($startedEmulator) { Stop-Emulator }
     Remove-Item $lock -Force -ErrorAction SilentlyContinue
 }
 
