@@ -188,7 +188,9 @@ user-visible change.
   opens gets the link in its message box (`put_link_in_chat.js`: `execCommand('insertText')` into
   Messenger's Lexical editor, which needs the page focused, as a real tap gives it; a
   MutationObserver puts it in as the box appears, and an insert made before Lexical takes the box
-  over is lost, so it's tried again 0.2 s on). Don't use the
+  over is lost, so it's tried again 0.2 s on; both through `chat_box.js`, which also keeps each
+  chat's unsent text in localStorage and puts it back, the layer's WebView taking the focus on
+  each load for its insertText). Don't use the
   desktop Send in Messenger dialog (`share_as_message`, `dialog/send`): in end-to-end encrypted
   chats it sends an empty message (2026-10-28). Never send from the test account except to the
   user's own account, with their OK.

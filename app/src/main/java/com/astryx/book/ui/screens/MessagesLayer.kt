@@ -299,14 +299,18 @@ fun MessagesLayer(
         target?.let { navigator.evaluateJavaScript(shareMediaScript(resources, it)) {} }
     }
 
-    // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), and
+    // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), each
+    // chat's unsent message kept (chat_box.js), and
     // its photo and stories viewers laid out for a phone (layer_photo_viewer.js, layer_story_viewer.js).
     LaunchedEffect(loadingState, pageStarts) {
         if (loadingState is LoadingState.Finished) {
-            val script = listOf(R.raw.messages_layer_nav, R.raw.layer_photo_viewer, R.raw.layer_story_viewer).joinToString("\n") { id ->
+            val script = listOf(R.raw.messages_layer_nav, R.raw.chat_box, R.raw.layer_photo_viewer, R.raw.layer_story_viewer).joinToString("\n") { id ->
                 resources.openRawResource(id).bufferedReader().use { it.readText() }
             }
             navigator.evaluateJavaScript(script) {}
+            // The page's focus, as a tap on it gives: chat_box.js puts a chat's unsent message back
+            // only into a focused page (the browser's insertText).
+            runCatching { state.nativeWebView.requestFocus() }
         }
     }
 

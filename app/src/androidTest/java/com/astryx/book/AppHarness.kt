@@ -13,6 +13,8 @@ import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -104,6 +106,11 @@ class AppHarness {
      * (MessagesLayerState.hidden) doesn't count.
      */
     fun layerOpen(): Boolean = webViews().drop(1).any { webView -> onActivity { webView.visibility == View.VISIBLE } }
+
+    /** Whether the on-screen keyboard is up. */
+    fun keyboardShown(): Boolean = onActivity {
+        ViewCompat.getRootWindowInsets(it.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+    }
 
     /**
      * A real touch at the middle of the element [js] scrolls into view and gives the box of (CSS px
