@@ -97,6 +97,7 @@ import com.astryx.book.utils.jsBridge.PipBridge
 import com.astryx.book.utils.jsBridge.ScreenBridge
 import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
 import com.eepiemi.materialbook.utils.jsBridge.installClipboardBridge
+import com.astryx.book.utils.copyTextToClipboard
 import com.eepiemi.materialbook.utils.jsBridge.installDownloadBridge
 import com.astryx.book.utils.jsBridge.installPageBridges
 import com.astryx.book.utils.jsBridge.installShareMediaBridge
@@ -1033,6 +1034,7 @@ fun MaterialbookWebView(
                             },
                             photoPost = { fbid, reply -> lookUpPhotoPost(fbid, reply) },
                             feedPosting = feedPosting::on,
+                            copyText = { copyTextToClipboard(this, it) },
                         )
                     )
                     installDownloadBridge(this, context)

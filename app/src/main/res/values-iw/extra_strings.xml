@@ -131,4 +131,6 @@
     <string name="post_posting">הפוסט שלך מתפרסם…</string>
     <string name="post_posted">הפוסט שלך פורסם</string>
     <string name="post_post_interrupted">הפוסט לא פורסם: האפליקציה נסגרה בזמן הפרסום.</string>
+    <string name="post_text_clip_label">טקסט הפוסט</string>
+    <string name="post_text_copied">הטקסט הועתק</string>
 </resources>

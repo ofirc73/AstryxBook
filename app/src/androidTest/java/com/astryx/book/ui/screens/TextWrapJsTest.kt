@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.astryx.book.PageFixture
 import com.eepiemi.materialbook.R
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,14 +28,10 @@ class TextWrapJsTest {
         fun load() {
             val long = "A long line of post text that is well over the minimum length. ".repeat(3)
             val hebrew = "שורה ארוכה של טקסט בעברית שעוברת את האורך המינימלי. ".repeat(3)
-            // 29 monospace characters, then a word that wouldn't have fit on the line in 300px:
-            // a break the server made. The others are the author's (a blank line, a short line).
-            val serverText = "abcd abcd abcd abcd abcd abcd\\nefghijk rest\\n\\nShort\\nNext line text"
-            val serverStyle = "white-space:pre;font:16px monospace;width:300px"
             val html = """
                 <html><body>
                   <div id="box" style="height:60px;width:320px">
-                    <div id="server" style="$serverStyle"></div>
+                    <div id="server" style="$SERVER_STYLE"></div>
                   </div>
                   <div id="videoBox" style="height:60px;width:400px">
                     <div id="besideVideo" style="white-space:pre;width:400px">$long</div>
@@ -53,7 +50,8 @@ class TextWrapJsTest {
                 </body></html>
             """.trimIndent()
             page.load("https://example.com/", html)
-            eval("document.getElementById('server').textContent = '$serverText';")
+            eval("document.getElementById('server').textContent = ${JSONObject.quote(SERVER_TEXT)};")
+            page.run(R.raw.server_lines)
             page.run(R.raw.text_wrap)
             eval(
                 """
@@ -154,7 +152,7 @@ class TextWrapJsTest {
         assertTrue(h.isWrapped("server"))
         assertEquals("pre-wrap", h.style("server", "whiteSpace"))
         assertEquals(
-            "\"abcd abcd abcd abcd abcd abcd efghijk rest\\n\\nShort\\nNext line text\"",
+            JSONObject.quote(SERVER_TEXT_JOINED),
             h.text("server")
         )
         val boxHeight = h.style("box", "height").removeSuffix("px").toDouble()
@@ -173,7 +171,7 @@ class TextWrapJsTest {
         h.zoom(scale = 1.0, width = 300)
 
         assertEquals(
-            "\"abcd abcd abcd abcd abcd abcd\\nefghijk rest\\n\\nShort\\nNext line text\"",
+            JSONObject.quote(SERVER_TEXT),
             h.text("server")
         )
         assertEquals("pre", h.style("server", "whiteSpace"))
@@ -221,5 +219,14 @@ class TextWrapJsTest {
         )
 
         assertEquals("true", h.eval("window.__first === window.__astryxTextWrap"))
+    }
+
+    internal companion object {
+        // A text block as m.facebook.com's server lays it out (server_lines.js): 29 monospace
+        // characters, then a word that wouldn't have fit on the line in 300px: a break the server
+        // made. The others are the author's (a blank line, a short line).
+        const val SERVER_TEXT = "abcd abcd abcd abcd abcd abcd\nefghijk rest\n\nShort\nNext line text"
+        const val SERVER_TEXT_JOINED = "abcd abcd abcd abcd abcd abcd efghijk rest\n\nShort\nNext line text"
+        const val SERVER_STYLE = "white-space:pre;font:16px monospace;width:300px"
     }
 }

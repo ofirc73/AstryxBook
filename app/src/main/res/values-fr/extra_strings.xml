@@ -119,4 +119,6 @@
     <string name="post_posting">Publication de votre publication…</string>
     <string name="post_posted">Votre publication est publiée</string>
     <string name="post_post_interrupted">Votre publication n\'a pas été publiée : l\'application a été fermée pendant la publication.</string>
+    <string name="post_text_clip_label">Texte de la publication</string>
+    <string name="post_text_copied">Texte copié</string>
 </resources>

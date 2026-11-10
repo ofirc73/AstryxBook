@@ -116,9 +116,10 @@ class AppHarness {
      * A real touch at the middle of the element [js] scrolls into view and gives the box of (CSS px
      * in the visual viewport, and that viewport's width: "left,top,width,height,viewportWidth"; ""
      * while there's none): a link that opens a new window (target=_blank, as a shared reel's)
-     * ignores a click from a script. False when there's nothing to tap.
+     * ignores a click from a script. False when there's nothing to tap. Held for [holdMs], a long
+     * press.
      */
-    fun tapIn(webView: WebView, js: String): Boolean {
+    fun tapIn(webView: WebView, js: String, holdMs: Long = TAP_MS): Boolean {
         fun box() = eval(js, webView).trim('"').split(',').mapNotNull { it.toFloatOrNull() }
         if (box().size < 5) return false
         // Measured again once the scroll has settled.
@@ -130,15 +131,15 @@ class AppHarness {
             val scale = webView.width / box[4]
             Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
         }
-        tapAt(x, y)
+        tapAt(x, y, holdMs)
         return true
     }
 
-    /** A finger's tap at ([x], [y]) on the screen, in px. */
-    private fun tapAt(x: Float, y: Float) {
+    /** A finger's tap at ([x], [y]) on the screen, in px, held down for [holdMs]. */
+    private fun tapAt(x: Float, y: Float, holdMs: Long = TAP_MS) {
         val downAt = SystemClock.uptimeMillis()
-        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + 80)) {
-            if (action == MotionEvent.ACTION_UP) Thread.sleep(80)
+        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + holdMs)) {
+            if (action == MotionEvent.ACTION_UP) Thread.sleep(holdMs)
             val event = MotionEvent.obtain(downAt, time, action, x, y, 0)
             event.source = InputDevice.SOURCE_TOUCHSCREEN
             instrumentation.uiAutomation.injectInputEvent(event, true)
@@ -149,13 +150,14 @@ class AppHarness {
     /**
      * [tapIn] on the element [elementJs] evaluates to (an expression; null or undefined while there's
      * none), scrolled to the middle of the screen first unless not to [scroll] (a reel's button: the
-     * reels scroller would snap to another reel).
+     * reels scroller would snap to another reel). Held for [holdMs], a long press.
      */
-    fun tapOn(webView: WebView, elementJs: String, scroll: Boolean = true): Boolean = tapIn(
+    fun tapOn(webView: WebView, elementJs: String, scroll: Boolean = true, holdMs: Long = TAP_MS): Boolean = tapIn(
         webView,
         "(function () { var e = ($elementJs); if (!e) return '';" +
             (if (scroll) " e.scrollIntoView({ block: 'center' });" else "") +
-            " var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()"
+            " var r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, visualViewport.width].join(','); })()",
+        holdMs,
     )
 
     /**
@@ -368,3 +370,7 @@ class AppHarness {
         assertTrue("never left PiP (the app was told it's in PiP: ${pipDelivered()})", waitFor(15_000) { !isInPip() })
     }
 }
+
+// How long a tap holds the screen; a long press holds it for LONG_PRESS_MS (Android takes 0.4 s or more).
+private const val TAP_MS = 80L
+const val LONG_PRESS_MS = 1000L

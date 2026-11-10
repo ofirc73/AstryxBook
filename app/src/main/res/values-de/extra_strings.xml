@@ -114,4 +114,6 @@
     <string name="post_posting">Dein Beitrag wird gepostet…</string>
     <string name="post_posted">Dein Beitrag ist gepostet</string>
     <string name="post_post_interrupted">Dein Beitrag wurde nicht gepostet: Die App wurde währenddessen geschlossen.</string>
+    <string name="post_text_clip_label">Beitragstext</string>
+    <string name="post_text_copied">Text kopiert</string>
 </resources>

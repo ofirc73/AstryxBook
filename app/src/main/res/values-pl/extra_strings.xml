@@ -133,4 +133,6 @@
     <string name="post_posting">Publikowanie posta…</string>
     <string name="post_posted">Twój post został opublikowany</string>
     <string name="post_post_interrupted">Post nie został opublikowany: aplikację zamknięto w trakcie publikowania.</string>
+    <string name="post_text_clip_label">Tekst posta</string>
+    <string name="post_text_copied">Skopiowano tekst</string>
 </resources>

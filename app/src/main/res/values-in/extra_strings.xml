@@ -118,4 +118,6 @@
     <string name="post_posting">Memposting postingan Anda…</string>
     <string name="post_posted">Postingan Anda sudah diposting</string>
     <string name="post_post_interrupted">Postingan Anda tidak diposting: aplikasi ditutup saat memposting.</string>
+    <string name="post_text_clip_label">Teks postingan</string>
+    <string name="post_text_copied">Teks disalin</string>
 </resources>

@@ -109,4 +109,6 @@
     <string name="post_posting">正在發佈你的貼文…</string>
     <string name="post_posted">你的貼文已發佈</string>
     <string name="post_post_interrupted">你的貼文未發佈：發佈時應用程式已關閉。</string>
+    <string name="post_text_clip_label">貼文文字</string>
+    <string name="post_text_copied">已複製文字</string>
 </resources>
