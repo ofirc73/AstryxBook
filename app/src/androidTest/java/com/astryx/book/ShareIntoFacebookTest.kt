@@ -315,10 +315,12 @@ class ShareIntoFacebookTest {
         app.pressHome()
         app.start(Posting.ACTION_VIEW_STORY)
         assertTrue("the notification didn't show the creator", app.waitFor(10_000) { app.layerOpen() })
-        // The creator kept (it takes the next file; the real page here, on the network).
-        Thread.sleep(2000)
-        assertTrue("the notification replaced the creator holding the next file (${app.layerWebView()?.let { app.url(it) }})",
-            app.layerWebView() === creator)
+        // The creator kept (it takes the next file; the real page here, on the network). Read only
+        // while the activity is there (waitFor): on CI it was briefly gone just after coming back
+        // ("no MainActivity").
+        val other = app.waitFor(2_000) { app.layerWebView().let { it != null && it !== creator } }
+        assertFalse("the notification replaced the creator holding the next file", other)
+        assertTrue("the creator holding the next file isn't showing", app.waitFor(10_000) { app.layerWebView() === creator })
     }
 
     // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is
