@@ -211,6 +211,20 @@ class MessagesLayerStateTest {
         assertTrue(posting.isShown)
     }
 
+    // "Your story is posted" (View, its notification) with another shared file waiting in the creator
+    // opened again for it: the creator shows; replaced by the stories page, the files left went.
+    @Test
+    fun yourStories_withAStoryShareStillGoing_showTheCreatorForTheNextFile() {
+        ShareMediaQueue.start(ShareTarget.STORY, listOf(SharedFile(File("a.png"), "a.png", "image/png")))
+        val layer = openAt(STORY_CREATE_URL).apply { hidden = true }
+        val generation = layer.generation
+        layer.showOwnStory()
+        assertEquals(STORY_CREATE_URL, layer.url)
+        assertTrue(layer.isShown)
+        assertEquals("the creator was opened anew", generation, layer.generation)
+        assertTrue(ShareMediaQueue.pending(ShareTarget.STORY))
+    }
+
     @Test
     fun aStoryPosting_outOfSight_isKept_andShownForAnythingThatWouldReplaceIt() {
         val layer = openAt(STORY_CREATE_URL)

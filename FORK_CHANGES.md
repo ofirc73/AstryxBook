@@ -637,7 +637,9 @@ on their own can't:
   out of sight with its notification (shown again by the notification, hidden again by Back) until
   it's posted, then "Your story is posted" with View opening your stories in the layer, and one that
   failed kept for another try; the posted-story notification opening your stories; Home reloaded
-  about half a minute after a story is posted, not before.
+  about half a minute after a story is posted, not before; with another file to share, the
+  posted-story notification showing the creator holding it rather than the stories page (no live
+  check: the app's own state, and posting isn't done live).
 - `AppLockTest`: off, and on without a screen lock, opening unlocked; a cold start locked and
   unlocked with the PIN; locking again on coming back; the grace period letting a quick return
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
@@ -1603,6 +1605,24 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   acted on once (`Posting.tapPending`): kept as a count, an old tap opened the creator or the stories
   again on every new screen. Covered by `PostingTest`, `MessagesLayerStateTest` and
   `ShareIntoFacebookTest`.
+- **Several photos shared to Story all get their turn**: the user's report, only the first one
+  opened and the others were ignored. A story share hands the creator one file at a time; once a
+  story posts, the creator opens again for the next one. Two ways lost the files left:
+  - **"Your story is posted"** (its notification, or the snackbar's View) opened the stories page
+    in place of the creator holding the next file, and the files left went with it (reproduced on
+    the emulator, 2026-11-10: the app away while the story posted, then the notification tapped).
+    With a story share still going it now shows that creator (`MessagesLayerState.showOwnStory`).
+  - The creator opened again had 45 s to be ready, as a first one (a cold start) has, after which
+    the share gave up and dropped the files left; over a slow link that comes too soon. It's now
+    waited for as long as it takes (`ShareMediaQueue.started`, `__astryxShareNextStory`): the user
+    is looking at it, and closing it ends the share.
+
+  Covered by `MessagesLayerStateTest`, `ShareMediaTest`, `ShareMediaJsTest` and
+  `ShareIntoFacebookTest`. Tried on the emulator with two photos (the test account, audience
+  Friends, which it has none of; the story deleted after): the second came after the first posted,
+  with the app on screen and with it away. No new live check: these are the app's own state and
+  timing, and a live check never posts; the live story checks still find the creator's file input
+  and Share to story.
 - **A story share opens fast on a weak connection**: the story creator's page has the browser
   preload all 30 of its text-story backgrounds (full-size 1350x2400 JPEGs, 16 MB), which a photo
   or video story never shows. On a 1 Mbps link (emulator, DevTools throttling, warm cache) they held

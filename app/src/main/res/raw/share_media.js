@@ -448,8 +448,11 @@
 
   function shareToStory(first) {
     // The first file waits for the page to load; the next ones for the user to finish a story.
-    // The first file waits for the creator (a cold start can take a while), up to 45 s.
-    waitFor(readyStoryInput, first ? Math.max(FIND_MS, window.__astryxShareFindMs ? 0 : 45000) : 0, function (input) {
+    // The first file waits for the creator (a cold start can take a while), up to 45 s; on a
+    // creator opened again for the share's next file (after a story posted) as long as it takes:
+    // the user is looking at it, and over a slow link a 45 s limit dropped the files left.
+    var limit = window.__astryxShareNextStory ? 0 : Math.max(FIND_MS, window.__astryxShareFindMs ? 0 : 45000);
+    waitFor(readyStoryInput, first ? limit : 0, function (input) {
       if (!input) { send({ call: 'failed', reason: 'noComposer' }); return; }
       receiveFiles('next', function (files, header) {
         if (!files.length) { send({ call: 'finished' }); return; }

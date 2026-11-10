@@ -183,6 +183,9 @@ object ShareMediaQueue {
     }
 
     @Synchronized
+    /** Some of [forTarget]'s files were given to a page already (a story share past its first). */
+    fun started(forTarget: ShareTarget): Boolean = target == forTarget && next > 0
+
     fun remaining(forTarget: ShareTarget): Int = if (target == forTarget) files.size - next else 0
 
     @Synchronized

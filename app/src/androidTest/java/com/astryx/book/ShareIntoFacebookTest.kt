@@ -12,6 +12,7 @@ import com.astryx.book.notifications.PostingService
 import com.astryx.book.ui.screens.ShareMediaJsTest
 import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
+import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.ShareTarget
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -289,6 +290,35 @@ class ShareIntoFacebookTest {
         })
         assertTrue(app.tapText(view))
         assertOwnStoriesOpen("View")
+    }
+
+    // Several photos shared to Story, the first one posted while the app was away: the creator opens
+    // again for the next one, and a tap on "Your story is posted" shows it there, rather than the
+    // stories page, which took the files left with it (seen on the emulator, 2026-11-10).
+    @Test
+    fun aStoryPosted_withMoreToShare_theNotificationShowsTheCreatorForTheNextFile() {
+        val layer = openCreator()
+        val files = listOf("one.png", "two.png").map { name ->
+            val file = File(app.context.cacheDir, "clipboard_images/$name").apply { parentFile?.mkdirs(); writeBytes(ByteArray(8)) }
+            SharedFile(file, name, "image/png")
+        }
+        ShareMediaQueue.start(ShareTarget.STORY, files)
+        ShareMediaQueue.take(ShareTarget.STORY) // the first one, in the creator
+        setPosting(layer, true)
+        assertTrue(app.waitFor { !app.layerOpen() })
+        setPosting(layer, false)
+        app.eval("history.pushState({}, '', '/stories'); 1", layer)
+        assertTrue("the creator never opened again for the next file", app.waitFor(20_000) {
+            app.layerOpen() && app.layerWebView() !== layer
+        })
+        val creator = app.layerWebView()
+        app.pressHome()
+        app.start(Posting.ACTION_VIEW_STORY)
+        assertTrue("the notification didn't show the creator", app.waitFor(10_000) { app.layerOpen() })
+        // The creator kept (it takes the next file; the real page here, on the network).
+        Thread.sleep(2000)
+        assertTrue("the notification replaced the creator holding the next file (${app.layerWebView()?.let { app.url(it) }})",
+            app.layerWebView() === creator)
     }
 
     // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is
