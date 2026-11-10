@@ -483,41 +483,46 @@ class LiveFacebookCanaryTest {
         assertTrue("the reel came back at $reelAt s, not where the sound was ($backAt s)", reelAt < 0 || reelAt >= backAt - 1)
     }
 
-    // A plain picture of [width] x [height] shared to the app's [alias] (ShareToFeed, ...), as the
-    // share sheet would: served through the app's own FileProvider.
-    private fun sharePicture(alias: String, width: Int = 64, height: Int = 64) {
+    // [count] plain pictures of [width] x [height], each its own colour, shared to the app's [alias]
+    // (ShareToFeed, ...) as the share sheet would (several: SEND_MULTIPLE): served through the app's
+    // own FileProvider.
+    private fun sharePictures(alias: String, count: Int = 1, width: Int = 64, height: Int = 64) {
         val dir = File(app.context.cacheDir, "clipboard_images").apply { mkdirs() }
-        val file = File(dir, "canary.png")
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30, 120, 200)) }
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        val uri = FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
-
+        val uris = ArrayList((1..count).map { n ->
+            val file = File(dir, "canary$n.png")
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30 * n, 120, 200)) }
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
+        })
+        val share = if (count == 1) Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
+        else Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
         app.start(
-            Intent(Intent.ACTION_SEND)
-                .setComponent(ComponentName(app.context.packageName, "com.eepiemi.materialbook.$alias"))
+            share.setComponent(ComponentName(app.context.packageName, "com.eepiemi.materialbook.$alias"))
                 .setType("image/png")
-                .putExtra(Intent.EXTRA_STREAM, uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         )
     }
 
     @Test
-    fun sharingAPhotoToFeed_opensTheComposerWithIt() {
-        sharePicture("ShareToFeed")
+    fun sharingPhotosToFeed_opensTheComposerWithThemAll() {
+        sharePictures("ShareToFeed", SHARED_PHOTOS)
         assertTrue("the composer never opened (share_media.js, FEED_COMPOSER_PAGE_URL)", app.waitFor(45_000) {
             app.url(app.mainWebView()).contains("/composer")
         })
-        awaitComposerPhoto()
+        awaitComposerPhotos(SHARED_PHOTOS)
     }
 
-    // The shared photo in the composer ([message] if it never comes); then the composer as
+    // The [count] shared photos in the composer ([message] if it never comes); then the composer as
     // feed_posting.js needs it to keep a post going from its tap on Post (Post itself isn't pressed):
     // at /composer/, with one Post, found as the top row's button right of back (it has no label).
-    private fun awaitComposerPhoto(
-        message: String = "the photo never reached the composer (share_media.js: the Photos button or its file input)",
+    private fun awaitComposerPhotos(
+        count: Int = 1,
+        message: String = "the photos never reached the composer (share_media.js: the Photos button or its file input)",
         ms: Long = 45_000,
     ) {
-        assertTrue(message, app.waitFor(ms) { eval("document.querySelectorAll('img[src^=\"data:image\"]').length > 0") == "true" })
+        // Told apart by their pictures: the same photo twice is one.
+        val shown = "new Set([].map.call(document.querySelectorAll('img[src^=\"data:image\"]'), function (i) { return i.src; })).size"
+        assertTrue("$message (${eval(shown)} of $count shown)", app.waitFor(ms) { eval("$shown >= $count") == "true" })
         val posts = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), __astryxFeedPosting.isPostButton)" +
             ".map(function (b) { return location.pathname + ' ' + (b.innerText || '').trim(); }).join(' | ')"
         assertEquals(
@@ -531,11 +536,11 @@ class LiveFacebookCanaryTest {
         openFeed()
         val taps = HomeComposer.taps.get()
         val loads = HomeComposer.loads.get()
-        sharePicture("ShareToFeed")
+        sharePictures("ShareToFeed")
         assertTrue("the composer never opened (${pageShape()})", app.waitFor(30_000) {
             eval("location.pathname") == "\"/composer/\""
         })
-        awaitComposerPhoto()
+        awaitComposerPhotos()
         // Tapped once more when Facebook reloads Home a moment after the app starts (the share's
         // script runs again on the new page).
         assertTrue(
@@ -942,24 +947,25 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
-    fun sharingAPhotoToAGroup_opensItsComposerWithIt() {
-        sharePicture("ShareToGroup")
+    fun sharingPhotosToAGroup_opensItsComposerWithThemAll() {
+        sharePictures("ShareToGroup", SHARED_PHOTOS)
         assertTrue("the share never opened the groups (GROUPS_PAGE_URL) (${appState()})", app.waitFor(45_000) {
             app.url(app.mainWebView()).contains("/groups")
         })
         Thread.sleep(3000)
         // The user picks the group: the public test group the test account joined.
         eval("location.href = '$TEST_GROUP_URL'; 1")
-        awaitComposerPhoto(
-            "the photo never reached the group's composer (share_media.js groupPhotoButton: the Photo button, a " +
+        awaitComposerPhotos(
+            SHARED_PHOTOS,
+            "the photos never reached the group's composer (share_media.js groupPhotoButton: the Photo button, a " +
                 "data-action-id container on a group's page) (${pageShape()})",
             60_000,
         )
     }
 
-    // A plain picture shared to Your story: the story creator in the Messages layer.
-    private fun shareToStory(): WebView {
-        sharePicture("ShareToStory", 720, 1280)
+    // [count] plain pictures shared to Your story: the story creator in the Messages layer.
+    private fun shareToStory(count: Int = 1): WebView {
+        sharePictures("ShareToStory", count, 720, 1280)
         assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
             app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
         })
@@ -990,6 +996,25 @@ class LiveFacebookCanaryTest {
         // on a weak link, or the page no longer preloads them.
         assertTrue("the story creator requested no text-story backgrounds (scontent…/v/t39.10873-6/, " +
             "isStoryBackgroundUrl) for StoryBackgrounds to skip", StoryBackgrounds.skipped.get() > skippedBefore)
+    }
+
+    @Test
+    fun twoPhotosSharedToYourStory_theFirstDiscarded_theSecondComesInTheEditor() {
+        // The creator takes one file at a time (share_media.js shareToStory): back to choosing a
+        // story after Discard (or Share, never pressed here), it gets the next. Nothing is posted.
+        val layer = shareToStory(2)
+        assertStoryEditorLaidOut(layer)
+        assertEquals("the story creator didn't take the first photo alone", 1, ShareMediaQueue.remaining(ShareTarget.STORY))
+        app.eval("document.querySelector('[data-astryx-story=actions] [role=button]').click(); 1", layer)
+        // Facebook asks "Discard story?": its own Discard, the dialog's button by its English label.
+        val confirm = "[].filter.call(document.querySelectorAll('[role=dialog] [role=button]'), function (b) {" +
+            " return (b.innerText || '').trim() === 'Discard'; })[0]"
+        assertTrue("Discard on the story editor didn't ask \"Discard story?\" (${app.eval("${shownJs("[role=dialog]")}.length", layer)} " +
+            "dialogs)", app.waitFor(15_000) { app.eval("!!($confirm)", layer) == "true" })
+        app.eval("($confirm).click(); 1", layer)
+        assertTrue("the second photo never went to the story creator after the first was discarded (share_media.js " +
+            "readyStoryInput: the chooser's fresh file input)", app.waitFor(30_000) { !ShareMediaQueue.pending(ShareTarget.STORY) })
+        assertStoryEditorLaidOut(layer)
     }
 
     @Test
@@ -1667,6 +1692,10 @@ class LiveFacebookCanaryTest {
         // The public test group the test account joined ("Android Developer With Android Studio",
         // 2026-10-15) for group shares. Nothing is ever posted there.
         private const val TEST_GROUP_URL = "https://m.facebook.com/groups/355723031242469/"
+
+        // Photos shared at once to Feed and to a group: the feed's composer takes them together, a
+        // group's first one alone and the others one by one (share_media.js addOneByOne).
+        private const val SHARED_PHOTOS = 3
 
         // A public post of NASA's with three photos, and its second photo (tiles count from 0).
         private const val PUBLIC_POST = "1658876782274358"
