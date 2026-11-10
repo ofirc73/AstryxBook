@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -56,7 +57,7 @@ class ReelsSettingsButtonJsTest {
         val h = Harness()
         h.load(TAB_BAR)
         assertTrue("no gear on the reel page", h.waitFor("!!$gear", 6000))
-        assertTrue("the gear is on the tab bar (${h.gearBox()})", h.waitFor("$gear.getBoundingClientRect().top >= 56 + 12", 3000))
+        assertTrue({ "the gear is on the tab bar (${h.gearBox()})" }, h.waitFor("$gear.getBoundingClientRect().top >= 56 + 12", 3000))
         assertEquals("the gear isn't on any tab", "true", h.eval(
             "(function (g) { return [].every.call(document.querySelectorAll('[role=tab]'), function (t) {" +
                 " var r = t.getBoundingClientRect(); return g.top >= r.bottom || g.bottom <= r.top || g.left >= r.right || g.right <= r.left; }); })" +

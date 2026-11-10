@@ -102,7 +102,7 @@ class MainActivityPipTest {
         assertEquals("the test's two vpd cookies weren't both set", 2, vpds().size)
 
         app.leavePip() // the activity to the front, as the PiP window's expand does
-        assertTrue("the PiP window's vpd cookie outlived the app's return (${vpds()})", app.waitFor {
+        assertTrue({ "the PiP window's vpd cookie outlived the app's return (${vpds()})" }, app.waitFor {
             vpds() == listOf("vpd=v1%3B841x411x2.625")
         })
     }

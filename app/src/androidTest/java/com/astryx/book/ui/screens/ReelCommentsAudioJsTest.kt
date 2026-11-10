@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.json.JSONTokener
 import org.junit.Assert.assertEquals
@@ -173,7 +174,7 @@ class ReelCommentsAudioJsTest {
         assertEquals("[\"$AUDIO_URL\"]", h.json("window.__fetched"))
         h.eval("document.getElementById('v1').__time = 13.25; 1")
         // Silent, in step with the reel while it plays.
-        assertTrue("no silent sound in step with the playing reel (${h.json("window.__sources")})",
+        assertTrue({ "no silent sound in step with the playing reel (${h.json("window.__sources")})" },
             h.waitFor("!!${h.sound} && !${h.sound}.stopped && ${h.sound}.out.gain.value === 0 && Math.abs(${h.sound}.at - 13.25) < 0.01"))
         val sounds = h.eval("window.__sources.length")
         // Facebook's pause(): heard at once (v1.39.2 started it only after noticing: a short cut).
@@ -224,7 +225,7 @@ class ReelCommentsAudioJsTest {
         assertEquals("0", h.eval("window.__silencer.gain.value"))
         assertEquals("the reel back was muted (Facebook's player then stalls loading it)", "false", h.eval("${h.v2}.muted"))
         // Moved past the sound by the first lead (0.3 s), once.
-        assertTrue("the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})",
+        assertTrue({ "the reel back wasn't moved past the sound (${h.eval("${h.v2}.currentTime")})" },
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
         // Ready at 21.3 while the sound is at 21: ahead, so it's held still until the sound gets
         // there (played slower, it was seen in slow motion and jittering on the phone).
@@ -254,7 +255,7 @@ class ReelCommentsAudioJsTest {
         // Held still meanwhile: played from its start for that second, it was seen to jump.
         assertEquals("0.0625", h.eval("${h.v2}.playbackRate"))
         h.eval("${h.v2}.__buf = [[0, 30]]; 1")
-        assertTrue("the reel back wasn't moved once loaded (${h.eval("${h.v2}.currentTime")})",
+        assertTrue({ "the reel back wasn't moved once loaded (${h.eval("${h.v2}.currentTime")})" },
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05"))
         assertEquals("1", h.eval("${h.v2}.playbackRate"))
     }
@@ -268,7 +269,7 @@ class ReelCommentsAudioJsTest {
         assertTrue(h.soundPlaying())
         h.soundAt(21.0)
         h.backToTheReel(loadedTo = 5.0, setup = "Object.defineProperty(v, 'duration', { get: function () { return 165; } });")
-        assertTrue("the long video back wasn't moved at once (${h.eval("${h.v2}.currentTime")})",
+        assertTrue({ "the long video back wasn't moved at once (${h.eval("${h.v2}.currentTime")})" },
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05", ms = 1000))
     }
 
@@ -293,7 +294,7 @@ class ReelCommentsAudioJsTest {
         h.backToTheReel(loadedTo = 5.0)
         Thread.sleep(2000)
         assertEquals("0", h.eval("${h.v2}.currentTime"))
-        assertTrue("the reel back was never moved (${h.eval("${h.v2}.currentTime")})",
+        assertTrue({ "the reel back was never moved (${h.eval("${h.v2}.currentTime")})" },
             h.waitFor("Math.abs(${h.v2}.currentTime - 21.3) < 0.05", ms = 3000))
     }
 

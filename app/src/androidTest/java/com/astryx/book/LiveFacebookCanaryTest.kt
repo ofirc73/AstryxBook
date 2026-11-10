@@ -189,7 +189,7 @@ class LiveFacebookCanaryTest {
         note("$message within 30 s (${pageShape()}): reloaded once")
         eval("location.reload(); 1")
         Thread.sleep(2000)
-        assertTrue("$message, even after a reload (${pageShape()})", app.waitFor(30_000) { eval(js) == "true" })
+        assertTrue({ "$message, even after a reload (${pageShape()})" }, app.waitFor(30_000) { eval(js) == "true" })
     }
 
     // The page's shape, or the app's state when there's no page to read.
@@ -210,7 +210,7 @@ class LiveFacebookCanaryTest {
     private fun openFeed() {
         open("https://m.facebook.com/")
         awaitFeed()
-        assertTrue("the app's scripts never ran on the feed (${pageShape()})", app.waitFor(30_000) {
+        assertTrue({ "the app's scripts never ran on the feed (${pageShape()})" }, app.waitFor(30_000) {
             eval("typeof window.backHandlerNB") == "\"function\""
         })
     }
@@ -224,10 +224,14 @@ class LiveFacebookCanaryTest {
 
     // The main view's history: each page's address now and as it was loaded, and the current one.
     private class History(val urls: List<String>, val loadedUrls: List<String>, val current: Int) {
-        // For a failure: the pages' paths, the current one marked.
+        // For a failure: the pages' paths, the current one marked, and where a redirect took one
+        // (its address as loaded, "<-" before it).
         override fun toString() = urls.mapIndexed { i, u ->
-            (if (i == current) "*" else "") + u.substringAfter("facebook.com").substringBefore('?').replace(Regex("\\d{6,}"), "N")
+            val loaded = loadedUrls.getOrElse(i) { u }
+            (if (i == current) "*" else "") + path(u) + (if (path(loaded) != path(u)) "<-" + path(loaded) else "")
         }.joinToString(" ")
+
+        private fun path(url: String) = url.substringAfter("facebook.com").substringBefore('?').replace(Regex("\\d{6,}"), "N")
     }
 
     private fun mainHistory(): History {
@@ -313,7 +317,7 @@ class LiveFacebookCanaryTest {
         // (ReelsSettingsButtonJsTest).
         openPlayingReel()
         val gear = "document.getElementById('custom-settings-btn-reels')"
-        assertTrue("no Settings gear on the reel page (${pageShape()})", app.waitFor(10_000) {
+        assertTrue({ "no Settings gear on the reel page (${pageShape()})" }, app.waitFor(10_000) {
             eval("!!$gear && $gear.getClientRects().length > 0") == "true"
         })
         if (eval("!!document.querySelector('div[role=tablist] [role=tab]')") != "true") {
@@ -387,7 +391,7 @@ class LiveFacebookCanaryTest {
         assertTrue("focus mode was never restored", app.waitFor { eval("document.body.hasAttribute('data-astryx-pip-active')") == "false" })
         // In PiP Facebook can write the PiP window's size into a host-only vpd cookie, which laid
         // later pages out PiP-narrow: the app drops it as it comes back (MainActivity.dropPipViewportCookie).
-        assertTrue("a PiP-narrow vpd cookie outlived PiP (${eval(VPD_WIDTHS_JS)})", app.waitFor(10_000) {
+        assertTrue({ "a PiP-narrow vpd cookie outlived PiP (${eval(VPD_WIDTHS_JS)})" }, app.waitFor(10_000) {
             eval(NO_NARROW_VPD_JS) == "true"
         })
     }
@@ -439,7 +443,7 @@ class LiveFacebookCanaryTest {
             return
         }
         eval("(function (v) { v.currentTime = v.duration - 1.5; })(document.querySelector('video')); 1")
-        assertTrue("the reel back stopped at its start again (${eval(VIDEO_STATE_JS)})", app.waitFor(20_000) {
+        assertTrue({ "the reel back stopped at its start again (${eval(VIDEO_STATE_JS)})" }, app.waitFor(20_000) {
             eval("(function (v) { return !v.paused && v.currentTime > 1 && v.currentTime < 10; })(document.querySelector('video'))") == "true"
         })
     }
@@ -459,7 +463,7 @@ class LiveFacebookCanaryTest {
             note("the reel's comment button needed a second tap")
             assertTrue("no comment button on the reel on screen", app.tapOn(app.mainWebView(), REEL_COMMENT_BUTTON_JS, scroll = false))
         }
-        assertTrue("the comments opened without the reel's sound (${eval(VIDEO_STATE_JS)}; ${pageShape()})", app.waitFor(20_000) {
+        assertTrue({ "the comments opened without the reel's sound (${eval(VIDEO_STATE_JS)}; ${pageShape()})" }, app.waitFor(20_000) {
             eval("location.pathname !== '$reelPath' && $REEL_COMMENTS_SOUND_JS > 0") == "true"
         })
         val soundAt = eval(REEL_COMMENTS_SOUND_JS).toDouble()
@@ -473,8 +477,8 @@ class LiveFacebookCanaryTest {
         // The sound plays on while Facebook loads the reel again (up to 9 s on the emulator), and
         // until the reel plays in step with it (20 s at most).
         var heardTwice = ""
-        assertTrue("Back from the comments didn't hand the sound back to the reel, playing (${eval(VIDEO_STATE_JS)}; " +
-            "the sound at ${eval(REEL_COMMENTS_SOUND_JS)} s)", app.waitFor(40_000) {
+        assertTrue({ "Back from the comments didn't hand the sound back to the reel, playing (${eval(VIDEO_STATE_JS)}; " +
+            "the sound at ${eval(REEL_COMMENTS_SOUND_JS)} s)" }, app.waitFor(40_000) {
             if (heardTwice.isEmpty() && eval(REEL_HEARD_WITH_SOUND_JS) == "true") heardTwice = eval(VIDEO_STATE_JS)
             eval("location.pathname === '$reelPath' && $REEL_COMMENTS_SOUND_JS < 0 && $PLAYING_JS") == "true"
         })
@@ -524,7 +528,7 @@ class LiveFacebookCanaryTest {
     ) {
         // Told apart by their pictures: the same photo twice is one.
         val shown = "new Set([].map.call(document.querySelectorAll('img[src^=\"data:image\"]'), function (i) { return i.src; })).size"
-        assertTrue("$message (${eval(shown)} of $count shown)", app.waitFor(ms) { eval("$shown >= $count") == "true" })
+        assertTrue({ "$message (${eval(shown)} of $count shown)" }, app.waitFor(ms) { eval("$shown >= $count") == "true" })
         val posts = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), __astryxFeedPosting.isPostButton)" +
             ".map(function (b) { return location.pathname + ' ' + (b.innerText || '').trim(); }).join(' | ')"
         assertEquals(
@@ -539,7 +543,7 @@ class LiveFacebookCanaryTest {
         val taps = HomeComposer.taps.get()
         val loads = HomeComposer.loads.get()
         sharePictures("ShareToFeed")
-        assertTrue("the composer never opened (${pageShape()})", app.waitFor(30_000) {
+        assertTrue({ "the composer never opened (${pageShape()})" }, app.waitFor(30_000) {
             eval("location.pathname") == "\"/composer/\""
         })
         awaitComposerPhotos()
@@ -566,11 +570,11 @@ class LiveFacebookCanaryTest {
         app.pressBack()
         val discard = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), function (b) {" +
             " return /(^|\\s)Discard post$/.test((b.innerText || '').trim()); }).pop()"
-        assertTrue("Back from the composer didn't ask to discard the draft (${pageShape()}; ${appState()})", app.waitFor(15_000) {
+        assertTrue({ "Back from the composer didn't ask to discard the draft (${pageShape()}; ${appState()})" }, app.waitFor(15_000) {
             eval("!!($discard)") == "true"
         })
         eval("($discard).click(); 1")
-        assertTrue("discarding the draft didn't go back to Home (${pageShape()})", app.waitFor(15_000) {
+        assertTrue({ "discarding the draft didn't go back to Home (${pageShape()})" }, app.waitFor(15_000) {
             eval("location.pathname") == "\"/\""
         })
         assertFalse("Back from the composer left the app", app.isInBackground())
@@ -756,11 +760,11 @@ class LiveFacebookCanaryTest {
     private fun openChatInTheLayer(chat: String): WebView {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         open("https://m.facebook.com/messages/$chat/")
-        assertTrue("a Messages link never opened the Messages layer (${appState()})", app.waitFor(30_000) {
+        assertTrue({ "a Messages link never opened the Messages layer (${appState()})" }, app.waitFor(30_000) {
             app.layerWebView()?.let { app.url(it).contains("/messages/") } == true
         })
         val layer = app.layerWebView()!!
-        assertTrue("the test chat (FB_TEST_CHAT) never showed in the Messages layer (${layerShape(layer)})",
+        assertTrue({ "the test chat (FB_TEST_CHAT) never showed in the Messages layer (${layerShape(layer)})" },
             app.waitFor(45_000) { app.eval(chatShownJs(chat), layer) == "true" })
         return layer
     }
@@ -796,13 +800,13 @@ class LiveFacebookCanaryTest {
         if (!app.waitFor(45_000) { app.tapOn(layer, CHAT_REEL_JS) }) {
             fail("no shared reel (a link to /reel/ or /share/r/) in the test chat (FB_TEST_CHAT) (${layerShape(layer)})")
         }
-        assertTrue("the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})", app.waitFor(20_000) {
+        assertTrue({ "the reel didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})" }, app.waitFor(20_000) {
             !app.layerOpen() && app.url(app.mainWebView()).let { it.startsWith("https://m.facebook.com/reel/") }
         })
 
         app.pressBack()
         assertTrue("Back on the reel never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { app.layerOpen() })
-        assertTrue("the layer came back somewhere other than the chat (${layerShape(layer)})", app.waitFor(15_000) {
+        assertTrue({ "the layer came back somewhere other than the chat (${layerShape(layer)})" }, app.waitFor(15_000) {
             app.eval("location.pathname", layer).contains("/t/")
         })
         // Under the chat, the main view goes back to where it was: each reel opened from a chat
@@ -820,7 +824,7 @@ class LiveFacebookCanaryTest {
         }
         // Like a reel: the post in the main view (m.facebook.com shows it as Home, the post at the
         // top), the chat kept out of sight behind it.
-        assertTrue("the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})",
+        assertTrue({ "the shared post didn't leave the Messages layer (messagesLayerExit) (${layerShape(layer)})" },
             app.waitFor(30_000) { !app.layerOpen() })
         // Shown as Home, with the post as a "From your link" card further down: scrolled to it.
         assertTrue("the post opened from the chat isn't at the top of the main view (linked_post.js)",
@@ -828,7 +832,7 @@ class LiveFacebookCanaryTest {
 
         app.pressBack()
         assertTrue("Back on the post never showed the chat again (MessagesLayerState)", app.waitFor(15_000) { app.layerOpen() })
-        assertTrue("Back from the shared post didn't show the chat (${layerShape(layer)})", app.waitFor(20_000) {
+        assertTrue({ "Back from the shared post didn't show the chat (${layerShape(layer)})" }, app.waitFor(20_000) {
             app.eval(CHAT_OPEN_JS, layer) == "true"
         })
         // The same chat, where it was: not reloaded at its latest messages.
@@ -885,19 +889,21 @@ class LiveFacebookCanaryTest {
         // Facebook still shows the reel at /reel/<story_fbid>. No chat needed: Messages' inbox.
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         open("https://m.facebook.com/messages/")
-        assertTrue("Messages never opened in the layer (${appState()})", app.waitFor(30_000) {
+        assertTrue({ "Messages never opened in the layer (${appState()})" }, app.waitFor(30_000) {
             app.layerWebView()?.let { app.url(it).contains("/messages") } == true
         })
         val layer = app.layerWebView()!!
         // Once the inbox has loaded: a move made while it still loads was lost to the page's own.
-        assertTrue("the Messages inbox never finished loading (${layerShape(layer)})", app.waitFor(30_000) {
+        assertTrue({ "the Messages inbox never finished loading (${layerShape(layer)})" }, app.waitFor(30_000) {
             app.onActivity { layer.progress } == 100 && app.eval("!!window.__astryxLayerNavInstalled", layer) == "true"
         })
         Thread.sleep(2000)
         app.eval("location.href = '$STORY_OF_A_REEL'; 1", layer)
-        assertTrue("a reel's story didn't open the reel's page in the main view (MessagesDesktop reelOfStory) (${appState()})",
+        assertTrue({ "a reel's story didn't open the reel's page in the main view (MessagesDesktop reelOfStory) (${appState()})" },
             app.waitFor(30_000) { app.url(app.mainWebView()).startsWith("https://m.facebook.com/reel/$STORY_REEL_ID") })
-        assertTrue("Facebook no longer shows the reel at /reel/<story_fbid> (${pageShape()})", app.waitFor(30_000) {
+        // Once (2026-11-10's daily run) the reel's address showed Home instead: the main view's
+        // history says whether Facebook redirected it or the page moved there itself.
+        assertTrue({ "Facebook no longer shows the reel at /reel/<story_fbid> (${pageShape()}; main view: ${mainHistory()})" }, app.waitFor(30_000) {
             eval("document.querySelectorAll('video').length > 0") == "true"
         })
     }
@@ -918,17 +924,17 @@ class LiveFacebookCanaryTest {
         awaitPage("Notifications never loaded", "location.pathname.indexOf('/notifications') === 0 && $FEED_SHOWN_JS")
 
         app.pressBack()
-        assertTrue("Back on Notifications didn't go back to the reel (history: ${mainHistory()}; the app's Back: " +
+        assertTrue({ "Back on Notifications didn't go back to the reel (history: ${mainHistory()}; the app's Back: " +
             "${logLines("Astryxbook").lastOrNull { it.startsWith("Back: ") }}; dialogs: " +
-            "${eval("document.querySelectorAll('[role=dialog]').length")})", app.waitFor(30_000) {
+            "${eval("document.querySelectorAll('[role=dialog]').length")})" }, app.waitFor(30_000) {
             app.url(main).startsWith(PUBLIC_REEL_URL) && app.onActivity { main.progress } == 100
         })
         val bouncedOnBack = loadedFromIntentFallback()
         if (bouncedOnBack) note("Facebook sent the reel's page to its app when Back loaded it again (intent://)")
         Thread.sleep(2000)
         app.pressBack()
-        assertTrue("Back on the reel didn't go back to Home (main view at ${app.url(main).substringBefore('?')}; " +
-            "the reel's load bounced through intent://: $bouncedOnBack)", app.waitFor(30_000) {
+        assertTrue({ "Back on the reel didn't go back to Home (main view at ${app.url(main).substringBefore('?')}; " +
+            "the reel's load bounced through intent://: $bouncedOnBack)" }, app.waitFor(30_000) {
             eval("location.pathname") == "\"/\""
         })
     }
@@ -951,7 +957,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun sharingPhotosToAGroup_opensItsComposerWithThemAll() {
         sharePictures("ShareToGroup", SHARED_PHOTOS)
-        assertTrue("the share never opened the groups (GROUPS_PAGE_URL) (${appState()})", app.waitFor(45_000) {
+        assertTrue({ "the share never opened the groups (GROUPS_PAGE_URL) (${appState()})" }, app.waitFor(45_000) {
             app.url(app.mainWebView()).contains("/groups")
         })
         Thread.sleep(3000)
@@ -968,7 +974,7 @@ class LiveFacebookCanaryTest {
     // [count] plain pictures shared to Your story: the story creator in the Messages layer.
     private fun shareToStory(count: Int = 1): WebView {
         sharePictures("ShareToStory", count, 720, 1280)
-        assertTrue("the share never opened the story creator in the Messages layer (${appState()})", app.waitFor(45_000) {
+        assertTrue({ "the share never opened the story creator in the Messages layer (${appState()})" }, app.waitFor(45_000) {
             app.layerWebView()?.let { app.url(it).contains("/stories/create") } == true
         })
         return app.layerWebView()!!
@@ -1011,8 +1017,8 @@ class LiveFacebookCanaryTest {
         // Facebook asks "Discard story?": its own Discard, the dialog's button by its English label.
         val confirm = "[].filter.call(document.querySelectorAll('[role=dialog] [role=button]'), function (b) {" +
             " return (b.innerText || '').trim() === 'Discard'; })[0]"
-        assertTrue("Discard on the story editor didn't ask \"Discard story?\" (${app.eval("${shownJs("[role=dialog]")}.length", layer)} " +
-            "dialogs)", app.waitFor(15_000) { app.eval("!!($confirm)", layer) == "true" })
+        assertTrue({ "Discard on the story editor didn't ask \"Discard story?\" (${app.eval("${shownJs("[role=dialog]")}.length", layer)} " +
+            "dialogs)" }, app.waitFor(15_000) { app.eval("!!($confirm)", layer) == "true" })
         app.eval("($confirm).click(); 1", layer)
         assertTrue("the second photo never went to the story creator after the first was discarded (share_media.js " +
             "readyStoryInput: the chooser's fresh file input)", app.waitFor(30_000) { !ShareMediaQueue.pending(ShareTarget.STORY) })
@@ -1069,12 +1075,12 @@ class LiveFacebookCanaryTest {
         // with the Add to story link open_own_story.js finds the user's own card by.
         open("https://m.facebook.com/")
         app.start(Posting.ACTION_VIEW_STORY)
-        assertTrue("the notification didn't open Facebook's stories page in the layer (${appState()})", app.waitFor(30_000) {
+        assertTrue({ "the notification didn't open Facebook's stories page in the layer (${appState()})" }, app.waitFor(30_000) {
             app.layerWebView()?.let { app.url(it).startsWith("https://www.facebook.com/stories") } == true
         })
         val layer = app.layerWebView()!!
-        assertTrue("Facebook's stories page has no Add to story link, which open_own_story.js finds your card by " +
-            "(${app.eval(STORIES_SHAPE_JS, layer)})", app.waitFor(45_000) {
+        assertTrue({ "Facebook's stories page has no Add to story link, which open_own_story.js finds your card by " +
+            "(${app.eval(STORIES_SHAPE_JS, layer)})" }, app.waitFor(45_000) {
             app.eval(ADD_TO_STORY_SHOWN_JS, layer) == "true"
         })
         untestable("the test account has no story of its own: that open_own_story.js opens it from the notification wasn't checked")
@@ -1103,15 +1109,15 @@ class LiveFacebookCanaryTest {
         // The real page in the layer, loaded by the WebView itself: through the app's routing a full
         // load of it would close the layer (Share moves there in-page).
         app.onActivity { layer.loadUrl("https://www.facebook.com/stories/") }
-        assertTrue("Facebook's stories page has no Add to story link, which open_own_story.js finds your card by " +
-            "(${app.eval(STORIES_SHAPE_JS, layer)})", app.waitFor(45_000) {
+        assertTrue({ "Facebook's stories page has no Add to story link, which open_own_story.js finds your card by " +
+            "(${app.eval(STORIES_SHAPE_JS, layer)})" }, app.waitFor(45_000) {
             app.eval(ADD_TO_STORY_SHOWN_JS, layer) == "true"
         })
         // The address changes in-page, as Share's move does: the app reads it as Share's.
         app.eval("history.pushState({}, '', '/stories'); 1", layer)
         var opened = false
-        assertTrue("the story screen neither showed your stories nor closed on Facebook's stories page " +
-            "(${app.eval(STORIES_SHAPE_JS, layer)}; ${appState()})", app.waitFor(20_000) {
+        assertTrue({ "the story screen neither showed your stories nor closed on Facebook's stories page " +
+            "(${app.eval(STORIES_SHAPE_JS, layer)}; ${appState()})" }, app.waitFor(20_000) {
             opened = app.layerOpen() && app.eval("window.__astryxSharedStoryOpen === true", layer) == "true"
             opened || !app.layerOpen()
         })
@@ -1130,7 +1136,7 @@ class LiveFacebookCanaryTest {
             gap("stories-width", "the stories page loaded ${width.toInt()} px wide: the full-screen layout wasn't checked")
         }
         app.pressBack()
-        assertTrue("Back didn't close the story screen (${appState()})", app.waitFor { !app.layerOpen() })
+        assertTrue({ "Back didn't close the story screen (${appState()})" }, app.waitFor { !app.layerOpen() })
     }
 
     @Test
@@ -1183,7 +1189,7 @@ class LiveFacebookCanaryTest {
             return
         }
         // Picked from the chat list, as the user would (chatShownJs taps its row).
-        assertTrue("the test chat never showed in the Messages layer (${layerShape(layer)})",
+        assertTrue({ "the test chat never showed in the Messages layer (${layerShape(layer)})" },
             app.waitFor(45_000) { app.eval(chatShownJs(chat), layer) == "true" })
         // A user's tap on the box gives the page the focus the script needs (the row was clicked by script).
         assertTrue("the chat's message box couldn't be tapped", app.tapOn(layer, MESSAGE_BOX_FIND_JS))
@@ -1222,18 +1228,18 @@ class LiveFacebookCanaryTest {
             })
             Thread.sleep(500)
             shell("input text $DRAFT")
-            assertTrue("the typed text never reached the chat's message box (box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})", app.waitFor(10_000) { boxHoldsDraft(layer) })
+            assertTrue({ "the typed text never reached the chat's message box (box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})" }, app.waitFor(10_000) { boxHoldsDraft(layer) })
             backToChatList(layer, chat)
-            assertTrue("the chat never showed again from the list (${layerShape(layer)})",
+            assertTrue({ "the chat never showed again from the list (${layerShape(layer)})" },
                 app.waitFor(30_000) { app.eval(chatShownJs(chat), layer) == "true" })
-            assertTrue("the unsent message was gone after Back to the chat list and back to the chat " +
-                "(box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})", app.waitFor(10_000) { boxHoldsDraft(layer) })
+            assertTrue({ "the unsent message was gone after Back to the chat list and back to the chat " +
+                "(box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})" }, app.waitFor(10_000) { boxHoldsDraft(layer) })
             backToChatList(layer, chat)
             app.pressBack()
             assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(15_000) { !app.layerOpen() })
             layer = openChatInTheLayer(chat)
-            assertTrue("the unsent message was gone after leaving Messages and opening the chat again " +
-                "(${draftState(layer)})", app.waitFor(10_000) { boxHoldsDraft(layer) })
+            assertTrue({ "the unsent message was gone after leaving Messages and opening the chat again " +
+                "(${draftState(layer)})" }, app.waitFor(10_000) { boxHoldsDraft(layer) })
         } finally {
             app.layerWebView()?.let { box -> if (app.tapOn(box, MESSAGE_BOX_FIND_JS)) emptyMessageBox() }
         }
@@ -1244,7 +1250,7 @@ class LiveFacebookCanaryTest {
         app.pressBack()
         if (app.waitFor(3_000) { app.eval(chatListShownJs(chat), layer) == "true" }) return
         app.pressBack()
-        assertTrue("Back didn't show the chat list (${layerShape(layer)})",
+        assertTrue({ "Back didn't show the chat list (${layerShape(layer)})" },
             app.waitFor(15_000) { app.eval(chatListShownJs(chat), layer) == "true" })
     }
 
@@ -1394,8 +1400,8 @@ class LiveFacebookCanaryTest {
         app.onActivity { clipboard.setPrimaryClip(ClipData.newPlainText("canary", CLIP_MARK)) }
         // A post's body by copy_post_text.js's own rule, and the name above it: its post's first text.
         val body = "[].filter.call(document.querySelectorAll('[data-mcomponent=\"TextArea\"]'), __astryxCopyPostText.isPostBody)[0]"
-        assertTrue("no post's text on the feed counts as its body (copy_post_text.js isPostBody: a post's first text " +
-            "as wide as the post, before its photos; ${pageShape()})", app.waitFor(30_000) { eval("!!($body)") == "true" })
+        assertTrue({ "no post's text on the feed counts as its body (copy_post_text.js isPostBody: a post's first text " +
+            "as wide as the post, before its photos; ${pageShape()})" }, app.waitFor(30_000) { eval("!!($body)") == "true" })
         // Marked again if the page was replaced meanwhile (Facebook reloads Home a moment after the app starts).
         fun markPost() = eval(
             "(function (b) { if (!b) return false; var row = b;" +
@@ -1405,7 +1411,7 @@ class LiveFacebookCanaryTest {
                 " window.__canaryStart = b.textContent.replace(/\\s+/g, ' ').trim().slice(0, 15);" +
                 " return __canaryName !== b; })($body)"
         ) == "true"
-        assertTrue("the post's body is its first text: the name above it isn't text any more (${pageShape()})",
+        assertTrue({ "the post's body is its first text: the name above it isn't text any more (${pageShape()})" },
             app.waitFor(10_000) { markPost() })
         app.tapOn(app.mainWebView(), "window.__canaryName", holdMs = LONG_PRESS_MS)
         Thread.sleep(2000)
@@ -1413,7 +1419,7 @@ class LiveFacebookCanaryTest {
         if (eval("!!window.__canaryBody") != "true") markPost()
         val start = org.json.JSONArray("[${eval("window.__canaryStart")}]").getString(0)
         app.tapOn(app.mainWebView(), "window.__canaryBody", holdMs = LONG_PRESS_MS)
-        assertTrue("holding a post's text didn't copy it (copy_post_text.js; the clipboard has \"${clip()}\")", app.waitFor(10_000) {
+        assertTrue({ "holding a post's text didn't copy it (copy_post_text.js; the clipboard has \"${clip()}\")" }, app.waitFor(10_000) {
             clip()?.replace(Regex("\\s+"), " ")?.startsWith(start) == true
         })
     }
@@ -1545,7 +1551,7 @@ class LiveFacebookCanaryTest {
         eval("window.scrollBy(0, window.innerHeight * 2); 1")
         Thread.sleep(1500)
         app.pressBack()
-        assertTrue("Back on the scrolled feed didn't scroll it to the top (scrollY ${eval("scrollY")})", app.waitFor(5_000) {
+        assertTrue({ "Back on the scrolled feed didn't scroll it to the top (scrollY ${eval("scrollY")})" }, app.waitFor(5_000) {
             eval("scrollY") == "0"
         })
         assertTrue("Back scrolling the feed up also left the app", !app.isInBackground())
@@ -1580,7 +1586,7 @@ class LiveFacebookCanaryTest {
             fail("no Messages tab (role=tab, aria-label \"messages, …\") on the feed: messages_tab.js finds it by that label " +
                 "or its icon (tabs: ${eval("[].map.call(document.querySelectorAll('[role=tab]'), function (t) { return t.getAttribute('aria-label'); }).join(' | ')")})")
         }
-        assertTrue("the Messages tab didn't open Messages in the layer (${appState()})", app.waitFor(30_000) {
+        assertTrue({ "the Messages tab didn't open Messages in the layer (${appState()})" }, app.waitFor(30_000) {
             app.layerWebView()?.let { app.layerOpen() && app.url(it).contains("/messages") } == true
         })
     }
@@ -1598,7 +1604,7 @@ class LiveFacebookCanaryTest {
                 any(activity.window.decorView)
             }
         }
-        assertTrue("the screen isn't kept on while the reel plays (video_playing.js: ${eval(VIDEO_STATE_JS)})",
+        assertTrue({ "the screen isn't kept on while the reel plays (video_playing.js: ${eval(VIDEO_STATE_JS)})" },
             app.waitFor(15_000) { keptOn() })
         eval("[].forEach.call(document.querySelectorAll('video'), function (v) { v.pause(); }); 1")
         assertTrue("the screen stayed kept on with the reel paused", app.waitFor(15_000) { !keptOn() })
@@ -1620,12 +1626,12 @@ class LiveFacebookCanaryTest {
         // post. Checked on a public Page's posts, laid out the same; the composer's snackbar after
         // posting can't be checked live (the checks never post).
         openPublicPage()
-        assertTrue("open_new_post.js finds no post's time on the Page (a time between left-to-right marks, then the " +
-            "audience icon, in a data-action-id) (${pageShape()})", app.waitFor(30_000) {
+        assertTrue({ "open_new_post.js finds no post's time on the Page (a time between left-to-right marks, then the " +
+            "audience icon, in a data-action-id) (${pageShape()})" }, app.waitFor(30_000) {
             eval("!!(window.__astryxNewestPostTime && window.__astryxNewestPostTime())") == "true"
         })
         eval("window.__astryxNewestPostTime().click(); 1")
-        assertTrue("the newest post's time didn't open the post (${app.url(app.mainWebView()).substringBefore('?')})",
+        assertTrue({ "the newest post's time didn't open the post (${app.url(app.mainWebView()).substringBefore('?')})" },
             app.waitFor(20_000) { eval("/^\\/(story\\.php|permalink\\.php|[^/]+\\/posts\\/)/.test(location.pathname)") == "true" })
     }
 
@@ -1658,8 +1664,8 @@ class LiveFacebookCanaryTest {
                 gap("post-web-link", "no web link in the public Page's latest posts: links in posts weren't checked")
                 return
             }
-            assertTrue("a web link in a post didn't open its site outside the app (the main view is at " +
-                "${app.url(main).substringBefore('?')})", app.waitFor(15_000) { launched.get() != null })
+            assertTrue({ "a web link in a post didn't open its site outside the app (the main view is at " +
+                "${app.url(main).substringBefore('?')})" }, app.waitFor(15_000) { launched.get() != null })
             val url = launched.get().dataString.orEmpty()
             assertTrue("a post's link opened as a Facebook redirect instead of its site: ${url.substringBefore('?')}",
                 "facebook.com" !in Uri.parse(url).host.orEmpty())
@@ -1684,8 +1690,8 @@ class LiveFacebookCanaryTest {
         openPublicPhoto(fromFeed = false)
         Thread.sleep(2000)
         app.pinch(app.screenBox(main), 2.5f)
-        assertTrue("a pinch no longer zooms a photo page (pinch_to_zoom.js leaves photo.php zoomable; viewport metas: " +
-            "${eval(metas)})", app.waitFor(5_000) { (eval("visualViewport.scale").toDoubleOrNull() ?: 0.0) > 1.3 })
+        assertTrue({ "a pinch no longer zooms a photo page (pinch_to_zoom.js leaves photo.php zoomable; viewport metas: " +
+            "${eval(metas)})" }, app.waitFor(5_000) { (eval("visualViewport.scale").toDoubleOrNull() ?: 0.0) > 1.3 })
     }
 
     @Test
@@ -1693,7 +1699,7 @@ class LiveFacebookCanaryTest {
         // download_content.js (on by default) puts a Download button over the photo a page shows,
         // found by its viewer's markup or the largest fbcdn picture.
         openPublicPhoto()
-        assertTrue("download_content.js shows no Download button on a photo page (${pageShape()})", app.waitFor(20_000) {
+        assertTrue({ "download_content.js shows no Download button on a photo page (${pageShape()})" }, app.waitFor(20_000) {
             eval("${shownJs("[aria-label=\"Download content\"]")}.length > 0") == "true"
         })
     }
@@ -1708,8 +1714,8 @@ class LiveFacebookCanaryTest {
         runBlocking { settings.setDesktopLayout(true) }
         try {
             startApp()
-            assertTrue("Desktop layout never showed Facebook's desktop feed (html#facebook, a role=main or role=feed) " +
-                "(${pageShape()})", app.waitFor(60_000) {
+            assertTrue({ "Desktop layout never showed Facebook's desktop feed (html#facebook, a role=main or role=feed) " +
+                "(${pageShape()})" }, app.waitFor(60_000) {
                 eval("window.isDesktopMode && window.isDesktopMode() && window.isFeed() && " +
                     "!!document.querySelector('[role=\"main\"], [role=\"feed\"]')") == "true"
             })
@@ -1718,7 +1724,7 @@ class LiveFacebookCanaryTest {
             app.finish()
         }
         startApp()
-        assertTrue("with Desktop layout off again the app didn't open the mobile feed (${app.url(app.mainWebView()).substringBefore('?')})",
+        assertTrue({ "with Desktop layout off again the app didn't open the mobile feed (${app.url(app.mainWebView()).substringBefore('?')})" },
             app.waitFor(45_000) { eval("location.hostname") == "\"m.facebook.com\"" && eval(FEED_SHOWN_JS) == "true" })
     }
 

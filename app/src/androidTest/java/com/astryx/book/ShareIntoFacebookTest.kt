@@ -88,7 +88,7 @@ class ShareIntoFacebookTest {
         assertTrue("the shared photo never reached the share queue for $target", app.waitFor(15_000) {
             ShareMediaQueue.pending(target)
         })
-        assertTrue("$target never opened $path${if (inLayer) " in the Messages layer" else " in the main view"}", app.waitFor(20_000) {
+        assertTrue({ "$target never opened $path${if (inLayer) " in the Messages layer" else " in the main view"}" }, app.waitFor(20_000) {
             val webView = if (inLayer) app.layerWebView() else app.mainWebView()
             webView != null && decoded(app.url(webView)).contains(path)
         })
@@ -177,12 +177,12 @@ class ShareIntoFacebookTest {
         )
         share("ShareToFeed", photo("feed.png"))
 
-        assertTrue("the composer opened from Home never took the photo (${app.eval("location.pathname")})", app.waitFor(15_000) {
+        assertTrue({ "the composer opened from Home never took the photo (${app.eval("location.pathname")})" }, app.waitFor(15_000) {
             app.eval("window.__taken === 1 && location.pathname === '/composer/' && !!window.__testPage") == "true"
         })
         assertEquals("the box's tap wasn't a real one", "true", app.eval("window.__realTap"))
         app.pressBack()
-        assertTrue("Back didn't go back to Home (${app.eval("location.pathname")})", app.waitFor {
+        assertTrue({ "Back didn't go back to Home (${app.eval("location.pathname")})" }, app.waitFor {
             app.eval("location.pathname") == "\"/\""
         })
         assertFalse("Back left the app", app.isInBackground())

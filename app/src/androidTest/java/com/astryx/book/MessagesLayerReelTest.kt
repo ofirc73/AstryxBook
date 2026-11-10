@@ -104,7 +104,7 @@ class MessagesLayerReelTest {
         // reel lands on the page's first address rather than the chat's (a test page quirk; on
         // Facebook's pages it's the chat).
         assertSame("Back opened a new layer instead of the chat kept behind the reel", layer, app.layerWebView())
-        assertTrue("the layer came back somewhere other than Messages (${app.eval("location.pathname", layer)})", app.waitFor(15_000) {
+        assertTrue({ "the layer came back somewhere other than Messages (${app.eval("location.pathname", layer)})" }, app.waitFor(15_000) {
             app.eval("location.pathname", layer).contains("/messages/t/")
         })
         assertEquals("the chat's page was reloaded", "true", app.eval("!!window.__testPage", layer))
@@ -127,7 +127,7 @@ class MessagesLayerReelTest {
         assertTrue("Back on the post never showed the chat again", app.waitFor { app.layerOpen() })
         assertSame("Back opened a new layer instead of the chat kept behind the post", layer, app.layerWebView())
         assertEquals("the chat's page was reloaded", "true", app.eval("!!window.__testPage", layer))
-        assertTrue("the main view stayed on the post under the chat (${app.url(app.mainWebView())})", app.waitFor(10_000) {
+        assertTrue({ "the main view stayed on the post under the chat (${app.url(app.mainWebView())})" }, app.waitFor(10_000) {
             !app.url(app.mainWebView()).contains("/share/p/")
         })
     }
@@ -145,7 +145,7 @@ class MessagesLayerReelTest {
         assertTrue("Back on the reel never reopened the chat", app.waitFor { app.layerOpen() })
         // Otherwise each reel opened from a chat stayed under Messages, and once Messages closed
         // every Back showed one of them again.
-        assertTrue("the main view stayed on the reel under the chat (${app.url(app.mainWebView())})", app.waitFor(10_000) {
+        assertTrue({ "the main view stayed on the reel under the chat (${app.url(app.mainWebView())})" }, app.waitFor(10_000) {
             !app.url(app.mainWebView()).contains(REEL_ID)
         })
     }

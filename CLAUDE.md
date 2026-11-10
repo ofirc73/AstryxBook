@@ -63,6 +63,9 @@ user-visible change.
   free of repeats: reuse or generalize those, and the live checks' `shownJs(selector)` (elements
   with a size) and `MESSAGE_BOX_FIND_JS`, before writing a new snippet; check through the app's own
   behaviour (its log lines, its state) rather than re-reading Facebook's page where that's enough.
+  A wait's failure message that reads state goes in a lambda, `assertTrue({ "…${pageShape()}" },
+  app.waitFor { … })`: a plain string is built before the wait (issue 167 reported the page as it
+  was 30 s earlier).
 - App-level tests drive the real `MainActivity` through `AppHarness` (androidTest; one class per
   feature, listed in FORK_CHANGES' Testing). Test pages loaded with `loadPage` have no WebView
   history (`asHistory` gives them one, but a reload then fetches the real page). Loading a second

@@ -2,6 +2,7 @@ package com.astryx.book.ui.screens
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -89,7 +90,7 @@ class ShareMediaJsTest {
         h.files(Triple("0_a.jpg", "image/jpeg", 5))
         h.run("feed", "window.__astryxShareFromHome = true;")
 
-        assertTrue("the composer never got the files (${h.calls()})", h.waitFor("!!window.__got"))
+        assertTrue({ "the composer never got the files (${h.calls()})" }, h.waitFor("!!window.__got"))
         assertEquals("0_a.jpg:image/jpeg:5", h.eval("window.__got.join(',')").unquoted())
         assertEquals("/composer/", h.eval("location.pathname").unquoted())
         assertTrue(h.calls(), h.calls().startsWith("tap:feed all:feed"))

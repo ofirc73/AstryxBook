@@ -528,6 +528,13 @@ The fixed-page tests share one WebView setup, `PageFixture` (it replaced a copy 
 copies of the same "box for tapIn" script, 2026-10-28). The live checks find what's on screen with
 one `shownJs(selector)` and Messenger's message box with one `MESSAGE_BOX_FIND_JS`.
 
+A wait's failure message is written after the wait: `assertTrue({ "… ${pageShape()}" }, app.waitFor
+{ … })` (`AppHarness.kt`). A plain string is built before the wait runs, so it reported the page as it
+was when the wait started: 2026-11-10's daily run said the reel's address showed Home, the page the
+reel was still loading over, after 30 s (issue 167). All 75 such asserts in the tests and live checks
+were changed; the reel-of-a-story check also lists the main view's history, with where a redirect
+took a page. No live check of its own: it changes only what a failure says.
+
 Added test coverage for the rebrand and default-behavior changes: settings
 defaults, theme colors, app identity/strings, launcher icon, applicationId,
 none of which existed upstream.

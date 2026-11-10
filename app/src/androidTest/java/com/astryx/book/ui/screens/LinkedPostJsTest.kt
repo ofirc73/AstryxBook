@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,7 +31,7 @@ class LinkedPostJsTest {
     @Test
     fun theLinkedPost_isScrolledToTheTop_underTheBar() {
         load(feed(linkedAt = 2))
-        assertTrue("the linked post was never scrolled under the bar (${eval("document.getElementById('linked').getBoundingClientRect().top")})",
+        assertTrue({ "the linked post was never scrolled under the bar (${eval("document.getElementById('linked').getBoundingClientRect().top")})" },
             waitFor { eval("Math.round(document.getElementById('linked').getBoundingClientRect().top)") == "100" })
     }
 

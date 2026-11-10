@@ -367,13 +367,23 @@ class AppHarness {
         context.startActivity(toFront)
         if (waitFor { !isInPip() }) return
         context.startActivity(toFront)
-        assertTrue("never left PiP (the app was told it's in PiP: ${pipDelivered()})", waitFor(15_000) { !isInPip() })
+        assertTrue({ "never left PiP (the app was told it's in PiP: ${pipDelivered()})" }, waitFor(15_000) { !isInPip() })
     }
 }
 
 // How long a tap holds the screen; a long press holds it for LONG_PRESS_MS (Android takes 0.4 s or more).
 private const val TAP_MS = 80L
 const val LONG_PRESS_MS = 1000L
+
+/**
+ * assertTrue with a message written only when it fails: after the wait in [condition], so what
+ * it reports (a page's shape, the app's state) is what was there at the end of the wait. A plain
+ * string is built before the condition runs: 2026-11-10's daily run reported Home, the page the
+ * reel was still loading over, as what showed after 30 s.
+ */
+fun assertTrue(message: () -> String, condition: Boolean) {
+    if (!condition) throw AssertionError(message())
+}
 
 /**
  * Lets the app post notifications (Android 13+) without asking: asked, Android's dialog comes up
