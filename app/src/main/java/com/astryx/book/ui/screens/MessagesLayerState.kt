@@ -131,9 +131,16 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
 
     /**
      * The user's own stories, the new one first (a tap on "Your story is posted"); like a creator,
-     * a story still posting shows instead.
+     * a story still posting shows instead, and so does the creator holding a story share's next
+     * file (replaced by the stories page, it took the files left with it).
      */
-    fun showOwnStory() = openCreator(OWN_STORY_URL)
+    fun showOwnStory() {
+        if (url != null && ShareMediaQueue.pending(ShareTarget.STORY)) {
+            hidden = false
+            return
+        }
+        openCreator(OWN_STORY_URL)
+    }
 
     /** Shows the story creator kept out of sight (a tap on its notification). */
     fun showStory() {

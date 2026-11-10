@@ -198,6 +198,27 @@ class ShareMediaJsTest {
         assertTrue(h.waitFor("window.__calls.indexOf('finished:story') >= 0"))
     }
 
+    // The creator opened again for the share's next file (after a story posted) is waited for as long
+    // as it takes (window.__astryxShareNextStory, ShareEffects): over a slow link it came after the
+    // first file's limit, and the files left were dropped. A first file still has its limit.
+    @Test
+    fun story_aCreatorOpenedForTheNextFile_isWaitedFor_pastTheFirstFilesLimit() {
+        // The creator still loading (no file input yet), share_media.js run with [setup].
+        fun loading(setup: String = "") = Harness().apply {
+            load("https://www.facebook.com/stories/create", STORY_PAGE)
+            eval("document.getElementById('creator').innerHTML = ''")
+            files(Triple("1_b.jpg", "image/jpeg", 6))
+            run("story", setup)
+        }
+        val next = loading("window.__astryxShareNextStory = true;")
+        Thread.sleep(2500)
+        assertEquals("the share gave up on the creator", "", next.calls())
+        next.eval("window.__resetCreator()")
+        assertTrue("the next file never arrived", next.waitFor("window.__got.length === 1"))
+
+        assertTrue(loading().waitFor("window.__calls.indexOf('failed:story:noComposer') >= 0"))
+    }
+
     @Test
     fun story_closesAfterTheLastItem_onceTheCreatorIsChoosingAgain() {
         val h = Harness()

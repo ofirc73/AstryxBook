@@ -37,6 +37,8 @@ internal fun shareMediaScript(
     else resources.getString(R.string.share_media_adding_one)
     return "window.__astryxShareTarget = '${target.key}'; window.__astryxShareId = ${ShareMediaQueue.id};\n" +
         (if (fromHome) "window.__astryxShareFromHome = true;\n" else "") +
+        // The creator opened again for a story share's next file: it's waited for as long as it takes.
+        (if (target == ShareTarget.STORY && ShareMediaQueue.started(target)) "window.__astryxShareNextStory = true;\n" else "") +
         "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
 }
 
