@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -54,10 +55,10 @@ class FeedPostingJsTest {
 
     private fun calls(): String = page.pageCalls()
 
-    private fun awaitPosting() = assertTrue("posting never reported (${calls()})", page.waitFor { calls() == "\"feedPosting posting\"" })
+    private fun awaitPosting() = assertTrue({ "posting never reported (${calls()})" }, page.waitFor { calls() == "\"feedPosting posting\"" })
 
     private fun awaitPosted() =
-        assertTrue("posted never reported (${calls()})", page.waitFor { calls() == "\"feedPosting posting, feedPosting posted\"" })
+        assertTrue({ "posted never reported (${calls()})" }, page.waitFor { calls() == "\"feedPosting posting, feedPosting posted\"" })
 
     @Test
     fun aPost_isPosting_untilFacebookSaysPosted() {
@@ -120,7 +121,7 @@ class FeedPostingJsTest {
         Thread.sleep(SETTLE_MS + CHECK_MS)
         assertEquals("ended with bytes still to go", "\"feedPosting posting\"", calls())
         page.eval("window.__socket.bufferedAmount = 0; 1")
-        assertTrue("never ended (${calls()})", page.waitFor(SETTLE_MS + 3000) { calls() == "\"feedPosting posting, feedPosting ended\"" })
+        assertTrue({ "never ended (${calls()})" }, page.waitFor(SETTLE_MS + 3000) { calls() == "\"feedPosting posting, feedPosting ended\"" })
     }
 
     @Test
@@ -161,7 +162,7 @@ class FeedPostingJsTest {
         // Each piece goes out before the next (the socket empties).
         repeat(4) { sending(30_000); page.eval("window.__socket.bufferedAmount = 0; 1"); Thread.sleep(500) }
         assertEquals("ended while the photo went up", "\"feedPosting posting\"", calls())
-        assertTrue("never ended (${calls()})", page.waitFor { calls() == "\"feedPosting posting, feedPosting ended\"" })
+        assertTrue({ "never ended (${calls()})" }, page.waitFor { calls() == "\"feedPosting posting, feedPosting ended\"" })
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -46,7 +47,7 @@ class ChatBoxJsTest {
         open(CHAT_PATH)
         type("see you at 8")
         open(CHAT_PATH, n = 2)
-        assertTrue("the unsent message wasn't put back (box: ${box()})", page.waitFor { box() == "see you at 8" })
+        assertTrue({ "the unsent message wasn't put back (box: ${box()})" }, page.waitFor { box() == "see you at 8" })
         Thread.sleep(500)
         assertEquals("the message went in more than once", "see you at 8", box())
     }

@@ -73,14 +73,14 @@ class SendAsMessageTest {
     // The layer opened for the post, and a chat opened there (a test page with Messenger's message
     // box, tapped as a user's tap on it would) gets the post's link in the box.
     private fun assertTheChatGetsThePost() {
-        assertTrue("the Messages layer never opened for the post (${state()})", app.waitFor(20_000) {
+        assertTrue({ "the Messages layer never opened for the post (${state()})" }, app.waitFor(20_000) {
             app.layerWebView() != null && app.layerOpen()
         })
         val layer = app.layerWebView()!!
         app.loadPage(CHAT_URL, CHAT, layer)
         assertTrue("the chat's message box couldn't be tapped", app.tapOn(layer, "document.getElementById('box')"))
-        assertTrue("the chat's message box never got the post's link (${state()}; box: " +
-            "${app.eval("document.getElementById('box').innerText", layer)})", app.waitFor(15_000) {
+        assertTrue({ "the chat's message box never got the post's link (${state()}; box: " +
+            "${app.eval("document.getElementById('box').innerText", layer)})" }, app.waitFor(15_000) {
             app.eval("document.getElementById('box').innerText.indexOf('$POST') >= 0", layer) == "true"
         })
         assertTrue("the feed was left", app.eval("!!window.__testPage", app.mainWebView()) == "true")
@@ -100,15 +100,15 @@ class SendAsMessageTest {
     fun aBoxThatComesLate_andLosesTheFirstInsert_getsTheLinkOnce() {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         tapSendAsMessage()
-        assertTrue("the Messages layer never opened for the post (${state()})", app.waitFor(20_000) {
+        assertTrue({ "the Messages layer never opened for the post (${state()})" }, app.waitFor(20_000) {
             app.layerWebView() != null && app.layerOpen()
         })
         val layer = app.layerWebView()!!
         app.loadPage(CHAT_URL, LATE_CHAT, layer)
         assertTrue("the chat couldn't be tapped", app.tapOn(layer, "document.getElementById('pane')"))
         val text = "document.getElementById('box') ? document.getElementById('box').innerText : ''"
-        assertTrue("the late box never got the post's link (box: ${app.eval(text, layer)}, " +
-            "first insert lost: ${app.eval("!!window.__lost", layer)})", app.waitFor(10_000) {
+        assertTrue({ "the late box never got the post's link (box: ${app.eval(text, layer)}, " +
+            "first insert lost: ${app.eval("!!window.__lost", layer)})" }, app.waitFor(10_000) {
             app.eval("($text).indexOf('$POST') >= 0", layer) == "true"
         })
         assertTrue("the box never lost its first insert: the test didn't test the retry", app.eval("!!window.__lost", layer) == "true")
