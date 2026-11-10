@@ -11,7 +11,7 @@
 // Never restyles an element that holds a video: Facebook's reels controller watches the
 // video's ancestors and pauses the reel (see PIP_FOCUS_MODE_JS).
 (function() {
-  if (window.__astryxTextWrap || !window.visualViewport || !document.body) return;
+  if (window.__astryxTextWrap || !window.__astryxServerLines || !window.visualViewport || !document.body) return;
 
   var vv = window.visualViewport;
   var ATTR = 'data-astryx-wrap';      // marks a wrapped block
@@ -27,7 +27,6 @@
   var changed = [];                   // elements and text nodes changed, to put back
   var sized = [];                     // boxes given a taller height
   var tapped = null;                  // where the view was on a wrapped block the user tapped
-  var canvas = null;
 
   function blockOf(node) {
     var el = node.parentElement;
@@ -135,62 +134,16 @@
     sized = grown;
   }
 
-  function textWidth(text) {
-    return text ? canvas.measureText(text).width : 0;
-  }
-
-  // The widest a line in the block could have been when Facebook's server broke the lines:
-  // the block's width, or for a block sized to its text (a comment bubble) the box around it
-  // less the bubble's margin, taken as the same on both sides.
-  function lineLimit(block) {
-    var r = block.getBoundingClientRect();
-    var fromRight = getComputedStyle(block.parentElement).direction === 'rtl';
-    var limit = r.width;
-    var el = block.parentElement;
-    for (var i = 0; el && el !== document.body && i < 10; i++, el = el.parentElement) {
-      var a = el.getBoundingClientRect();
-      var inset = fromRight ? a.right - r.right : r.left - a.left;
-      if (inset >= 0) limit = Math.max(limit, a.width - 2 * inset);
-      if (a.width >= window.innerWidth - 1) break;
-    }
-    return limit;
-  }
-
-  // Turns the server's line breaks into spaces: a break where the line plus the next word
-  // wouldn't have fit. Breaks the author typed (before an empty line, after a short line,
-  // after a space) stay.
+  // The server's line breaks turned back into spaces (server_lines.js).
   function joinLines(block) {
     if (block.textContent.indexOf('\n') < 0) return;
-    if (!canvas) canvas = document.createElement('canvas').getContext('2d');
-    var limit = lineLimit(block);
-    var nodes = [];
-    var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null, false);
-    var node;
-    while ((node = walker.nextNode())) nodes.push(node);
-    var line = 0;      // width of the current line so far
-    var tail = '';     // its last character
-    for (var i = 0; i < nodes.length; i++) {
-      var style = getComputedStyle(nodes[i].parentElement);
-      canvas.font = style.font || (style.fontStyle + ' ' + style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily);
-      var parts = nodes[i].nodeValue.split('\n');
-      var text = parts[0];
-      line += textWidth(parts[0]);
-      if (parts[0]) tail = parts[0].charAt(parts[0].length - 1);
-      for (var j = 1; j < parts.length; j++) {
-        var after = parts[j];
-        for (var k = i + 1; j === parts.length - 1 && !/\S/.test(after) && k < nodes.length; k++) {
-          after += nodes[k].nodeValue;
-        }
-        var word = (after.match(/^[^\s]+/) || [''])[0];
-        var soft = word && !/\s/.test(tail) && line + textWidth(' ' + word) > limit + 1;
-        text += (soft ? ' ' : '\n') + parts[j];
-        line = textWidth(parts[j]);
-        tail = parts[j] ? parts[j].charAt(parts[j].length - 1) : soft ? tail : '';
-      }
-      if (text !== nodes[i].nodeValue) {
-        nodes[i].__astryxWrapText = { was: nodes[i].nodeValue, now: text };
-        nodes[i].nodeValue = text;
-        changed.push(nodes[i]);
+    var joined = window.__astryxServerLines.join(block);
+    for (var i = 0; i < joined.length; i++) {
+      var node = joined[i].node;
+      if (joined[i].text !== node.nodeValue) {
+        node.__astryxWrapText = { was: node.nodeValue, now: joined[i].text };
+        node.nodeValue = joined[i].text;
+        changed.push(node);
       }
     }
   }

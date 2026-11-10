@@ -31,6 +31,8 @@ class PageBridges(
     // feed_posting.js: a post started posting (null), Facebook said it's posted (POSTED), or it
     // ended unseen (INTERRUPTED). Main view, WebView 83+ only.
     val feedPosting: ((ended: Posting.Outcome?) -> Unit)? = null,
+    // copy_post_text.js: a post's text, held down, to put on the clipboard. Main view only.
+    val copyText: ((String) -> Unit)? = null,
 )
 
 /**
@@ -108,9 +110,17 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
                 else -> return false
             }
         }
+        "copyText" -> {
+            val copyText = bridges.copyText ?: return false
+            val text = msg.optString("text")
+            if (text.isBlank() || text.length > MAX_COPY_TEXT_LENGTH) return false
+            copyText(text)
+        }
         else -> return false
     }
     return true
 }
 
 private const val MAX_SHARE_URL_LENGTH = 2048
+// Facebook's own limit on a post's text is 63,206 characters.
+private const val MAX_COPY_TEXT_LENGTH = 70_000

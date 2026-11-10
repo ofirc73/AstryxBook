@@ -737,6 +737,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   public NASA post with three photos since memories are rare.
 - `theFeed_isLaidOutAsTextWrapExpects`: feed text still `white-space: pre` in boxes of a fixed
   inline height, as `text_wrap.js` needs (`TextWrapJsTest`).
+- `holdingAPostsText_copiesIt_butNotItsName`: a real long press on a feed post's body copying its
+  text (read from the clipboard), and one on the post's name copying nothing; the body found by
+  `copy_post_text.js`'s own `isPostBody` (a post's first text as wide as the post, before its
+  photos), so Facebook moving its posts' text fails it (`CopyPostTextJsTest`). The comment menu
+  winning over it and "See more" opened first were tried on the emulator by hand (2026-11-10).
 - `pageZoom_laysTheFeedOutForTheZoomedWidth`: Page zoom at 130% giving the zoomed viewport, a `vpd`
   cookie with the zoomed width and a feed laid out to fit it (`page_zoom.js`, `PageZoomJsTest`). A
   PiP-narrow host-only `vpd` beside it is noted.
@@ -1247,6 +1252,13 @@ leaving the app while a Facebook video or Reel is playing.
   the desktop site lays itself out in the browser and keeps it across loads (checked: 130%
   makes its text 1.3 times as big after a reload).
   Covered by `PageZoomJsTest` and `TextZoomTest`.
+- **Copy a post's text:** hold a finger on a post's text to copy it, as in the Facebook app (with a
+  buzz; Android 13 and later show what was copied, older ones a "Text copied" note). The mobile site
+  doesn't let its text be selected. Only the post's own text is copied, whole, its lines as the
+  author wrote them; a post cut short at "See more" is opened first. Holding a name, a link card
+  or a comment does what it did before (a comment's own menu has Copy). `copy_post_text.js` (main
+  view), its lines joined by `server_lines.js`, shared with *Wrap text when zoomed*. Covered by
+  `CopyPostTextJsTest` and `PageBridgeTest`.
 - **Launcher shortcuts:** long-press the app icon for Messages, Notifications and
   Marketplace. Messages opens where the Messages tab would (the Messages layer when
   *Messages in desktop mode* is on); this also applies to Messages links from other apps,
@@ -1281,7 +1293,8 @@ leaving the app while a Facebook video or Reel is playing.
   the screen is kept in place while blocks above it grow taller.
 - Facebook's mobile site lays text out on its server: line breaks are already in the text
   (`white-space: pre`) and every box around it has a fixed height. Wrapped text gets
-  `pre-wrap`, the server's line breaks become spaces again (the author's own breaks stay),
+  `pre-wrap`, the server's line breaks become spaces again (the author's own breaks stay;
+  `server_lines.js`, which Copy a post's text shares),
   and the boxes around it grow by as much as the text did. Hebrew text in an English page
   moves to the right side of its box, where the view lines up with it.
 - Android's WebView has no built-in equivalent (the old narrow-columns layout stopped

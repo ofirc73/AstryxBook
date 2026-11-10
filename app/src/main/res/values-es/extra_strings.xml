@@ -119,4 +119,6 @@
     <string name="post_posting">Publicando tu publicación…</string>
     <string name="post_posted">Tu publicación se publicó</string>
     <string name="post_post_interrupted">Tu publicación no se publicó: la app se cerró mientras se publicaba.</string>
+    <string name="post_text_clip_label">Texto de la publicación</string>
+    <string name="post_text_copied">Texto copiado</string>
 </resources>

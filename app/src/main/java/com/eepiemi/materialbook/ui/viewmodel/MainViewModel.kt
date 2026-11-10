@@ -43,6 +43,9 @@ class MainViewModel(
             // Before reel_comments_audio.js, which uses it, as does the lock-screen hand-back.
             Script(true, R.raw.video_catch_up),
             Script(true, R.raw.reel_comments_audio),
+            // Before text_wrap.js and copy_post_text.js, which use it.
+            Script(true, R.raw.server_lines),
+            Script(true, R.raw.copy_post_text),
             Script(settings.messagesDesktop.value, R.raw.messages_tab),
             Script(settings.removeAds.value, R.raw.adblock),
             Script(settings.enableDownloadContent.value, R.raw.download_content),

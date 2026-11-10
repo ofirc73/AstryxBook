@@ -293,11 +293,19 @@ user-visible change.
   blocks to the visual viewport after a pinch settles. m.facebook.com is laid out on the
   server: text is `white-space: pre` with the line breaks in the text, and every box has a
   fixed inline `height` (overlays use negative margins as tall as what they cover, so
-  `height: auto` breaks them). The script joins the server's breaks (canvas-measured),
+  `height: auto` breaks them). The script joins the server's breaks (canvas-measured,
+  `server_lines.js`, which `copy_post_text.js` shares),
   switches to `pre-wrap` and adds each block's growth to the fixed heights around it, up to
   the first content-sized box. A test WebView can't pinch, so `TextWrapJsTest` fakes
   `visualViewport`; on the emulator, CDP `Input.synthesizePinchGesture` on the WebView target
   does a real pinch (its x/y must be inside the visual viewport, in CSS px).
+- A long press on a post's body copies it (`copy_post_text.js`, main view; AstryxPage `copyText`).
+  m.facebook.com's body is `user-select: none` and does nothing on a held post; a comment's long
+  press is Facebook's (its menu, on a `touchend` it prevents), which the script leaves alone. A
+  post is a row of a `data-type="vscroller"` list; its body the row's first text block as wide as
+  the post, before its media (`isPostBody`). A real long press over DevTools:
+  `Input.synthesizeTapGesture` with a `duration` (`dispatchTouchEvent` gives a plain tap); in tests
+  `AppHarness.tapOn(…, holdMs = LONG_PRESS_MS)`.
 - m.facebook.com cancels WebView's `textZoom` on every load (it divides its font-size variables
   by it). *Page zoom* (`page_zoom.js`, document-start, main view) zooms whole pages instead: it
   rewrites the viewport `<meta>`s and Facebook's `vpd` cookie (the viewport its server lays pages

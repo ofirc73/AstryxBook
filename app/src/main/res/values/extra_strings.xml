@@ -127,4 +127,7 @@
     <string name="post_posting">Posting your post…</string>
     <string name="post_posted">Your post is posted</string>
     <string name="post_post_interrupted">Your post wasn\'t posted: the app was closed while posting it.</string>
+    <!-- A post's text copied by a long press on it (copy_post_text.js). -->
+    <string name="post_text_clip_label">Post text</string>
+    <string name="post_text_copied">Text copied</string>
 </resources>

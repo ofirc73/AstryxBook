@@ -43,6 +43,8 @@ class ShareIntoFacebookTest {
     fun setUp() {
         File(app.context.filesDir, "datastore").deleteRecursively()
         ShareMediaQueue.clear()
+        // Posting asks for it, and Android's dialog over the app hid the posting bar (CI).
+        allowNotifications()
     }
 
     @After

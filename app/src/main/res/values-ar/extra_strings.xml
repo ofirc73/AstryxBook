@@ -132,4 +132,6 @@
     <string name="post_posting">جارٍ نشر منشورك…</string>
     <string name="post_posted">تم نشر منشورك</string>
     <string name="post_post_interrupted">لم يُنشر منشورك: أُغلق التطبيق أثناء نشره.</string>
+    <string name="post_text_clip_label">نص المنشور</string>
+    <string name="post_text_copied">تم نسخ النص</string>
 </resources>

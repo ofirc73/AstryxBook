@@ -1,5 +1,7 @@
 package com.astryx.book
 import android.app.Instrumentation
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
@@ -1385,6 +1387,38 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun holdingAPostsText_copiesIt_butNotItsName() {
+        openFeed()
+        val clipboard = app.context.getSystemService(ClipboardManager::class.java)
+        fun clip() = app.onActivity { clipboard.primaryClip?.getItemAt(0)?.text?.toString() }
+        app.onActivity { clipboard.setPrimaryClip(ClipData.newPlainText("canary", CLIP_MARK)) }
+        // A post's body by copy_post_text.js's own rule, and the name above it: its post's first text.
+        val body = "[].filter.call(document.querySelectorAll('[data-mcomponent=\"TextArea\"]'), __astryxCopyPostText.isPostBody)[0]"
+        assertTrue("no post's text on the feed counts as its body (copy_post_text.js isPostBody: a post's first text " +
+            "as wide as the post, before its photos; ${pageShape()})", app.waitFor(30_000) { eval("!!($body)") == "true" })
+        // Marked again if the page was replaced meanwhile (Facebook reloads Home a moment after the app starts).
+        fun markPost() = eval(
+            "(function (b) { if (!b) return false; var row = b;" +
+                " while (row.parentElement.getAttribute('data-type') !== 'vscroller') row = row.parentElement;" +
+                " window.__canaryBody = b; window.__canaryName = [].filter.call(row.querySelectorAll('[data-mcomponent=\"TextArea\"]')," +
+                " function (t) { return /\\S/.test(t.textContent); })[0];" +
+                " window.__canaryStart = b.textContent.replace(/\\s+/g, ' ').trim().slice(0, 15);" +
+                " return __canaryName !== b; })($body)"
+        ) == "true"
+        assertTrue("the post's body is its first text: the name above it isn't text any more (${pageShape()})",
+            app.waitFor(10_000) { markPost() })
+        app.tapOn(app.mainWebView(), "window.__canaryName", holdMs = LONG_PRESS_MS)
+        Thread.sleep(2000)
+        assertEquals("holding a post's name copied it", CLIP_MARK, clip())
+        if (eval("!!window.__canaryBody") != "true") markPost()
+        val start = org.json.JSONArray("[${eval("window.__canaryStart")}]").getString(0)
+        app.tapOn(app.mainWebView(), "window.__canaryBody", holdMs = LONG_PRESS_MS)
+        assertTrue("holding a post's text didn't copy it (copy_post_text.js; the clipboard has \"${clip()}\")", app.waitFor(10_000) {
+            clip()?.replace(Regex("\\s+"), " ")?.startsWith(start) == true
+        })
+    }
+
+    @Test
     fun theFeed_showsNoGetTheAppSheet() {
         // Facebook's "Facebook is better on the app" sheet comes up over the feed now and then;
         // scripts.js (dismissAppPrompt) presses it away.
@@ -1696,6 +1730,9 @@ class LiveFacebookCanaryTest {
         // Photos shared at once to Feed and to a group: the feed's composer takes them together, a
         // group's first one alone and the others one by one (share_media.js addOneByOne).
         private const val SHARED_PHOTOS = 3
+
+        // On the clipboard before a long press that shouldn't copy anything.
+        private const val CLIP_MARK = "astryx canary clipboard mark"
 
         // A public post of NASA's with three photos, and its second photo (tiles count from 0).
         private const val PUBLIC_POST = "1658876782274358"

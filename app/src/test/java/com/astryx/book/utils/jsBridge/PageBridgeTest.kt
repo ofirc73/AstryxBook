@@ -102,4 +102,17 @@ class PageBridgeTest {
         // The Messages layer has no feed.
         assertFalse(dispatchPageMessage("""{"call":"feedPosting","state":"posting"}""", bridges))
     }
+
+    @Test
+    fun copyText_passesOnAPostsText() {
+        val copied = mutableListOf<String>()
+        val main = PageBridges(copyText = { copied += it })
+        assertTrue(dispatchPageMessage("""{"call":"copyText","text":"Float into the weekend\n\nLike a space jelly"}""", main))
+        assertFalse(dispatchPageMessage("""{"call":"copyText","text":"  "}""", main))
+        assertFalse(dispatchPageMessage("""{"call":"copyText"}""", main))
+        assertFalse(dispatchPageMessage("""{"call":"copyText","text":"${"a".repeat(70_001)}"}""", main))
+        assertEquals(listOf("Float into the weekend\n\nLike a space jelly"), copied)
+        // The Messages layer's pages can be selected: it doesn't take it.
+        assertFalse(dispatchPageMessage("""{"call":"copyText","text":"Float into the weekend"}""", bridges))
+    }
 }
