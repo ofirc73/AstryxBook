@@ -1168,13 +1168,71 @@ class LiveFacebookCanaryTest {
         val took = System.currentTimeMillis() - tappedAt
         if (placed && took > 2000) note("the post's link took ${took / 1000.0} s to reach the chat's message box")
         // Never sent: emptied whatever happened.
-        shell("input keycombination 113 29")
-        shell("input keyevent 67")
+        emptyMessageBox()
         assertTrue("the chat's message box never got the post's link (put_link_in_chat.js; box: " +
             "${app.eval(MESSAGE_BOX_TEXT_JS, layer).replace(Regex("\\d{6,}"), "N")})", placed)
         assertTrue("the post's link was left in the chat's message box", app.waitFor(5_000) {
             app.eval("($MESSAGE_BOX_TEXT_JS).trim() === ''", layer) == "true"
         })
+    }
+
+    @Test
+    fun aChatsUnsentMessage_isKeptOverBackAndReturn() {
+        // A message typed and not sent stays in the chat's box when the user goes back (to the chat
+        // list, or out of Messages) and comes back to the chat. Nothing is sent: typed without Enter,
+        // and the box is emptied again.
+        val chat = testChat()
+        var layer = openChatInTheLayer(chat)
+        // The layer's page takes the focus as it loads (for chat_box.js): a chat opened without a
+        // kept message doesn't bring the keyboard up by itself.
+        Thread.sleep(2000)
+        assertFalse("the keyboard came up as the chat opened, untapped", app.keyboardShown())
+        assertTrue("the chat's message box couldn't be tapped", app.tapOn(layer, MESSAGE_BOX_FIND_JS))
+        try {
+            // Typed once the box has the focus (typed right after the tap, its first letters were lost).
+            assertTrue("the tapped message box never took the focus", app.waitFor(5_000) {
+                app.eval("document.activeElement === $MESSAGE_BOX_FIND_JS", layer) == "true"
+            })
+            Thread.sleep(500)
+            shell("input text $DRAFT")
+            assertTrue("the typed text never reached the chat's message box (box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})", app.waitFor(10_000) { boxHoldsDraft(layer) })
+            backToChatList(layer, chat)
+            assertTrue("the chat never showed again from the list (${layerShape(layer)})",
+                app.waitFor(30_000) { app.eval(chatShownJs(chat), layer) == "true" })
+            assertTrue("the unsent message was gone after Back to the chat list and back to the chat " +
+                "(box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})", app.waitFor(10_000) { boxHoldsDraft(layer) })
+            backToChatList(layer, chat)
+            app.pressBack()
+            assertTrue("Back on the chat list didn't close the Messages layer", app.waitFor(15_000) { !app.layerOpen() })
+            layer = openChatInTheLayer(chat)
+            assertTrue("the unsent message was gone after leaving Messages and opening the chat again " +
+                "(${draftState(layer)})", app.waitFor(10_000) { boxHoldsDraft(layer) })
+        } finally {
+            app.layerWebView()?.let { box -> if (app.tapOn(box, MESSAGE_BOX_FIND_JS)) emptyMessageBox() }
+        }
+    }
+
+    // Back from the chat to its list, as the user does: the first Back may only close the keyboard.
+    private fun backToChatList(layer: WebView, chat: String) {
+        app.pressBack()
+        if (app.waitFor(3_000) { app.eval(chatListShownJs(chat), layer) == "true" }) return
+        app.pressBack()
+        assertTrue("Back didn't show the chat list (${layerShape(layer)})",
+            app.waitFor(15_000) { app.eval(chatListShownJs(chat), layer) == "true" })
+    }
+
+    // For a failure: the box, what chat_box.js kept, and whether the page has the focus it needs.
+    private fun draftState(layer: WebView) = app.eval(
+        "'box: ' + JSON.stringify($MESSAGE_BOX_TEXT_JS) + ', kept: ' + localStorage.getItem('astryxChatDrafts')" +
+            " + ', focus: ' + document.hasFocus() + ', chat_box.js: ' + !!window.__astryxChatBox", layer
+    ).replace(Regex("\\d{6,}"), "N")
+
+    private fun boxHoldsDraft(layer: WebView) = app.eval("($MESSAGE_BOX_TEXT_JS).indexOf('$DRAFT') >= 0", layer) == "true"
+
+    // Empties the focused message box (Ctrl+A, Delete): never sent.
+    private fun emptyMessageBox() {
+        shell("input keycombination 113 29")
+        shell("input keyevent 67")
     }
 
     @Test
@@ -1844,6 +1902,8 @@ class LiveFacebookCanaryTest {
         // The open chat's message box (Messenger's Lexical editor), for tapOn and the checks that read
         // it; undefined on the chat list, which keeps a box with no size.
         private val MESSAGE_BOX_FIND_JS = shownJs("[role=textbox][contenteditable=true]") + "[0]"
+        // What aChatsUnsentMessage_isKeptOverBackAndReturn types (one word: input text).
+        private const val DRAFT = "astryxdraftcheck"
         private val MESSAGE_BOX_TEXT_JS = "(function () { var e = $MESSAGE_BOX_FIND_JS; return e ? e.innerText : ''; })()"
         // The comment button of the reel on screen (the test account's Facebook is in English).
         private val REEL_COMMENT_BUTTON_JS = shownJs("[role=button][aria-label^=\"Comment on reel\"]") +

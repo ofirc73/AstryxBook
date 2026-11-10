@@ -603,6 +603,9 @@ on their own can't:
   time when the first request left the window in PiP on a busy CI emulator (no live check: that's
   the test's own step, not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
+- `ChatBoxJsTest`: a chat's unsent message back in its box on a new page, once; a sent one (Enter
+  empties the box without an input event) not; another chat's box, and a box already holding text,
+  left as they are; one kept over a month dropped.
 - `SendAsMessageTest`: a post's Send as a message (Facebook's Messenger share link) opening the
   Messages layer, and a chat opened there (a test page with Messenger's message box, tapped) getting
   the post's link in its box; with Messages in desktop mode off, after desktop mode is picked in the
@@ -619,6 +622,10 @@ on their own can't:
   chat (`-e fbChat`, local only), the chat picked from the list gets the link in Messenger's real
   message box (a note when it takes over 2 s; about 0.4 s on the emulator), which is then emptied:
   nothing is sent.
+- `aChatsUnsentMessage_isKeptOverBackAndReturn`: in the test chat (`-e fbChat`, local only), text
+  typed for real into Messenger's box (never sent; emptied after) still there after Back to the chat
+  list and back into the chat (Messenger's own), and after Back out of Messages and the chat opened
+  again (`chat_box.js`); the keyboard doesn't come up by itself as a chat opens (`ChatBoxJsTest`).
 - `ShareIntoFacebookTest`: each share target (Feed, several photos to Feed, Story, Reels,
   Groups, profile picture) taking the files in and opening its page in the right view; after Share
   to story, Facebook's stories page opening your stories (Back closes the story screen), closing
@@ -887,6 +894,16 @@ separate layer was added on top.
   `SendAsMessageTest`. The sheet's other items (Share to
   Facebook, a friend's profile, a group, Copy link, Share via…) were checked on the emulator
   (2026-10-27) and need nothing from the app beyond what it already does.
+- **A message typed and not sent stays in its chat**: Messenger keeps what's typed in a chat's box
+  only while its page lives. Back to the chat list and into the chat again kept it, but Back on the
+  chat list closes the layer, and the chat opened again had an empty box (the user's report,
+  2026-11-10; reproduced on the emulator). `chat_box.js` (a layer page script) keeps each chat's
+  unsent text in the layer's storage (0.3 s after a change, a key or a click, so Enter and Send,
+  which empty the box without an input event, drop it) and puts it back as that chat's box next
+  shows empty, for 30 days. The layer's WebView takes the focus as each page loads, as a tap would:
+  the browser's insertText goes only into a focused page (the keyboard doesn't come up by it).
+  `put_link_in_chat.js` now finds and types into the box through `chat_box.js`. Covered by
+  `ChatBoxJsTest` and `SendAsMessageTest`.
 - Facebook pages opened from a chat (a profile; posts since v1.35.17 open like reels) open in the layer too, on the desktop
   site, which opens profiles without pushing the Facebook app; Back returns to the chat.
   Handing them to the mobile view instead lost the feed position and broke on Facebook's mobile
