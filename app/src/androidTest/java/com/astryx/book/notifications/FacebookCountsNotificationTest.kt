@@ -1,11 +1,10 @@
 package com.astryx.book.notifications
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
 import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.astryx.book.allowNotifications
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -52,10 +51,7 @@ class FacebookCountsNotificationTest {
 
     @Before
     fun setUp() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            InstrumentationRegistry.getInstrumentation().uiAutomation
-                .grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
-        }
+        allowNotifications()
         FacebookCountsWorker.schedule(context, enabled = false)
         FacebookCounter.entries.forEach { number(it, null) }
     }

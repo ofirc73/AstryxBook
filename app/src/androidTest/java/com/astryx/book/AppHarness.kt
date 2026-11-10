@@ -374,3 +374,15 @@ class AppHarness {
 // How long a tap holds the screen; a long press holds it for LONG_PRESS_MS (Android takes 0.4 s or more).
 private const val TAP_MS = 80L
 const val LONG_PRESS_MS = 1000L
+
+/**
+ * Lets the app post notifications (Android 13+) without asking: asked, Android's dialog comes up
+ * over the app the first time something posts (PostingService) and hides the app's own screen.
+ */
+fun allowNotifications() {
+    if (android.os.Build.VERSION.SDK_INT < 33) return
+    val instrumentation = InstrumentationRegistry.getInstrumentation()
+    instrumentation.uiAutomation.grantRuntimePermission(
+        instrumentation.targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS
+    )
+}
