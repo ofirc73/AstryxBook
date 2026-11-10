@@ -67,6 +67,15 @@
     };
 })();
 
+// The elements matching selector in root: the document, or an element and what's in it. For
+// MutationObservers that look again only at what changed (material_you.js, amoled_black.js), not
+// at the whole page on every change.
+window.astryxWithin = (root, selector) => {
+    const found = Array.from(root.querySelectorAll(selector));
+    if (root.matches?.(selector)) found.unshift(root);
+    return found;
+};
+
 
 
 

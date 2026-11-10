@@ -468,6 +468,15 @@ rewritten to the new one, keeping its schedule.
   mean Facebook can't be reached (no connection, a name that doesn't resolve, a refused connection,
   a timeout) show the dialog now (`isConnectionError`, `PageErrorsTest`; the live checks, which
   failed on it, are its live check).
+- Battery: with **Material You** or **AMOLED Black** on, the page kept the CPU busy. On every change
+  to the page (a new post, a video's timeline, a counter), `material_you.js` and `amoled_black.js`
+  went over every styled element of the whole page again: in desktop Chromium, on a mock feed that
+  changed ten times a second, about 300 ms (Material You) and 55 ms (AMOLED) of CPU every second, a
+  phone's CPU several times that. They now look only at what changed (the elements added, with what's
+  in them, and those restyled; `astryxWithin` in `scripts.js`): about 1 ms and 2 ms. Both on, with
+  every other page script, went from about 330 ms a second to 15. AMOLED Black also darkens a post
+  as it comes now: a box added without a style of its own was skipped until the next change to the
+  page. Covered by `PageColorsJsTest`.
 
 ## CI/CD
 
@@ -820,7 +829,7 @@ test account's loads on 2026-10-24 or its reel loads on 2026-10-30, so there was
 desktop player's), pinch-zooming a chat photo (`MessagesLayerZoomTest`: a test WebView can't
 pinch) and a story opened from a chat (`LayerStoryViewerJsTest`: the test account's story tray is
 empty, and the checks never post one). AMOLED black and Material You (`amoled_black.js`,
-`material_you.js`) aren't checked live either: they recolour Facebook's dark and blue styles, and
+`material_you.js`, `PageColorsJsTest`) aren't checked live either: they recolour Facebook's dark and blue styles, and
 Facebook picks its dark theme on its server (the emulator's dark mode left the test account's
 pages light, 2026-10-30). `hide_groups.js` (group suggestions on search and under posts) and
 `copy_to_clipboard.js` (the desktop viewers) have no live check yet. The check needs a logged-in device, so it runs only with `-e canary true`; the CI checks skip it. The daily
