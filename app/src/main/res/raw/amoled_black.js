@@ -11,8 +11,10 @@
 
   const processedStyles = new WeakSet();
 
-  function processStyles() {
-    document.querySelectorAll('style').forEach(style => {
+  const within = window.astryxWithin; // scripts.js
+
+  function processStyles(root) {
+    within(root, 'style').forEach(style => {
       if (processedStyles.has(style)) return;
       processedStyles.add(style);
 
@@ -51,7 +53,7 @@
       }
     });
 
-    document.querySelectorAll('[style*="background-color"]').forEach(el => {
+    within(root, '[style*="background-color"]').forEach(el => {
       const style = el.getAttribute('style')?.replace(backgroundColorRegex, (m, g, r, g2, b, hex) => {
         if (['#18191a', '#242526', 'rgba(36,37,38,1.0)'].includes(g)) return 'background-color:#000000;';
         if (r && g2 && b && isLightGray(+r, +g2, +b) || g === 'rgb(37, 39, 40)') return 'background-color:#121212;';
@@ -64,7 +66,7 @@
     });
 
     // Login-specific AB
-    document.querySelectorAll('[data-bloks-name="bk.components.TextSpan"][style*="color"], [class*="wbloks"][style*="color"]').forEach(el => {
+    within(root, '[data-bloks-name="bk.components.TextSpan"][style*="color"], [class*="wbloks"][style*="color"]').forEach(el => {
       const style = el.getAttribute('style')?.replace(colorRegex, (m, g, hex) => {
         if (g === 'rgb(17, 17, 18)') return 'color:#dfdfdf; caret-color:#dfdfdf;';
         if (hex === '111112') return 'color:#dfdfdf;'; // hacky communication between material_you.js and this file
@@ -73,7 +75,7 @@
       if (style !== el.getAttribute('style')) el.setAttribute('style', style);
     });
 
-    document.querySelectorAll('[class*="wbloks"][style*="background"]').forEach(el => {
+    within(root, '[class*="wbloks"][style*="background"]').forEach(el => {
       const style1 = el.getAttribute('style')?.replace(backgroundColorRegex, (m, g, r, g2, b, hex) => {
         if (g === 'rgb(255, 255, 255)') return 'background-color:#000000;';
         return m;
@@ -89,7 +91,7 @@
     });
 
     // Bottom sheet borders
-    document.querySelectorAll('[style*="--nbc"]').forEach(el => {
+    within(root, '[style*="--nbc"]').forEach(el => {
       let val = el.style.getPropertyValue('--nbc')?.trim().toLowerCase();
       if (['#242526', '#252728', '#1c1c1d'].includes(val)) {
         el.style.setProperty('--nbc', '#000000');
@@ -102,11 +104,17 @@
     });
 
     // "Feed" tab spinner background
-    document.querySelectorAll('div[data-mcomponent="MSpinner"]')?.forEach(spinner => {
+    within(root, 'div[data-mcomponent="MSpinner"]').forEach(spinner => {
       const parent = spinner.closest('div[data-mcomponent="MContainer"][style*="margin-top:-1px"]');
       if (parent) parent.classList.add('spinner-parent');
     });
 
+  }
+
+  // What fixThemeColor reads: the theme color and the login and cookie screens' elements.
+  const THEME_COLOR_PARTS = 'meta[name="theme-color"], [class*="wbloks"]';
+
+  function fixThemeColor() {
     const meta = document.querySelector('meta[name="theme-color"]')
     const content = meta?.getAttribute('content')?.toLowerCase().trim();
     // only theme white theme-color on the login and cookie screens
@@ -114,7 +122,8 @@
     meta?.setAttribute('content', '#000000');
   }
 
-   processStyles();
+  processStyles(document);
+  fixThemeColor();
 
   function loginAndCookieCSS() {
     const style = document.createElement('style');
@@ -157,15 +166,26 @@
 
   loginAndCookieCSS();
 
+  // Only what changed is restyled: the elements added (with what's in them), those whose style
+  // changed and a style sheet whose text changed. Going over the whole page on every change of
+  // it took about 55 ms of CPU a second on a feed that kept changing (in desktop Chromium).
   new MutationObserver(mutations => {
-    if (mutations.some(m =>
-      (m.type === 'childList' && Array.from(m.addedNodes).some(n =>
-        n.tagName === 'STYLE' || (n.nodeType === 1 && n.hasAttribute('style')) ||
-        (n.tagName === 'META' && n.getAttribute('name') === 'theme-color'))) ||
-      (m.type === 'characterData' && m.target.parentNode?.tagName === 'STYLE') ||
-      (m.type === 'attributes' && (m.attributeName === 'style' ||
-        (m.target.tagName === 'META' && m.attributeName === 'content'))))
-    ) processStyles();
+    const roots = new Set();
+    let themeColor = false;
+    for (const m of mutations) {
+      if (m.type === 'childList') {
+        m.addedNodes.forEach(node => { if (node.nodeType === Node.ELEMENT_NODE) roots.add(node); });
+      } else if (m.type === 'characterData') {
+        if (m.target.parentNode?.tagName === 'STYLE') roots.add(m.target.parentNode);
+      } else if (m.attributeName === 'style') {
+        roots.add(m.target);
+      } else if (m.target.tagName === 'META') {
+        themeColor = true;
+      }
+    }
+    roots.forEach(root => { if (root.isConnected) processStyles(root); });
+    // Only when what it reads changed: the theme color, or the login screen coming up.
+    if (themeColor || [...roots].some(root => within(root, THEME_COLOR_PARTS).length)) fixThemeColor();
   }).observe(document.documentElement, {
     childList: true,
     subtree: true,
