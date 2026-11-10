@@ -314,13 +314,15 @@ class ShareIntoFacebookTest {
             app.layerOpen() && app.layerWebView() !== layer
         })
         val creator = app.layerWebView()
-        app.pressHome()
+        // The notification's tap, with the app showing (onNewIntent, as from the background). Not
+        // after Home: its key reaches the launcher a moment later, and on CI it came after this
+        // start and sent the app away.
         app.start(Posting.ACTION_VIEW_STORY)
         assertTrue("the notification didn't show the creator", app.waitFor(10_000) { app.layerOpen() })
         // The creator kept (it takes the next file; the real page here, on the network).
-        Thread.sleep(2000)
-        assertTrue("the notification replaced the creator holding the next file (${app.layerWebView()?.let { app.url(it) }})",
-            app.layerWebView() === creator)
+        val other = app.waitFor(2_000) { app.layerWebView().let { it != null && it !== creator } }
+        assertFalse("the notification replaced the creator holding the next file", other)
+        assertTrue("the creator holding the next file isn't showing", app.waitFor(10_000) { app.layerWebView() === creator })
     }
 
     // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is

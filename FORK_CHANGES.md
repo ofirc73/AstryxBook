@@ -673,8 +673,9 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   tab uses, is a path check only, in `ReelCommentsAudioJsTest`. It also reads the reel's audio track's
   index (`sidx`, more than one fragment), by which a long sound is first played from a slice; the
   slice and the takeover are in `ReelCommentsAudioJsTest` (a fake indexed track and decoder).
-- `sharingAPhotoToFeed_opensTheComposerWithIt`, `sharingAPhotoToAGroup_opensItsComposerWithIt`: a
-  shared photo reaching Home's composer, and a group's (the public group the test account joined;
+- `sharingPhotosToFeed_opensTheComposerWithThemAll`, `sharingPhotosToAGroup_opensItsComposerWithThemAll`:
+  three photos shared at once, each its own, all reaching Home's composer, and a group's (the public
+  group the test account joined; a group's composer takes the first alone and the others one by one;
   `share_media.js`, `ShareMediaJsTest`, `ShareIntoFacebookTest`). Both, and the next check, also
   check the composer as `feed_posting.js` needs it to keep a post (or a group's) going from its
   tap on Post: at `/composer/`, with one Post found by `isPostButton` (`FeedPostingJsTest`). The
@@ -692,6 +693,11 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   story opening the creator, and a shared photo's story editor laid out by `story_layout.js`
   (`StoryLayoutJsTest`), with the creator's text-story backgrounds requested and answered empty
   (`StoryBackgrounds`, `ShareIntoFacebookTest`).
+- `twoPhotosSharedToYourStory_theFirstDiscarded_theSecondComesInTheEditor`: two photos shared to
+  Your story, the creator taking the first alone; after Discard and Facebook's "Discard story?", the
+  second in the editor, laid out (`share_media.js` `shareToStory`, `ShareMediaJsTest`). The next
+  story after one posted can't be checked live without posting: it was tried on the emulator with a
+  test story (2026-11-09; `ShareIntoFacebookTest`).
 - `theStoryEditorsShare_saysWhenItsBusy_asStoryPostingReadsIt`: the real Share to story in
   `story_layout.js`'s bottom row carrying `aria-busy` (`"false"`, never pressed), which
   `story_posting.js` reads (`StoryPostingJsTest`). Its `"true"` while posting and the failure that
