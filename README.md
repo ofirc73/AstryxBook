@@ -94,6 +94,8 @@ Always on:
 *  Shares links from other apps to Facebook, and the page you're on to other apps (the share button in Settings), without tracking parameters
 *  Shares photos and videos from other apps into Facebook, with the Facebook app's own entries under Astryxbook in the share sheet: *Your story*, *Feed*, *Set as profile picture*, *Your groups* and *Reels*. You caption and post in Facebook's own composer
 *  Adapts Facebook's Story creator for phones: *Create story* on the feed and *Add story* from a Story open the creator in Astryxbook; the music sticker stays hidden while the song remains attached; Facebook's AI-label control and disclosure stay hidden if moved outside the sidebar while posting
+*  Takes a photo or records a video with the camera where Facebook asks for a file (the Photo button, a comment, a chat), next to picking one from the phone
+*  Without a connection, offers *Try again* and loads the page again by itself when you are back online
 *  Launcher shortcuts for Messages, Notifications and Marketplace (long-press the app icon)
 *  Exports your settings to a file and imports them on another phone (Settings → *Export / Import settings*)
 *  Supports real fullscreen video, including landscape, from Facebook's fullscreen button

@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
@@ -57,7 +58,7 @@ import com.astryx.book.audio.PipHandback
 import com.astryx.book.notifications.Posting
 import com.astryx.book.ui.components.ExternalLinkDialog
 import com.astryx.book.ui.components.MessengerLinkDialog
-import com.eepiemi.materialbook.ui.components.NetworkErrorDialog
+import com.astryx.book.ui.components.ConnectionErrorScreen
 import com.eepiemi.materialbook.ui.components.settings.SettingsDialog
 import com.eepiemi.materialbook.ui.viewmodel.MainViewModel
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
@@ -526,8 +527,8 @@ fun MaterialbookWebView(
     }
 
     var isLoading by rememberSaveable { mutableStateOf(true) }
-    // Only a page Facebook can't be reached for (isConnectionError): the error dialog takes the
-    // page's place, WebView and all.
+    // Only a page Facebook can't be reached for (isConnectionError): the error screen covers the
+    // page (ConnectionErrorScreen, below the WebView) until it loads again.
     val isError = state.errorsForCurrentRequest.lastOrNull()?.let { it.isFromMainFrame && isConnectionError(it.code) } == true
 
     val viewModel: MainViewModel = viewModel {
@@ -719,11 +720,6 @@ fun MaterialbookWebView(
                 }
             }
         }
-    }
-
-    if (isError && isLoading) {
-        NetworkErrorDialog { activity?.finish() }
-        return
     }
 
     val colorScheme = MaterialTheme.colorScheme
@@ -1064,6 +1060,18 @@ fun MaterialbookWebView(
         )
     }
 
+    // Facebook couldn't be reached: the page loads again from the screen's button, or by itself
+    // when the connection is back, under the loading screen as on a start. Above the loading
+    // screen, below the Messages layer when that's the page on screen.
+    if (isError && !messagesLayer.isShown) {
+        ConnectionErrorScreen(
+            onRetry = {
+                isLoading = true
+                navigator.reload()
+            },
+            modifier = pageModifier.zIndex(3F)
+        )
+    }
 
     MainViewShareEffects(
         shareMediaRequest = shareMediaRequest,

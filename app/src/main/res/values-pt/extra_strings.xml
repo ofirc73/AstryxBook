@@ -121,4 +121,12 @@
     <string name="post_post_interrupted">Sua publicação não foi publicada: o app foi fechado durante a publicação.</string>
     <string name="post_text_clip_label">Texto da publicação</string>
     <string name="post_text_copied">Texto copiado</string>
+    <string name="connection_retry">Tentar novamente</string>
+    <string name="connection_auto_retry">A página será recarregada sozinha quando a conexão voltar.</string>
+    <string name="attach_title">Adicionar de</string>
+    <string name="attach_files">Fotos e arquivos</string>
+    <string name="attach_take_photo">Tirar uma foto</string>
+    <string name="attach_record_video">Gravar um vídeo</string>
+    <string name="attach_camera_denied">A câmera não foi permitida, então nada foi capturado.</string>
+    <string name="attach_no_camera">Nenhum app de câmera encontrado.</string>
 </resources>

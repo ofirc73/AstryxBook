@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -12,9 +11,9 @@ import android.util.Base64
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebView
-import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.astryx.book.notifications.FacebookCounts
 import com.astryx.book.notifications.FacebookCountsWorker
@@ -498,12 +497,8 @@ class LiveFacebookCanaryTest {
     // (ShareToFeed, ...) as the share sheet would (several: SEND_MULTIPLE): served through the app's
     // own FileProvider.
     private fun sharePictures(alias: String, count: Int = 1, width: Int = 64, height: Int = 64) {
-        val dir = File(app.context.cacheDir, "clipboard_images").apply { mkdirs() }
         val uris = ArrayList((1..count).map { n ->
-            val file = File(dir, "canary$n.png")
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30 * n, 120, 200)) }
-            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
+            app.servedUri(app.servedFile("canary$n.png", app.picture(width, height, Color.rgb(30 * n, 120, 200))))
         })
         val share = if (count == 1) Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
         else Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
@@ -1732,6 +1727,31 @@ class LiveFacebookCanaryTest {
         assertTrue({ "download_content.js shows no Download button on a photo page (${pageShape()})" }, app.waitFor(20_000) {
             eval("${shownJs("[aria-label=\"Download content\"]")}.length > 0") == "true"
         })
+    }
+
+    @Test
+    fun homesPhotoButton_asksWhereThePhotoComesFrom() {
+        // Facebook's Photo button asks the app for a file (a hidden file input's click), and where the
+        // request takes what a camera makes (captureKinds: Home's takes photos), the app asks first:
+        // Android's picker or the camera. Dismissed here: nothing is picked, no draft is left.
+        openFeed()
+        val photo = shownJs("[role=\"button\"][aria-label=\"Photo\"]") + "[0]"
+        assertTrue({ "no Photo button on Home (${pageShape()})" }, app.waitFor(20_000) { eval("!!($photo)") == "true" })
+        val takePhoto = app.context.getString(R.string.attach_take_photo)
+        fun tapAsks(): Boolean {
+            app.tapOn(app.mainWebView(), photo, scroll = false)
+            return app.waitFor(8_000) { app.textShown(takePhoto) }
+        }
+        // Tapped once more when Facebook reloads Home a moment after the app starts.
+        var asked = tapAsks()
+        if (!asked) {
+            asked = tapAsks()
+            if (asked) note("Home's Photo button asked for a file only on the second tap")
+        }
+        assertTrue({ "Home's Photo button didn't ask where the photo comes from: its request no longer takes a camera's " +
+            "photo, or it opens no file request (captureKinds, FileRequestEffects; ${pageShape()})" }, asked)
+        assertTrue(app.tapText(app.context.getString(R.string.cancel)))
+        assertTrue("the choice stayed up after Cancel", app.waitFor { !app.textShown(takePhoto) })
     }
 
     @Test

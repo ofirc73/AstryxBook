@@ -218,6 +218,11 @@ user-visible change.
   loading state at Finished, and an effect keyed on it alone never runs on that page.
 - `state.nativeWebView` throws until the WebView exists (it's created during layout, which
   doesn't happen with the screen off): guard it in effects.
+- A page Facebook can't be reached for (`isConnectionError`) is covered by `ConnectionErrorScreen`
+  (zIndex 3, above the loading screen's 2, below app lock's 10); the WebView stays in the
+  composition, and the library clears `errorsForCurrentRequest` when the next page starts. Never
+  return early from `MaterialbookWebView` to show something in the page's place: the WebView is
+  destroyed with its history. To get the error in a test, `loadUrl` a `.invalid` address.
 - A lost renderer process (`RendererGoneClient`, `utils/RendererRecovery.kt`) replaces the
   WebView: the main view re-keys its `WebView` and reloads through the navigator, the Messages
   layer is re-keyed at its page. Per-WebView setup belongs in `onCreated` (it runs again for
@@ -428,6 +433,13 @@ user-visible change.
 - Camera and microphone go to web pages only through `webMediaGrant`
   (`utils/MediaPermissions.kt`, used by `onPermissionRequest` in `FilePicker.kt`): Facebook
   origins only, after the Android permission. Don't fall back to the library's grant-all.
+- A page's file request (`onShowFileChooser` in `FilePicker.kt`) goes through
+  `FileRequestEffects` (`ui/screens/FileRequests.kt`): Android's picker, or a choice first where
+  the camera fits the input's `accept` (`captureKinds`). Every request must be answered
+  (`onFiles` or `onCancel`), or the page's next one never comes. The app declares CAMERA, so
+  Android refuses `ACTION_IMAGE_CAPTURE` without the permission held: ask for it first. In tests
+  the picker and the camera app are answered by an `Instrumentation.ActivityMonitor`
+  (`onStartActivity`, which also sees the camera's output file); `pm revoke` kills the app.
 - `MainActivity` is a `FragmentActivity` because app lock uses `BiometricPrompt`.
 - New fork strings go in `brand_strings.xml`, `extra_strings.xml` or `privacy_strings.xml`
   (with a copy in every translated locale: `values-iw`, `-ar`, `-bn`, `-de`, `-es`, `-fr`,

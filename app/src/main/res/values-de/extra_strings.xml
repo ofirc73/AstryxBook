@@ -116,4 +116,12 @@
     <string name="post_post_interrupted">Dein Beitrag wurde nicht gepostet: Die App wurde währenddessen geschlossen.</string>
     <string name="post_text_clip_label">Beitragstext</string>
     <string name="post_text_copied">Text kopiert</string>
+    <string name="connection_retry">Erneut versuchen</string>
+    <string name="connection_auto_retry">Die Seite wird von selbst neu geladen, sobald die Verbindung wieder da ist.</string>
+    <string name="attach_title">Hinzufügen aus</string>
+    <string name="attach_files">Fotos und Dateien</string>
+    <string name="attach_take_photo">Foto aufnehmen</string>
+    <string name="attach_record_video">Video aufnehmen</string>
+    <string name="attach_camera_denied">Die Kamera wurde nicht erlaubt, daher wurde nichts aufgenommen.</string>
+    <string name="attach_no_camera">Keine Kamera-App gefunden.</string>
 </resources>

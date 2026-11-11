@@ -130,4 +130,14 @@
     <!-- A post's text copied by a long press on it (copy_post_text.js). -->
     <string name="post_text_clip_label">Post text</string>
     <string name="post_text_copied">Text copied</string>
+    <!-- Facebook can't be reached (ConnectionErrorScreen): its button, and what happens by itself. -->
+    <string name="connection_retry">Try again</string>
+    <string name="connection_auto_retry">The page loads again by itself when you\'re back online.</string>
+    <!-- A page asks for a file and the camera can give one too (AttachSourceDialog). -->
+    <string name="attach_title">Add from</string>
+    <string name="attach_files">Photos and files</string>
+    <string name="attach_take_photo">Take a photo</string>
+    <string name="attach_record_video">Record a video</string>
+    <string name="attach_camera_denied">The camera wasn\'t allowed, so nothing was taken.</string>
+    <string name="attach_no_camera">No camera app found.</string>
 </resources>

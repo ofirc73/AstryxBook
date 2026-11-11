@@ -135,4 +135,12 @@
     <string name="post_post_interrupted">Post nie został opublikowany: aplikację zamknięto w trakcie publikowania.</string>
     <string name="post_text_clip_label">Tekst posta</string>
     <string name="post_text_copied">Skopiowano tekst</string>
+    <string name="connection_retry">Spróbuj ponownie</string>
+    <string name="connection_auto_retry">Strona załaduje się ponownie sama, gdy wróci połączenie.</string>
+    <string name="attach_title">Dodaj z</string>
+    <string name="attach_files">Zdjęcia i pliki</string>
+    <string name="attach_take_photo">Zrób zdjęcie</string>
+    <string name="attach_record_video">Nagraj film</string>
+    <string name="attach_camera_denied">Nie zezwolono na aparat, więc nic nie zostało zrobione.</string>
+    <string name="attach_no_camera">Nie znaleziono aplikacji aparatu.</string>
 </resources>

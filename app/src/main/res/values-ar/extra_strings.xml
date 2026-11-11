@@ -134,4 +134,12 @@
     <string name="post_post_interrupted">لم يُنشر منشورك: أُغلق التطبيق أثناء نشره.</string>
     <string name="post_text_clip_label">نص المنشور</string>
     <string name="post_text_copied">تم نسخ النص</string>
+    <string name="connection_retry">إعادة المحاولة</string>
+    <string name="connection_auto_retry">سيُعاد تحميل الصفحة تلقائيًا عند عودة الاتصال.</string>
+    <string name="attach_title">إضافة من</string>
+    <string name="attach_files">الصور والملفات</string>
+    <string name="attach_take_photo">التقاط صورة</string>
+    <string name="attach_record_video">تسجيل فيديو</string>
+    <string name="attach_camera_denied">لم يُسمح باستخدام الكاميرا، فلم يُلتقط شيء.</string>
+    <string name="attach_no_camera">لم يُعثر على تطبيق كاميرا.</string>
 </resources>
