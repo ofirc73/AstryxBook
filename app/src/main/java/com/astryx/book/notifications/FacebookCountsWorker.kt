@@ -24,14 +24,14 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.eepiemi.materialbook.MainActivity
+import com.astryx.book.utils.facebookPageHeaders
+import com.astryx.book.utils.openFacebookPage
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
-import java.net.URL
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "Astryxbook"
@@ -39,7 +39,6 @@ private const val WORK_NAME = "facebook_counts"
 private const val CHANNEL_ID = "facebook_counts"
 private const val PAGE_URL = "https://m.facebook.com/notifications/"
 private const val COOKIE_URL = "https://m.facebook.com"
-private const val TIMEOUT_MS = 20_000
 
 /**
  * "Facebook notifications" (Settings): every 15 minutes (Android's shortest period for
@@ -136,27 +135,14 @@ class FacebookCountsWorker(context: Context, params: WorkerParameters) : Corouti
                 Log.d(TAG, "Facebook counts: not logged in")
                 return null
             }
-            val connection = URL(PAGE_URL).openConnection() as HttpURLConnection
+            // Redirects are followed to Facebook's own pages only (openFacebookPage): the request
+            // carries the login.
+            val connection = openFacebookPage(
+                PAGE_URL,
+                facebookPageHeaders(cookie, WebSettings.getDefaultUserAgent(context), mobile = true) +
+                    ("X-Requested-With" to context.packageName)
+            ) ?: return null
             try {
-                connection.connectTimeout = TIMEOUT_MS
-                connection.readTimeout = TIMEOUT_MS
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("Cookie", cookie)
-                connection.setRequestProperty("User-Agent", WebSettings.getDefaultUserAgent(context))
-                // The headers WebView sends when it opens a page; with only a few of them,
-                // Facebook answers 400.
-                connection.setRequestProperty(
-                    "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-                )
-                connection.setRequestProperty("Accept-Language", Locale.getDefault().toLanguageTag())
-                connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
-                connection.setRequestProperty("Sec-Fetch-Dest", "document")
-                connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
-                connection.setRequestProperty("Sec-Fetch-Site", "none")
-                connection.setRequestProperty("Sec-Fetch-User", "?1")
-                connection.setRequestProperty("Sec-CH-UA-Mobile", "?1")
-                connection.setRequestProperty("Sec-CH-UA-Platform", "\"Android\"")
-                connection.setRequestProperty("X-Requested-With", context.packageName)
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     Log.d(TAG, "Facebook counts: HTTP ${connection.responseCode}")
                     return null

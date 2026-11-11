@@ -64,6 +64,8 @@ import com.astryx.book.LockScreenAudioController
 import com.astryx.book.linkUrl
 import com.astryx.book.mediaShareTarget
 import com.astryx.book.receiveSharedMedia
+import com.astryx.book.isReplayedLaunch
+import com.astryx.book.startRequest
 
 private const val TAG = "AstryxbookPiP"
 private const val ACTION_PIP_TOGGLE = "com.astryx.book.PIP_TOGGLE_PLAYBACK"
@@ -236,12 +238,15 @@ class MainActivity : FragmentActivity() {
         // Read once: the page the app starts on (a link it was opened with, or Home/Feeds).
         // A share that opens a mobile page starts there (Home's composer, the profile, the groups);
         // stories and reels open in the layer over the usual start page.
-        val mediaTarget = mediaShareTarget(intent)
+        // Not for an intent Android hands over again (startRequest): opened from Recents, the app
+        // took an old share's photos to the composer once more.
+        val request = startRequest(this, intent, restored = savedInstanceState != null)
+        val mediaTarget = request.mediaTarget
         val startUrl = mediaTarget?.let { shareStartPageUrl(it) }
-            ?: startPageUrl(if (mediaTarget == null) linkUrl(this, intent) else null, settingsVM.startOnFeeds.value)
+            ?: startPageUrl(request.linkUrl, settingsVM.startOnFeeds.value)
         mediaTarget?.let { receiveSharedMedia(this, intent, it, ::onSharedMediaReady) }
         // Started by a tap on a posting notification: acted on over the start page.
-        if (savedInstanceState == null) Posting.takeTap(intent)
+        if (savedInstanceState == null && !isReplayedLaunch(intent.flags)) Posting.takeTap(intent)
 
         // An Android System WebView too old for the page scripts (before Chrome 80): asked to
         // update it, once per app start (not again when the activity is recreated).

@@ -200,6 +200,11 @@ user-visible change.
 - `MainActivity` is `singleTask`: a link sent while the app runs arrives in `onNewIntent`
   and reaches the WebView as `openLinkRequest`. Start links are checked with `appLinkUrl`
   (the start page skips the request interceptor); outgoing links with `externalLinkAction`.
+  What `onCreate`'s intent asks for goes through `startRequest` (`IncomingIntents.kt`): Android
+  hands the activity its first intent again when it creates it again (font size, language, a
+  process killed in the background) and from Recents (`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`), and
+  a share must not be taken twice. Leaving the app is `moveTaskToBack`, so the activity is rarely
+  finished; `activity.recreate()` in a test gives the created-again case.
 - Both WebViews share one `WebViewClient` (`RendererGoneClient`, built on `RequestBlockingClient`
   in `utils/AdsPixel.kt`), the only place requests are seen below navigations
   (`shouldInterceptRequest`; it can't see WebSocket traffic, which carries the main view's feed
@@ -350,6 +355,10 @@ user-visible change.
   (`Sec-Fetch-*` etc.) Facebook answers 400. A periodic job can't be forced early (WorkManager
   delays it); turning the setting off and on runs it at once. Logs `Facebook counts:` under
   `Astryxbook`.
+- A page the app fetches itself with the login's cookies (the counts, `PhotoPost`) goes through
+  `openFacebookPage` (`utils/FacebookFetch.kt`): `HttpURLConnection` sends a request's headers,
+  cookies included, on to whatever site a redirect names, so redirects are followed there by hand,
+  to facebook.com's https pages only. A new fetch uses it too, never `instanceFollowRedirects`.
 - Sharing photos/videos into Facebook (`utils/ShareMedia.kt`, `share_media.js`): the `ShareTo...`
   activity-aliases (Your story, Feed, Set as profile picture, Your groups, Reels, in the Facebook app's
   order); files are copied to the cache and handed to the page through the `AstryxShare` listener.

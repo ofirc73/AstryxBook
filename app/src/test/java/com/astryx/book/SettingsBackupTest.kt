@@ -1,10 +1,13 @@
 package com.astryx.book
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import com.astryx.book.data.local.EXPORTED_BOOLEAN_SETTINGS
+import com.astryx.book.data.local.EXPORTED_STRING_CHOICES
 import com.astryx.book.data.local.EXPORTED_STRING_SETTINGS
 import com.astryx.book.data.local.NOT_EXPORTED
+import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.APP_LOCK
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.HIDE_REELS
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.KEEP_SCREEN_ON
+import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_PORTRAIT_RATIO
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.REMOVE_ADS
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.TEXT_ZOOM
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.WEBVIEW_DEBUGGING
@@ -75,6 +78,41 @@ class SettingsBackupTest {
         assertNull(target[KEEP_SCREEN_ON])
         assertNull(target[WEBVIEW_DEBUGGING])
         assertNull(target[TEXT_ZOOM])
+    }
+
+    @Test
+    fun import_skipsChoiceValuesThatArentChoices() {
+        // A PiP shape Android refuses, a lock period that isn't offered: stored, PiP never opened
+        // and Settings showed a choice it doesn't have.
+        val file = """
+            {"format": "astryxbook-settings", "version": 1, "settings": {
+              "pip_portrait_ratio": "1:50",
+              "app_lock": "5",
+              "keep_screen_on": "sometimes",
+              "text_zoom": "115"
+            }}
+        """.trimIndent()
+        val target = mutablePreferencesOf()
+
+        assertEquals(1, importSettingsJson(file, target))
+        assertEquals("115", target[TEXT_ZOOM])
+        assertNull(target[PIP_PORTRAIT_RATIO])
+        assertNull(target[APP_LOCK])
+        assertNull(target[KEEP_SCREEN_ON])
+    }
+
+    @Test
+    fun everyChoiceOfAChoiceSetting_isImported() {
+        EXPORTED_STRING_CHOICES.forEach { (key, choices) ->
+            assertTrue(key.name, choices.isNotEmpty())
+            choices.forEach { choice ->
+                val target = mutablePreferencesOf()
+                val file = JSONObject().put("format", "astryxbook-settings").put("version", 1)
+                    .put("settings", JSONObject().put(key.name, choice)).toString()
+                assertEquals("${key.name}=$choice", 1, importSettingsJson(file, target))
+                assertEquals(choice, target[key])
+            }
+        }
     }
 
     @Test

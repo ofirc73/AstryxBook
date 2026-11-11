@@ -182,10 +182,12 @@ object ShareMediaQueue {
         return rest
     }
 
-    @Synchronized
     /** Some of [forTarget]'s files were given to a page already (a story share past its first). */
+    @Synchronized
     fun started(forTarget: ShareTarget): Boolean = target == forTarget && next > 0
 
+    /** How many of [forTarget]'s files no page has taken yet. */
+    @Synchronized
     fun remaining(forTarget: ShareTarget): Int = if (target == forTarget) files.size - next else 0
 
     @Synchronized
