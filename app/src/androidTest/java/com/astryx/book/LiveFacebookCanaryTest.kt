@@ -294,13 +294,18 @@ class LiveFacebookCanaryTest {
         open("https://m.facebook.com/reels/")
         // A public reel when the tab has none to show, by 20 s: "Content not found" (which came
         // later than that once, 2026-10-25, failing the check on /reels/), or no video yet.
+        // It also came after a video had shown for a moment (2026-11-11): looked for again while
+        // waiting for the reel to play.
+        val noReels = "document.title === 'Content not found' || !document.querySelector('video')"
         app.waitFor(20_000) { eval("document.title === 'Content not found' || !!document.querySelector('video')") == "true" }
-        if (eval("!!document.querySelector('video')") != "true") {
+        var playing = eval(noReels) != "true" && app.waitFor(30_000) { eval("($noReels) || $PLAYING_JS") == "true" } &&
+            eval(PLAYING_JS) == "true"
+        if (!playing && eval(noReels) == "true") {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
             awaitPage("the public reel never showed its video", "!!document.querySelector('video')")
+            playing = app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" }
         }
-        var playing = app.waitFor(30_000) { eval("!!document.querySelector('video') && $PLAYING_JS") == "true" }
         if (!playing) {
             // Facebook's autoplay may not start on a slow emulator (GitHub's draws in software):
             // started as a tap would, then given time again.
@@ -540,20 +545,48 @@ class LiveFacebookCanaryTest {
     @Test
     fun sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp() {
         openFeed()
-        val taps = HomeComposer.taps.get()
-        val loads = HomeComposer.loads.get()
-        sharePictures("ShareToFeed")
-        assertTrue({ "the composer never opened (${pageShape()})" }, app.waitFor(30_000) {
-            eval("location.pathname") == "\"/composer/\""
-        })
-        awaitComposerPhotos()
-        // Tapped once more when Facebook reloads Home a moment after the app starts (the share's
-        // script runs again on the new page).
-        assertTrue(
-            "the composer was loaded, not opened from Home's box (share_media.js homeComposerBox: the widest " +
-                "button in the Photo button's row, tapped by the app; ${pageShape()})",
-            HomeComposer.taps.get() > taps && HomeComposer.loads.get() == loads
-        )
+        // Back asks "Discard post?" (the draft has the photo); discarded, the composer goes back to Home.
+        // The sheet's button: its icon, then "Discard post".
+        fun discardDraft() {
+            app.pressBack()
+            val discard = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), function (b) {" +
+                " return /(^|\\s)Discard post$/.test((b.innerText || '').trim()); }).pop()"
+            assertTrue({ "Back from the composer didn't ask to discard the draft (${pageShape()}; ${appState()})" }, app.waitFor(15_000) {
+                eval("!!($discard)") == "true"
+            })
+            eval("($discard).click(); 1")
+            assertTrue({ "discarding the draft didn't go back to Home (${pageShape()})" }, app.waitFor(15_000) {
+                eval("location.pathname") == "\"/\""
+            })
+        }
+        // Whether the composer came from Home's box, tapped by the app: tapped once more when Facebook
+        // reloads Home a moment after the app starts (the share's script runs again on the new page).
+        fun shareFromHome(): Boolean {
+            val taps = HomeComposer.taps.get()
+            val loads = HomeComposer.loads.get()
+            sharePictures("ShareToFeed")
+            assertTrue({ "the composer never opened (${pageShape()})" }, app.waitFor(30_000) {
+                eval("location.pathname") == "\"/composer/\""
+            })
+            awaitComposerPhotos()
+            return HomeComposer.taps.get() > taps && HomeComposer.loads.get() == loads
+        }
+        // Why the app loaded it (share_media.js's reason, in its log line: noBox, boxHidden, notOpened).
+        fun loadReason() = logLines("Astryxbook").lastOrNull { "composer box didn't open" in it }
+            ?.substringAfter('(')?.substringBefore(')') ?: "no log line"
+        // Shared once more where the app loaded the composer (once in the daily check, 2026-11-11;
+        // passed when run again): Home being drawn again as the share came can hide the box.
+        if (!shareFromHome()) {
+            val reason = loadReason()
+            discardDraft()
+            assertTrue(
+                "the composer was loaded twice, not opened from Home's box (share_media.js homeComposerBox: the widest " +
+                    "button in the Photo button's row, tapped by the app; first $reason, then ${loadReason()}; " +
+                    "${pageShape()})",
+                shareFromHome()
+            )
+            note("the composer was loaded the first time ($reason), opened from Home's box the second")
+        }
         // feed_posting.js wraps Facebook's WebSocket, which carries the photo up: it keeps a post
         // still uploading after Post going (Post itself isn't pressed: the checks never post).
         assertEquals(
@@ -565,18 +598,7 @@ class LiveFacebookCanaryTest {
                     "__astryxFeedPosting.sockets.some(function (s) { return /facebook\\.com\\//.test(s.url); })"
             )
         )
-        // Back asks "Discard post?" (the draft has the photo); discarded, the composer goes back to Home.
-        // The sheet's button: its icon, then "Discard post".
-        app.pressBack()
-        val discard = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), function (b) {" +
-            " return /(^|\\s)Discard post$/.test((b.innerText || '').trim()); }).pop()"
-        assertTrue({ "Back from the composer didn't ask to discard the draft (${pageShape()}; ${appState()})" }, app.waitFor(15_000) {
-            eval("!!($discard)") == "true"
-        })
-        eval("($discard).click(); 1")
-        assertTrue({ "discarding the draft didn't go back to Home (${pageShape()})" }, app.waitFor(15_000) {
-            eval("location.pathname") == "\"/\""
-        })
+        discardDraft()
         assertFalse("Back from the composer left the app", app.isInBackground())
     }
 
@@ -1416,12 +1438,20 @@ class LiveFacebookCanaryTest {
         app.tapOn(app.mainWebView(), "window.__canaryName", holdMs = LONG_PRESS_MS)
         Thread.sleep(2000)
         assertEquals("holding a post's name copied it", CLIP_MARK, clip())
-        if (eval("!!window.__canaryBody") != "true") markPost()
-        val start = org.json.JSONArray("[${eval("window.__canaryStart")}]").getString(0)
-        app.tapOn(app.mainWebView(), "window.__canaryBody", holdMs = LONG_PRESS_MS)
-        assertTrue({ "holding a post's text didn't copy it (copy_post_text.js; the clipboard has \"${clip()}\")" }, app.waitFor(10_000) {
-            clip()?.replace(Regex("\\s+"), " ")?.startsWith(start) == true
-        })
+        fun holdBody(): Boolean {
+            if (eval("document.contains(window.__canaryBody)") != "true") markPost()
+            val start = org.json.JSONArray("[${eval("window.__canaryStart")}]").getString(0)
+            app.tapOn(app.mainWebView(), "window.__canaryBody", holdMs = LONG_PRESS_MS)
+            return app.waitFor(10_000) { clip()?.replace(Regex("\\s+"), " ")?.startsWith(start) == true }
+        }
+        // Held once more where the first hold copied nothing (once in the daily check, 2026-11-11;
+        // passed when run again): a second miss is the script's.
+        var copied = holdBody()
+        if (!copied) {
+            copied = holdBody()
+            if (copied) note("holding a post's text copied it only the second time")
+        }
+        assertTrue({ "holding a post's text didn't copy it (copy_post_text.js; the clipboard has \"${clip()}\"; ${pageShape()})" }, copied)
     }
 
     @Test
@@ -1980,12 +2010,17 @@ class LiveFacebookCanaryTest {
         // The comment button of the reel on screen (the test account's Facebook is in English).
         private val REEL_COMMENT_BUTTON_JS = shownJs("[role=button][aria-label^=\"Comment on reel\"]") +
             ".filter(function (b) { var r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })[0]"
+        // The page's (first) video playing, with something to play.
+        private const val PLAYING_JS =
+            "(function (v) { return !!v && !v.paused && v.readyState >= 2; })(document.querySelector('video'))"
         // Where reel_comments_audio.js's sound is (s), -1 while none plays.
         private const val REEL_COMMENTS_SOUND_JS = "window.__astryxReelCommentsAudio.position()"
         // The comments' sound playing while the reel on the page plays heard (not muted, not
-        // silenced through reel_comments_audio.js's gain).
-        private const val REEL_HEARD_WITH_SOUND_JS = "(function (v) { return $REEL_COMMENTS_SOUND_JS >= 0 && !!v && " +
-            "!v.paused && !v.muted && !(v.__astryxSilencer && v.__astryxSilencer.gain.value === 0); })(document.querySelector('video'))"
+        // silenced through reel_comments_audio.js's gain). Playing with something to play: on Back
+        // Facebook empties the reel's <video> without pausing it (nothing loaded, nothing heard), and
+        // the script silences it on the 'play' right after (2026-11-11).
+        private const val REEL_HEARD_WITH_SOUND_JS = "$REEL_COMMENTS_SOUND_JS >= 0 && $PLAYING_JS && (function (v) { return " +
+            "!v.muted && !(v.__astryxSilencer && v.__astryxSilencer.gain.value === 0); })(document.querySelector('video'))"
         private const val ADD_TO_STORY_SHOWN_JS =
             "[].some.call(document.querySelectorAll('a[href*=\"/stories/create\"]'), function (a) {" +
                 " return a.getBoundingClientRect().width > 0; })"
@@ -2305,8 +2340,6 @@ class LiveFacebookCanaryTest {
                 " return location.pathname + ': ' + Array.prototype.slice.call(v, 0, 3).map(function (e) {" +
                 " return 'paused=' + e.paused + ' ready=' + e.readyState + ' net=' + e.networkState +" +
                 " ' error=' + (e.error ? e.error.code : 'none') + ' src=' + (e.currentSrc || '').slice(0, 12); }).join('; '); })()"
-        private const val PLAYING_JS =
-            "(function (v) { return !!v && !v.paused && v.readyState >= 2; })(document.querySelector('video'))"
         // The detector's video played again, unmuted, as a tap would (Facebook may pause it in the
         // background).
         private const val PLAY_DETECTED_JS =

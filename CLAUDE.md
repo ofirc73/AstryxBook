@@ -275,7 +275,9 @@ user-visible change.
 - A reel's comments (mobile site) are a screen of their own at "/" (pushState; a reel is at `/reel/<id>`,
   or at its Page's `/<page>/videos/<title>/<id>/`, as the phone's Reels tab opens it): Facebook removes the
   reel's `<video>` (about a second after the tap, set back to 0 on the way out), and Back draws it again from 0, passing through `/watch/` (the new
-  reel's `play` fires there, its `playing` at the reel's path, the query comes back later).
+  reel's `play` fires there, its `playing` at the reel's path, the query comes back later; since
+  2026-11-11 on the emulator, straight to the reel's path, its `<video>` emptied there unpaused, at ready 0,
+  just before its `play`).
   `reel_comments_audio.js` plays the stream's audio track meanwhile through Web Audio (an `<audio>` took
   seconds to play after a seek). Facebook's player ignores a seek outside what it has loaded, and
   stalls loading a reel set `muted`: the returning reel is silenced through a Web Audio gain
