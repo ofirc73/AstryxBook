@@ -214,8 +214,12 @@ class MainActivityPipTest {
         assertTrue("a playing video never went to PiP on Home", app.waitFor { app.isInPip() })
         assertTrue(app.waitFor { pipActive() })
         Thread.sleep(1000)
+        // In the video's shape once Android's PiP animation is done: on CI's emulator it was still
+        // the other way 2 s after PiP began (2026-11-11), with the app asking 16/9 all along.
+        assertTrue({ "the window doesn't have the video's shape (${pipWindow()})" }, app.waitFor(5000) {
+            pipWindow().let { (it.width() > it.height()) == (videoWidth > videoHeight) }
+        })
         val entered = pipWindow()
-        assertEquals("the window doesn't have the video's shape", videoWidth > videoHeight, entered.width() > entered.height())
 
         resizePipWindow(entered)
         Thread.sleep(1000)
