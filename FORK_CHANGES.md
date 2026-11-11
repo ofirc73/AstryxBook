@@ -884,6 +884,12 @@ A green run says that nothing the checks could see broke, not that every part wa
   chat checks on GitHub (no `fbChat`), the feed's second batch (the test account gets one). Covered
   by fixed-page tests only. They were warnings at
   first, repeated on every run, and buried the ones that said something about that run.
+- Tests without a live check of their own (they don't depend on Facebook's page): the replayed
+  share and link (`IncomingIntentsTest`, `ShareIntoFacebookTest`, `LinksTest`: Android's intents),
+  the settings file's choices (`SettingsBackupTest`) and the redirect rule (`FacebookFetchTest`: a
+  local server). The fetches themselves stay covered live by
+  `facebookNotifications_readTheCountsFromTheTabBar` and
+  `aPhotosDesktopPage_namesThePostItsTilesShow`, which now go through `openFacebookPage`.
 
 ## Messages in desktop mode
 
@@ -1327,6 +1333,9 @@ leaving the app while a Facebook video or Reel is playing.
   through the system file picker, and restores them from one, on this phone or another.
   Only known settings with the right type are imported. Developer options and WebView
   debugging never travel, so a shared settings file can't turn on remote debugging.
+  A choice setting (PiP shape, Keep screen on, Page zoom, App lock) is imported only with one of
+  its own choices: a file with a PiP shape Android refuses ("1:50") left PiP never opening, with
+  nothing in Settings to show why (`EXPORTED_STRING_CHOICES`, `SettingsBackupTest`).
 
 ## Keep screen on
 
@@ -1456,6 +1465,13 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   database by reflection, and R8's full mode stripped the constructor it calls
   (`NoSuchMethodException: WorkDatabase_Impl.<init>`). A keep rule in `proguard-rules.pro` keeps
   Room databases' constructors. Debug builds and tests aren't minified, so nothing caught it.
+- The two pages the app fetches itself with the Facebook login (the notification counts, and a
+  memory photo's post) follow redirects to facebook.com's own https pages only
+  (`utils/FacebookFetch.kt`, shared by both). Android's `HttpURLConnection` followed any redirect
+  and sent the request's headers on with it, the login's cookies included: a redirect to another
+  site would have handed them over. Facebook isn't known to send one; found reading the code
+  (2026-11-11). `FacebookFetchTest` redirects a local server to a second one, which must get no
+  request.
 
 ## Share photos and videos into Facebook
 
@@ -1679,6 +1695,15 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   box off screen (the feed scrolled down) or covered, or no composer 8 s after the tap, the app
   loads the composer page as before; a share that starts the app does too. Covered by
   `ShareMediaTest`, `ShareMediaJsTest` and `ShareIntoFacebookTest`.
+- An old share no longer comes back. Android creates the app again with the intent it was first
+  started with: after a change of font size or language, when the user returns once its process was
+  killed in the background, and from Recents after it was closed (then marked
+  `FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`). The app took that as a new share each time: the photos
+  were copied and put in Facebook's composer again (tried on the emulator, 2026-11-11: share to
+  Feed, Home, `am kill`, open the app), or, their permission gone, it said there was nothing to
+  share. Now a share is taken once (`startRequest` in `IncomingIntents.kt`); an intent from Recents'
+  history opens the start page, a link included. Covered by `IncomingIntentsTest`,
+  `ShareIntoFacebookTest` (the app created again; a share marked as from history) and `LinksTest`.
 
 ## Known limitations
 

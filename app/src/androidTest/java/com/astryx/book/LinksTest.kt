@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -50,6 +51,17 @@ class LinksTest {
     fun aFacebookLink_opensInTheApp() {
         app.start(view("https://www.facebook.com/groups/$GROUP_ID/"))
         assertTrue("the link's page never opened", opens(GROUP_ID))
+    }
+
+    @Test
+    fun aLinkHandedOverAgainFromRecents_opensTheStartPage() {
+        // Opened from Recents after Back closed it, the app is created with the link it was first
+        // started with, marked as coming from history: not a link the user just tapped.
+        app.start(view("https://www.facebook.com/groups/$GROUP_ID/").addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY))
+        assertTrue(app.waitFor(20_000) { app.webViews().isNotEmpty() })
+        // Waited out in full: a page takes a while to show its address.
+        assertFalse("the old link's page opened again", opens(GROUP_ID))
+        assertTrue("no start page either", app.url(app.mainWebView()).contains("facebook.com"))
     }
 
     @Test

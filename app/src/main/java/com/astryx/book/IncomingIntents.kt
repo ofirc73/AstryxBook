@@ -66,6 +66,35 @@ internal fun receiveSharedMedia(
 }
 
 /**
+ * What the intent MainActivity is created with asks for: the photos or videos of a share
+ * ([mediaTarget]), or a link's page ([linkUrl]), or neither (a plain start).
+ */
+internal class StartRequest(val mediaTarget: ShareTarget?, val linkUrl: String?)
+
+/**
+ * Whether the intent is one Android hands the activity again, not a new request. Opened from
+ * Recents after Back had closed it, the activity gets the intent it was first started with
+ * (marked FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY): a share from days ago opened Facebook's composer
+ * again with its photos, or said there was nothing to share once their permission was gone, and a
+ * link opened its page again instead of the start page.
+ */
+internal fun isReplayedLaunch(intentFlags: Int): Boolean =
+    intentFlags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+
+/**
+ * The [StartRequest] of [intent]. A replayed intent ([isReplayedLaunch]) asks for nothing. An
+ * activity Android creates again ([restored]: after a change of font size or language, or once
+ * its process was killed) keeps its link, the page it shows, but doesn't take the share's files
+ * a second time.
+ */
+internal fun startRequest(context: Context, intent: Intent?, restored: Boolean): StartRequest {
+    if (intent == null || isReplayedLaunch(intent.flags)) return StartRequest(null, null)
+    val mediaTarget = mediaShareTarget(intent)
+    return if (mediaTarget != null) StartRequest(mediaTarget.takeUnless { restored }, null)
+    else StartRequest(null, linkUrl(context, intent))
+}
+
+/**
  * The page an intent asks for: a link shared from another app opens Facebook's share
  * dialog (shared text without a link can't be shared to Facebook's web share, so the app
  * just opens); a link or launcher shortcut opens its page if it's a Facebook one.

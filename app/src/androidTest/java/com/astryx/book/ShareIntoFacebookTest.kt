@@ -69,7 +69,7 @@ class ShareIntoFacebookTest {
         return FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
     }
 
-    private fun share(alias: String, vararg uris: Uri, type: String = "image/png") {
+    private fun share(alias: String, vararg uris: Uri, type: String = "image/png", flags: Int = 0) {
         val intent = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
         } else {
@@ -78,8 +78,43 @@ class ShareIntoFacebookTest {
         app.start(
             intent.setComponent(ComponentName(app.context.packageName, "com.eepiemi.materialbook.$alias"))
                 .setType(type)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or flags)
         )
+    }
+
+    // The app is there, its start page asked for, and a while has passed: time enough for a share
+    // to have been copied in.
+    private fun awaitStartPage() {
+        assertTrue(app.waitFor(20_000) { app.webViews().isNotEmpty() && app.url(app.mainWebView()).isNotEmpty() })
+        Thread.sleep(4000)
+    }
+
+    @Test
+    fun aShareHandedOverAgainFromRecents_isntTakenAgain() {
+        // Opened from Recents after Back closed it, the app is created with the share it was first
+        // started with, marked as coming from history: an old share's photos went to the composer
+        // again (or, their permission gone, the app said there was nothing to share).
+        val shares = ShareMediaQueue.id
+        share("ShareToFeed", photo("old.png"), flags = Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)
+        awaitStartPage()
+        assertEquals("the old share was taken again", shares, ShareMediaQueue.id)
+        assertFalse("the old share opened the composer", decoded(app.url(app.mainWebView())).contains("/composer"))
+    }
+
+    @Test
+    fun anAppCreatedAgain_doesntTakeItsShareASecondTime() {
+        // Android creates the activity again with the same share (a change of font size or
+        // language, or coming back once its process was killed): the photos were copied and
+        // offered to the page a second time.
+        share("ShareToFeed", photo("once.png"))
+        assertOpens(ShareTarget.FEED, inLayer = false, path = "/composer")
+        // Counted by the queue's share number: logged in, the composer takes the files at once.
+        val shares = ShareMediaQueue.id
+        val first = app.activity()
+        app.onActivity { it.recreate() }
+        assertTrue("the app was never created again", app.waitFor(15_000) { app.activity().let { it != null && it !== first } })
+        awaitStartPage()
+        assertEquals("the share was taken a second time", shares, ShareMediaQueue.id)
     }
 
     private fun decoded(url: String) = runCatching { URLDecoder.decode(url, "UTF-8") }.getOrDefault(url)

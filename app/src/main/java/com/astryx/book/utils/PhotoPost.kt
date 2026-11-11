@@ -6,8 +6,6 @@ import android.webkit.CookieManager
 import org.json.JSONObject
 import java.io.Reader
 import java.net.HttpURLConnection
-import java.net.URL
-import java.util.Locale
 import java.util.concurrent.Executors
 import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 
@@ -101,7 +99,6 @@ data class PhotoPost(val url: String, val index: Int) {
 
 private const val TAG = "Astryxbook"
 private const val COOKIE_URL = "https://www.facebook.com"
-private const val TIMEOUT_MS = 20_000
 private const val RETRY_MS = 1_000L
 
 private val lookups = Executors.newSingleThreadExecutor()
@@ -134,22 +131,10 @@ fun lookUpPhotoPost(fbid: String, reply: (String) -> Unit) {
 private fun fetchPhotoPost(fbid: String): Result<PhotoPost?> = runCatching {
     val cookie = CookieManager.getInstance().getCookie(COOKIE_URL)
     if (cookie == null || !cookie.contains("c_user=")) return Result.success(null)
-    val connection = URL("$COOKIE_URL/photo.php?fbid=$fbid").openConnection() as HttpURLConnection
+    val connection = openFacebookPage(
+        "$COOKIE_URL/photo.php?fbid=$fbid", facebookPageHeaders(cookie, DESKTOP_USER_AGENT, mobile = false)
+    ) ?: return Result.success(null)
     try {
-        connection.connectTimeout = TIMEOUT_MS
-        connection.readTimeout = TIMEOUT_MS
-        connection.instanceFollowRedirects = true
-        connection.setRequestProperty("Cookie", cookie)
-        connection.setRequestProperty("User-Agent", DESKTOP_USER_AGENT)
-        connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-        connection.setRequestProperty("Accept-Language", Locale.getDefault().toLanguageTag())
-        connection.setRequestProperty("Upgrade-Insecure-Requests", "1")
-        connection.setRequestProperty("Sec-Fetch-Dest", "document")
-        connection.setRequestProperty("Sec-Fetch-Mode", "navigate")
-        connection.setRequestProperty("Sec-Fetch-Site", "none")
-        connection.setRequestProperty("Sec-Fetch-User", "?1")
-        connection.setRequestProperty("Sec-CH-UA-Mobile", "?0")
-        connection.setRequestProperty("Sec-CH-UA-Platform", "\"Windows\"")
         val code = connection.responseCode
         if (code != HttpURLConnection.HTTP_OK) {
             Log.d(TAG, "Photo post of $fbid: HTTP $code")
