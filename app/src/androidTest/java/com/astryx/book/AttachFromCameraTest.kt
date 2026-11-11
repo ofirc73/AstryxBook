@@ -151,7 +151,8 @@ class AttachFromCameraTest {
         val picker = answer(Intent.ACTION_GET_CONTENT) { Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null) }
         openPage("application/pdf")
         tapInput()
-        assertTrue("the picker never opened for a document", app.waitFor { picker.starts == 1 })
+        assertTrue({ "the picker never opened for a document (opened ${picker.starts} times; the choice " +
+            "${if (app.textShown(text(R.string.attach_files))) "shows" else "doesn't show"})" }, app.waitFor(20_000) { picker.starts == 1 })
         assertFalse("a document request asks about the camera", app.textShown(text(R.string.attach_files)))
     }
 

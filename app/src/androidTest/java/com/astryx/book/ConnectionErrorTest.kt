@@ -39,16 +39,16 @@ class ConnectionErrorTest {
         app.startOnPage(PAGE_URL, PAGE)
         assertFalse("the error screen shows over a page that loaded", app.textShown(retry))
 
-        // A name that never resolves (RFC 6761): no connection, as WebView reports it.
         val main = app.mainWebView()
+        fun page() = "the WebView at ${app.url(main)}, ${app.onActivity { main.progress }}% loaded"
         app.onActivity { main.loadUrl(UNREACHABLE_URL) }
-        assertTrue("no Try again for a page that can't be reached", app.waitFor(30_000) { app.textShown(retry) })
+        assertTrue({ "no Try again for a page that can't be reached (${page()})" }, app.waitFor(30_000) { app.textShown(retry) })
         assertEquals("the page was taken away with the error", 1, app.webViews().size)
 
         val retries = connectionRetries.get()
         assertTrue(app.tapText(retry))
         assertTrue("Try again didn't load the page again", app.waitFor { connectionRetries.get() == retries + 1 })
-        assertTrue("the page failed again, without its error screen", app.waitFor(30_000) { app.textShown(retry) })
+        assertTrue({ "the page failed again, without its error screen (${page()})" }, app.waitFor(30_000) { app.textShown(retry) })
 
         app.loadPage("$PAGE_URL?n=2", PAGE)
         assertTrue("the error screen stayed over a page that loaded", app.waitFor { !app.textShown(retry) })
@@ -56,7 +56,9 @@ class ConnectionErrorTest {
 
     companion object {
         private const val PAGE_URL = "https://m.facebook.com/some.page/posts/2/"
-        private const val UNREACHABLE_URL = "https://m.facebook.invalid/"
+        // Nothing listens there: the connection is refused at once, with or without a network (a name
+        // that doesn't resolve took CI's emulator over 30 s to give up on).
+        private const val UNREACHABLE_URL = "https://127.0.0.1:47111/"
         private const val PAGE = "<html><body><p>A page</p><script>window.__testPage = true;</script></body></html>"
     }
 }

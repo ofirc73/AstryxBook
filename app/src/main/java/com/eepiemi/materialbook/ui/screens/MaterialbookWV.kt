@@ -529,7 +529,8 @@ fun MaterialbookWebView(
     var isLoading by rememberSaveable { mutableStateOf(true) }
     // Only a page Facebook can't be reached for (isConnectionError): the error screen covers the
     // page (ConnectionErrorScreen, below the WebView) until it loads again.
-    val isError = state.errorsForCurrentRequest.lastOrNull()?.let { it.isFromMainFrame && isConnectionError(it.code) } == true
+    // Any of the page's errors, not its last: a failed page's own requests (its icon) can fail after it.
+    val isError = state.errorsForCurrentRequest.any { it.isFromMainFrame && isConnectionError(it.code) }
 
     val viewModel: MainViewModel = viewModel {
         MainViewModel(

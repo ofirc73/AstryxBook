@@ -222,7 +222,8 @@ user-visible change.
   (zIndex 3, above the loading screen's 2, below app lock's 10); the WebView stays in the
   composition, and the library clears `errorsForCurrentRequest` when the next page starts. Never
   return early from `MaterialbookWebView` to show something in the page's place: the WebView is
-  destroyed with its history. To get the error in a test, `loadUrl` a `.invalid` address.
+  destroyed with its history. To get the error in a test, `loadUrl` a loopback address nothing
+  listens on (refused at once; a `.invalid` name took CI's emulator over 30 s to give up on).
 - A lost renderer process (`RendererGoneClient`, `utils/RendererRecovery.kt`) replaces the
   WebView: the main view re-keys its `WebView` and reloads through the navigator, the Messages
   layer is re-keyed at its page. Per-WebView setup belongs in `onCreated` (it runs again for

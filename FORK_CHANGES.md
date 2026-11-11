@@ -675,7 +675,7 @@ on their own can't:
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
-- `ConnectionErrorTest`: a page that can't be reached (a name that never resolves) covered by the
+- `ConnectionErrorTest`: a page that can't be reached (a refused connection) covered by the
   Try again screen with the page kept underneath, Try again loading it again, and a page that
   loads clearing it (no live check: it doesn't depend on Facebook's page; the connection coming
   back is `NetworkReturnTest`'s, the callback itself tried by hand in airplane mode).
