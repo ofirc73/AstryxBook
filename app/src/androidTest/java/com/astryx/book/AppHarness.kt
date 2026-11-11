@@ -3,6 +3,8 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
 import android.util.Rational
 import android.view.InputDevice
@@ -13,6 +15,7 @@ import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ApplicationProvider
@@ -20,6 +23,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import org.junit.Assert.assertTrue
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import com.eepiemi.materialbook.MainActivity
@@ -42,6 +47,30 @@ class AppHarness {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         assertTrue("MainActivity never came up", waitFor(15_000) { activity()?.let { !it.isFinishing } == true })
     }
+
+    /** Starts the app and loads [html] as its page at [url] ([loadPage]). */
+    fun startOnPage(url: String, html: String, asHistory: Boolean = false) {
+        start()
+        assertTrue("the app's WebView never appeared", waitFor { webViews().isNotEmpty() })
+        loadPage(url, html, asHistory = asHistory)
+    }
+
+    /**
+     * A file the app's own FileProvider serves (a share's photo, a picker's answer): [name] in the
+     * cache folder it shares, holding [bytes].
+     */
+    fun servedFile(name: String, bytes: ByteArray): File =
+        File(File(context.cacheDir, "clipboard_images").apply { mkdirs() }, name).apply { writeBytes(bytes) }
+
+    /** The address another app (or the page) reads [file] by, a [servedFile]. */
+    fun servedUri(file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+    /** A plain PNG picture of one colour, as bytes. */
+    fun picture(width: Int = 64, height: Int = 64, color: Int = Color.rgb(200, 80, 40)): ByteArray =
+        ByteArrayOutputStream().also {
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+                .compress(Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
 
     /** Starts MainActivity as a tap on an app notification does: with its [action]. */
     fun start(action: String) = start(Intent(action, null, context, MainActivity::class.java))

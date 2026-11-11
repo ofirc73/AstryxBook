@@ -111,4 +111,12 @@
     <string name="post_post_interrupted">你的貼文未發佈：發佈時應用程式已關閉。</string>
     <string name="post_text_clip_label">貼文文字</string>
     <string name="post_text_copied">已複製文字</string>
+    <string name="connection_retry">重試</string>
+    <string name="connection_auto_retry">連線恢復後，頁面會自動重新載入。</string>
+    <string name="attach_title">新增來源</string>
+    <string name="attach_files">相片和檔案</string>
+    <string name="attach_take_photo">拍照</string>
+    <string name="attach_record_video">錄影</string>
+    <string name="attach_camera_denied">未允許使用相機，因此沒有拍攝任何內容。</string>
+    <string name="attach_no_camera">找不到相機應用程式。</string>
 </resources>

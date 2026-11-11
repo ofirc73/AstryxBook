@@ -2,10 +2,7 @@ package com.astryx.book
 import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Color
 import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.notifications.Posting
 import com.astryx.book.notifications.PostingService
@@ -54,20 +51,10 @@ class ShareIntoFacebookTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
     }
 
-    private fun photo(name: String): Uri {
-        val dir = File(app.context.cacheDir, "clipboard_images").apply { mkdirs() }
-        val file = File(dir, name)
-        val bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(200, 80, 40)) }
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        return FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
-    }
+    private fun photo(name: String): Uri = app.servedUri(app.servedFile(name, app.picture()))
 
     // Reels take videos only; the file's content doesn't matter until Facebook reads it.
-    private fun video(name: String): Uri {
-        val dir = File(app.context.cacheDir, "clipboard_images").apply { mkdirs() }
-        val file = File(dir, name).apply { writeBytes(ByteArray(2048) { it.toByte() }) }
-        return FileProvider.getUriForFile(app.context, "${app.context.packageName}.fileprovider", file)
-    }
+    private fun video(name: String): Uri = app.servedUri(app.servedFile(name, ByteArray(2048) { it.toByte() }))
 
     private fun share(alias: String, vararg uris: Uri, type: String = "image/png", flags: Int = 0) {
         val intent = if (uris.size == 1) {
@@ -336,8 +323,7 @@ class ShareIntoFacebookTest {
     fun aStoryPosted_withMoreToShare_theNotificationShowsTheCreatorForTheNextFile() {
         val layer = openCreator()
         val files = listOf("one.png", "two.png").map { name ->
-            val file = File(app.context.cacheDir, "clipboard_images/$name").apply { parentFile?.mkdirs(); writeBytes(ByteArray(8)) }
-            SharedFile(file, name, "image/png")
+            SharedFile(app.servedFile(name, ByteArray(8)), name, "image/png")
         }
         ShareMediaQueue.start(ShareTarget.STORY, files)
         ShareMediaQueue.take(ShareTarget.STORY) // the first one, in the creator

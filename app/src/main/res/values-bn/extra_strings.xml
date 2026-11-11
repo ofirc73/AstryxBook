@@ -116,4 +116,12 @@
     <string name="post_post_interrupted">আপনার পোস্ট পোস্ট হয়নি: পোস্ট করার সময় অ্যাপটি বন্ধ হয়ে গেছে।</string>
     <string name="post_text_clip_label">পোস্টের টেক্সট</string>
     <string name="post_text_copied">টেক্সট কপি করা হয়েছে</string>
+    <string name="connection_retry">আবার চেষ্টা করুন</string>
+    <string name="connection_auto_retry">সংযোগ ফিরে এলে পৃষ্ঠাটি নিজে থেকেই আবার লোড হবে।</string>
+    <string name="attach_title">এখান থেকে যোগ করুন</string>
+    <string name="attach_files">ছবি ও ফাইল</string>
+    <string name="attach_take_photo">ছবি তুলুন</string>
+    <string name="attach_record_video">ভিডিও রেকর্ড করুন</string>
+    <string name="attach_camera_denied">ক্যামেরার অনুমতি দেওয়া হয়নি, তাই কিছু তোলা হয়নি।</string>
+    <string name="attach_no_camera">কোনো ক্যামেরা অ্যাপ পাওয়া যায়নি।</string>
 </resources>

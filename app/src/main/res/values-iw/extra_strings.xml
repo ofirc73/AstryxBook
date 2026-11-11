@@ -133,4 +133,12 @@
     <string name="post_post_interrupted">הפוסט לא פורסם: האפליקציה נסגרה בזמן הפרסום.</string>
     <string name="post_text_clip_label">טקסט הפוסט</string>
     <string name="post_text_copied">הטקסט הועתק</string>
+    <string name="connection_retry">לנסות שוב</string>
+    <string name="connection_auto_retry">הדף ייטען שוב מעצמו כשהחיבור יחזור.</string>
+    <string name="attach_title">הוספה מתוך</string>
+    <string name="attach_files">תמונות וקבצים</string>
+    <string name="attach_take_photo">צילום תמונה</string>
+    <string name="attach_record_video">צילום סרטון</string>
+    <string name="attach_camera_denied">לא ניתנה הרשאה למצלמה, ולכן לא צולם דבר.</string>
+    <string name="attach_no_camera">לא נמצאה אפליקציית מצלמה.</string>
 </resources>

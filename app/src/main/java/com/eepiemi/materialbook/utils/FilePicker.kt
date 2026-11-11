@@ -1,9 +1,6 @@
 package com.eepiemi.materialbook.utils
 
-import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.view.View
@@ -11,10 +8,8 @@ import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,9 +19,12 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.astryx.book.ui.screens.FileRequest
+import com.astryx.book.ui.screens.FileRequestEffects
 import com.astryx.book.utils.FullscreenController
 import com.astryx.book.utils.RendererGoneClient
 import com.astryx.book.utils.androidPermissionFor
+import com.astryx.book.utils.captureKinds
 import com.astryx.book.utils.webMediaGrant
 import com.multiplatform.webview.web.AccompanistWebChromeClient
 import com.multiplatform.webview.web.PlatformWebViewParams
@@ -65,7 +63,8 @@ fun appWebViewParams(
         }
     }
 
-    var fileChooserIntent by remember { mutableStateOf<Intent?>(null) }
+    // A page's request for a file, until FileRequestEffects has it in hand.
+    var fileRequest by remember { mutableStateOf<FileRequest?>(null) }
 
     // Messenger calls: the camera/microphone request waiting for Android's permission prompt.
     val context = LocalContext.current
@@ -81,7 +80,7 @@ fun appWebViewParams(
         remember(fullscreen) {
             AppWebChromeClient(
                 fullscreen,
-                onShowFilePicker = { fileChooserIntent = it },
+                onFileRequest = { fileRequest = it },
                 onMediaRequest = { request, resources ->
                     val pending = PendingMediaRequest(request, resources)
                     val missing = pending.missingPermissions(context)
@@ -101,49 +100,15 @@ fun appWebViewParams(
             )
         }
 
-    val launcher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.StartActivityForResult(),
-        ) { result: ActivityResult ->
-            if (result.resultCode != Activity.RESULT_OK) {
-                webViewChromeClient.cancelFileChooser()
-                return@rememberLauncherForActivityResult
-            }
-
-            val intent = result.data
-            if (intent == null) {
-                webViewChromeClient.cancelFileChooser()
-                return@rememberLauncherForActivityResult
-            }
-
-            val singleFile: Uri? = intent.data
-            val multiFiles: List<Uri>? = intent.getUris()
-
-            when {
-                singleFile != null -> webViewChromeClient.onReceiveFiles(arrayOf(singleFile))
-                multiFiles != null -> webViewChromeClient.onReceiveFiles(multiFiles.toTypedArray())
-                else -> {
-                    webViewChromeClient.cancelFileChooser()
-                }
-            }
-        }
-
-    LaunchedEffect(key1 = fileChooserIntent) {
-        fileChooserIntent?.let {
-            try {
-                launcher.launch(fileChooserIntent!!)
-            } catch (_: ActivityNotFoundException) {
-                webViewChromeClient.cancelFileChooser()
-            }
-        }
-    }
+    // Android's picker, or the camera where it fits the request (FileRequestEffects).
+    FileRequestEffects(
+        request = fileRequest,
+        onTaken = { fileRequest = null },
+        onFiles = webViewChromeClient::onReceiveFiles,
+        onCancel = webViewChromeClient::cancelFileChooser,
+    )
 
     return PlatformWebViewParams(client = webViewClient, chromeClient = webViewChromeClient)
-}
-
-private fun Intent.getUris(): List<Uri>? {
-    val clipData = clipData ?: return null
-    return (0 until clipData.itemCount).map { clipData.getItemAt(it).uri }
 }
 
 /** A page's camera/microphone request and the web resources it may get (see webMediaGrant). */
@@ -166,7 +131,7 @@ private class PendingMediaRequest(val request: PermissionRequest, val resources:
 
 private class AppWebChromeClient(
     private val fullscreen: FullscreenController,
-    private val onShowFilePicker: (Intent) -> Unit,
+    private val onFileRequest: (FileRequest) -> Unit,
     private val onMediaRequest: (PermissionRequest, List<String>) -> Unit,
     private val onMediaRequestCanceled: (PermissionRequest) -> Unit,
 ) : AccompanistWebChromeClient() {
@@ -204,7 +169,9 @@ private class AppWebChromeClient(
         val filePickerIntent = fileChooserParams?.createIntent()
 
         if (filePickerIntent == null) cancelFileChooser()
-        else onShowFilePicker(filePickerIntent)
+        else onFileRequest(
+            FileRequest(filePickerIntent, captureKinds(fileChooserParams.acceptTypes), fileChooserParams.isCaptureEnabled)
+        )
 
         return true
     }

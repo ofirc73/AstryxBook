@@ -120,4 +120,12 @@
     <string name="post_post_interrupted">Postingan Anda tidak diposting: aplikasi ditutup saat memposting.</string>
     <string name="post_text_clip_label">Teks postingan</string>
     <string name="post_text_copied">Teks disalin</string>
+    <string name="connection_retry">Coba lagi</string>
+    <string name="connection_auto_retry">Halaman akan dimuat ulang sendiri saat koneksi kembali.</string>
+    <string name="attach_title">Tambahkan dari</string>
+    <string name="attach_files">Foto dan file</string>
+    <string name="attach_take_photo">Ambil foto</string>
+    <string name="attach_record_video">Rekam video</string>
+    <string name="attach_camera_denied">Kamera tidak diizinkan, jadi tidak ada yang diambil.</string>
+    <string name="attach_no_camera">Aplikasi kamera tidak ditemukan.</string>
 </resources>

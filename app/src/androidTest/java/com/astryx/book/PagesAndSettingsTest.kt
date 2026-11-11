@@ -38,11 +38,8 @@ class PagesAndSettingsTest {
         File(app.context.filesDir, "datastore").deleteRecursively()
     }
 
-    private fun startOnPage(url: String = FEED_URL, html: String = FEED_PAGE, asHistory: Boolean = false) {
-        app.start()
-        assertTrue("the app's WebView never appeared", app.waitFor { app.webViews().isNotEmpty() })
-        app.loadPage(url, html, asHistory = asHistory)
-    }
+    private fun startOnPage(url: String = FEED_URL, html: String = FEED_PAGE, asHistory: Boolean = false) =
+        app.startOnPage(url, html, asHistory)
 
     @Test
     fun theAppsScripts_runOnFacebooksPages() {

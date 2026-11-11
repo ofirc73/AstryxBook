@@ -468,6 +468,17 @@ rewritten to the new one, keeping its schedule.
   mean Facebook can't be reached (no connection, a name that doesn't resolve, a refused connection,
   a timeout) show the dialog now (`isConnectionError`, `PageErrorsTest`; the live checks, which
   failed on it, are its live check).
+- **No connection: Try again.** A page Facebook can't be reached for is covered by the app's own
+  screen (`ConnectionErrorScreen`): what to do, a **Try again** button that loads the page again,
+  and the page loads again by itself when the connection comes back (`WhenConnectionReturns`: a
+  network that reaches the internet after there was none; a network that was there all along
+  isn't one, so a page that fails for another reason isn't loaded over and over). The dialog it
+  replaces showed only at start, had one button, OK, which closed the app, and took the WebView
+  away; a page that failed later showed the browser's own error page, with nothing to load it
+  again by. The page now stays underneath, with its history, so Back still works. Not shown over
+  the Messages layer. Tried on the emulator (2026-11-11): started in airplane mode, the screen
+  showed, and the feed loaded about 5 s after airplane mode went off. Covered by
+  `ConnectionErrorTest` and `NetworkReturnTest`.
 - Battery: with **Material You** or **AMOLED Black** on, the page kept the CPU busy. On every change
   to the page (a new post, a video's timeline, a counter), `material_you.js` and `amoled_black.js`
   went over every styled element of the whole page again: in desktop Chromium, on a mock feed that
@@ -664,6 +675,15 @@ on their own can't:
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
+- `ConnectionErrorTest`: a page that can't be reached (a refused connection) covered by the
+  Try again screen with the page kept underneath, Try again loading it again, and a page that
+  loads clearing it (no live check: it doesn't depend on Facebook's page; the connection coming
+  back is `NetworkReturnTest`'s, the callback itself tried by hand in airplane mode).
+- `AttachFromCameraTest`: a photo request asking where from, the picker's file and the camera's
+  photo reaching the page, a capture the camera gave up on and a choice dismissed leaving the next
+  request working, a document request opening the picker at once (the picker and the camera app
+  answered by the test). Its live check: `homesPhotoButton_asksWhereThePhotoComesFrom`, Facebook's
+  own Photo button asking, dismissed.
 - `AdsPixelBlockTest`: the main view's and the Messages layer's own WebView clients answering
   Facebook's Google Ads pixel with an empty response.
 
@@ -1704,6 +1724,29 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   share. Now a share is taken once (`startRequest` in `IncomingIntents.kt`); an intent from Recents'
   history opens the start page, a link included. Covered by `IncomingIntentsTest`,
   `ShareIntoFacebookTest` (the app created again; a share marked as from history) and `LinksTest`.
+
+## Camera for a page's file request
+
+- **Take a photo or record a video** where Facebook asks for a file (Home's and the composer's
+  Photo button, a comment's or a chat's attachment). A page's file request opened Android's picker,
+  which only shows what's already on the phone. Where the request takes what a camera makes (a
+  JPEG photo, an MP4 video: `captureKinds` reads the input's `accept`), the app now asks first
+  (`AttachSourceDialog`): **Photos and files** (the picker, as before), **Take a photo**, **Record
+  a video**. As Chrome asks on the same button. A request the camera can't answer (documents)
+  opens the picker at once, and an input that asks for the camera itself (`capture`) opens it
+  directly. Share to Feed and the other share targets are unchanged: `share_media.js` answers
+  those clicks itself.
+- The camera app fills one file in the app's cache (`cache/captures`, through the app's
+  FileProvider; older than a day, deleted; all deleted by Log out and clear data, which now also
+  deletes the last share's copies). The app declares the CAMERA permission for Messenger calls, and
+  Android refuses to open the camera app for an app that declares it without holding it: it's
+  asked for when the user first picks the camera, not when the choice shows. A capture the camera
+  app gave up on (an empty file) and a choice dismissed answer the page with nothing: a request
+  left unanswered keeps the page's next one from coming.
+- Tried on the emulator (2026-11-11): Home's Photo button, Take a photo, the permission prompt,
+  the camera app's photo in Facebook's composer; the draft discarded. Covered by
+  `CameraCaptureTest`, `AttachFromCameraTest` and the live check
+  `homesPhotoButton_asksWhereThePhotoComesFrom`.
 
 ## Known limitations
 
