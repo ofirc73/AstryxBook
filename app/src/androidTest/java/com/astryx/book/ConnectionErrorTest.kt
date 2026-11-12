@@ -40,7 +40,7 @@ class ConnectionErrorTest {
         assertFalse("the error screen shows over a page that loaded", app.textShown(retry))
 
         val main = app.mainWebView()
-        fun page() = "the WebView at ${app.url(main)}, ${app.onActivity { main.progress }}% loaded"
+        fun page() = "the WebView at ${app.url(main)}, ${app.onActivity { main.progress }}% loaded; ${app.screenState()}"
         app.onActivity { main.loadUrl(UNREACHABLE_URL) }
         assertTrue({ "no Try again for a page that can't be reached (${page()})" }, app.waitFor(30_000) { app.textShown(retry) })
         assertEquals("the page was taken away with the error", 1, app.webViews().size)

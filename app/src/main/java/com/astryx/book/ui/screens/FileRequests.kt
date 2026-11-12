@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -105,6 +106,7 @@ fun FileRequestEffects(request: FileRequest?, onTaken: () -> Unit, onFiles: (Arr
     LaunchedEffect(request) {
         val new = request ?: return@LaunchedEffect
         onTaken()
+        Log.d("Astryxbook", "File request: " + if (new.capture.isEmpty()) "the picker" else if (new.captureNow) "the camera" else "a choice")
         when {
             new.capture.isEmpty() -> openPicker(new.picker)
             new.captureNow -> useCamera(new.capture.first())
