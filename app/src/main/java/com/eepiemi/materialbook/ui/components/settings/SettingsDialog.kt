@@ -53,10 +53,17 @@ fun SettingsDialog(
     val scrollState = rememberScrollState()
     // Shown only once a setting that needs the page reloaded has changed (see SettingsContent).
     var reloadNeeded by rememberSaveable { mutableStateOf(false) }
+    // Settings closed any way (Back, the back arrow) with such a change applies it, as the Reload
+    // button does: closed with Back, the page kept the scripts it had until the app restarted, and
+    // Settings opened again took the new values as already applied, without the button.
+    val close = {
+        if (reloadNeeded) onReload()
+        onDismiss()
+    }
 
     Dialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
-        onDismissRequest = onDismiss,
+        onDismissRequest = close,
     ) {
         val view = LocalView.current
         val dialogWindowProvider = view.parent as? DialogWindowProvider
@@ -86,7 +93,7 @@ fun SettingsDialog(
                     // 48dp: the minimum touch target.
                     IconButton(
                         modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
-                        onClick = { onDismiss() }
+                        onClick = close
                     ) { Icon(Icons.AutoMirrored.Default.ArrowBackIos, "back button") }
 
                     // Shares the Facebook page underneath; Settings stays open behind the share sheet.
@@ -112,10 +119,7 @@ fun SettingsDialog(
                     exit = fadeOut() + scaleOut()
                 ) {
                     ExtendedFloatingActionButton(
-                        onClick = {
-                            onReload()
-                            onDismiss()
-                        },
+                        onClick = close,
                         text = {
                             Text(
                                 stringResource(R.string.reload_to_apply)
@@ -137,7 +141,7 @@ fun SettingsDialog(
                     .padding(bottom = if (reloadNeeded) 72.dp else 0.dp),
                 onPageSettingsChanged = { reloadNeeded = it },
                 onLogOut = {
-                    onDismiss()
+                    close()
                     onLogOut()
                 }
             )
