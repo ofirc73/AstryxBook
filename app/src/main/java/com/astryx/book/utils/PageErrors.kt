@@ -1,4 +1,6 @@
 package com.astryx.book.utils
+
+import com.multiplatform.webview.web.WebViewState
 import android.webkit.WebViewClient
 
 /**
@@ -10,6 +12,9 @@ import android.webkit.WebViewClient
  * (ERR_INTERNET_DISCONNECTED) as ERROR_HOST_LOOKUP.
  */
 fun isConnectionError(code: Int): Boolean = code in CONNECTION_ERRORS
+
+/** The page [this] state is on can't be reached ([isConnectionError] for the page itself, not a frame). */
+fun WebViewState.cannotReachPage(): Boolean = errorsForCurrentRequest.any { it.isFromMainFrame && isConnectionError(it.code) }
 
 private val CONNECTION_ERRORS = setOf(
     WebViewClient.ERROR_HOST_LOOKUP,

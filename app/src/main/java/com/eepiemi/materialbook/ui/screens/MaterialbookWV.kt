@@ -83,7 +83,7 @@ import com.astryx.book.utils.BackHistory
 import com.astryx.book.utils.HistoryEntry
 import com.astryx.book.utils.intentFallbackUrl
 import com.astryx.book.utils.mobileSiteUrl
-import com.astryx.book.utils.isConnectionError
+import com.astryx.book.utils.cannotReachPage
 import com.astryx.book.utils.isMessagesLink
 import com.astryx.book.utils.isMessengerAppLink
 import com.astryx.book.utils.isMobileReelPage
@@ -118,6 +118,7 @@ import com.multiplatform.webview.web.rememberWebViewNavigator
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.astryx.book.ui.screens.AppLeaveEffects
+import com.astryx.book.ui.screens.askPageForBack
 import com.astryx.book.ui.screens.MAX_ZOOM_OUT_STEPS
 import com.astryx.book.ui.screens.MainPlace
 import com.astryx.book.ui.screens.MainViewShareEffects
@@ -162,9 +163,8 @@ private const val RESUME_UNDER_LAYER_JS = "(function () {" +
 private const val LAYER_CLOSE_WAIT_MS = 8000L
 // Longest the loading screen covers the page for the relayout after an empty PiP window.
 private const val RELAYOUT_COVER_MAX_MS = 8000L
-// Back asks the page first (scripts.js); how long it waits for the answer before stepping back.
+// Back asks the page first (scripts.js, askPageForBack).
 private const val BACK_HANDLER_JS = "backHandlerNB();"
-private const val BACK_ANSWER_WAIT_MS = 1500L
 
 /** A link the running app was sent (onNewIntent); [seq] tells two taps on the same link apart. */
 data class OpenLinkRequest(val seq: Int, val url: String)
@@ -490,32 +490,16 @@ fun MaterialbookWebView(
                 }.getOrDefault(false)
                 if (!wentBack) leaveApp()
             }
-            // The page's answer (scripts.js backHandlerNB). A page whose scripts haven't run yet
-            // gives none, and a busy renderer answers late or not at all (both on GitHub's emulator,
-            // 2026-10-30): Back did nothing then. Without an answer in time it steps back anyway,
-            // and a late answer is dropped.
-            var answered = false
-            val noAnswer = backScope.launch {
-                delay(BACK_ANSWER_WAIT_MS)
-                answered = true
-                Log.d("Astryxbook", "Back: the page didn't answer")
-                goBack()
-            }
-            val onAnswer = answer@{ reply: String? ->
-                if (answered) return@answer
-                answered = true
-                noAnswer.cancel()
-                when (reply?.removeSurrounding("\"")) {
+            // The page's answer (scripts.js backHandlerNB), or none in time (askPageForBack).
+            askPageForBack(backScope, state, navigator, BACK_HANDLER_JS) { reply ->
+                when (reply) {
                     "true" -> Unit // the page closed something of its own
                     "exit" -> leaveApp()
                     "scrolling" -> exitScroll = true
-                    // "false", or null: the page's scripts hadn't run yet.
+                    // "false", or none: the page's scripts hadn't run yet, or didn't answer.
                     else -> goBack()
                 }
             }
-            // Asked of the WebView itself: the navigator passes on only its last event.
-            runCatching { state.nativeWebView.evaluateJavascript(BACK_HANDLER_JS) { onAnswer(it) } }
-                .onFailure { navigator.evaluateJavaScript(BACK_HANDLER_JS) { onAnswer(it) } }
         }
     }
 
@@ -530,7 +514,7 @@ fun MaterialbookWebView(
     // Only a page Facebook can't be reached for (isConnectionError): the error screen covers the
     // page (ConnectionErrorScreen, below the WebView) until it loads again.
     // Any of the page's errors, not its last: a failed page's own requests (its icon) can fail after it.
-    val isError = state.errorsForCurrentRequest.any { it.isFromMainFrame && isConnectionError(it.code) }
+    val isError = state.cannotReachPage()
 
     val viewModel: MainViewModel = viewModel {
         MainViewModel(

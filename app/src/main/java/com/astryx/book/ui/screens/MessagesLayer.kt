@@ -1,4 +1,7 @@
 package com.astryx.book.ui.screens
+import androidx.compose.runtime.rememberCoroutineScope
+import com.astryx.book.utils.cannotReachPage
+import com.astryx.book.ui.components.ConnectionErrorScreen
 import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
@@ -215,6 +218,7 @@ fun MessagesLayer(
 
     // Composed after the main view's handlers, so it gets Back first; disabled while a
     // video is fullscreen, so Back leaves fullscreen through the main view's handler.
+    val backScope = rememberCoroutineScope()
     BackHandler(enabled = !isFullscreen && !hidden) {
         // Shown again while it posts (its notification, Create story): out of sight again.
         if (storyPosting) {
@@ -229,15 +233,17 @@ fun MessagesLayer(
         // photo closes, a chat goes back to the chat list (its own Back button), the chat list
         // closes the layer. Stepping back a page instead left the chat for "No chats selected"
         // (seen on a Galaxy A56). Anything else steps back a page.
-        navigator.evaluateJavaScript(LAYER_BACK_JS) { done ->
-            when (done.removeSurrounding("\"")) {
+        // Without an answer in time (askPageForBack) it steps back a page, as for "page": Back did
+        // nothing while the layer's page was busy or its scripts hadn't run yet.
+        askPageForBack(backScope, state, navigator, LAYER_BACK_JS) { done ->
+            when (done) {
                 "photo", "chat" -> Unit
-                "list" -> onClose()
+                "list" -> currentOnClose()
                 else -> {
                     // Asked of the WebView itself: opening a conversation is an in-page
                     // navigation, which navigator.canGoBack doesn't always pick up.
                     val canGoBack = runCatching { state.nativeWebView.canGoBack() }.getOrDefault(false)
-                    if (canGoBack) navigator.navigateBack() else onClose()
+                    if (canGoBack) navigator.navigateBack() else currentOnClose()
                 }
             }
         }
@@ -490,6 +496,11 @@ fun MessagesLayer(
                 }
             }
         )
+        // Facebook couldn't be reached: the Try again screen over the layer's page, as over the main
+        // view's (which leaves it to the layer while the layer is on screen).
+        if (state.cannotReachPage() && !hidden) {
+            ConnectionErrorScreen(onRetry = { navigator.reload() }, modifier = Modifier.fillMaxSize().zIndex(2F))
+        }
         if (loadingState is LoadingState.Loading && !hidden) {
             LinearProgressIndicator(
                 progress = { loadingState.progress },

@@ -35,6 +35,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import com.eepiemi.materialbook.MainActivity
+import com.eepiemi.materialbook.R
 
 /**
  * Drives the whole app for app-level tests: starts MainActivity with an intent (as a launcher, a
@@ -119,6 +120,38 @@ class AppHarness {
     @RequiresApi(Build.VERSION_CODES.Q)
     fun deleteDownloads(files: List<SavedDownload>) = files.forEach {
         context.contentResolver.delete(ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.id), null, null)
+    }
+
+    /** Opens the Messages layer at Facebook's story creator, as Create story does: the layer's WebView. */
+    fun openStoryCreator(): WebView {
+        eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'layerUrl', url: 'https://www.facebook.com/stories/create' })); 1")
+        assertTrue("the Messages layer never opened", waitFor(15_000) { layerWebView() != null })
+        return layerWebView()!!
+    }
+
+    /**
+     * Opens the Messages layer (as Create story does) with [html] as its page at [url], the layer's
+     * navigation script running, and the main view kept off the network (it then opens what the
+     * layer sends it without loading it). The layer's WebView.
+     */
+    fun openLayer(url: String, html: String): WebView {
+        // Logged in, on a local emulator, a real page the main view opened played and slowed the
+        // emulator until the page stopped answering; logged out, Facebook answers differently.
+        val main = mainWebView()
+        onActivity { main.settings.blockNetworkLoads = true }
+        val layer = openStoryCreator()
+        // The real page the layer opened (the story creator) is heavy and goes on loading; it's
+        // kept off the network and stopped, the page here is a test page anyway.
+        keepOffTheNetwork(layer)
+        loadPage(url, html, layer)
+        // messages_layer_nav.js reports the layer's moves. The layer runs it once a load finishes,
+        // which a stopped load can leave out; it's run here then, as the layer would.
+        if (!waitFor(5_000) { eval("!!window.__astryxLayerNavInstalled", layer) == "true" }) {
+            val nav = context.resources.openRawResource(R.raw.messages_layer_nav).bufferedReader().use { it.readText() }
+            eval("$nav; 1", layer)
+        }
+        assertTrue("messages_layer_nav.js isn't in the layer", eval("!!window.__astryxLayerNavInstalled", layer) == "true")
+        return layer
     }
 
     /** Starts the app and loads [html] as its page at [url] ([loadPage]). */
@@ -498,6 +531,9 @@ private const val TAP_SEEN_MS = 2_000L
 private const val TAP_PROBE_JS = "window.__astryxTapSeen = false; document.addEventListener('pointerdown'," +
     " function () { window.__astryxTapSeen = true; }, { capture: true, once: true }); 1"
 const val LONG_PRESS_MS = 1000L
+
+/** A plain test page ([AppHarness.loadPage]: it marks itself loaded). */
+const val PLAIN_PAGE = "<html><body><p>A page</p><script>window.__testPage = true;</script></body></html>"
 
 /**
  * assertTrue with a message written only when it fails: after the wait in [condition], so what

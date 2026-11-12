@@ -421,9 +421,7 @@ class MainActivityPipTest {
     fun pipFromTheMessagesLayer_actsOnTheLayer() {
         // While the layer is open, PiP follows its page (PipTarget), not the main view's.
         loadReelPage()
-        eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'layerUrl', url: 'https://www.facebook.com/stories/create' })); 1")
-        assertTrue("the Messages layer never opened", app.waitFor(15_000) { app.layerWebView() != null })
-        val layer = app.layerWebView()!!
+        val layer = app.openStoryCreator()
         loadReelPage(layer, LAYER_URL)
 
         app.enterPip()
