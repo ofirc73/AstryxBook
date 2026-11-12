@@ -4,6 +4,7 @@ import android.webkit.WebView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.astryx.book.notifications.Posting
+import com.astryx.book.utils.AdsHidden
 import com.astryx.book.utils.isFacebookWebUrl
 import com.eepiemi.materialbook.utils.jsBridge.FACEBOOK_PAGE_ORIGINS
 import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
@@ -116,6 +117,8 @@ fun dispatchPageMessage(data: String, bridges: PageBridges): Boolean {
             if (text.isBlank() || text.length > MAX_COPY_TEXT_LENGTH) return false
             copyText(text)
         }
+        // adblock.js: an ad it hid, for the app's count. Any page with the listener may say so.
+        "adHidden" -> if (!AdsHidden.count(msg.optString("kind"))) return false
         else -> return false
     }
     return true

@@ -13,6 +13,8 @@
     <string name="developer_options_enabled">已啟用開發人員選項</string>
     <string name="webview_debugging_title">WebView 偵錯</string>
     <string name="webview_debugging_summary">允許已啟用 USB 偵錯的電腦檢查並控制頁面（chrome://inspect）。完成後請關閉。</string>
+    <string name="ads_hidden_title">已移除的廣告</string>
+    <string name="ads_hidden_summary">動態消息：%1$d · Reels：%2$d，自應用程式啟動起</string>
     <string name="external_link_title">要在其他應用程式中開啟嗎？</string>
     <string name="external_link_open">開啟</string>
     <string name="open_links_title">在這裡開啟 Facebook 連結</string>

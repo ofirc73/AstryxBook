@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.annotation.RawRes
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.astryx.book.FEED_AD_LABEL
 import com.astryx.book.PageFixture
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
@@ -22,7 +23,16 @@ class FeedPostJsTest {
         fun load(feed: String, vararg scripts: Int) {
             page.load("https://m.facebook.com/", "<html><body>$feed</body></html>")
             page.runBackHandler()
+            page.stubPageCalls()
             scripts.forEach { page.run(it) }
+        }
+
+        // The ads the page told the app it hid (adblock.js, AstryxPage call adHidden), as "adHidden feed" each.
+        fun adsCounted(): String = page.pageCalls("kind").removeSurrounding("\"")
+
+        // Something added to the page, as Facebook does all the time: adblock.js looks at the feed again.
+        fun change(html: String = "<div>more</div>") {
+            page.eval("document.querySelector('[data-type=vscroller]').insertAdjacentHTML('beforeend', \"$html\"); 1")
         }
 
         // Which of [ids] are hidden, as "id=true,…".
@@ -51,8 +61,7 @@ class FeedPostJsTest {
         gap("$id-gap") + "<div id='$id' data-dcm-id='1' data-tracking-duration-id='$track' " +
             "data-mcomponent='MContainer' style='height:300px'><div>A Page $header</div><div>Some text</div></div>"
 
-    // A feed ad's label, as adblock.js finds it (its grey).
-    private val adLabel = "<div class='native-text rslh'><span class='f5' style='color:#8a8d91'>Sponsored</span></div>"
+    private val adLabel = FEED_AD_LABEL
 
     // A suggested post's "•" before Follow, as hide_suggested.js finds it.
     private val suggested = "<div data-mcomponent='TextArea' data-type='text' data-tti-phase='-1'>" +
@@ -85,6 +94,21 @@ class FeedPostJsTest {
         h.load(feed(card("a", 1), card("b", 2, adLabel), card("c", 3)), R.raw.adblock)
 
         assertEquals("a=false,b-gap=true,b=true,c-gap=false,c=false", h.hidden("a", "b-gap", "b", "c-gap", "c"))
+        assertEquals("adHidden feed", h.adsCounted())
+    }
+
+    // The app counts the ads hidden (developer options, the log): the one way to see on a phone that
+    // the feed's ads are still found, the test account being shown none.
+    @Test
+    fun anAdHidden_isCountedOnce_howeverOftenThePageChanges() {
+        val h = Harness()
+        h.load(feed(rows("a", 1), rows("b", 2, header = adLabel), rows("c", 3)), R.raw.adblock)
+        h.change()
+        h.change()
+        assertEquals("adHidden feed", h.adsCounted())
+
+        h.change(rows("d", 4, header = adLabel))
+        assertEquals("adHidden feed, adHidden feed", h.adsCounted())
     }
 
     @Test
@@ -112,5 +136,6 @@ class FeedPostJsTest {
         h.load("<div id='photo' style='height:600px'>$adLabel</div>", R.raw.adblock)
 
         assertEquals("photo=false", h.hidden("photo"))
+        assertEquals("", h.adsCounted())
     }
 }

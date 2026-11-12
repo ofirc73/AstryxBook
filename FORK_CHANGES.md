@@ -691,7 +691,8 @@ on their own can't:
   the app stopping its page.
   Also a page setting changed in Settings applying when Settings is closed with Back (the page
   reloaded with it), and Back with nothing changed leaving the page as it was (no live check: it
-  doesn't depend on Facebook's page).
+  doesn't depend on Facebook's page). And a feed ad Remove ads hides on a page in the app reaching
+  the app's count once (live: the two `removeAds_` checks, when an ad comes).
 - `ConnectionErrorTest`: a page that can't be reached (a refused connection), in the main view
   and in the Messages layer, covered by the Try again screen with the page kept underneath, Try
   again loading it again, and a page that loads clearing it (no live check: it doesn't depend on Facebook's page; the connection coming
@@ -773,7 +774,8 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
   bar and Home's reload don't depend on Facebook's page (`PostingTest`, `ShareIntoFacebookTest`).
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`,
   `FeedPostJsTest`). An ad label it missed, found by its text, fails the check; a run that saw no
-  ad reports a gap (`feed-ads`, `reel-ads`). The feed check counts posts through `scripts.js` `feedPostRows` and fails
+  ad reports a gap (`feed-ads`, `reel-ads`); ads it did hide must have reached the app's count
+  (`AdsHidden`). The feed check counts posts through `scripts.js` `feedPostRows` and fails
   when it finds none: it used to only note that (the test account has no friends, but its feed has
   group and suggested posts), which hid Home dropping the cards `adblock.js` looked for.
 - `aReelsPlayer_hasItsMp4InDataVideoUrl`: the reel player's `data-video-url` being an MP4 the page
@@ -1831,6 +1833,22 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   again (a font size or language change), for as long as the app ran; so did Home's reload for
   the stories row.
 - Found by the audit (2026-11-12). Covered by `OpenNewPostJsTest` and `ShareIntoFacebookTest`.
+
+## Remove ads can be checked
+
+- **Ads removed, counted.** The feed's ads are found by one sign, the grey of their label, and
+  the account the daily checks run on is never shown ads (issue 159): had Facebook changed that
+  grey, Remove ads would have stopped working on the feed with nothing failing. The app now
+  counts each ad it hides, feed and reels apart, since it started: **Ads removed** in developer
+  options (tap the version at the bottom of Settings seven times), and `Ads hidden: feed N, reels
+  M` under `Astryxbook` in the log. On a phone whose feed has ads, a count above 0 says they are
+  still found; 0 with ads on screen says the sign changed.
+- `adblock.js` tells the app of each ad the first time it hides it (AstryxPage `adHidden`; the
+  post is hidden again on every page change, as before, and counted once). Its unused
+  `processedAds` set went.
+- Found by the audit (2026-11-12). Covered by `FeedPostJsTest`, `ReelAdsJsTest`,
+  `PageBridgeTest` and `PagesAndSettingsTest`; the row in Settings was checked by eye on the
+  emulator (it's below the fold, and the tests have no scroll for the app's own screens).
 
 ## Known limitations
 

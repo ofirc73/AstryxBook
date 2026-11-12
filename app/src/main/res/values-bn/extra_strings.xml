@@ -13,6 +13,8 @@
     <string name="developer_options_enabled">ডেভেলপার অপশন চালু হয়েছে</string>
     <string name="webview_debugging_title">WebView ডিবাগিং</string>
     <string name="webview_debugging_summary">USB ডিবাগিং আছে এমন কম্পিউটারকে পেজটি দেখতে ও নিয়ন্ত্রণ করতে দিন (chrome://inspect)। কাজ শেষে বন্ধ করে দিন।</string>
+    <string name="ads_hidden_title">সরানো বিজ্ঞাপন</string>
+    <string name="ads_hidden_summary">ফিড: %1$d · রিলস: %2$d, অ্যাপ চালু হওয়ার পর থেকে</string>
     <string name="external_link_title">অন্য অ্যাপে খুলবেন?</string>
     <string name="external_link_open">খুলুন</string>
     <string name="open_links_title">ফেসবুক লিংক এখানে খুলুন</string>

@@ -16,6 +16,8 @@
     <string name="developer_options_enabled">Opcje programisty są włączone</string>
     <string name="webview_debugging_title">Debugowanie WebView</string>
     <string name="webview_debugging_summary">Pozwól komputerowi z debugowaniem USB podglądać stronę i nią sterować (chrome://inspect). Wyłącz po zakończeniu.</string>
+    <string name="ads_hidden_title">Usunięte reklamy</string>
+    <string name="ads_hidden_summary">Kanał: %1$d · Rolki: %2$d, od uruchomienia aplikacji</string>
     <string name="external_link_title">Otworzyć w innej aplikacji?</string>
     <string name="external_link_open">Otwórz</string>
     <string name="open_links_title">Otwieraj tutaj linki do Facebooka</string>

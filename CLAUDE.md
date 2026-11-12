@@ -287,7 +287,11 @@ user-visible change.
 - Remove ads (`adblock.js`): a reel is an ad when one of its spans *is* the label, e.g.
   `<span class="f19">Ad</span>` at the reel's bottom left (English "Ad" even with Facebook in
   Hebrew, read on a phone). Feed ads are found by their label's colour instead. To read a real
-  reel ad, turn *Remove ads* off (otherwise the reel is emptied first).
+  reel ad, turn *Remove ads* off (otherwise the reel is emptied first). Each ad hidden is reported
+  to the app (AstryxPage `adHidden`, kind `feed` or `reel`) and counted for the process
+  (`utils/AdsHidden.kt`): *Ads removed* in developer options, and `Ads hidden:` under `Astryxbook`
+  in the log. The test account is shown no ads, so that count on a phone whose feed has them is the
+  only check that the colour still finds them: 0 there with ads on screen means it changed.
 - Facebook plays most videos through Media Source Extensions, so a `<video>`'s
   `currentSrc` is `blob:`. The mobile site's player (`data-mcomponent="MVideo"`) carries
   the whole MP4 in `data-video-url`; downloads (`download_content.js`) use that: an https address

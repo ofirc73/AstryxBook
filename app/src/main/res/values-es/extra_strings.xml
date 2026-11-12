@@ -13,6 +13,8 @@
     <string name="developer_options_enabled">Las opciones de desarrollador están activadas</string>
     <string name="webview_debugging_title">Depuración de WebView</string>
     <string name="webview_debugging_summary">Permite que un ordenador con depuración USB inspeccione y controle la página (chrome://inspect). Desactívala cuando termines.</string>
+    <string name="ads_hidden_title">Anuncios eliminados</string>
+    <string name="ads_hidden_summary">Feed: %1$d · Reels: %2$d, desde que se abrió la app</string>
     <string name="external_link_title">¿Abrir en otra aplicación?</string>
     <string name="external_link_open">Abrir</string>
     <string name="open_links_title">Abrir enlaces de Facebook aquí</string>

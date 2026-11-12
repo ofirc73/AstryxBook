@@ -13,6 +13,8 @@
     <string name="developer_options_enabled">Les options pour les développeurs sont activées</string>
     <string name="webview_debugging_title">Débogage WebView</string>
     <string name="webview_debugging_summary">Permet à un ordinateur avec le débogage USB d\'inspecter et de contrôler la page (chrome://inspect). Désactivez-le quand vous avez terminé.</string>
+    <string name="ads_hidden_title">Publicités supprimées</string>
+    <string name="ads_hidden_summary">Fil d\'actualité : %1$d · Reels : %2$d, depuis le lancement de l\'application</string>
     <string name="external_link_title">Ouvrir dans une autre application ?</string>
     <string name="external_link_open">Ouvrir</string>
     <string name="open_links_title">Ouvrir les liens Facebook ici</string>
