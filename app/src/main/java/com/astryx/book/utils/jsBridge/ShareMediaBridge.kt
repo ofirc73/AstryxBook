@@ -21,6 +21,7 @@ import com.astryx.book.utils.clearSharedMedia
 import com.astryx.book.utils.isFacebookWebUrl
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import com.eepiemi.materialbook.utils.jsBridge.FACEBOOK_PAGE_ORIGINS
@@ -111,7 +112,16 @@ private fun tapPage(webView: WebView, x: Double, y: Double, width: Double) {
 
 private const val TAP_MS = 60L
 
-// The header, then each file's bytes, read off the main thread and posted on it.
+// A file goes to the page in pieces of this size, the next read only once the last was posted: a
+// file read whole and posted as one message, up to 250 MB for a video (MAX_VIDEO_BYTES), couldn't fit
+// in the app's memory (192 MB on the emulator).
+private const val CHUNK_BYTES = 4 * 1024 * 1024
+// After a file's pieces; "failed" when it couldn't be read whole (the page drops it).
+private const val FILE_END = "{\"end\":true}"
+private const val FILE_FAILED = "{\"end\":true,\"failed\":true}"
+
+// The header, then each file's pieces and its end, read off the main thread and posted on it one
+// at a time.
 private fun sendFiles(reply: JavaScriptReplyProxy, files: List<SharedFile>, binary: Boolean, main: Handler, remaining: Int) {
     val header = JSONObject()
         .put("count", files.size)
@@ -120,16 +130,44 @@ private fun sendFiles(reply: JavaScriptReplyProxy, files: List<SharedFile>, bina
         .put("files", JSONArray(files.map { JSONObject().put("name", it.name).put("type", it.mimeType) }))
     reply.postMessage(header.toString())
     reader.execute {
+        val buffer = ByteArray(CHUNK_BYTES)
         files.forEach { shared ->
-            val bytes = runCatching { shared.file.readBytes() }
-                .onFailure { Log.w("Astryxbook", "Share: couldn't read a copy", it) }
-                .getOrDefault(ByteArray(0))
-            main.post {
-                if (binary) reply.postMessage(bytes)
-                else reply.postMessage(Base64.encodeToString(bytes, Base64.NO_WRAP))
-            }
+            val whole = runCatching {
+                shared.file.inputStream().use { input ->
+                    while (true) {
+                        val read = input.readFully(buffer)
+                        if (read <= 0) break
+                        val piece = buffer.copyOf(read)
+                        postOnMain(main) {
+                            if (binary) reply.postMessage(piece)
+                            else reply.postMessage(Base64.encodeToString(piece, Base64.NO_WRAP))
+                        }
+                    }
+                }
+            }.onFailure { Log.w("Astryxbook", "Share: couldn't read a copy", it) }.isSuccess
+            postOnMain(main) { reply.postMessage(if (whole) FILE_END else FILE_FAILED) }
         }
     }
+}
+
+// Fills [buffer] from the stream as far as it goes; the bytes read, 0 at its end.
+private fun java.io.InputStream.readFully(buffer: ByteArray): Int {
+    var total = 0
+    while (total < buffer.size) {
+        val read = read(buffer, total, buffer.size - total)
+        if (read < 0) break
+        total += read
+    }
+    return total
+}
+
+// Runs [post] on the main thread and waits until it has.
+private fun postOnMain(main: Handler, post: () -> Unit) {
+    val done = CountDownLatch(1)
+    main.post {
+        try { post() } finally { done.countDown() }
+    }
+    done.await()
 }
 
 // The page is through with the share: drop the copies once nothing's left to offer.

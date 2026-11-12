@@ -380,7 +380,9 @@ user-visible change.
   to facebook.com's https pages only. A new fetch uses it too, never `instanceFollowRedirects`.
 - Sharing photos/videos into Facebook (`utils/ShareMedia.kt`, `share_media.js`): the `ShareTo...`
   activity-aliases (Your story, Feed, Set as profile picture, Your groups, Reels, in the Facebook app's
-  order); files are copied to the cache and handed to the page through the `AstryxShare` listener.
+  order); files are copied to the cache and handed to the page through the `AstryxShare` listener:
+  a header, then each file in 4 MB pieces (the next read only once the last is posted) and its end
+  (`{"end":true}`, `"failed"` when unreadable); one message per file ran out of memory on a big video.
   Feed, group and profile picture: a mobile button's click on its hidden file input is answered with
   the files. A Feed share with Home showing opens the composer from Home's box instead of loading
   `/composer/` (which has the server draw Home's whole feed first: 9 s at 1 Mbps): the app taps the
