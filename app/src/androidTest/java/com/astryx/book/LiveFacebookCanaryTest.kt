@@ -1427,17 +1427,26 @@ class LiveFacebookCanaryTest {
         val body = "[].filter.call(document.querySelectorAll('[data-mcomponent=\"TextArea\"]'), __astryxCopyPostText.isPostBody)[0]"
         assertTrue({ "no post's text on the feed counts as its body (copy_post_text.js isPostBody: a post's first text " +
             "as wide as the post, before its photos; ${pageShape()})" }, app.waitFor(30_000) { eval("!!($body)") == "true" })
-        // Marked again if the page was replaced meanwhile (Facebook reloads Home a moment after the app starts).
+        // The first post whose body has a name above it (its post's first text): some posts on the feed
+        // have none (the first one, now and then, 2026-11-12). Marked again if the page was replaced
+        // meanwhile (Facebook reloads Home a moment after the app starts).
         fun markPost() = eval(
-            "(function (b) { if (!b) return false; var row = b;" +
+            "(function () { var bodies = [].filter.call(document.querySelectorAll('[data-mcomponent=\"TextArea\"]'), __astryxCopyPostText.isPostBody);" +
+                " for (var i = 0; i < bodies.length; i++) { var b = bodies[i], row = b;" +
                 " while (row.parentElement.getAttribute('data-type') !== 'vscroller') row = row.parentElement;" +
-                " window.__canaryBody = b; window.__canaryName = [].filter.call(row.querySelectorAll('[data-mcomponent=\"TextArea\"]')," +
-                " function (t) { return /\\S/.test(t.textContent); })[0];" +
-                " window.__canaryStart = b.textContent.replace(/\\s+/g, ' ').trim().slice(0, 15);" +
-                " return __canaryName !== b; })($body)"
+                " var name = [].filter.call(row.querySelectorAll('[data-mcomponent=\"TextArea\"]'), function (t) { return /\\S/.test(t.textContent); })[0];" +
+                " if (name === b) continue;" +
+                " window.__canaryBody = b; window.__canaryName = name;" +
+                " window.__canaryStart = b.textContent.replace(/\\s+/g, ' ').trim().slice(0, 15); return true; }" +
+                " return false; })()"
         ) == "true"
-        assertTrue({ "the post's body is its first text: the name above it isn't text any more (${pageShape()})" },
+        assertTrue({ "no post on the feed has a name above its body: the name isn't text any more (${pageShape()})" },
             app.waitFor(10_000) { markPost() })
+        // The page's copy calls to the app, for a failure: whether the script copied (the app's side
+        // failed) or not (the page's).
+        eval("window.__canaryCopies = []; var post = window.AstryxPage.postMessage.bind(window.AstryxPage);" +
+            " window.AstryxPage.postMessage = function (m) { try { var d = JSON.parse(m); if (d.call === 'copyText')" +
+            " __canaryCopies.push(d.text.slice(0, 30)); } catch (e) {} return post(m); }; 1")
         app.tapOn(app.mainWebView(), "window.__canaryName", holdMs = LONG_PRESS_MS)
         Thread.sleep(2000)
         assertEquals("holding a post's name copied it", CLIP_MARK, clip())
@@ -1454,7 +1463,8 @@ class LiveFacebookCanaryTest {
             copied = holdBody()
             if (copied) note("holding a post's text copied it only the second time")
         }
-        assertTrue({ "holding a post's text didn't copy it (copy_post_text.js; the clipboard has \"${clip()}\"; ${pageShape()})" }, copied)
+        assertTrue({ "holding a post's text didn't copy it (copy_post_text.js; the page asked to copy " +
+            "${eval("JSON.stringify(window.__canaryCopies)")}, the clipboard has \"${clip()}\"; ${pageShape()})" }, copied)
     }
 
     @Test
