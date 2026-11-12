@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.util.Rational
 import android.view.InputDevice
@@ -64,7 +65,15 @@ class AppHarness {
             }.joinToString(" ")
         }
         val active = runCatching { instrumentation.uiAutomation.rootInActiveWindow?.packageName }.getOrNull()
-        return "activities: $activities; active window: $active"
+        // The window Android sends keys and touches to, as the system has it (a dialog of another
+        // app's, "isn't responding", would be named here).
+        val focus = runCatching {
+            ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("dumpsys window"))
+                .bufferedReader().readLines()
+                .filter { "mCurrentFocus" in it || "mFocusedApp" in it }
+                .joinToString(" | ") { it.trim() }
+        }.getOrDefault("?")
+        return "activities: $activities; active window: $active; $focus"
     }
 
     /** Starts the app and loads [html] as its page at [url] ([loadPage]). */
