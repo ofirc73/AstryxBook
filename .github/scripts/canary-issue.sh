@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The daily Facebook check's issues (facebook-canary.yml): one open issue per title.
+# One open issue per title: the daily Facebook check's (facebook-canary.yml, tools/canary.ps1)
+# and a failed release run's (release-report.sh).
 #   canary-issue.sh close <title> <comment>   closes it, when open
 #   canary-issue.sh comment <title> <body>    comments on it, or opens it
 #   canary-issue.sh edit <title> <body>       rewrites its text, or opens it
