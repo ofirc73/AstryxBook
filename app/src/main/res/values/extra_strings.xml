@@ -140,4 +140,6 @@
     <string name="attach_record_video">Record a video</string>
     <string name="attach_camera_denied">The camera wasn\'t allowed, so nothing was taken.</string>
     <string name="attach_no_camera">No camera app found.</string>
+    <!-- A video being saved: the app fetches it and writes it to Downloads (DownloadBridge.downloadUrl). -->
+    <string name="download_started">Saving to Downloads…</string>
 </resources>

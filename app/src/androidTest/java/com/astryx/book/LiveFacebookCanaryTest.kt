@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -1724,6 +1725,31 @@ class LiveFacebookCanaryTest {
         app.pinch(app.screenBox(main), 2.5f)
         assertTrue({ "a pinch no longer zooms a photo page (pinch_to_zoom.js leaves photo.php zoomable; viewport metas: " +
             "${eval(metas)})" }, app.waitFor(5_000) { (eval("visualViewport.scale").toDoubleOrNull() ?: 0.0) > 1.3 })
+    }
+
+    @Test
+    fun aReelsDownloadButton_savesTheWholeVideoToDownloads() {
+        // download_content.js hands the reel's address on Facebook's media servers to the app, which
+        // fetches it and writes it to Downloads as it arrives (DownloadBridge.downloadUrl): the
+        // server's answer (a video, from a media server, over https) and the app's log of the saved
+        // size say it worked. The file is removed after.
+        assumeTrue("Downloads are MediaStore's from Android 10", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        openPlayingReel()
+        val since = System.currentTimeMillis() / 1000 - 1
+        val saves = logLines("Astryxbook").count { it.startsWith("Download saved:") }
+        val button = shownJs("#materialbook-global-downloader") + "[0]"
+        assertTrue({ "no Download button on a playing reel (${pageShape()})" }, app.waitFor(20_000) { eval("!!($button)") == "true" })
+        eval("($button).click(); 1")
+        try {
+            assertTrue({ "the reel's video never reached Downloads (${logLines("Astryxbook").filter { "Download" in it }.takeLast(3)})" },
+                app.waitFor(90_000) { logLines("Astryxbook").count { it.startsWith("Download saved:") } > saves })
+            val line = logLines("Astryxbook").last { it.startsWith("Download saved:") }
+            assertTrue("not a video: $line", line.contains("(video/"))
+            val bytes = Regex("""(\d+) bytes""").find(line)!!.groupValues[1].toLong()
+            assertTrue("a whole reel is more than ${bytes} bytes ($line)", bytes > 100_000)
+        } finally {
+            app.deleteDownloads(app.savedDownloads(since, "mp4"))
+        }
     }
 
     @Test

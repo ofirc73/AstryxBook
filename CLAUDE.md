@@ -284,7 +284,11 @@ user-visible change.
   reel ad, turn *Remove ads* off (otherwise the reel is emptied first).
 - Facebook plays most videos through Media Source Extensions, so a `<video>`'s
   `currentSrc` is `blob:`. The mobile site's player (`data-mcomponent="MVideo"`) carries
-  the whole MP4 in `data-video-url`; downloads (`download_content.js`) use that. Its sound is
+  the whole MP4 in `data-video-url`; downloads (`download_content.js`) use that: an https address
+  goes to the app (`AstryxDownloads` `{url, video}`), which fetches it from Facebook's media servers
+  only (`isFacebookCdnHost`, redirects included) and writes it to Downloads as it arrives
+  (`DownloadBridge.downloadUrl`/`save`, logged `Download saved: N bytes`); only `blob:`/`data:`
+  ones still cross as base64, which a long video can't (the heap is 192 MB). Its sound is
   quieter than what the player streams
   (8.7 dB on the emulator's test reel, read 2026-10-31): the stream's own tracks are in the player's
   `data-extra` (`dash_prefetch_representations`; a track's `base_url` without byte ranges is its

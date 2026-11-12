@@ -36,6 +36,28 @@ class FacebookFetchTest {
         ).forEach { assertNull(it, facebookRedirectUrl(from, it)) }
     }
 
+    @Test
+    fun aSavedPhotoOrVideo_comesOnlyFromFacebooksMediaServers_overHttps() {
+        for (url in listOf(
+            "https://scontent.xx.fbcdn.net/v/t39.30808-6/1.jpg?oh=x",
+            "https://video.fhfa1-1.fna.fbcdn.net/o1/v/t2/f2/m69/x.mp4?efg=y",
+        )) assertEquals(url, httpsUrlOn(url, ::isFacebookCdnHost))
+        listOf(
+            "http://scontent.xx.fbcdn.net/1.jpg",
+            "https://fbcdn.net.example.com/1.jpg",
+            "https://notfbcdn.net/1.jpg",
+            "https://scontent.xx.fbcdn.net@example.com/1.jpg",
+            "https://www.facebook.com/photo.php?fbid=1",
+            "blob:https://m.facebook.com/1",
+            "file:///sdcard/x.mp4",
+        ).forEach { assertNull(it, httpsUrlOn(it, ::isFacebookCdnHost)) }
+        // A media server's redirect stays on media servers.
+        val from = "https://video.xx.fbcdn.net/x.mp4"
+        assertEquals("https://video.yy.fbcdn.net/x.mp4", facebookRedirectUrl(from, "https://video.yy.fbcdn.net/x.mp4", ::isFacebookCdnHost))
+        assertNull(facebookRedirectUrl(from, "https://www.facebook.com/", ::isFacebookCdnHost))
+        assertNull(facebookRedirectUrl(from, "https://example.com/x.mp4", ::isFacebookCdnHost))
+    }
+
     // A local server that answers every request with [answer] and keeps the requests it got.
     private class Server(answer: (String) -> String) : AutoCloseable {
         val requests = CopyOnWriteArrayList<String>()

@@ -27,7 +27,9 @@ class MediaDownloadJsTest {
             eval(
                 "window.__fetched = []; window.fetch = function (u) { window.__fetched.push(String(u));" +
                     " return Promise.resolve(new Response(new Blob(['x'], { type: 'video/mp4' }))); };" +
-                    "window.AstryxDownloads = { postMessage: function () {} };" +
+                    // The app's listener: an address handed to it counts as the one downloaded.
+                    "window.__handed = []; window.AstryxDownloads = { postMessage: function (m) {" +
+                    " var d = JSON.parse(m); if (d.url) { window.__handed.push(d.url); window.__fetched.push(d.url); } } };" +
                     "window.isFeed = function () { return false; };"
             )
             page.run(R.raw.download_content)
@@ -67,6 +69,19 @@ class MediaDownloadJsTest {
         // Scrolled to the second reel: the first is above the screen.
         h.eval("window.scrollTo(0, document.getElementById('current').getBoundingClientRect().top + window.scrollY)")
         assertEquals("https://video.example/current.mp4", h.download())
+    }
+
+    @Test
+    fun anHttpsAddress_isHandedToTheApp_notReadByThePage() {
+        // Read by the page, the file crossed whole as one base64 string: a long video ran the app
+        // out of memory. The app fetches it itself (DownloadBridge.downloadUrl).
+        val h = Harness()
+        h.load("https://m.facebook.com/reel/1/", player("current", 100))
+        h.eval("window.__pageFetches = 0; var f = window.fetch;" +
+            " window.fetch = function (u) { window.__pageFetches++; return f(u); }; 1")
+        assertEquals("https://video.example/current.mp4", h.download())
+        assertEquals("the page fetched the file itself", "0", h.eval("window.__pageFetches"))
+        assertEquals("https://video.example/current.mp4", h.eval("window.__handed.join(' ')").unquoted())
     }
 
     @Test

@@ -129,4 +129,5 @@
     <string name="attach_record_video">Grabar un vídeo</string>
     <string name="attach_camera_denied">No se permitió la cámara, así que no se tomó nada.</string>
     <string name="attach_no_camera">No se encontró ninguna app de cámara.</string>
+    <string name="download_started">Guardando en Descargas…</string>
 </resources>

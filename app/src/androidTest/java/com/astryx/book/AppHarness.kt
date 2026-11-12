@@ -1,6 +1,7 @@
 package com.astryx.book
 import android.app.Activity
 import android.app.PictureInPictureParams
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -8,6 +9,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.util.Log
 import android.util.Rational
 import android.view.InputDevice
@@ -19,6 +21,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -96,6 +99,26 @@ class AppHarness {
         // reached nothing (on the emulator, the launcher frozen to raise the dialog).
         waitFor(5_000) { runCatching { activity()?.let { a -> onActivity { a.hasWindowFocus() } } }.getOrNull() == true }
         return true
+    }
+
+    /** A file the app saved to Downloads: its MediaStore id and size. */
+    data class SavedDownload(val id: Long, val size: Long)
+
+    /** The app's files ([extension]) added to Downloads at or after [sinceSeconds] (MediaStore's clock). */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun savedDownloads(sinceSeconds: Long, extension: String): List<SavedDownload> =
+        context.contentResolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.SIZE),
+            "${MediaStore.Downloads.DISPLAY_NAME} LIKE 'Facebook_%.$extension' AND ${MediaStore.Downloads.DATE_ADDED} >= ?",
+            arrayOf(sinceSeconds.toString()),
+            null,
+        )?.use { c -> List(c.count) { c.moveToNext(); SavedDownload(c.getLong(0), c.getLong(1)) } }.orEmpty()
+
+    /** Removes [files] from Downloads. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun deleteDownloads(files: List<SavedDownload>) = files.forEach {
+        context.contentResolver.delete(ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.id), null, null)
     }
 
     /** Starts the app and loads [html] as its page at [url] ([loadPage]). */

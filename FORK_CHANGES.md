@@ -672,6 +672,9 @@ on their own can't:
   in (the PIN checks need `-e pin`, so CI, without a screen lock, skips them).
 - `LinksTest`: a Facebook link opening in the app, also while it runs (the same instance) and
   when shared as text; a link to another site leaving for the browser with the page kept.
+- `SaveToDownloadsTest`: a file bigger than all the memory the app may use written to Downloads
+  whole (no live check of its own: the live check `aReelsDownloadButton_savesTheWholeVideoToDownloads`
+  saves a real reel through the same code, the app fetching it).
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
@@ -1768,6 +1771,21 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   again took the new value as already applied and offered no button. Closed with nothing changed,
   the page is left as it was. Found by the second audit pass (2026-11-12); covered by
   `PagesAndSettingsTest`.
+
+## Saving long videos
+
+- The Download button saves a video of any length. The page used to fetch the file and hand it
+  to the app as one base64 string: several times the video's size in memory at once (the string,
+  its JSON message, the app's copy of it, the decoded bytes), against the 192 MB the app may
+  use, so a long video failed with "This video can't be downloaded". Now the page hands the app
+  the video's address on Facebook's media servers, and the app fetches it and writes it to
+  Downloads as it arrives ("Saving to Downloads…" while it does). Only `fbcdn.net` addresses over
+  https are fetched, redirects included, and only what the server labels a photo or video. A
+  photo saved this way keeps its own JPEG (it was turned into a PNG several times its size). A
+  `blob:` or `data:` file the page makes itself still goes the old way. Found by the audit
+  (2026-11-12). Covered by `MediaDownloadJsTest`, `SaveToDownloadsTest` (a file bigger than the
+  app's memory), `FacebookFetchTest` and the live check
+  `aReelsDownloadButton_savesTheWholeVideoToDownloads`.
 
 ## Known limitations
 
