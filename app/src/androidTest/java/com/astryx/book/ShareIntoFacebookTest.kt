@@ -392,6 +392,7 @@ class ShareIntoFacebookTest {
         assertTrue("no posting bar over the page (PostingBar)", app.waitFor { app.textShown(postingText) })
         report("posted")
         assertTrue("the posting notification stayed after the post was sent", app.waitFor { !postingNotificationShows() })
+        assertTrue({ "the app still has a posting after the post was sent (${Posting.current})" }, app.waitFor { Posting.current == null })
         assertTrue("the posting bar stayed after the post was sent", app.waitFor { !app.textShown(postingText) })
 
         report("posting")

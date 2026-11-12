@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.util.Log
@@ -353,6 +354,9 @@ class AppHarness {
     // node by node (the app's Compose UI answers that, not findAccessibilityNodeInfosByText).
     private fun shownBounds(text: String): List<android.graphics.Rect> {
         dismissNotResponding()
+        // Read afresh: a cached copy of the screen kept a bar the app had already removed for 10 s
+        // (CI's emulator, 2026-11-12, ShareIntoFacebookTest's posting bar).
+        if (Build.VERSION.SDK_INT >= 34) instrumentation.uiAutomation.clearCache()
         val found = mutableListOf<android.graphics.Rect>()
         val queue = ArrayDeque(listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow))
         while (queue.isNotEmpty()) {
