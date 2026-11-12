@@ -910,6 +910,14 @@ A green run says that nothing the checks could see broke, not that every part wa
   local server). The fetches themselves stay covered live by
   `facebookNotifications_readTheCountsFromTheTabBar` and
   `aPhotosDesktopPage_namesThePostItsTilesShow`, which now go through `openFacebookPage`.
+- CI failed the camera and connection tests now and then, and twice in a row on the release run of
+  PR 176 (Try again, camera), never on a local emulator: CI's emulator showed Android's "Pixel Launcher
+  isn't responding" dialog over the app, which took the tests' taps. The harness presses Wait on it
+  before every tap and screen read (`AppHarness.dismissNotResponding`), then waits for the app's
+  window to have the focus again. Raised locally by freezing the launcher: the camera test failed
+  as on CI before, passes after. The app now logs a page's load error (its code), the Try again
+  screen showing and each file request (`Astryxbook`), and the camera test's failures name the
+  touches the page got and the focused windows.
 
 ## Messages in desktop mode
 

@@ -50,7 +50,14 @@ user-visible change.
   end: saved then, a release run's AVD kept v1.36.6 installed and every branch build failed to
   install as a downgrade (2026-10-30). A newer CI run for the same PR (a push, a reopen) cancels the older one; on
   `main` and inside `create-release.yml` nothing is cancelled. Run CI by hand on a branch with
-  `gh workflow run ci.yml --ref <branch>`. The coverage report (`coverage.yml`) is its own
+  `gh workflow run ci.yml --ref <branch>`. CI's emulator (software drawing) now and then shows
+  Android's "Pixel Launcher isn't responding" dialog over the app: it takes the tests' taps and is the
+  window screen reads see, so a test failed only there with the app fine underneath (2026-11-12).
+  `AppHarness.dismissNotResponding` presses its Wait before every tap and screen read and waits for
+  the app's window focus; a new input path in the harness calls it too. To raise the dialog
+  locally: the API 34 Google APIs image (rootable, CI's), `adb root`, `settings put global
+  anr_show_background 1`, `kill -STOP` the launcher while it has the focus, tap twice, `kill -CONT`.
+  The coverage report (`coverage.yml`) is its own
   workflow, started after each CI or release run that passed (`workflow_run`); it gates nothing.
 - A local release APK is signed with the **debug** key (`app/build.gradle.kts`): it's for testing
   only and never distributable. The published APK is re-signed with the release keystore by
