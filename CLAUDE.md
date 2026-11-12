@@ -360,7 +360,9 @@ user-visible change.
   id never reaches the page, and its posts have no links (a post's time, a `data-action-id`, opens
   it). After a post from the composer (`/composer/`) the server shows a `.snackbar-container`
   ("Uploading your post...", then "Posted"); from Home it then opens the new post, from elsewhere it
-  goes back. `open_new_post.js` opens the profile's newest post then. Since 2026-10-30 Home draws a
+  goes back. `open_new_post.js` opens the profile's newest post then, for a composer opened from
+  Memories or the profile itself (`postsToProfile`): the composer is at `/composer/` whatever it
+  posts to (a group, a Page, a friend's profile), so the page it came from decides. Since 2026-10-30 Home draws a
   post as several rows of its feed list (`data-type="vscroller"`; header, text, actions) sharing a
   `data-tracking-duration-id`, where a post opened from a link is still one card
   (`data-dcm-id="1"`): hide a post through `scripts.js` `hideFeedPost`, never one box. A list asks
@@ -411,7 +413,7 @@ user-visible change.
   posted, 2026-11-02), and much of a post's photo only after Post, while its snackbar says
   "Uploading your post...": closed then, the app lost the post (2026-11-03). While either posts,
   `PostingBar` shows over the page (`Posting.current`); a posted story (`Posting.lastPosted`) gets a
-  snackbar whose View, like its notification (`ACTION_VIEW_STORY`), opens `OWN_STORY_URL` in the
+  snackbar (once a story: not again from an activity created again) whose View, like its notification (`ACTION_VIEW_STORY`), opens `OWN_STORY_URL` in the
   layer, and Home reloads 30 s later if at its top (the feed's stories row is that slow). `feed_posting.js`
   (document start, main view) wraps the page's WebSocket and reports a post posting from the tap
   on the composer's Post (the top row's button right of back) with a photo in it until its snackbar
