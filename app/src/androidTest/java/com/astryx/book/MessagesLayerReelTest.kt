@@ -39,26 +39,9 @@ class MessagesLayerReelTest {
 
     // Opens the layer (as Create story does) and puts a chat in it.
     private fun openChat(): WebView {
-        // The main view then opens the real reel; kept off the network, so that load ends at once
-        // (logged in, on a local emulator, the real reel played and slowed the emulator until the
-        // page stopped answering; logged out, Facebook answers differently). The address it
+        // The main view then opens the real reel, kept off the network (openLayer): the address it
         // opens is what's checked.
-        val main = app.mainWebView()
-        app.onActivity { main.settings.blockNetworkLoads = true }
-        app.eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'layerUrl', url: 'https://www.facebook.com/stories/create' })); 1")
-        assertTrue("the Messages layer never opened", app.waitFor(15_000) { app.layerWebView() != null })
-        val layer = app.layerWebView()!!
-        // The real page the layer opened (the story creator) is heavy and goes on loading; it's
-        // kept off the network and stopped, the chat here is a test page anyway.
-        app.keepOffTheNetwork(layer)
-        app.loadPage("https://www.facebook.com/messages/t/100/", PAGE, layer)
-        // messages_layer_nav.js reports the layer's moves. The layer runs it once a load finishes,
-        // which a stopped load can leave out; it's run here then, as the layer would.
-        if (!app.waitFor(5_000) { app.eval("!!window.__astryxLayerNavInstalled", layer) == "true" }) {
-            val nav = app.context.resources.openRawResource(R.raw.messages_layer_nav).bufferedReader().use { it.readText() }
-            app.eval(nav + "; 1", layer)
-        }
-        assertEquals("true", app.eval("!!window.__astryxLayerNavInstalled", layer))
+        val layer = app.openLayer("https://www.facebook.com/messages/t/100/", PAGE)
         // The chat the user is in: an in-page move, as the desktop site makes.
         moveTo(layer, CHAT_PATH)
         return layer

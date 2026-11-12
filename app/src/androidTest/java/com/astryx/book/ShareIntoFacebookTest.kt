@@ -351,7 +351,7 @@ class ShareIntoFacebookTest {
     @Test
     fun aStoryPosted_reloadsHomeAtItsTop_aboutHalfAMinuteLater() {
         app.start()
-        app.loadPage("https://m.facebook.com/", "<html><body><script>window.__testPage = true;</script></body></html>", asHistory = true)
+        app.loadPage("https://m.facebook.com/", PLAIN_PAGE, asHistory = true)
         app.onActivity {
             Posting.started(it, Posting.Kind.STORY)
             Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
@@ -381,7 +381,7 @@ class ShareIntoFacebookTest {
         app.start()
         // Its own address: the start page is at m.facebook.com/, and a second page there leaves
         // evaluateJavascript unanswered.
-        app.loadPage("https://m.facebook.com/?n=1", "<html><body><script>window.__testPage = true;</script></body></html>")
+        app.loadPage("https://m.facebook.com/?n=1", PLAIN_PAGE)
         assertEquals("feed_posting.js isn't in the main view", "true", app.eval("!!window.__astryxFeedPosting"))
         fun report(state: String) =
             app.eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'feedPosting', state: '$state' })); 1")
@@ -397,7 +397,7 @@ class ShareIntoFacebookTest {
 
         report("posting")
         assertTrue(app.waitFor { postingNotificationShows() })
-        app.loadPage("https://m.facebook.com/?n=2", "<html><body><script>window.__testPage = true;</script></body></html>")
+        app.loadPage("https://m.facebook.com/?n=2", PLAIN_PAGE)
         assertTrue("the posting notification stayed after its page went", app.waitFor { !postingNotificationShows() })
     }
 

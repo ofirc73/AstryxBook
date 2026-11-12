@@ -73,8 +73,6 @@ class MessagesLayerZoomTest {
             "https://m.facebook.com/home.php",
             "<html><body>feed<script>window.__testPage = true;</script></body></html>"
         )
-        app.eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'layerUrl', url: 'https://www.facebook.com/stories/create' })); 1")
-        assertTrue("the story creator never opened", app.waitFor(15_000) { app.layerWebView() != null })
-        assertFalse("the story creator can be pinch-zoomed (its editor follows finger drags)", zooms(app.layerWebView()!!))
+        assertFalse("the story creator can be pinch-zoomed (its editor follows finger drags)", zooms(app.openStoryCreator()))
     }
 }

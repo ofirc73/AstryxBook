@@ -679,15 +679,19 @@ on their own can't:
   the app may use, whole and in pieces (it ran out of memory before); `ShareMediaJsTest` a file in
   many pieces and one the app couldn't read. No live check of their own: the live checks' shares
   (Feed, a group, Your story) go through the same hand-over.
+- `MessagesLayerBackTest`: Back in the Messages layer when its page doesn't answer in time still
+  going back (the layer closing, with no page to step back to). Its live check is the layer's Back
+  on a real chat, `backInAChat_goesToTheChatList_andThenClosesTheLayer`, which goes through the same
+  `askPageForBack`.
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
   Also a page setting changed in Settings applying when Settings is closed with Back (the page
   reloaded with it), and Back with nothing changed leaving the page as it was (no live check: it
   doesn't depend on Facebook's page).
-- `ConnectionErrorTest`: a page that can't be reached (a refused connection) covered by the
-  Try again screen with the page kept underneath, Try again loading it again, and a page that
-  loads clearing it (no live check: it doesn't depend on Facebook's page; the connection coming
+- `ConnectionErrorTest`: a page that can't be reached (a refused connection), in the main view
+  and in the Messages layer, covered by the Try again screen with the page kept underneath, Try
+  again loading it again, and a page that loads clearing it (no live check: it doesn't depend on Facebook's page; the connection coming
   back is `NetworkReturnTest`'s, the callback itself tried by hand in airplane mode).
 - `AttachFromCameraTest`: a photo request asking where from, the picker's file and the camera's
   photo reaching the page, a capture the camera gave up on and a choice dismissed leaving the next
@@ -1799,6 +1803,19 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   in 4 MB pieces, the next read only once the last is posted, then an end mark; the page puts
   the pieces together, and leaves out a file the app couldn't read whole. Found by the audit.
   Covered by `ShareHandOverTest` and `ShareMediaJsTest`.
+
+## Messages layer: Back and no connection
+
+- **Back in the Messages layer always does something.** Back asks the layer's page first (close
+  the photo, go back to the chat list); when the page didn't answer (busy, or its scripts not run
+  yet) Back did nothing at all, as it once did in the main view (fixed there 2026-10-30). Both now
+  go through one helper (`askPageForBack`): without an answer in 1.5 s the layer steps back a page,
+  or closes.
+- **Try again in the Messages layer.** A chat or page in the layer that Facebook can't be reached
+  for showed the browser's own error page, with no way to load it again but closing Messages. It
+  now gets the same Try again screen as the main view (reloading by itself when the connection
+  is back).
+- Found by the audit (2026-11-12). Covered by `MessagesLayerBackTest` and `ConnectionErrorTest`.
 
 ## Known limitations
 

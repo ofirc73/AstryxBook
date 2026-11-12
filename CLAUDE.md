@@ -222,13 +222,17 @@ user-visible change.
   preloaded 1350x2400 JPEGs, 16 MB) during a story share (`StoryBackgrounds`: at 1 Mbps the
   editor was usable after 84 s with them, 3.9 s without). To see what a page requests, record `Network.*` events over DevTools from every
   target (the page, its service worker, the layer's workers).
+- Back asks the page first (the main view `backHandlerNB`, the layer `__astryxLayerBack`) through
+  `askPageForBack` (`ui/screens/PageBack.kt`), which goes on without an answer after 1.5 s (a busy
+  renderer or a page whose scripts haven't run gives none); a new Back that asks the page uses it.
 - Effects that act on each new page key on `pageStarts` (`PageStarts`, counted by the WebView
   client) next to `loadingState`: a page that starts and finishes within one frame leaves the
   loading state at Finished, and an effect keyed on it alone never runs on that page.
 - `state.nativeWebView` throws until the WebView exists (it's created during layout, which
   doesn't happen with the screen off): guard it in effects.
 - A page Facebook can't be reached for (`isConnectionError`) is covered by `ConnectionErrorScreen`
-  (zIndex 3, above the loading screen's 2, below app lock's 10); the WebView stays in the
+  (zIndex 3, above the loading screen's 2, below app lock's 10; the Messages layer shows its own over
+  its page, and the main view's waits while the layer is on screen); the WebView stays in the
   composition, and the library clears `errorsForCurrentRequest` when the next page starts. Never
   return early from `MaterialbookWebView` to show something in the page's place: the WebView is
   destroyed with its history. To get the error in a test, `loadUrl` a loopback address nothing
