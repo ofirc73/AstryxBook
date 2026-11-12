@@ -54,7 +54,9 @@ user-visible change.
   Android's "Pixel Launcher isn't responding" dialog over the app: it takes the tests' taps and is the
   window screen reads see, so a test failed only there with the app fine underneath (2026-11-12).
   `AppHarness.dismissNotResponding` presses its Wait before every tap and screen read and waits for
-  the app's window focus; a new input path in the harness calls it too. To raise the dialog
+  the app's window focus; a new input path in the harness calls it too.
+  A tap on a page (`tapIn`/`tapOn`) also checks the page saw its `pointerdown` and taps again (up
+  to 3 times, same page only): there the first tap after a test closed the app reached nothing. To raise the dialog
   locally: the API 34 Google APIs image (rootable, CI's), `adb root`, `settings put global
   anr_show_background 1`, `kill -STOP` the launcher while it has the focus, tap twice, `kill -CONT`.
   The coverage report (`coverage.yml`) is its own

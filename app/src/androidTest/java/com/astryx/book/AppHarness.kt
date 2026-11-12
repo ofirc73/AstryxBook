@@ -210,7 +210,16 @@ class AppHarness {
             val scale = webView.width / box[4]
             Pair(at[0] + (box[0] + box[2] / 2) * scale, at[1] + (box[1] + box[3] / 2) * scale)
         }
-        tapAt(x, y, holdMs)
+        // The touch must reach the page: on CI's emulator the first tap after a test closed the app
+        // reached nothing now and then (the closing window still taking touches as Android removed
+        // it; 2026-11-12, the app focused, the page saw no pointerdown). Tapped again while the same
+        // page hasn't seen one; a page that's gone (the tap opened another) counts as reached.
+        for (attempt in 1..TAP_TRIES) {
+            eval(TAP_PROBE_JS, webView)
+            tapAt(x, y, holdMs)
+            if (waitFor(TAP_SEEN_MS) { eval("window.__astryxTapSeen !== false", webView) == "true" }) return true
+            Log.w("AppHarness", "A tap didn't reach the page (try $attempt): tapping again")
+        }
         return true
     }
 
@@ -459,6 +468,12 @@ class AppHarness {
 
 // How long a tap holds the screen; a long press holds it for LONG_PRESS_MS (Android takes 0.4 s or more).
 private const val TAP_MS = 80L
+// tapIn: how often a tap the page didn't see is sent again, and how long to wait for it to see one.
+private const val TAP_TRIES = 3
+private const val TAP_SEEN_MS = 2_000L
+// Notes whether the page sees the next pointerdown (false until it does).
+private const val TAP_PROBE_JS = "window.__astryxTapSeen = false; document.addEventListener('pointerdown'," +
+    " function () { window.__astryxTapSeen = true; }, { capture: true, once: true }); 1"
 const val LONG_PRESS_MS = 1000L
 
 /**
