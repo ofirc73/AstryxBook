@@ -48,6 +48,8 @@ class MainViewModel(
             Script(true, R.raw.copy_post_text),
             Script(settings.messagesDesktop.value, R.raw.messages_tab),
             Script(settings.removeAds.value, R.raw.adblock),
+            // Before download_content.js and copy_to_clipboard.js, which use it.
+            Script(settings.enableDownloadContent.value || settings.enableCopyToClipboard.value, R.raw.media_viewer),
             Script(settings.enableDownloadContent.value, R.raw.download_content),
             Script(settings.enableCopyToClipboard.value, R.raw.copy_to_clipboard),
             Script(settings.stickyNavbar.value, R.raw.sticky_navbar),

@@ -851,7 +851,8 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `pinchToZoomOff_keepsTheFeedUnzoomed_butPhotosStillZoom`: a real pinch (`AppHarness.pinch`) leaving
   the feed at 1x and zooming a photo page (`pinch_to_zoom.js`). Facebook adds a second, zoomable
   viewport `<meta>` of its own (seen 2026-10-30), which is why the zoom itself is checked.
-- `aPhotoPage_showsTheDownloadButton`: `download_content.js`'s Download button over a public photo.
+- `aPhotoPage_showsTheDownloadAndCopyButtons`: `download_content.js`'s Download button and
+  `copy_to_clipboard.js`'s Copy button over a public photo (`media_viewer.js`, `MediaDownloadJsTest`).
 - `desktopLayout_showsTheDesktopFeed_andOffAgainTheMobileOne`: Desktop layout showing the desktop
   feed (`isDesktopMode`, `isFeed`), and the mobile feed again once it's off (`mobileSiteUrl`).
 - In a chat named by `-e fbChat` (the chat's address, `e2ee/t/<id>` or a bare id; skipped without
@@ -1849,6 +1850,21 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - Found by the audit (2026-11-12). Covered by `FeedPostJsTest`, `ReelAdsJsTest`,
   `PageBridgeTest` and `PagesAndSettingsTest`; the row in Settings was checked by eye on the
   emulator (it's below the fold, and the tests have no scroll for the app's own screens).
+
+## One media-viewer helper
+
+- `copy_to_clipboard.js` began as a copy of `download_content.js`, and the two had drifted: the
+  same viewer selectors, container lookup, fallback picture, button and page watch, written
+  twice (826 lines). What they share is now `media_viewer.js` (549 lines for the three), run
+  before both when either setting is on. Nothing changes for the user: same buttons, same
+  places, same picture taken. `download_content.js` no longer hides Facebook's "Open app"
+  buttons itself (`scripts.js` does, with or without Download on), and both scripts' unused
+  debug switch and re-entry guard went.
+- Found by the audit (2026-11-12). `MediaDownloadJsTest` got tests first, passing before and
+  after: a photo copied, smaller images found largest first, a background image as the last
+  resort (download and copy), and both buttons showing on a highlight and not on a Page's
+  Photos tab. `ReelsBarJsTest` kept as it was. Live: `aPhotoPage_showsTheDownloadAndCopyButtons`
+  (the Copy button added to it) and `aReelsDownloadButton_savesTheWholeVideoToDownloads`.
 
 ## Known limitations
 

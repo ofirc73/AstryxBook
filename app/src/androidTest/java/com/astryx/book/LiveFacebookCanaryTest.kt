@@ -1776,13 +1776,16 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
-    fun aPhotoPage_showsTheDownloadButton() {
-        // download_content.js (on by default) puts a Download button over the photo a page shows,
-        // found by its viewer's markup or the largest fbcdn picture.
+    fun aPhotoPage_showsTheDownloadAndCopyButtons() {
+        // download_content.js and copy_to_clipboard.js (both on by default) each put a button over
+        // the photo a page shows, found by its viewer's markup or the largest fbcdn picture
+        // (media_viewer.js, which they share).
         openPublicPhoto()
-        assertTrue({ "download_content.js shows no Download button on a photo page (${pageShape()})" }, app.waitFor(20_000) {
-            eval("${shownJs("[aria-label=\"Download content\"]")}.length > 0") == "true"
-        })
+        for ((label, script) in listOf("Download content" to "download_content.js", "Copy image to clipboard" to "copy_to_clipboard.js")) {
+            assertTrue({ "$script shows no \"$label\" button on a photo page (${pageShape()})" }, app.waitFor(20_000) {
+                eval("${shownJs("[aria-label=\"$label\"]")}.length > 0") == "true"
+            })
+        }
     }
 
     @Test

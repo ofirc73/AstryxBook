@@ -292,6 +292,12 @@ user-visible change.
   (`utils/AdsHidden.kt`): *Ads removed* in developer options, and `Ads hidden:` under `Astryxbook`
   in the log. The test account is shown no ads, so that count on a phone whose feed has them is the
   only check that the colour still finds them: 0 there with ads on screen means it changed.
+- The Download and Copy buttons over a photo, story or reel (`download_content.js`,
+  `copy_to_clipboard.js`) share `media_viewer.js` (run before both, `window.__astryxMediaViewer`):
+  the viewers' selectors and addresses, the fallback picture (largest image, then a background
+  image), the round button and the page watch. Which media is "on screen" stays each script's own
+  (a download: the video mostly on screen; a copy: an image wholly on it). A new viewer selector
+  goes in `media_viewer.js`; a test that runs either script runs it first.
 - Facebook plays most videos through Media Source Extensions, so a `<video>`'s
   `currentSrc` is `blob:`. The mobile site's player (`data-mcomponent="MVideo"`) carries
   the whole MP4 in `data-video-url`; downloads (`download_content.js`) use that: an https address

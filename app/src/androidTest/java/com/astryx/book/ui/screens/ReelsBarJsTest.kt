@@ -31,6 +31,12 @@ class ReelsBarJsTest {
             page.run(script)
         }
 
+        // copy_to_clipboard.js, after the script it shares with download_content.js.
+        fun runCopy() {
+            run(R.raw.media_viewer)
+            run(R.raw.copy_to_clipboard)
+        }
+
         fun eval(js: String) = page.eval(js)
 
         fun waitFor(js: String, ms: Long = 5000) = page.waitFor(ms) { eval(js) == "true" }
@@ -52,7 +58,7 @@ class ReelsBarJsTest {
         // A large Facebook image on screen, the way a Like's animation or a reel's poster puts one.
         val h = Harness()
         h.load("https://m.facebook.com/reel/123", "<div class='story_viewer'>" + BIG_IMAGE + "</div>")
-        h.run(R.raw.copy_to_clipboard)
+        h.runCopy()
         Thread.sleep(800)
         assertEquals("false", h.eval("document.getElementById('materialbook-clipboard-copier').classList.contains('visible')"))
     }
@@ -65,7 +71,7 @@ class ReelsBarJsTest {
             "https://m.facebook.com/somepage/videos/some-title/1089723017184273/",
             "<div data-mcomponent='MVideo'>" + BIG_IMAGE + "<video></video></div>"
         )
-        h.run(R.raw.copy_to_clipboard)
+        h.runCopy()
         Thread.sleep(800)
         assertEquals("false", h.eval("document.getElementById('materialbook-clipboard-copier').classList.contains('visible')"))
     }
@@ -74,7 +80,7 @@ class ReelsBarJsTest {
     fun theCopyButton_stillShowsOnAPhoto() {
         val h = Harness()
         h.load("https://m.facebook.com/photo.php", BIG_IMAGE)
-        h.run(R.raw.copy_to_clipboard)
+        h.runCopy()
         assertTrue(h.waitFor("document.getElementById('materialbook-clipboard-copier').classList.contains('visible')"))
     }
 
