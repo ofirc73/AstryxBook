@@ -1,7 +1,9 @@
 // After a post is published from Facebook's composer, opens the new post. m.facebook.com does that
 // itself only for a composer opened from Home; opened from another page (a memory's Share on the
 // Memories page) it goes back to that page. The site never tells the page the new post's id, so
-// the app opens the user's own profile and there the newest post, by its time (as a tap would).
+// the app opens the user's own profile and there the newest post, by its time (as a tap would):
+// only for a post that lands there (postsToProfile), the composer's address being /composer/
+// whatever it posts to (a group, a Page, a friend's profile; read on the emulator 2026-11-12).
 // Posting, unlike leaving the composer, shows a snackbar ("Uploading your post...", then
 // "Posted"; read on the emulator 2026-10-30). Main view only. ES5 on purpose, like the PiP scripts.
 (function () {
@@ -52,16 +54,24 @@
     }
   }
 
+  // A composer opened from [page] (path and query) posts to the user's own profile ([me]): from
+  // Memories (a memory shared) and from the profile itself. Not from Home, where Facebook opens the
+  // new post itself, nor from anywhere it posts elsewhere, where the profile's newest post isn't it.
+  function postsToProfile(page, me) {
+    return page.split('?')[0] === '/onthisday/' || new RegExp('^/profile\\.php\\?(?:.*&)?id=' + me + '(?:&|$)').test(page);
+  }
+
   // The composer: the page it was opened from, and the one it went back to. Posting shows a
   // snackbar just before or just after leaving it; leaving it without posting shows none.
   var lastPath = location.pathname;
+  var lastPage = lastPath + location.search;
   var openedFrom = null;
   var leftAt = 0;
   var backTo = null;
   function moved() {
     var path = location.pathname;
     if (path === '/composer/' && lastPath !== '/composer/') {
-      openedFrom = lastPath;
+      openedFrom = lastPage;
       leftAt = 0;
       backTo = null;
     } else if (lastPath === '/composer/' && path !== '/composer/') {
@@ -69,6 +79,7 @@
       backTo = location.href;
     }
     lastPath = path;
+    lastPage = path + location.search;
   }
   ['pushState', 'replaceState'].forEach(function (name) {
     var original = history[name];
@@ -80,8 +91,8 @@
   });
   window.addEventListener('popstate', moved);
 
-  // Once the snackbar's second text says the post is up: the profile. Not from Home, where
-  // Facebook opens the new post itself, nor once the page has moved on from where it went back to.
+  // Once the snackbar's second text says the post is up: the profile, for a post that's there, and
+  // not once the page has moved on from where it went back to.
   function posted(snackbar) {
     var first = snackbar.textContent;
     var done = false;
@@ -89,9 +100,9 @@
       if (done) return;
       done = true;
       watch.disconnect();
-      if (!openedFrom || openedFrom === '/' || !backTo || location.href !== backTo) return;
+      if (!openedFrom || !backTo || location.href !== backTo) return;
       var me = /(?:^|;\s*)c_user=(\d+)/.exec(document.cookie);
-      if (!me) return;
+      if (!me || !postsToProfile(openedFrom, me[1])) return;
       store(String(Date.now()));
       go('/profile.php?id=' + me[1]);
     }

@@ -258,12 +258,14 @@ rewritten to the new one, keeping its schedule.
   the next Back goes on from the page it was going to (`BackHistory`). Back from a bounced reel also
   skips the earlier copies of the same reel left in a restored history. Covered by `BackHistoryTest` and the live check
   `backToAReelLoadedAgain_thenBack_endsOnThePageBeforeIt`.
-- Sharing a memory from the Memories page (or posting from any composer opened outside Home) now
-  ends on the new post. m.facebook.com opens the new post itself only for a composer opened from
+- Sharing a memory from the Memories page (or posting from your own profile) now ends on the new
+  post. m.facebook.com opens the new post itself only for a composer opened from
   Home; from elsewhere it went back to that page. The site never tells the page the new post's id,
   so after the composer's "Posted" snackbar `open_new_post.js` opens the user's profile and taps its
   newest post's time, which opens the post (Back: the profile, then the page shared from). Covered
-  by `OpenNewPostJsTest` and the live check `aPagesNewestPost_opensFromItsTime`.
+  by `OpenNewPostJsTest` (posts from a group or a friend's profile left to Facebook) and the live
+  check `aPagesNewestPost_opensFromItsTime`; where a post lands isn't checked live (the checks
+  never post).
 - Back no longer does nothing while a page is loading. Back first asks the page (`scripts.js`
   `backHandlerNB`) whether it closes something of its own; a page whose scripts hadn't run yet
   gave no answer, and a busy page answered late or never, and Back was then ignored (found on
@@ -662,7 +664,8 @@ on their own can't:
   with a real tap, and Back from it back on Home; a feed post still uploading keeping the posting
   notification and the posting bar until it's sent, or until its page goes; a story posting going on
   out of sight with its notification (shown again by the notification, hidden again by Back) until
-  it's posted, then "Your story is posted" with View opening your stories in the layer, and one that
+  it's posted, then "Your story is posted" with View opening your stories in the layer (said once,
+  not again by the activity created again), and one that
   failed kept for another try; the posted-story notification opening your stories; Home reloaded
   about half a minute after a story is posted, not before; with another file to share, the
   posted-story notification showing the creator holding it rather than the stories page (no live
@@ -1816,6 +1819,18 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   now gets the same Try again screen as the main view (reloading by itself when the connection
   is back).
 - Found by the audit (2026-11-12). Covered by `MessagesLayerBackTest` and `ConnectionErrorTest`.
+
+## Posting: the right post, said once
+
+- **A post in a group no longer opens another post.** After a post from a composer opened outside
+  Home, the app opened your profile's newest post: right for a memory shared from Memories, but a
+  post in a group, on a Page or on a friend's profile isn't on your profile, so it opened an older
+  post of yours. It now does that only for a composer opened from Memories or your own profile;
+  elsewhere Facebook goes back to the page you posted on, as it always did.
+- **"Your story is posted" is said once.** It came back each time Android created the app's screen
+  again (a font size or language change), for as long as the app ran; so did Home's reload for
+  the stories row.
+- Found by the audit (2026-11-12). Covered by `OpenNewPostJsTest` and `ShareIntoFacebookTest`.
 
 ## Known limitations
 

@@ -59,6 +59,14 @@ class OpenNewPostJsTest {
 
         fun posted() = snackbarSays("Posted")
 
+        // A post from the composer opened on [path], which Facebook goes back to.
+        fun postFrom(path: String) {
+            load(path)
+            openAndLeaveTheComposer(path)
+            uploading()
+            posted()
+        }
+
         fun assertOpenedTheProfile() {
             assertTrue("the profile never opened", waitFor("window.__went === '$PROFILE'"))
             assertEquals("the profile's page wasn't told to open the newest post", "true",
@@ -91,10 +99,7 @@ class OpenNewPostJsTest {
     @Test
     fun aSnackbarJustAfterLeavingTheComposer_countsToo() {
         val h = Harness()
-        h.load("/onthisday/")
-        h.openAndLeaveTheComposer("/onthisday/")
-        h.uploading()
-        h.posted()
+        h.postFrom("/onthisday/")
         h.assertOpenedTheProfile()
     }
 
@@ -119,6 +124,31 @@ class OpenNewPostJsTest {
         h.uploading()
         h.eval("history.pushState(null, '', '/ofirco/'); 1")
         h.posted()
+        Thread.sleep(1500)
+        h.assertStayed()
+    }
+
+    @Test
+    fun aPostFromYourOwnProfile_opensIt() {
+        val h = Harness()
+        h.postFrom(PROFILE)
+        h.assertOpenedTheProfile()
+    }
+
+    // Posted there, not on the user's profile: its newest post would be another one. The composer's
+    // address is /composer/ whatever it posts to (read on the emulator from a group, 2026-11-12).
+    @Test
+    fun aPostFromAGroup_isLeftToFacebook() {
+        val h = Harness()
+        h.postFrom("/groups/355723031242469/")
+        Thread.sleep(1500)
+        h.assertStayed()
+    }
+
+    @Test
+    fun aPostOnAFriendsProfile_isLeftToFacebook() {
+        val h = Harness()
+        h.postFrom("/profile.php?id=100000000000001")
         Thread.sleep(1500)
         h.assertStayed()
     }

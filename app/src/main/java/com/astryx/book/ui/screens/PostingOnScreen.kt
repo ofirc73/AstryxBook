@@ -47,10 +47,15 @@ fun PostingBar(modifier: Modifier = Modifier) {
 // stories page has it at once.
 private const val STORIES_ROW_MS = 30_000L
 
+// The posted story each of these was done for: once each, for the process (Posting.lastPosted is
+// the process's), not again by an activity Android creates again (font size, language).
+private var said: Posting.Posted? = null
+private var refreshed: Posting.Posted? = null
+
 /**
  * A story posted (Posting.lastPosted): with the app on screen, "Your story is posted" with View,
  * which opens it ([onView], Facebook's stories page); the feed's stories row gets it only some 30 s
- * later, so then [onRefreshFeed] (the main view reloads Home if it's at its top).
+ * later, so then [onRefreshFeed] (the main view reloads Home if it's at its top). Each once a story.
  */
 @Composable
 fun PostedStoryEffects(snackbarHostState: SnackbarHostState, onView: () -> Unit, onRefreshFeed: () -> Unit) {
@@ -60,7 +65,8 @@ fun PostedStoryEffects(snackbarHostState: SnackbarHostState, onView: () -> Unit,
     val posted = Posting.lastPosted
     LaunchedEffect(posted) {
         if (posted == null || posted.kind != Posting.Kind.STORY) return@LaunchedEffect
-        launch {
+        if (said != posted) launch {
+            said = posted
             if (!AppVisibility.onScreen) return@launch
             val result = snackbarHostState.showSnackbar(
                 message = resources.getString(R.string.story_posted),
@@ -69,7 +75,9 @@ fun PostedStoryEffects(snackbarHostState: SnackbarHostState, onView: () -> Unit,
             )
             if (result == SnackbarResult.ActionPerformed) currentOnView()
         }
+        if (refreshed == posted) return@LaunchedEffect
         delay(posted.at + STORIES_ROW_MS - System.currentTimeMillis())
+        refreshed = posted
         if (AppVisibility.onScreen) currentOnRefreshFeed()
     }
 }

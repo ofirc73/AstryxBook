@@ -361,6 +361,24 @@ class ShareIntoFacebookTest {
         assertTrue("Home wasn't reloaded for the stories row", app.waitFor(20_000) { app.eval("!!window.__testPage") != "true" })
     }
 
+    // "Your story is posted" shows once: not again when Android creates the activity again (font
+    // size, language, a process kept), as it did for as long as the app ran.
+    @Test
+    fun aStoryPosted_isSaidOnce_notAgainWhenTheActivityIsCreatedAgain() {
+        app.start()
+        val said = app.context.getString(com.eepiemi.materialbook.R.string.story_posted)
+        app.onActivity {
+            Posting.started(it, Posting.Kind.STORY)
+            Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
+        }
+        assertTrue("no \"Your story is posted\"", app.waitFor { app.textShown(said) })
+        val first = app.activity()
+        app.onActivity { it.recreate() }
+        assertTrue("the app was never created again", app.waitFor(15_000) { app.activity().let { it != null && it !== first } })
+        assertFalse("\"Your story is posted\" said again by the activity created again",
+            app.waitFor(5_000) { app.textShown(said) })
+    }
+
     // A tap on "Your story is posted" (its notification): the user's own stories, in the layer.
     @Test
     fun aPostedStorysNotification_opensYourStoriesInTheLayer() {
