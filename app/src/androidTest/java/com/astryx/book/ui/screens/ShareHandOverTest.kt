@@ -50,7 +50,11 @@ class ShareHandOverTest {
             AstryxShare.onmessage = function (e) {
               if (typeof e.data === 'string' && e.data.charAt(0) === '{') {
                 if (__got.header) __got.end = e.data; else __got.header = JSON.parse(e.data);
-              } else { __got.bytes += e.data.byteLength; __got.pieces++; }
+              } else {
+                // Bytes, or base64 where WebView can't post them (CI's WebView 113).
+                __got.bytes += typeof e.data === 'string' ? atob(e.data).length : e.data.byteLength;
+                __got.pieces++;
+              }
             };
             AstryxShare.postMessage(JSON.stringify({ call: 'next', target: 'story' })); 1
             """.trimIndent()
