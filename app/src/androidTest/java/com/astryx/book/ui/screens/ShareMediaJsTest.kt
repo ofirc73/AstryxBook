@@ -315,6 +315,21 @@ class ShareMediaJsTest {
     }
 
     @Test
+    fun aFileInManyPieces_arrivesWhole_andOneTheAppCouldntRead_isLeftOut() {
+        // A file goes in pieces (a 250 MB video in one message couldn't fit in the app's memory).
+        val h = Harness()
+        h.load("https://m.facebook.com/composer/", COMPOSER_PAGE)
+        h.eval(ADD_PHOTO_ICON)
+        h.eval("window.__chunk = 3; 1")
+        h.files(Triple("0_a.jpg", "image/jpeg", 10), Triple("1_b.jpg", "image/jpeg", 7), Triple("2_c.jpg", "image/jpeg", 11))
+        h.eval("window.__files[1].failed = true; 1")
+        h.run("feed")
+
+        assertTrue("the composer never got the files", h.waitFor("!!window.__got"))
+        assertEquals("0_a.jpg:image/jpeg:10,2_c.jpg:image/jpeg:11", h.eval("window.__got.join(',')").unquoted())
+    }
+
+    @Test
     fun filesSentAsBase64_onOlderWebViews_arriveWhole() {
         val h = Harness()
         h.load("https://www.facebook.com/stories/create", STORY_PAGE)
@@ -326,15 +341,21 @@ class ShareMediaJsTest {
     }
 
     internal companion object {
-        // Answers share_media.js like ShareMediaBridge: a header, then each file as an ArrayBuffer
-        // (or base64), from window.__files; records the calls as "call:target[:reason]".
+        // Answers share_media.js like ShareMediaBridge: a header, then each file in pieces of
+        // window.__chunk bytes as ArrayBuffers (or base64) and its end, from window.__files; records
+        // the calls as "call:target[:reason]". A file with failed: true ends as one the app couldn't read.
         const val FAKE_BRIDGE = """
-            window.__calls = []; window.__files = []; window.__base64 = false;
-            function __payload(f) {
-              var bytes = new Uint8Array(f.bytes);
+            window.__calls = []; window.__files = []; window.__base64 = false; window.__chunk = 4;
+            function __payload(bytes) {
               if (!window.__base64) return bytes.buffer;
               var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
               return btoa(s);
+            }
+            function __pieces(f) {
+              var bytes = new Uint8Array(f.bytes), out = [];
+              for (var at = 0; at < bytes.length; at += window.__chunk) out.push(__payload(bytes.slice(at, at + window.__chunk)));
+              out.push(f.failed ? '{"end":true,"failed":true}' : '{"end":true}');
+              return out;
             }
             window.AstryxShare = { postMessage: function (text) {
               var m = JSON.parse(text), self = this;
@@ -347,7 +368,7 @@ class ShareMediaJsTest {
                 if (!files.length) { self.onmessage({ data: '{"done":true}' }); return; }
                 self.onmessage({ data: JSON.stringify({ count: files.length, remaining: window.__files.length,
                   base64: window.__base64, files: files.map(function (f) { return { name: f.name, type: f.type }; }) }) });
-                files.forEach(function (f) { self.onmessage({ data: __payload(f) }); });
+                files.forEach(function (f) { __pieces(f).forEach(function (p) { self.onmessage({ data: p }); }); });
               }, 10);
             } };
         """

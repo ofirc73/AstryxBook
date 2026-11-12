@@ -675,6 +675,10 @@ on their own can't:
 - `SaveToDownloadsTest`: a file bigger than all the memory the app may use written to Downloads
   whole (no live check of its own: the live check `aReelsDownloadButton_savesTheWholeVideoToDownloads`
   saves a real reel through the same code, the app fetching it).
+- `ShareHandOverTest`: the real share bridge handing a page a video bigger than all the memory
+  the app may use, whole and in pieces (it ran out of memory before); `ShareMediaJsTest` a file in
+  many pieces and one the app couldn't read. No live check of their own: the live checks' shares
+  (Feed, a group, Your story) go through the same hand-over.
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
@@ -1786,6 +1790,15 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (2026-11-12). Covered by `MediaDownloadJsTest`, `SaveToDownloadsTest` (a file bigger than the
   app's memory), `FacebookFetchTest` and the live check
   `aReelsDownloadButton_savesTheWholeVideoToDownloads`.
+## Sharing big videos into Facebook
+
+- A video shared to Your story or Reels (up to 250 MB) reaches Facebook's creator whole. The
+  app read each shared file whole and handed it to the page in one message: a video bigger than
+  the memory the app may use (192 MB on the emulator) failed with an `OutOfMemoryError`, and the
+  creator got nothing (tried on the emulator with a 256 MB file, 2026-11-12). Each file now goes
+  in 4 MB pieces, the next read only once the last is posted, then an end mark; the page puts
+  the pieces together, and leaves out a file the app couldn't read whole. Found by the audit.
+  Covered by `ShareHandOverTest` and `ShareMediaJsTest`.
 
 ## Known limitations
 

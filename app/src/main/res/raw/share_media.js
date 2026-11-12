@@ -83,16 +83,28 @@
       var header;
       try { header = JSON.parse(text); } catch (e) { done([], {}); return; }
       if (header.done) { done([], header); return; }
+      // Each file comes in pieces, then its end ({"end":true}, with "failed" when the app couldn't
+      // read it whole: dropped). A piece is never a JSON text (bytes, or base64, which has no "{").
       var files = [];
       var index = 0;
       (function nextFile() {
         if (index >= header.count) { done(files, header); return; }
-        receive(function (data) {
-          var meta = header.files[index++];
-          var blob = toBlob(data, meta.type, header.base64);
-          if (blob.size > 0) files.push(new File([blob], meta.name, { type: meta.type, lastModified: Date.now() }));
-          nextFile();
-        });
+        var meta = header.files[index++];
+        var parts = [];
+        (function nextPart() {
+          receive(function (data) {
+            if (typeof data === 'string' && data.charAt(0) === '{') {
+              var end = {};
+              try { end = JSON.parse(data); } catch (e) {}
+              var blob = new Blob(parts, { type: meta.type });
+              if (!end.failed && blob.size > 0) files.push(new File([blob], meta.name, { type: meta.type, lastModified: Date.now() }));
+              nextFile();
+              return;
+            }
+            parts.push(toBlob(data, meta.type, header.base64));
+            nextPart();
+          });
+        })();
       })();
     });
   }
