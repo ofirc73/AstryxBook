@@ -175,7 +175,9 @@ jobs:
           disable-animations: true
           # A failing part keeps the app's and the test runner's log (uploaded below): CI's emulator is
           # the only place some failures show, e.g. MainActivityPipTest's "never left PiP" on API 34.
-          script: ./gradlew connectedAndroidTest --build-cache -Pandroid.testInstrumentationRunnerArguments.numShards=4 -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }} --stacktrace || { adb logcat -d -v time -s AstryxbookPiP:D Astryxbook:D TestRunner:I ActivityTaskManager:I WindowManager:W AndroidRuntime:E > instrumented-logcat.txt; exit 1; }
+          # With why the app's process ended (ActivityManager's kill reasons, lmkd, a native crash):
+          # run 43286873346's part 2 ended with "app died, no saved state" and nothing to say why.
+          script: ./gradlew connectedAndroidTest --build-cache -Pandroid.testInstrumentationRunnerArguments.numShards=4 -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ matrix.shard }} --stacktrace || { adb logcat -d -v time -s AstryxbookPiP:D Astryxbook:D TestRunner:I ActivityTaskManager:I WindowManager:W AndroidRuntime:E ActivityManager:I lmkd:I DEBUG:F libc:F > instrumented-logcat.txt; exit 1; }
 
       - name: Upload the Device Log of a Failed Part
         if: failure()
