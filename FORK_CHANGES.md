@@ -675,6 +675,9 @@ on their own can't:
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
   on Feeds opening the menu, Back on the first page leaving the app to the background, closing
   the app stopping its page.
+  Also a page setting changed in Settings applying when Settings is closed with Back (the page
+  reloaded with it), and Back with nothing changed leaving the page as it was (no live check: it
+  doesn't depend on Facebook's page).
 - `ConnectionErrorTest`: a page that can't be reached (a refused connection) covered by the
   Try again screen with the page kept underneath, Try again loading it again, and a page that
   loads clearing it (no live check: it doesn't depend on Facebook's page; the connection coming
@@ -1755,6 +1758,16 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   the camera app's photo in Facebook's composer; the draft discarded. Covered by
   `CameraCaptureTest`, `AttachFromCameraTest` and the live check
   `homesPhotoButton_asksWhereThePhotoComesFrom`.
+
+## Settings closed with Back
+
+- A page setting (Remove ads, a Hide option, Material You, AMOLED Black, Desktop layout, sticky
+  tab bar, pinch to zoom...) changed in Settings and left with Back or the back arrow now applies,
+  as **Reload to apply** does: the page reloads with it. Before, only that button applied it:
+  left with Back, the page kept its old scripts until the app was restarted, and Settings opened
+  again took the new value as already applied and offered no button. Closed with nothing changed,
+  the page is left as it was. Found by the second audit pass (2026-11-12); covered by
+  `PagesAndSettingsTest`.
 
 ## Known limitations
 

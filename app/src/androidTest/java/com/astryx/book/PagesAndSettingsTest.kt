@@ -1,8 +1,11 @@
 package com.astryx.book
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.data.local.SettingsDataStore
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -66,12 +69,59 @@ class PagesAndSettingsTest {
 
     @Test
     fun hideStories_hidesTheStoriesTray() {
-        // Settings apply their scripts on the next page load (Settings reloads the page on close).
+        // Set before the app starts: its scripts are built with it.
         runBlocking { SettingsDataStore(app.context).setHideStories(true) }
         startOnPage()
         assertTrue("the stories tray shows with Hide stories on", app.waitFor {
             app.eval("getComputedStyle(document.getElementById('stories')).display") == "\"none\""
         })
+    }
+
+    @Test
+    fun aPageSettingChanged_appliesWhenSettingsIsClosedWithBack() {
+        // Before, only Settings' Reload button applied a page setting: closed with Back, the page kept
+        // its scripts until the app restarted, and Settings opened again showed no Reload button.
+        startOnPage()
+        app.eval("window.__notReloaded = true; 1")
+        openSettings()
+        // As the user does it: Customize feed, Stories, Back to Settings.
+        assertTrue(app.tapText(app.context.getString(R.string.customize_feed_title)))
+        val stories = app.context.getString(R.string.stories)
+        assertTrue("Customize feed never opened", app.waitFor { app.textShown(stories) })
+        assertTrue(app.tapText(stories))
+        assertTrue("Hide stories wasn't turned on", app.waitFor { runBlocking { SettingsDataStore(app.context).hideStories.first() } })
+        app.pressBack()
+        assertTrue("Customize feed stayed open after Back", app.waitFor { !app.textShown(stories) })
+        // Settings' Reload button shows now, but its accessibility node has no text (a fix of its own):
+        // not looked for. Back must do what it does.
+        Thread.sleep(1000)
+        app.pressBack()
+        assertTrue("Settings stayed open after Back", app.waitFor { !app.textShown(settingsTitle) })
+        assertTrue("the page wasn't reloaded with the new setting", app.waitFor(20_000) {
+            app.eval("!window.__notReloaded && !!window.__testPage") == "true"
+        })
+        assertTrue("the stories tray shows after Hide stories was turned on and Settings closed", app.waitFor {
+            app.eval("getComputedStyle(document.getElementById('stories')).display") == "\"none\""
+        })
+    }
+
+    @Test
+    fun settingsClosedWithBack_withNothingChanged_leavesThePageAsItIs() {
+        startOnPage()
+        app.eval("window.__notReloaded = true; 1")
+        openSettings()
+        app.pressBack()
+        assertTrue("Settings stayed open after Back", app.waitFor { !app.textShown(settingsTitle) })
+        Thread.sleep(2000)
+        assertEquals("the page was reloaded with no setting changed", "true", app.eval("!!window.__notReloaded"))
+    }
+
+    private val settingsTitle get() = app.context.getString(R.string.materialbook_settings)
+
+    // Settings, as the gear on the page opens it.
+    private fun openSettings() {
+        app.eval("window.AstryxPage.postMessage(JSON.stringify({ call: 'openSettings' })); 1")
+        assertTrue("Settings never opened", app.waitFor { app.textShown(settingsTitle) })
     }
 
     @Test
