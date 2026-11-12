@@ -13,6 +13,8 @@
     <string name="developer_options_enabled">خيارات المطوّرين مفعّلة</string>
     <string name="webview_debugging_title">تصحيح WebView</string>
     <string name="webview_debugging_summary">السماح لحاسوب مزوّد بتصحيح USB بفحص الصفحة والتحكم بها (chrome://inspect). أوقفه عند الانتهاء.</string>
+    <string name="ads_hidden_title">الإعلانات المُزالة</string>
+    <string name="ads_hidden_summary">آخر الأخبار: %1$d · مقاطع ريلز: %2$d، منذ تشغيل التطبيق</string>
     <string name="external_link_title">الفتح في تطبيق آخر؟</string>
     <string name="external_link_open">فتح</string>
     <string name="open_links_title">فتح روابط فيسبوك هنا</string>

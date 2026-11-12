@@ -20,6 +20,8 @@
     <string name="developer_options_enabled">Developer options are on</string>
     <string name="webview_debugging_title">WebView debugging</string>
     <string name="webview_debugging_summary">Let a computer with USB debugging inspect and control the page (chrome://inspect). Turn it off when you\'re done.</string>
+    <string name="ads_hidden_title">Ads removed</string>
+    <string name="ads_hidden_summary">Feed: %1$d · Reels: %2$d, since the app started</string>
     <string name="external_link_title">Open in another app?</string>
     <string name="external_link_open">Open</string>
     <string name="open_links_title">Open Facebook links here</string>

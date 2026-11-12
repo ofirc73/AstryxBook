@@ -16,6 +16,8 @@
     <string name="developer_options_enabled">Opsi pengembang aktif</string>
     <string name="webview_debugging_title">Debugging WebView</string>
     <string name="webview_debugging_summary">Izinkan komputer dengan debugging USB memeriksa dan mengontrol halaman (chrome://inspect). Matikan setelah selesai.</string>
+    <string name="ads_hidden_title">Iklan yang dihapus</string>
+    <string name="ads_hidden_summary">Feed: %1$d · Reels: %2$d, sejak aplikasi dibuka</string>
     <string name="external_link_title">Buka di aplikasi lain?</string>
     <string name="external_link_open">Buka</string>
     <string name="open_links_title">Buka tautan Facebook di sini</string>

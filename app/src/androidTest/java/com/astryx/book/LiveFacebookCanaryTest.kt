@@ -19,6 +19,7 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.astryx.book.notifications.FacebookCounts
 import com.astryx.book.notifications.FacebookCountsWorker
 import com.astryx.book.notifications.Posting
+import com.astryx.book.utils.AdsHidden
 import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
@@ -638,6 +639,7 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun removeAds_hidesTheFeedsAds() {
+        val counted = AdsHidden.feed
         openFeed()
         // Down the feed until adblock.js has hidden an ad or a label it missed shows up; Facebook
         // loads more posts as the page scrolls.
@@ -663,11 +665,21 @@ class LiveFacebookCanaryTest {
             fail("adblock.js hid ${ads.hidden} of ${ads.posts} feed posts: the colour it finds ad labels by is on " +
                 "normal posts too")
         }
+        assertCounted("feed ads", ads.hidden, AdsHidden.feed - counted)
         if (ads.hidden == 0) gap("feed-ads", "no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
+    }
+
+    // The ads adblock.js hid reached the app's count (AdsHidden: developer options and the log),
+    // which is how a phone, shown ads the test account isn't, tells that Remove ads still finds them.
+    private fun assertCounted(what: String, hidden: Int, counted: Int) {
+        if (hidden > 0 && counted == 0) {
+            fail("adblock.js hid $hidden $what the app never counted (its AstryxPage adHidden call, AdsHidden)")
+        }
     }
 
     @Test
     fun removeAds_emptiesTheReelsAds() {
+        val counted = AdsHidden.reels
         openPlayingReel()
         // Through the reels, one at a time, until adblock.js has emptied an ad or a label it missed
         // shows up; Facebook adds reels as the user moves on.
@@ -687,6 +699,7 @@ class LiveFacebookCanaryTest {
         if (ads.posts >= 6 && ads.hidden * 2 > ads.posts) {
             fail("adblock.js emptied ${ads.hidden} of ${ads.posts} reels as ads")
         }
+        assertCounted("reel ads", ads.hidden, AdsHidden.reels - counted)
         if (ads.hidden == 0) gap("reel-ads", "no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
     }
 

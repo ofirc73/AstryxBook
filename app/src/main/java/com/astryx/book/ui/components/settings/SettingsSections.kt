@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.outlined.Subject
 import androidx.compose.material.icons.automirrored.outlined.WrapText
 import androidx.compose.material.icons.filled.Padding
 import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.CleaningServices
@@ -49,6 +50,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
+import com.astryx.book.utils.AdsHidden
 import com.astryx.book.utils.AppLock
 import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.TextZoom
@@ -494,6 +496,14 @@ internal fun DeveloperSettings(
                     supportingText = stringResource(R.string.webview_debugging_summary),
                     isActive = webViewDebugging.value,
                     onClick = { viewModel.setWebViewDebugging(!webViewDebugging.value) }
+                ),
+                // What Remove ads hid since the app started (AdsHidden): to read, nothing to tap.
+                SettingsItem(
+                    icon = Icons.Outlined.Block,
+                    title = stringResource(R.string.ads_hidden_title),
+                    supportingText = stringResource(R.string.ads_hidden_summary, AdsHidden.feed, AdsHidden.reels),
+                    isActive = null,
+                    onClick = {}
                 )
             )
         )

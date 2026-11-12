@@ -1,5 +1,6 @@
 package com.astryx.book.utils.jsBridge
 import com.astryx.book.notifications.Posting
+import com.astryx.book.utils.AdsHidden
 import com.eepiemi.materialbook.utils.jsBridge.MaterialbookSettings
 import com.eepiemi.materialbook.utils.jsBridge.ThemeChange
 import org.junit.Assert.assertEquals
@@ -114,5 +115,18 @@ class PageBridgeTest {
         assertEquals(listOf("Float into the weekend\n\nLike a space jelly"), copied)
         // The Messages layer's pages can be selected: it doesn't take it.
         assertFalse(dispatchPageMessage("""{"call":"copyText","text":"Float into the weekend"}""", bridges))
+    }
+
+    @Test
+    fun adHidden_countsFeedAndReelAds_fromAnyPage() {
+        val feed = AdsHidden.feed
+        val reels = AdsHidden.reels
+        assertTrue(dispatchPageMessage("""{"call":"adHidden","kind":"feed"}""", PageBridges()))
+        assertTrue(dispatchPageMessage("""{"call":"adHidden","kind":"feed"}""", bridges))
+        assertTrue(dispatchPageMessage("""{"call":"adHidden","kind":"reel"}""", bridges))
+        assertFalse(dispatchPageMessage("""{"call":"adHidden","kind":"story"}""", bridges))
+        assertFalse(dispatchPageMessage("""{"call":"adHidden"}""", bridges))
+        assertEquals(feed + 2, AdsHidden.feed)
+        assertEquals(reels + 1, AdsHidden.reels)
     }
 }

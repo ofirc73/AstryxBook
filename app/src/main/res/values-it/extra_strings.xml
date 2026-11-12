@@ -13,6 +13,8 @@
     <string name="developer_options_enabled">Le opzioni sviluppatore sono attive</string>
     <string name="webview_debugging_title">Debug WebView</string>
     <string name="webview_debugging_summary">Consente a un computer con il debug USB di ispezionare e controllare la pagina (chrome://inspect). Disattivalo quando hai finito.</string>
+    <string name="ads_hidden_title">Pubblicità rimosse</string>
+    <string name="ads_hidden_summary">Feed: %1$d · Reel: %2$d, dall\'avvio dell\'app</string>
     <string name="external_link_title">Aprire in un\'altra app?</string>
     <string name="external_link_open">Apri</string>
     <string name="open_links_title">Apri qui i link di Facebook</string>

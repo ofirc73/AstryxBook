@@ -33,15 +33,15 @@
 
     //  The Ad tag and separator + special icon elements have a unique color of #8a8d91 in both theme modes (we'll see if they fix this with time)
 
-    const processedAds = new WeakSet();
+    // Tells the app an ad was hidden, on the feed ("feed") or among the reels ("reel"): its count in
+    // developer options and the log (AdsHidden) is how a phone shows the ads are still found. The
+    // feed's are found by the colour above alone, and the live checks' account is shown none.
+    function adHidden(kind) {
+        window.AstryxPage?.postMessage(JSON.stringify({ call: 'adHidden', kind }));
+    }
 
     function removeFeedAds() {
         const spans = document.querySelectorAll('span.f5[style*="color:#8a8d91"]:not([data-nosnippet])');
-
-        spans?.forEach(span => {
-            if (processedAds.has(span)) return;
-            processedAds.add(span);
-        })
 
         for (const span of spans) {
             const parent = span.parentElement;
@@ -51,7 +51,12 @@
             }
 
             // A label outside a feed post (a photo opened directly has some) has no post to hide.
+            const rows = window.feedPostRows(parent);
+            if (!rows.length) continue;
+            // Hidden again on every change (a post's rows can come one by one), counted the first time.
+            const counted = rows[0].style.display === 'none';
             window.hideFeedPost(parent);
+            if (!counted) adHidden('feed');
         }
     }
 
@@ -103,7 +108,6 @@
     function removeReelAds(root = document) {
         const containers = root.querySelectorAll('div.vertically-snappable');
 
-        let hiddenCount = 0;
         containers.forEach((container, index) => {
             // Skip if already hidden
             if (container.dataset.adHidden === 'true') {
@@ -177,7 +181,7 @@
                     // Set up intersection observer to auto-scroll when this ad comes into view
                     setupAutoScroll(container);
 
-                    hiddenCount++;
+                    adHidden('reel');
                     break;
                 }
             }

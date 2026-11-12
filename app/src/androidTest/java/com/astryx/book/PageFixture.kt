@@ -8,6 +8,9 @@ import org.junit.Assert.assertTrue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+/** A feed ad's label on m.facebook.com, as adblock.js finds it (its grey). */
+const val FEED_AD_LABEL = "<div class='native-text rslh'><span class='f5' style='color:#8a8d91'>Sponsored</span></div>"
+
 /**
  * A fresh WebView showing a test page, driven synchronously from the test thread: the setup the
  * fixed-page tests (`*JsTest`) share. Laid out at [width] x [height] (0 leaves it unlaid-out, like a
@@ -109,8 +112,9 @@ class PageFixture(
             "window.AstryxPage = { postMessage: function (message) { window.__pageCalls.push(JSON.parse(message)); } }; 1"
     )
 
-    /** The page calls [stubPageCalls] got, as "call state" each, comma-separated (JSON-quoted). */
-    fun pageCalls(): String = eval("window.__pageCalls.map(function (c) { return c.call + ' ' + c.state; }).join(', ')")
+    /** The page calls [stubPageCalls] got, as "call state" each ([field]'s value), comma-separated (JSON-quoted). */
+    fun pageCalls(field: String = "state"): String =
+        eval("window.__pageCalls.map(function (c) { return c.call + ' ' + c.$field; }).join(', ')")
 
     /** Whether [check] became true within [ms], checked every [everyMs]. */
     fun waitFor(ms: Long = 5_000, everyMs: Long = 100, check: () -> Boolean): Boolean {

@@ -1,5 +1,6 @@
 package com.astryx.book
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.astryx.book.utils.AdsHidden
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import kotlinx.coroutines.flow.first
@@ -116,6 +117,21 @@ class PagesAndSettingsTest {
         assertEquals("the page was reloaded with no setting changed", "true", app.eval("!!window.__notReloaded"))
     }
 
+    // Remove ads (on unless turned off) hiding a feed ad on a page in the app: the page's call
+    // reaches the app's count (developer options, the log), once however the page changes after.
+    @Test
+    fun anAdRemoveAdsHides_isCountedByTheApp_once() {
+        val counted = AdsHidden.feed
+        startOnPage(html = FEED_PAGE.replace("<div id='post'", "$AD<div id='post'"))
+        assertTrue("the hidden ad never reached the app's count (adblock.js, AstryxPage adHidden)", app.waitFor {
+            AdsHidden.feed == counted + 1
+        })
+        assertEquals("\"none\"", app.eval("getComputedStyle(document.getElementById('ad')).display"))
+        app.eval("document.body.insertAdjacentHTML('beforeend', '<div>more</div>'); 1")
+        Thread.sleep(1000)
+        assertEquals("the same ad was counted again", counted + 1, AdsHidden.feed)
+    }
+
     private val settingsTitle get() = app.context.getString(R.string.materialbook_settings)
 
     // Settings, as the gear on the page opens it.
@@ -190,5 +206,8 @@ class PagesAndSettingsTest {
                 "<div id='stories' data-mcomponent='MContainer' data-srat='43' style='height:200px'>stories</div>" +
                 "<div id='post' style='height:900px'>post</div>" +
                 "<script>window.__testPage = true;</script></body></html>"
+        // A feed ad: a row of the feed's list with the ad label.
+        private const val AD = "<div data-type='vscroller'><div id='ad' data-tracking-duration-id='7' style='height:60px'>" +
+            "$FEED_AD_LABEL</div></div>"
     }
 }

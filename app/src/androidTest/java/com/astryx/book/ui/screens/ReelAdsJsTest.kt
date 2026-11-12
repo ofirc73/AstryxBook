@@ -25,8 +25,12 @@ class ReelAdsJsTest {
             page.load("https://m.facebook.com/reel/1", "<html><body>$body</body></html>")
             // The mobile site (scripts.js defines this for the page scripts).
             eval("window.isDesktopMode = () => false;")
+            page.stubPageCalls()
             page.run(R.raw.adblock)
         }
+
+        // The ads the page told the app it emptied (AstryxPage call adHidden), as "adHidden reel" each.
+        fun adsCounted(): String = page.pageCalls("kind").unquoted()
 
         fun eval(js: String) = page.eval(js)
 
@@ -65,6 +69,7 @@ class ReelAdsJsTest {
         )
 
         assertEquals("false,false,false,false", h.hidden("en", "he", "ru", "ja"))
+        assertEquals("", h.adsCounted())
     }
 
     @Test
@@ -104,5 +109,8 @@ class ReelAdsJsTest {
 
         // The MutationObserver has run by now: its callback is a microtask of the insert.
         assertEquals("false,true", h.hidden("first", "later"))
+        // Counted for the app, once: more reels added later don't count it again.
+        h.eval("document.getElementById('feed').insertAdjacentHTML('beforeend', \"${reel("third", "A reel")}\");")
+        assertEquals("adHidden reel", h.adsCounted())
     }
 }

@@ -16,6 +16,8 @@
     <string name="developer_options_enabled">אפשרויות המפתחים מופעלות</string>
     <string name="webview_debugging_title">ניפוי באגים ב-WebView</string>
     <string name="webview_debugging_summary">מאפשר למחשב עם ניפוי באגים ב-USB לבדוק ולשלוט בדף (chrome://inspect). כדאי לכבות בסיום.</string>
+    <string name="ads_hidden_title">פרסומות שהוסרו</string>
+    <string name="ads_hidden_summary">פיד: %1$d · Reels: %2$d, מאז שהאפליקציה נפתחה</string>
     <string name="external_link_title">לפתוח באפליקציה אחרת?</string>
     <string name="external_link_open">פתיחה</string>
     <string name="open_links_title">פתיחת קישורי פייסבוק כאן</string>
