@@ -124,9 +124,9 @@ class AttachFromCameraTest {
         val camera = answer(MediaStore.ACTION_IMAGE_CAPTURE) { Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null) }
         openPage("image/*")
         tapInput()
-        assertTrue(app.waitFor { app.textShown(text(R.string.attach_take_photo)) })
-        assertTrue(app.tapText(text(R.string.attach_take_photo)))
-        assertTrue(app.waitFor { camera.starts == 1 })
+        assertTrue({ "no choice of where the photo comes from (${app.screenState()})" }, app.waitFor { app.textShown(text(R.string.attach_take_photo)) })
+        assertTrue({ "Take a photo couldn't be tapped (${app.screenState()})" }, app.waitFor { app.tapText(text(R.string.attach_take_photo)) })
+        assertTrue({ "the camera never opened (${app.screenState()})" }, app.waitFor { camera.starts == 1 })
         Thread.sleep(1000)
         assertEquals("", picked())
         // A request left unanswered keeps the page's next one from coming.
@@ -152,7 +152,7 @@ class AttachFromCameraTest {
         openPage("application/pdf")
         tapInput()
         assertTrue({ "the picker never opened for a document (opened ${picker.starts} times; the choice " +
-            "${if (app.textShown(text(R.string.attach_files))) "shows" else "doesn't show"})" }, app.waitFor(20_000) { picker.starts == 1 })
+            "${if (app.textShown(text(R.string.attach_files))) "shows" else "doesn't show"}; ${app.screenState()})" }, app.waitFor(20_000) { picker.starts == 1 })
         assertFalse("a document request asks about the camera", app.textShown(text(R.string.attach_files)))
     }
 

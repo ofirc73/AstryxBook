@@ -48,6 +48,25 @@ class AppHarness {
         assertTrue("MainActivity never came up", waitFor(15_000) { activity()?.let { !it.isFinishing } == true })
     }
 
+    /**
+     * What's on screen, for a failure message: the app's activities by stage (finishing or not,
+     * with the window's focus or not) and the app whose window the checks' text lookups read.
+     */
+    fun screenState(): String {
+        var activities = ""
+        instrumentation.runOnMainSync {
+            val registry = ActivityLifecycleMonitorRegistry.getInstance()
+            activities = Stage.values().mapNotNull { stage ->
+                registry.getActivitiesInStage(stage).filter { it is MainActivity }.takeIf { it.isNotEmpty() }
+                    ?.joinToString(",", "$stage=") {
+                        (if (it.isFinishing) "finishing" else "live") + (if (it.hasWindowFocus()) "+focus" else "")
+                    }
+            }.joinToString(" ")
+        }
+        val active = runCatching { instrumentation.uiAutomation.rootInActiveWindow?.packageName }.getOrNull()
+        return "activities: $activities; active window: $active"
+    }
+
     /** Starts the app and loads [html] as its page at [url] ([loadPage]). */
     fun startOnPage(url: String, html: String, asHistory: Boolean = false) {
         start()

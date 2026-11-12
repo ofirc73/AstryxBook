@@ -1,4 +1,6 @@
 package com.astryx.book.utils
+import android.util.Log
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -37,6 +39,12 @@ open class RequestBlockingClient : AccompanistWebViewClient() {
             return emptyResponse()
         }
         return super.shouldInterceptRequest(view, request)
+    }
+
+    // A page that couldn't be loaded, for the log: its error's code (WebViewClient.ERROR_*), no address.
+    override fun onReceivedError(view: WebView, request: WebResourceRequest?, error: WebResourceError?) {
+        if (request?.isForMainFrame == true) Log.d("Astryxbook", "Page error ${error?.errorCode} (${error?.description})")
+        super.onReceivedError(view, request, error)
     }
 
     private fun emptyResponse() =
