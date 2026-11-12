@@ -3,6 +3,7 @@ package com.eepiemi.materialbook.utils
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import android.view.View
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
@@ -168,6 +169,7 @@ private class AppWebChromeClient(
         this.filePathCallback = filePathCallback
         val filePickerIntent = fileChooserParams?.createIntent()
 
+        Log.d("Astryxbook", "File request from the page (accepts ${fileChooserParams?.acceptTypes?.joinToString()})")
         if (filePickerIntent == null) cancelFileChooser()
         else onFileRequest(
             FileRequest(filePickerIntent, captureKinds(fileChooserParams.acceptTypes), fileChooserParams.isCaptureEnabled)

@@ -1064,6 +1064,9 @@ fun MaterialbookWebView(
     // Facebook couldn't be reached: the page loads again from the screen's button, or by itself
     // when the connection is back, under the loading screen as on a start. Above the loading
     // screen, below the Messages layer when that's the page on screen.
+    LaunchedEffect(isError) {
+        if (isError) Log.d("Astryxbook", "Connection error: the Try again screen shows")
+    }
     if (isError && !messagesLayer.isShown) {
         ConnectionErrorScreen(
             onRetry = {

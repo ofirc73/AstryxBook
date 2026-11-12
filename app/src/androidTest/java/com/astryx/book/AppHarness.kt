@@ -5,13 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.util.Log
 import android.util.Rational
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityNodeInfo
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -46,6 +50,52 @@ class AppHarness {
     fun start(intent: Intent = Intent(context, MainActivity::class.java)) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         assertTrue("MainActivity never came up", waitFor(15_000) { activity()?.let { !it.isFinishing } == true })
+    }
+
+    /**
+     * What's on screen, for a failure message: the app's activities by stage (finishing or not,
+     * with the window's focus or not) and the app whose window the checks' text lookups read.
+     */
+    fun screenState(): String {
+        var activities = ""
+        instrumentation.runOnMainSync {
+            val registry = ActivityLifecycleMonitorRegistry.getInstance()
+            activities = Stage.values().mapNotNull { stage ->
+                registry.getActivitiesInStage(stage).filter { it is MainActivity }.takeIf { it.isNotEmpty() }
+                    ?.joinToString(",", "$stage=") {
+                        (if (it.isFinishing) "finishing" else "live") + (if (it.hasWindowFocus()) "+focus" else "")
+                    }
+            }.joinToString(" ")
+        }
+        val active = runCatching { instrumentation.uiAutomation.rootInActiveWindow?.packageName }.getOrNull()
+        // The window Android sends keys and touches to, as the system has it (a dialog of another
+        // app's, "isn't responding", would be named here).
+        val focus = runCatching {
+            ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("dumpsys window"))
+                .bufferedReader().readLines()
+                .filter { "mCurrentFocus" in it || "mFocusedApp" in it }
+                .joinToString(" | ") { it.trim() }
+        }.getOrDefault("?")
+        return "activities: $activities; active window: $active; $focus"
+    }
+
+    /**
+     * Presses Wait on Android's "isn't responding" dialog, when one is up: on CI's emulator (software
+     * drawing) the launcher stops answering now and then, and its dialog over the app took the tests'
+     * taps and was the window their screen reads saw (2026-11-12: the camera and connection tests
+     * failed only there, the app fine underneath). Called before every tap and screen read; true if
+     * there was one.
+     */
+    fun dismissNotResponding(): Boolean {
+        val root = runCatching { instrumentation.uiAutomation.rootInActiveWindow }.getOrNull() ?: return false
+        if (root.packageName?.toString() != "android") return false
+        val wait = root.findAccessibilityNodeInfosByViewId("android:id/aerr_wait").firstOrNull() ?: return false
+        Log.w("AppHarness", "An app isn't responding: pressed Wait on Android's dialog")
+        wait.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        // Until the app's window has the focus back: a tap sent while the dialog was still going
+        // reached nothing (on the emulator, the launcher frozen to raise the dialog).
+        waitFor(5_000) { runCatching { activity()?.let { a -> onActivity { a.hasWindowFocus() } } }.getOrNull() == true }
+        return true
     }
 
     /** Starts the app and loads [html] as its page at [url] ([loadPage]). */
@@ -166,6 +216,7 @@ class AppHarness {
 
     /** A finger's tap at ([x], [y]) on the screen, in px, held down for [holdMs]. */
     private fun tapAt(x: Float, y: Float, holdMs: Long = TAP_MS) {
+        dismissNotResponding()
         val downAt = SystemClock.uptimeMillis()
         for ((action, time) in listOf(MotionEvent.ACTION_DOWN to downAt, MotionEvent.ACTION_UP to downAt + holdMs)) {
             if (action == MotionEvent.ACTION_UP) Thread.sleep(holdMs)
@@ -194,6 +245,7 @@ class AppHarness {
      * side apart to [factor] times as far (below 1 pinches in, above 1 spreads out).
      */
     fun pinch(area: android.graphics.Rect, factor: Float) {
+        dismissNotResponding()
         val horizontal = area.width() > area.height()
         val from = maxOf(area.width(), area.height()) / 5f
         val to = from * factor
@@ -301,6 +353,10 @@ class AppHarness {
     // The screen's elements showing [text], each one's bounds in px: the accessibility tree walked
     // node by node (the app's Compose UI answers that, not findAccessibilityNodeInfosByText).
     private fun shownBounds(text: String): List<android.graphics.Rect> {
+        dismissNotResponding()
+        // Read afresh: a cached copy of the screen kept a bar the app had already removed for 10 s
+        // (CI's emulator, 2026-11-12, ShareIntoFacebookTest's posting bar).
+        if (Build.VERSION.SDK_INT >= 34) instrumentation.uiAutomation.clearCache()
         val found = mutableListOf<android.graphics.Rect>()
         val queue = ArrayDeque(listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow))
         while (queue.isNotEmpty()) {
@@ -332,6 +388,7 @@ class AppHarness {
     }
 
     fun pressBack() {
+        dismissNotResponding()
         instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
     }
 
