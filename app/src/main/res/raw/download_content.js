@@ -164,8 +164,14 @@
     }
   };
 
-  // Download media from URL
+  // Download media from URL. An https address goes to the app (the app's message listener), which
+  // fetches it itself and writes it to Downloads as it arrives: read here and handed over whole as
+  // one base64 string, a long video ran the app out of memory. A blob: or data: one is read here.
   const downloadMedia = (url, isVideo) => {
+    if (window.AstryxDownloads && /^https:\/\//.test(url)) {
+      window.AstryxDownloads.postMessage(JSON.stringify({ url: url, video: !!isVideo }));
+      return;
+    }
     fetch(url)
       .then(response => {
         if (!response.ok) throw new Error("HTTP " + response.status);

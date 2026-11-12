@@ -9,22 +9,31 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
+import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.MimeTypeMap
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
+import com.astryx.book.utils.httpsUrlOn
+import com.astryx.book.utils.isFacebookCdnHost
 import com.astryx.book.utils.isFacebookWebUrl
+import com.astryx.book.utils.openFacebookPage
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.security.DigestInputStream
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,6 +101,12 @@ fun installDownloadBridge(webView: WebView, context: Context) {
             bridge.downloadFailed()
             return@addWebMessageListener
         }
+        // A photo or video on Facebook's media servers: the app fetches it itself (downloadUrl).
+        payload.optString("url").takeIf { it.isNotEmpty() }?.let { url ->
+            val isVideo = payload.optBoolean("video")
+            DownloadBridge.saver.execute { bridge.downloadUrl(url, isVideo) }
+            return@addWebMessageListener
+        }
         val data = payload.optString("data")
         val mimeType = payload.optString("mimeType")
         // The listener runs on the UI thread; decoding and writing a video doesn't belong there.
@@ -128,48 +143,91 @@ class DownloadBridge(private val context: Context) {
                 Triple(data, type, ext)
             }
 
-            val fileName = downloadFileName(Date(), extension)
-
-            // Saving the same photo or video again: point at the first copy instead of a second file.
-            val hash = MessageDigest.getInstance("SHA-256").digest(finalData)
-                .joinToString("") { "%02x".format(it) }
-            synchronized(savedThisSession) { savedThisSession[hash] }?.let { uri ->
-                saved(SavedDownload(uri, finalMimeType, alreadySaved = true))
-                return
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val contentValues = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, finalMimeType)
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    put(MediaStore.Downloads.IS_PENDING, 1)
-                }
-
-                val resolver = context.contentResolver
-                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-
-                uri?.let {
-                    resolver.openOutputStream(it)?.use { outputStream ->
-                        outputStream.write(finalData)
-                    }
-                    contentValues.clear()
-                    contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                    resolver.update(uri, contentValues, null, null)
-
-                    synchronized(savedThisSession) { savedThisSession[hash] = uri }
-                    saved(SavedDownload(uri, finalMimeType, alreadySaved = false))
-                } ?: toast(R.string.failed_to_save_file)
-            } else {
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(downloadsDir, fileName)
-
-                FileOutputStream(file).use { it.write(finalData) }
-                toast(R.string.saved_to_downloads)
-            }
+            save(ByteArrayInputStream(finalData), finalMimeType, extension)
         }.onFailure {
             toast(R.string.failed_to_save_file)
         }
+    }
+
+    /**
+     * A photo or video the page shows, at its address on Facebook's media servers
+     * (download_content.js): fetched here and written to Downloads as it arrives. The page used to
+     * fetch it and hand over the whole file as one base64 string, which a long video couldn't
+     * survive (several times the file in memory, against a 192 MB heap). Only Facebook's media
+     * servers, over https, redirects included; only a photo or video, as the server labels it.
+     */
+    fun downloadUrl(url: String, isVideo: Boolean) {
+        val address = httpsUrlOn(url, ::isFacebookCdnHost)
+        if (address == null) {
+            Log.w("Astryxbook", "Download: not an address on Facebook's media servers")
+            toast(R.string.download_failed_invalid_data)
+            return
+        }
+        if (isVideo) toast(R.string.download_started)
+        runCatching {
+            val connection = openFacebookPage(
+                address, mapOf("User-Agent" to WebSettings.getDefaultUserAgent(context)), ::isFacebookCdnHost
+            ) ?: error("redirected off Facebook's media servers")
+            try {
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) error("HTTP ${connection.responseCode}")
+                val type = downloadMimeType(connection.contentType.orEmpty())
+                    ?: error("not a photo or video (${connection.contentType})")
+                val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
+                    ?: if (type.startsWith("video/")) "mp4" else "jpg"
+                connection.inputStream.use { save(it, type, extension) }
+            } finally {
+                connection.disconnect()
+            }
+        }.onFailure {
+            Log.w("Astryxbook", "Download failed (${it.javaClass.simpleName}: ${it.message})")
+            toast(if (isVideo) R.string.video_download_unavailable else R.string.failed_to_save_file)
+        }
+    }
+
+    /**
+     * Writes [input] to Downloads as it reads it (never whole in memory), named for now, and says
+     * so. The same file saved earlier in this run of the app (by its SHA-256) isn't kept twice:
+     * the new copy goes and the first is pointed at. Throws when it can't be written.
+     */
+    internal fun save(input: InputStream, mimeType: String, extension: String) {
+        val fileName = downloadFileName(Date(), extension)
+        val digest = MessageDigest.getInstance("SHA-256")
+        val stream = DigestInputStream(input, digest)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
+            val bytes = FileOutputStream(file).use { stream.copyTo(it, COPY_BUFFER) }
+            Log.d("Astryxbook", "Download saved: $bytes bytes ($mimeType)")
+            toast(R.string.saved_to_downloads)
+            return
+        }
+        val resolver = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, mimeType)
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: error("Downloads refused a new file")
+        val bytes = try {
+            resolver.openOutputStream(uri)!!.use { stream.copyTo(it, COPY_BUFFER) }
+        } catch (e: Exception) {
+            resolver.delete(uri, null, null)
+            throw e
+        }
+        val hash = digest.digest().joinToString("") { "%02x".format(it) }
+        synchronized(savedThisSession) { savedThisSession[hash] }?.let { first ->
+            resolver.delete(uri, null, null)
+            saved(SavedDownload(first, mimeType, alreadySaved = true))
+            return
+        }
+        values.clear()
+        values.put(MediaStore.Downloads.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+        synchronized(savedThisSession) { savedThisSession[hash] = uri }
+        // Read by the live check (its size, its type).
+        Log.d("Astryxbook", "Download saved: $bytes bytes ($mimeType)")
+        saved(SavedDownload(uri, mimeType, alreadySaved = false))
     }
 
     // The page found no file it could download for the video on screen (download_content.js).
@@ -191,6 +249,7 @@ class DownloadBridge(private val context: Context) {
 
     companion object {
         internal val saver = Executors.newSingleThreadExecutor()
+        private const val COPY_BUFFER = 64 * 1024
         // Content hash -> the file it was saved as, for this run of the app.
         private val savedThisSession = mutableMapOf<String, Uri>()
     }

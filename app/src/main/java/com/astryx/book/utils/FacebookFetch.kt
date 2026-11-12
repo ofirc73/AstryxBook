@@ -34,27 +34,47 @@ fun facebookPageHeaders(cookie: String, userAgent: String, mobile: Boolean): Map
     "Sec-CH-UA-Platform" to if (mobile) "\"Android\"" else "\"Windows\"",
 )
 
+/** facebook.com or one of its subdomains: the site the login's cookies are for. */
+fun isFacebookPageHost(host: String): Boolean = host == "facebook.com" || host.endsWith(".facebook.com")
+
 /**
- * Where a fetch that carries the Facebook login may follow a redirect from [from] to [location]
- * (the answer's Location header, which may be relative): only to facebook.com's own https pages,
- * the site the cookies are for. Null for anywhere else, and the fetch ends there.
+ * Facebook's media servers (`scontent….fbcdn.net` photos, `video….fbcdn.net` videos): where a photo
+ * or video the user saves comes from. Their addresses are signed; no cookies go there.
  */
-fun facebookRedirectUrl(from: String, location: String?): String? {
+fun isFacebookCdnHost(host: String): Boolean = host == "fbcdn.net" || host.endsWith(".fbcdn.net")
+
+/** An https address on [allowedHost] (no user info), or null. */
+fun httpsUrlOn(url: String, allowedHost: (String) -> Boolean): String? {
+    val uri = runCatching { URI(url.trim()) }.getOrNull() ?: return null
+    val host = uri.host?.lowercase() ?: return null
+    if (uri.scheme?.lowercase() != "https" || uri.userInfo != null || !allowedHost(host)) return null
+    return uri.toString()
+}
+
+/**
+ * Where a fetch may follow a redirect from [from] to [location] (the answer's Location header,
+ * which may be relative): only to https addresses on [allowedHost], by default facebook.com's own
+ * pages, the site a fetch with the login's cookies is for. Null for anywhere else, and the fetch
+ * ends there.
+ */
+fun facebookRedirectUrl(from: String, location: String?, allowedHost: (String) -> Boolean = ::isFacebookPageHost): String? {
     if (location.isNullOrBlank()) return null
     val target = runCatching { URI(from).resolve(location.trim()) }.getOrNull() ?: return null
-    val host = target.host?.lowercase() ?: return null
-    if (target.scheme?.lowercase() != "https" || target.userInfo != null) return null
-    if (host != "facebook.com" && !host.endsWith(".facebook.com")) return null
-    return target.toString()
+    return httpsUrlOn(target.toString(), allowedHost)
 }
 
 /**
  * Opens [url] with [headers] and returns the connection of its answer, redirects followed (the
  * caller reads it and disconnects it), or null when Facebook sent the fetch somewhere it doesn't
- * follow. The redirects are followed here, one by one, not by HttpURLConnection: it sends the
- * request's headers on to whichever site the redirect names, the login's cookies with them.
+ * follow: anywhere but [allowedHost] (facebook.com's pages by default). The redirects are followed
+ * here, one by one, not by HttpURLConnection: it sends the request's headers on to whichever site
+ * the redirect names, the login's cookies with them.
  */
-fun openFacebookPage(url: String, headers: Map<String, String>): HttpURLConnection? {
+fun openFacebookPage(
+    url: String,
+    headers: Map<String, String>,
+    allowedHost: (String) -> Boolean = ::isFacebookPageHost,
+): HttpURLConnection? {
     var address = url
     repeat(MAX_REDIRECTS + 1) {
         val connection = URL(address).openConnection() as HttpURLConnection
@@ -64,7 +84,7 @@ fun openFacebookPage(url: String, headers: Map<String, String>): HttpURLConnecti
             connection.instanceFollowRedirects = false
             headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
             if (connection.responseCode !in REDIRECT_CODES) return connection
-            facebookRedirectUrl(address, connection.getHeaderField("Location"))
+            facebookRedirectUrl(address, connection.getHeaderField("Location"), allowedHost)
         } catch (e: Exception) {
             connection.disconnect()
             throw e

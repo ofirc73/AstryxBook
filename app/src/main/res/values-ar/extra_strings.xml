@@ -142,4 +142,5 @@
     <string name="attach_record_video">تسجيل فيديو</string>
     <string name="attach_camera_denied">لم يُسمح باستخدام الكاميرا، فلم يُلتقط شيء.</string>
     <string name="attach_no_camera">لم يُعثر على تطبيق كاميرا.</string>
+    <string name="download_started">جارٍ الحفظ في التنزيلات…</string>
 </resources>

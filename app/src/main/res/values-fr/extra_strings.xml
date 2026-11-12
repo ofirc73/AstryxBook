@@ -129,4 +129,5 @@
     <string name="attach_record_video">Enregistrer une vidéo</string>
     <string name="attach_camera_denied">L\'appareil photo n\'a pas été autorisé : rien n\'a été pris.</string>
     <string name="attach_no_camera">Aucune application d\'appareil photo trouvée.</string>
+    <string name="download_started">Enregistrement dans Téléchargements…</string>
 </resources>
