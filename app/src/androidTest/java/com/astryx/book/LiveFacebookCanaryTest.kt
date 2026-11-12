@@ -299,6 +299,13 @@ class LiveFacebookCanaryTest {
         app.waitFor(20_000) { eval("document.title === 'Content not found' || !!document.querySelector('video')") == "true" }
         var playing = eval(noReels) != "true" && app.waitFor(30_000) { eval("($noReels) || $PLAYING_JS") == "true" } &&
             eval(PLAYING_JS) == "true"
+        // And once after its reel had played for a few seconds, in the middle of the PiP check
+        // (2026-11-11, the account's Reels tab unsteady after a day of many runs): the tab's reel
+        // counts only if it's still there a moment on.
+        if (playing) {
+            Thread.sleep(REELS_TAB_SETTLE_MS)
+            playing = eval(noReels) != "true"
+        }
         if (!playing && eval(noReels) == "true") {
             eval("location.href = '$PUBLIC_REEL_URL'; 1")
             Thread.sleep(3000)
@@ -2059,6 +2066,8 @@ class LiveFacebookCanaryTest {
             "(function () { var w = $VPD_WIDTHS_JS.split(','); return w.every(function (x) {" +
                 " return !x || x === '?' || Number(x) >= window.outerWidth * 0.6; }); })()"
         // A public reel (shared with Public), for when the Reels tab has nothing for the account.
+        // How long the Reels tab's reel must stay before a check counts on it (openPlayingReel).
+        private const val REELS_TAB_SETTLE_MS = 4000L
         private const val PUBLIC_REEL_URL = "https://m.facebook.com/reel/1360854416127071/"
         // The page's shape, for a failure message in the public issue (no page text and nothing of
         // the account's: the address without values, the title, counts, and the ids of Facebook's
