@@ -39,8 +39,10 @@ user-visible change.
 - `.\gradlew.bat testDebugUnitTest` (use the variant task; `--tests` filtering
   doesn't work on plain `test`), `.\gradlew.bat connectedDebugAndroidTest`
   (needs a device), `.\gradlew.bat lintDebug`. CI (`ci.yml`) gates on
-  `test`, `:app:lintDebug` and `connectedAndroidTest`. The instrumented tests run in four parts on
-  four emulators (`instrumented-shard`, the runner's `numShards`/`shardIndex`) next to the release
+  `test`, `:app:lintDebug` and `connectedAndroidTest`. The instrumented tests run in six parts on
+  six emulators (`instrumented-shard`, the runner's `numShards`/`shardIndex`; four until 2026-11-13,
+  when a part's tests had grown to 5 to 6 minutes; the parts are split by hash, so a change in
+  their number gives every test new neighbours in its process) next to the release
   APK's launch check (`release-launch`, the build job's APK); the required `instrumented-tests`
   check passes when all three do. Gradle's build cache is kept between runs (`setup-gradle`,
   `--build-cache`), written only by main's release runs: entries from a by-hand `ci.yml` run on main

@@ -540,6 +540,10 @@ rewritten to the new one, keeping its schedule.
   Found by the audit. The script was tried against a stand-in `gh` (a failed run with and without
   an open issue, a release with and without one, a run with nothing to release, a failed version
   step, a failed signing); the workflow job itself first runs on the next release.
+- The instrumented tests run in six parts on six emulators, up from four (2026-11-13). The tests
+  had grown to 5 to 6 minutes a part, 8.6 minutes for a pull request's checks; six parts were
+  estimated at about 7. A test process that dies also takes fewer tests with it. The parts are
+  split by hash, so every test got new neighbours in its process.
 
 ## Testing
 
