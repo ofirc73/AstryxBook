@@ -460,15 +460,22 @@ class AppHarness {
 
     fun url(webView: WebView): String = onActivity { webView.url.orEmpty() }
 
-    /** [js]'s value as evaluateJavascript gives it (JSON: strings quoted, "null" for none). */
+    /**
+     * [js]'s value as evaluateJavascript gives it (JSON: strings quoted, "null" for none). A script
+     * no page answered fails, naming the script and the page it was sent to.
+     */
     fun eval(js: String, webView: WebView = mainWebView()): String =
-        evalWithin(20_000, js, webView) ?: throw AssertionError("evaluateJavascript never returned")
+        evalWithin(EVAL_MS, js, webView) ?: throw AssertionError(
+            "evaluateJavascript never returned (${EVAL_MS / 1000} s; the page: " +
+                "${runCatching { "${shortPath(url(webView))}, ${onActivity { webView.progress }}% loaded" }.getOrElse { "gone" }}; " +
+                "the script: ${js.take(80)})"
+        )
 
     /**
      * [js]'s value, or null when no answer came within [ms]: one sent as a page is replaced can go
-     * unanswered (loadPage's checks while its page loads).
+     * unanswered (loadPage's checks while its page loads; a page watched for while another loads).
      */
-    private fun evalWithin(ms: Long, js: String, webView: WebView): String? {
+    fun evalWithin(ms: Long, js: String, webView: WebView = mainWebView()): String? {
         var result: String? = null
         val latch = CountDownLatch(1)
         instrumentation.runOnMainSync { webView.evaluateJavascript(js) { result = it; latch.countDown() } }
@@ -528,10 +535,15 @@ private const val TAP_MS = 80L
 // tapIn: how often a tap the page didn't see is sent again, and how long to wait for it to see one.
 private const val TAP_TRIES = 3
 private const val TAP_SEEN_MS = 2_000L
+// eval: how long a page has to answer a script.
+private const val EVAL_MS = 20_000L
 // Notes whether the page sees the next pointerdown (false until it does).
 private const val TAP_PROBE_JS = "window.__astryxTapSeen = false; document.addEventListener('pointerdown'," +
     " function () { window.__astryxTapSeen = true; }, { capture: true, once: true }); 1"
 const val LONG_PRESS_MS = 1000L
+
+/** A Facebook address's path for a failure message: no site, no query, and no ids (an account's, a chat's). */
+fun shortPath(url: String): String = url.substringAfter("facebook.com").substringBefore('?').replace(Regex("\\d{6,}"), "N")
 
 /** A plain test page ([AppHarness.loadPage]: it marks itself loaded). */
 const val PLAIN_PAGE = "<html><body><p>A page</p><script>window.__testPage = true;</script></body></html>"

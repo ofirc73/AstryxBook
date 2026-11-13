@@ -723,7 +723,11 @@ Facebook changing what the scripts rely on. The fixed-page tests above run each 
 markup as it was when the test was written, so they keep passing when Facebook changes it. Every
 test added or changed gets its live check here, or a reason below why it has none. A page Facebook
 leaves blank on GitHub's emulator (Home, or the public reel the reel checks fall back to there) is
-reloaded once, with a note, before the check fails (`awaitPage`). What each live check guards:
+reloaded once, with a note, before the check fails (`awaitPage`). A check's page counts as open
+only once it has replaced the app's start page (`open`, by the page's own start time), or the
+Messages layer has opened: the start page is Home, so a check on Home read the start page and then
+lost it as the page it asked for came (the copy-text check's "evaluateJavascript never returned",
+2026-11-13). What each live check guards:
 - `aReel_keepsPlayingInPip`: a reel going to PiP from Home and playing there with a visible video
   (`pip_video_detector.js`, the keep-playing guard, focus mode; `PipKeepPlayingJsTest`,
   `PipVideoDetectorJsTest`, `PipFocusModeJsTest`), and no PiP-narrow `vpd` cookie left once it
@@ -806,10 +810,13 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `theFeed_isLaidOutAsTextWrapExpects`: feed text still `white-space: pre` in boxes of a fixed
   inline height, as `text_wrap.js` needs (`TextWrapJsTest`).
 - `holdingAPostsText_copiesIt_butNotItsName`: a real long press on a feed post's body copying its
-  text (read from the clipboard), and one on the post's name copying nothing; the body found by
+  text (read from the clipboard), then one on the post's name copying nothing; the body found by
   `copy_post_text.js`'s own `isPostBody` (a post's first text as wide as the post, before its
-  photos), so Facebook moving its posts' text fails it (`CopyPostTextJsTest`). The comment menu
-  winning over it and "See more" opened first were tried on the emulator by hand (2026-11-10).
+  photos), so Facebook moving its posts' text fails it (`CopyPostTextJsTest`). The name is held
+  last: a Page's name held opens Facebook's own card of the Page over the lower half of the screen,
+  where a hold after it landed (2026-11-13). Home is scrolled while no body shows (it once drew only
+  its top). The comment menu winning over it and "See more" opened first were tried on the
+  emulator by hand (2026-11-10).
 - `pageZoom_laysTheFeedOutForTheZoomedWidth`: Page zoom at 130% giving the zoomed viewport, a `vpd`
   cookie with the zoomed width and a feed laid out to fit it (`page_zoom.js`, `PageZoomJsTest`). A
   PiP-narrow host-only `vpd` beside it is noted.
