@@ -169,7 +169,8 @@ user-visible change.
   and effects instead of editing focus mode.
 - The page scripts in `res/raw` always run from the copy bundled in the APK
   (`bundledScripts.kt`); nothing is fetched at runtime, so script changes ship
-  only with an app release.
+  only with an app release. Read one with `resources.pageScript(R.raw.x)` (read from the APK once
+  for the process), in the app and in tests alike, never `openRawResource` again.
 - Messages in desktop mode opens `MessagesLayer` (`ui/screens/MessagesLayer.kt`), a
   second WebView with the desktop user agent over the main one. The main view never
   switches user agent for Messages; Facebook pages opened from a chat stay in the layer
@@ -271,6 +272,8 @@ user-visible change.
   for the page to be visible or the reel to load) in the callers. The emulator's native player ran
   slower than the wall clock (2.5 s behind in 9 s), so unlocks there can end by the 8 s timeout.
   To read the timing, `dumpsys audio` lists each player's start and stop and the focus changes.
+  The native player takes only an https address on Facebook's media servers (`isHandoffEligible`,
+  `isFacebookCdnHost`): a test page's video elsewhere isn't handed off.
 - Page scripts use optional chaining (`?.`, Chrome 80+), so on a WebView older than
   that (e.g. the stock API 26 emulator image, Chrome 69) `scripts.js` and most others
   fail to parse. Keep new PiP scripts ES5-style; they also run there. On such a WebView the app
@@ -296,7 +299,10 @@ user-visible change.
   to the app (AstryxPage `adHidden`, kind `feed` or `reel`) and counted for the process
   (`utils/AdsHidden.kt`): *Ads removed* in developer options, and `Ads hidden:` under `Astryxbook`
   in the log. The test account is shown no ads, so that count on a phone whose feed has them is the
-  only check that the colour still finds them: 0 there with ads on screen means it changed.
+  only check that the colour still finds them: 0 there with ads on screen means it changed (read
+  on the phone 2026-11-13, v1.46.0: feed 90, reels 6). A post once hidden stays the same hidden
+  element as the feed scrolls (36 screens down and back on the emulator), so scrolling doesn't
+  count an ad twice; a feed drawn again does.
 - The Download and Copy buttons over a photo, story or reel (`download_content.js`,
   `copy_to_clipboard.js`) share `media_viewer.js` (run before both, `window.__astryxMediaViewer`):
   the viewers' selectors and addresses, the fallback picture (largest image, then a background

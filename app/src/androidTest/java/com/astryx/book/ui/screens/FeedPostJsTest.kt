@@ -31,6 +31,8 @@ class FeedPostJsTest {
         fun adsCounted(): String = page.pageCalls("kind").removeSurrounding("\"")
 
         // Something added to the page, as Facebook does all the time: adblock.js looks at the feed again.
+        fun eval(js: String) = page.eval(js)
+
         fun change(html: String = "<div>more</div>") {
             page.eval("document.querySelector('[data-type=vscroller]').insertAdjacentHTML('beforeend', \"$html\"); 1")
         }
@@ -109,6 +111,24 @@ class FeedPostJsTest {
 
         h.change(rows("d", 4, header = adLabel))
         assertEquals("adHidden feed, adHidden feed", h.adsCounted())
+    }
+
+    // adblock.js looks at the feed again on every change: an ad already hidden whole is left alone,
+    // and one whose next row came later is hidden again, whole.
+    @Test
+    fun anAdAlreadyHidden_isLeftAlone_untilARowOfItComes() {
+        val h = Harness()
+        h.load(feed(rows("a", 1), rows("b", 2, header = adLabel)), R.raw.adblock)
+        h.eval("window.__hides = 0; var hide = window.hideFeedPost;" +
+            " window.hideFeedPost = function (el) { window.__hides++; return hide(el); }; 1")
+        h.change()
+        h.change()
+        assertEquals("an ad hidden whole was hidden again", "0", h.eval("window.__hides"))
+
+        h.eval("document.getElementById('b-actions').insertAdjacentHTML('afterend'," +
+            " \"<div id='b-late' data-tracking-duration-id='2' style='height:60px'>Shop now</div>\"); 1")
+        assertEquals("b-header=true,b-late=true", h.hidden("b-header", "b-late"))
+        assertEquals("adHidden feed", h.adsCounted())
     }
 
     @Test

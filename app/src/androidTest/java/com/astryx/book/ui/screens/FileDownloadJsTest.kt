@@ -1,4 +1,5 @@
 package com.astryx.book.ui.screens
+import com.astryx.book.utils.pageScript
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -182,8 +183,7 @@ class FileDownloadJsTest {
         val h = Harness()
         h.load()
         h.eval(
-            InstrumentationRegistry.getInstrumentation().targetContext.resources
-                .openRawResource(R.raw.scripts).bufferedReader().use { it.readText() }
+            InstrumentationRegistry.getInstrumentation().targetContext.resources.pageScript(R.raw.scripts)
                 .let { it.substring(it.indexOf("// File Download Script")) }
         )
 

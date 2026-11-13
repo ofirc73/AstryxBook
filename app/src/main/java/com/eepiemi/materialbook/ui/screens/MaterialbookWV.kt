@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.ui.screens
 
+import com.astryx.book.utils.pageScript
 import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
@@ -634,8 +635,7 @@ fun MaterialbookWebView(
     // trigger PiP at all, since PipBridge never reported isVideoPlaying in time.
     LaunchedEffect(loadingState, pageStarts, pipEnabled) {
         if (loadingState is LoadingState.Finished && pipEnabled) {
-            val detectorScript = context.resources.openRawResource(R.raw.pip_video_detector)
-                .bufferedReader().use { it.readText() }
+            val detectorScript = context.resources.pageScript(R.raw.pip_video_detector)
             navigator.evaluateJavaScript(detectorScript) {}
         }
     }
@@ -650,8 +650,7 @@ fun MaterialbookWebView(
     LaunchedEffect(loadingState, pageStarts, trackVideoPlaying) {
         if (loadingState is LoadingState.Loading) mainVideoPlaying = false
         if (loadingState is LoadingState.Finished && trackVideoPlaying) {
-            val script = resources.openRawResource(R.raw.video_playing)
-                .bufferedReader().use { it.readText() }
+            val script = resources.pageScript(R.raw.video_playing)
             navigator.evaluateJavaScript(script) {}
         }
     }
@@ -671,8 +670,7 @@ fun MaterialbookWebView(
     // against running twice, so the copy in userScripts is harmless.
     LaunchedEffect(loadingState, pageStarts, messagesDesktopSetting) {
         if (loadingState is LoadingState.Finished && messagesDesktopSetting) {
-            val tabHook = resources.openRawResource(R.raw.messages_tab)
-                .bufferedReader().use { it.readText() }
+            val tabHook = resources.pageScript(R.raw.messages_tab)
             navigator.evaluateJavaScript(tabHook) {}
         }
     }
@@ -686,8 +684,7 @@ fun MaterialbookWebView(
         if (loadingState is LoadingState.Finished && openFeedsPending) {
             openFeedsPending = false
             if (!openFeedsAtDocumentStart) {
-                val openFeeds = resources.openRawResource(R.raw.open_feeds)
-                    .bufferedReader().use { it.readText() }
+                val openFeeds = resources.pageScript(R.raw.open_feeds)
                 navigator.evaluateJavaScript("window.__astryxFeedsForce = true;\n$openFeeds") {}
             }
         }
@@ -837,7 +834,7 @@ fun MaterialbookWebView(
         messagesLayer.reelShown()
         // A post: shown as Home, with the post further down; scrolled to it.
         if (post && onReel) {
-            val showPost = resources.openRawResource(R.raw.linked_post).bufferedReader().use { it.readText() }
+            val showPost = resources.pageScript(R.raw.linked_post)
             navigator.evaluateJavaScript(showPost) {}
         }
     }

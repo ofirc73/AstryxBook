@@ -1,4 +1,5 @@
 package com.astryx.book.ui.screens
+import com.astryx.book.utils.pageScript
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -214,8 +215,7 @@ class TextWrapJsTest {
         h.eval("window.__first = window.__astryxTextWrap;")
 
         h.eval(
-            InstrumentationRegistry.getInstrumentation().targetContext.resources
-                .openRawResource(R.raw.text_wrap).bufferedReader().use { it.readText() }
+            InstrumentationRegistry.getInstrumentation().targetContext.resources.pageScript(R.raw.text_wrap)
         )
 
         assertEquals("true", h.eval("window.__first === window.__astryxTextWrap"))

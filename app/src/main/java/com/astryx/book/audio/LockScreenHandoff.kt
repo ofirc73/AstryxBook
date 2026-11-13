@@ -1,4 +1,6 @@
 package com.astryx.book.audio
+import com.astryx.book.utils.httpsUrlOn
+import com.astryx.book.utils.isFacebookCdnHost
 import org.json.JSONObject
 import org.json.JSONTokener
 
@@ -25,12 +27,12 @@ data class PipHandback(
 )
 
 /**
- * Only a plain https URL that was actually playing is handed off: a blob:
- * (MSE) URL can't be played by ExoPlayer, and a video the user had paused
- * shouldn't start playing on the lock screen.
+ * Only an https address on Facebook's media servers that was actually playing is handed off: a
+ * blob: (MSE) URL can't be played by ExoPlayer, a video the user had paused shouldn't start playing
+ * on the lock screen, and the page names the address, so it can't point the app's player elsewhere.
  */
 fun isHandoffEligible(src: String?, wasPlaying: Boolean): Boolean =
-    !src.isNullOrEmpty() && src.startsWith("https://") && wasPlaying
+    wasPlaying && !src.isNullOrEmpty() && httpsUrlOn(src, ::isFacebookCdnHost) != null
 
 /**
  * Parses the raw evaluateJavascript result for PIP_HANDOFF_READ_JS. That

@@ -36,6 +36,15 @@ class LockScreenHandoffTest {
         assertFalse(isHandoffEligible("http://example.com/a.mp4", wasPlaying = true))
     }
 
+    // The sound is on Facebook's media servers: nowhere else, whatever the page names.
+    @Test
+    fun anAddressOffFacebooksMediaServers_isRejected() {
+        assertFalse(isHandoffEligible("https://example.com/a.mp4", wasPlaying = true))
+        assertFalse(isHandoffEligible("https://video.fbcdn.net.example.com/a.mp4", wasPlaying = true))
+        assertFalse(isHandoffEligible("https://someone@video.xx.fbcdn.net/a.mp4", wasPlaying = true))
+        assertFalse(isHandoffEligible("https://www.facebook.com/a.mp4", wasPlaying = true))
+    }
+
     @Test
     fun alreadyPausedVideo_isRejected() {
         assertFalse(isHandoffEligible(mp4, wasPlaying = false))

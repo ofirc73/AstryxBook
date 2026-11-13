@@ -1,5 +1,6 @@
 package com.eepiemi.materialbook.ui.viewmodel
 
+import com.astryx.book.utils.pageScript
 import android.content.res.Resources
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +70,7 @@ class MainViewModel(
         )
 
         _scripts.value = bundledScripts(scripts) { resId ->
-            resources.openRawResource(resId).bufferedReader().use { it.readText() }
+            resources.pageScript(resId)
         }
     }
 

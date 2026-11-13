@@ -37,6 +37,13 @@
   function Wrapped(url, protocols) {
     var socket = protocols === undefined ? new Native(url) : new Native(url, protocols);
     sockets.push(socket);
+    // Facebook opens another whenever its connection drops: a closed one isn't kept.
+    if (socket.addEventListener) {
+      socket.addEventListener('close', function () {
+        var i = sockets.indexOf(socket);
+        if (i >= 0) sockets.splice(i, 1);
+      });
+    }
     return socket;
   }
   Wrapped.prototype = Native.prototype;

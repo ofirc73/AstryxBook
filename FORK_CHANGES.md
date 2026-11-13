@@ -1852,7 +1852,8 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   counts each ad it hides, feed and reels apart, since it started: **Ads removed** in developer
   options (tap the version at the bottom of Settings seven times), and `Ads hidden: feed N, reels
   M` under `Astryxbook` in the log. On a phone whose feed has ads, a count above 0 says they are
-  still found; 0 with ads on screen says the sign changed.
+  still found; 0 with ads on screen says the sign changed. Read on the owner's phone (v1.46.0,
+  2026-11-13): feed 90, reels 6, so the grey still finds them and no second sign was added.
 - `adblock.js` tells the app of each ad the first time it hides it (AstryxPage `adHidden`; the
   post is hidden again on every page change, as before, and counted once). Its unused
   `processedAds` set went.
@@ -1874,6 +1875,33 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   resort (download and copy), and both buttons showing on a highlight and not on a Page's
   Photos tab. `ReelsBarJsTest` kept as it was. Live: `aPhotoPage_showsTheDownloadAndCopyButtons`
   (the Copy button added to it) and `aReelsDownloadButton_savesTheWholeVideoToDownloads`.
+
+## Small fixes from the audit
+
+- **The lock-screen player plays Facebook's media servers only.** It took any https address
+  the page named for a video's sound; now only one on `fbcdn.net` (`isHandoffEligible`).
+- **A share given up leaves no copies.** A share that timed out, or whose creator closed with
+  files still waiting, left their copies in the app's cache until the next share or Log out.
+  The copies no page took now go with it (`ShareMediaQueue.clear`); one a page took still
+  goes when that page is through (`endShare`).
+- **Less work on each page change.** `adblock.js` leaves an ad it hid whole alone (it hid it
+  again on every change), hiding it again only when another of its rows comes;
+  `feed_posting.js` forgets a socket once it closes (it kept every one for the page's life);
+  and a page script is read from the APK once for the process (`pageScript`), where some ten
+  effects read theirs from storage, on the main thread, on every page.
+- **Release signing.** The keystore's passwords reach `apksigner` through the environment, not
+  its command line; `ci.yml` asks for read-only access to the repository.
+- Two of the audit's small findings needed no change. The once-a-second gear placement doesn't
+  measure every span (only one that is a Back icon; on the feed it stops before looking), and
+  `removeDistr` stays on every page: nothing was found for it to remove on logged-in pages, but
+  a login approval or "save your login" screen couldn't be checked, and it tidies those.
+- Found by the audit (2026-11-12). Covered by `LockScreenHandoffTest`, `ShareMediaTest`,
+  `BundledScriptsTest`, `FeedPostJsTest` (an ad hidden whole left alone, a late row hidden) and
+  `FeedPostingJsTest` (a closed socket forgotten). No new live checks: the live checks already
+  run every page script through the app (`pageScript`), `removeAds_hidesTheFeedsAds` and the
+  composer check cover `adblock.js` and `feed_posting.js` on Facebook's pages, and the rest
+  doesn't depend on Facebook's page. The signing change first runs in this change's own
+  release.
 
 ## Known limitations
 

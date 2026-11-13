@@ -23,3 +23,16 @@ fun bundledScripts(
         append("\n} catch (e) { console.error('Astryxbook page script failed:', e); }\n")
     }
 }
+
+private val pageScripts = java.util.concurrent.ConcurrentHashMap<Int, String>()
+
+/**
+ * A page script's text, from [read] the first time and kept for the process: the effects that run
+ * one on every page (the video detector, the Messages layer's four…) read it from the APK, on the
+ * main thread, each time.
+ */
+fun pageScript(@RawRes id: Int, read: (Int) -> String): String = pageScripts.getOrPut(id) { read(id) }
+
+/** The bundled page script [id] ([pageScript]). */
+fun android.content.res.Resources.pageScript(@RawRes id: Int): String =
+    pageScript(id) { openRawResource(it).bufferedReader().use { reader -> reader.readText() } }

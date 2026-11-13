@@ -53,7 +53,9 @@
             // A label outside a feed post (a photo opened directly has some) has no post to hide.
             const rows = window.feedPostRows(parent);
             if (!rows.length) continue;
-            // Hidden again on every change (a post's rows can come one by one), counted the first time.
+            // Looked at on every change: left alone once hidden whole, hidden again when another of
+            // its rows came (they can come one by one), counted the first time.
+            if (rows.every(row => row.style.display === 'none')) continue;
             const counted = rows[0].style.display === 'none';
             window.hideFeedPost(parent);
             if (!counted) adHidden('feed');

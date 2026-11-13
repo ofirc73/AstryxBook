@@ -30,6 +30,9 @@ class FeedPostingJsTest {
             "window.WebSocket = function (url) { this.url = url; this.readyState = 1; this.bufferedAmount = 0; };" +
                 "window.WebSocket.CONNECTING = 0; window.WebSocket.OPEN = 1; window.WebSocket.CLOSING = 2; window.WebSocket.CLOSED = 3;" +
                 "window.WebSocket.prototype.send = function (data) { this.bufferedAmount += data.length; };" +
+                // Closing it tells its listeners, as the real one does.
+                "window.WebSocket.prototype.addEventListener = function (type, f) { (this['on_' + type] = this['on_' + type] || []).push(f); };" +
+                "window.WebSocket.prototype.close = function () { this.readyState = 3; (this.on_close || []).forEach(function (f) { f(); }); };" +
                 "window.__astryxFeedPostingSettleMs = $SETTLE_MS; 1"
         )
         page.run(R.raw.feed_posting)
@@ -59,6 +62,17 @@ class FeedPostingJsTest {
 
     private fun awaitPosted() =
         assertTrue({ "posted never reported (${calls()})" }, page.waitFor { calls() == "\"feedPosting posting, feedPosting posted\"" })
+
+    // Facebook opens a new socket whenever its connection drops: the closed ones aren't kept.
+    @Test
+    fun aClosedSocket_isForgotten() {
+        open()
+        page.eval("window.__second = new WebSocket('wss://kaios-d.facebook.com/ws/2'); 1")
+        assertEquals("2", page.eval("window.__astryxFeedPosting.sockets.length"))
+        page.eval("window.__socket.close(); 1")
+        assertEquals("\"wss://kaios-d.facebook.com/ws/2\"",
+            page.eval("window.__astryxFeedPosting.sockets.map(function (s) { return s.url; }).join(' ')"))
+    }
 
     @Test
     fun aPost_isPosting_untilFacebookSaysPosted() {

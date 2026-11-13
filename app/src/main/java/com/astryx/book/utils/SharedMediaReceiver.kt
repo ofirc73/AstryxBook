@@ -92,3 +92,9 @@ private fun copyCapped(input: java.io.InputStream, output: java.io.OutputStream,
 fun clearSharedMedia(context: Context) {
     File(context.cacheDir, SHARED_DIR).deleteRecursively()
 }
+
+/** A share is over, with nothing of it still going to a page: its queue and every copy go. */
+fun endShare(context: Context) {
+    ShareMediaQueue.clear()
+    clearSharedMedia(context)
+}

@@ -190,8 +190,13 @@ object ShareMediaQueue {
     @Synchronized
     fun remaining(forTarget: ShareTarget): Int = if (target == forTarget) files.size - next else 0
 
+    /**
+     * The share is over, or given up (timed out, the layer closed): the copies no page took are
+     * deleted. One a page took stays until that page is through with it ([endShare]).
+     */
     @Synchronized
     fun clear() {
+        files.drop(next).forEach { it.file.delete() }
         target = null
         files = emptyList()
         next = 0

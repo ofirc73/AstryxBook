@@ -1,4 +1,5 @@
 package com.astryx.book
+import com.astryx.book.utils.pageScript
 import android.webkit.WebView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
@@ -138,7 +139,7 @@ class MessagesLayerReelTest {
         // The desktop photo viewer isn't a page of its own: stepping back left the chat for
         // "No chats selected".
         val layer = openChat()
-        val viewer = app.context.resources.openRawResource(R.raw.layer_photo_viewer).bufferedReader().use { it.readText() }
+        val viewer = app.context.resources.pageScript(R.raw.layer_photo_viewer)
         app.eval(viewer + "; 1", layer)
         app.eval(
             "document.body.insertAdjacentHTML('beforeend', \"$PHOTO_VIEWER\");" +

@@ -1,4 +1,5 @@
 package com.astryx.book
+import com.astryx.book.utils.pageScript
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.ContentUris
@@ -147,7 +148,7 @@ class AppHarness {
         // messages_layer_nav.js reports the layer's moves. The layer runs it once a load finishes,
         // which a stopped load can leave out; it's run here then, as the layer would.
         if (!waitFor(5_000) { eval("!!window.__astryxLayerNavInstalled", layer) == "true" }) {
-            val nav = context.resources.openRawResource(R.raw.messages_layer_nav).bufferedReader().use { it.readText() }
+            val nav = context.resources.pageScript(R.raw.messages_layer_nav)
             eval("$nav; 1", layer)
         }
         assertTrue("messages_layer_nav.js isn't in the layer", eval("!!window.__astryxLayerNavInstalled", layer) == "true")
