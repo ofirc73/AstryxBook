@@ -300,9 +300,12 @@ user-visible change.
   (`utils/AdsHidden.kt`): *Ads removed* in developer options, and `Ads hidden:` under `Astryxbook`
   in the log. The test account is shown no ads, so that count on a phone whose feed has them is the
   only check that the colour still finds them: 0 there with ads on screen means it changed (read
-  on the phone 2026-11-13, v1.46.0: feed 90, reels 6). A post once hidden stays the same hidden
-  element as the feed scrolls (36 screens down and back on the emulator), so scrolling doesn't
-  count an ad twice; a feed drawn again does.
+  on the phone 2026-11-13, v1.46.0: feed 90, reels 6, the feed's figure too high: see next). Facebook
+  draws an ad's post again while it sits in the feed (its rows shown again or replaced), so the
+  script hides it again on the next change and counts a post once, by its list and its
+  `data-tracking-duration-id` (`countOnce`): v1.46.0 counted every hide, and the phone's count
+  grew by itself. The feed also loads ahead by itself (to 29 posts in 20 s on the emulator, idle,
+  then stops), so a few ads are counted before any scrolling.
 - The Download and Copy buttons over a photo, story or reel (`download_content.js`,
   `copy_to_clipboard.js`) share `media_viewer.js` (run before both, `window.__astryxMediaViewer`):
   the viewers' selectors and addresses, the fallback picture (largest image, then a background

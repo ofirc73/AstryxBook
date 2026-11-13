@@ -1853,7 +1853,8 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   options (tap the version at the bottom of Settings seven times), and `Ads hidden: feed N, reels
   M` under `Astryxbook` in the log. On a phone whose feed has ads, a count above 0 says they are
   still found; 0 with ads on screen says the sign changed. Read on the owner's phone (v1.46.0,
-  2026-11-13): feed 90, reels 6, so the grey still finds them and no second sign was added.
+  2026-11-13): feed 90, reels 6, so the grey still finds them and no second sign was added. The
+  feed's 90 was too high, and grew with nobody scrolling: see Small fixes from the audit.
 - `adblock.js` tells the app of each ad the first time it hides it (AstryxPage `adHidden`; the
   post is hidden again on every page change, as before, and counted once). Its unused
   `processedAds` set went.
@@ -1889,6 +1890,11 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   `feed_posting.js` forgets a socket once it closes (it kept every one for the page's life);
   and a page script is read from the APK once for the process (`pageScript`), where some ten
   effects read theirs from storage, on the main thread, on every page.
+- **Ads removed counts an ad once.** Facebook draws an ad's post again while it sits in the feed;
+  the app hid it again each time (so it stayed out of sight) and v1.46.0 counted every hide: on
+  the owner's phone the feed's count climbed by itself, to 90 within minutes. A post is now
+  counted once. A few ads counted before any scrolling is expected: the feed loads some thirty
+  posts ahead by itself.
 - **Release signing.** The keystore's passwords reach `apksigner` through the environment, not
   its command line; `ci.yml` asks for read-only access to the repository.
 - Two of the audit's small findings needed no change. The once-a-second gear placement doesn't
@@ -1896,7 +1902,8 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   `removeDistr` stays on every page: nothing was found for it to remove on logged-in pages, but
   a login approval or "save your login" screen couldn't be checked, and it tidies those.
 - Found by the audit (2026-11-12). Covered by `LockScreenHandoffTest`, `ShareMediaTest`,
-  `BundledScriptsTest`, `FeedPostJsTest` (an ad hidden whole left alone, a late row hidden) and
+  `BundledScriptsTest`, `FeedPostJsTest` (an ad hidden whole left alone, a late row hidden, an ad
+  drawn again hidden again and counted once) and
   `FeedPostingJsTest` (a closed socket forgotten). No new live checks: the live checks already
   run every page script through the app (`pageScript`), `removeAds_hidesTheFeedsAds` and the
   composer check cover `adblock.js` and `feed_posting.js` on Facebook's pages, and the rest

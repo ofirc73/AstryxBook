@@ -113,6 +113,27 @@ class FeedPostJsTest {
         assertEquals("adHidden feed, adHidden feed", h.adsCounted())
     }
 
+    // Facebook draws an ad's post again while it sits in the feed (the count on a phone grew by
+    // itself with nobody scrolling, 2026-11-13): shown again or made of new elements, it's hidden
+    // again, and it's still one ad.
+    @Test
+    fun anAdFacebookDrawsAgain_isHiddenAgain_andCountedOnce() {
+        val h = Harness()
+        h.load(feed(rows("a", 1), rows("b", 2, header = adLabel), rows("c", 3)), R.raw.adblock)
+        assertEquals("adHidden feed", h.adsCounted())
+
+        // Its rows' styles written again by the page.
+        h.eval("['b-header', 'b-text', 'b-actions'].forEach(function (id) { document.getElementById(id).style.display = ''; }); 1")
+        h.change()
+        assertEquals("b-header=true,b-text=true,b-actions=true", h.hidden("b-header", "b-text", "b-actions"))
+
+        // Its rows replaced by new ones.
+        h.eval("['b-header', 'b-text', 'b-actions'].forEach(function (id) { var old = document.getElementById(id);" +
+            " var row = old.cloneNode(true); row.style.display = ''; old.parentNode.replaceChild(row, old); }); 1")
+        assertEquals("b-header=true,b-text=true,b-actions=true", h.hidden("b-header", "b-text", "b-actions"))
+        assertEquals("adHidden feed", h.adsCounted())
+    }
+
     // adblock.js looks at the feed again on every change: an ad already hidden whole is left alone,
     // and one whose next row came later is hidden again, whole.
     @Test
