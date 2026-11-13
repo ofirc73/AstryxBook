@@ -351,14 +351,21 @@ class ShareIntoFacebookTest {
     @Test
     fun aStoryPosted_reloadsHomeAtItsTop_aboutHalfAMinuteLater() {
         app.start()
-        app.loadPage("https://m.facebook.com/", PLAIN_PAGE, asHistory = true)
+        val testHome = "Test Home"
+        app.loadPage("https://m.facebook.com/", PLAIN_PAGE.replace("<body>", "<head><title>$testHome</title></head><body>"), asHistory = true)
+        // Read from the WebView (its title), not from the page: a page reloaded at the same address
+        // can leave evaluateJavascript unanswered, and the test then failed with Home reloaded on
+        // time (one run in three on the emulator, 2026-11-13).
+        val main = app.mainWebView()
+        fun reloaded() = app.onActivity { main.title } != testHome
+        assertFalse("the test page isn't showing", reloaded())
         app.onActivity {
             Posting.started(it, Posting.Kind.STORY)
             Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
         }
         Thread.sleep(20_000)
-        assertEquals("Home reloaded before the stories row could have the story", "true", app.eval("!!window.__testPage"))
-        assertTrue("Home wasn't reloaded for the stories row", app.waitFor(20_000) { app.eval("!!window.__testPage") != "true" })
+        assertFalse("Home reloaded before the stories row could have the story", reloaded())
+        assertTrue("Home wasn't reloaded for the stories row", app.waitFor(20_000) { reloaded() })
     }
 
     // "Your story is posted" shows once: not again when Android creates the activity again (font
