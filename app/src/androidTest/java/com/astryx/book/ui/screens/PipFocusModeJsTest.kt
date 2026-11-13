@@ -665,4 +665,51 @@ class PipFocusModeJsTest {
             h.eval("document.getElementById('wrapper').hasAttribute('data-astryx-pip-keep')")
         )
     }
+
+    // PS-1: an ancestor Facebook hides after focus mode ran was forced visible without its own style
+    // saved, so leaving PiP left it `display: block !important` for good.
+    @Test
+    fun anAncestorHiddenDuringPip_getsItsOwnStyleBack_afterPip() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="screen" style="display: flex;"><div id="slot"><video id="myVideo" muted style="width:100px;height:100px"></video></div></div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('myVideo');")
+        h.eval(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS)
+        // Facebook's screen code hides the video's screen during PiP.
+        h.eval("document.getElementById('screen').style.display = 'none'; 1")
+        Thread.sleep(100)
+        assertFalse("the screen stayed hidden in PiP", h.eval("getComputedStyle(document.getElementById('screen')).display").unquoted() == "none")
+
+        h.eval(PIP_RESTORE_MODE_JS)
+        assertEquals("the screen kept the forced display after PiP", "display: none;",
+            h.eval("document.getElementById('screen').getAttribute('style')").unquoted())
+    }
+
+    // PS-2: focus mode run again in PiP (a page finishing there) after the active video changed
+    // (a reel moving on) marked the new video too, and the old one stayed marked: the PiP button and
+    // the lock-screen hand-off took the first marked video in the page, the old one.
+    @Test
+    fun focusModeRunAgainOnAnotherVideo_leavesOnlyThatOneMarked() {
+        val h = Harness()
+        h.loadHtml(
+            """
+            <html><body>
+              <div id="a"><video id="A" muted style="width:100px;height:100px"></video></div>
+              <div id="b"><video id="B" muted style="width:100px;height:100px"></video></div>
+            </body></html>
+            """.trimIndent()
+        )
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('A');")
+        h.eval(PIP_APPLY_FOCUS_MODE_JS)
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('B');")
+        h.eval(PIP_APPLY_FOCUS_MODE_JS)
+
+        assertEquals("\"B\"", h.eval("[].map.call(document.querySelectorAll('[data-astryx-pip-video]'), function (v) { return v.id; }).join(',')"))
+        assertEquals("A kept focus mode's style", "width:100px;height:100px", h.eval("document.getElementById('A').getAttribute('style')").unquoted().replace(" ", "").trimEnd(';'))
+    }
 }
