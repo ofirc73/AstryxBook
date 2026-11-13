@@ -449,7 +449,7 @@ class MainActivity : FragmentActivity() {
             this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val label = if (isPlaying) "Pause" else "Play"
+        val label = getString(if (isPlaying) R.string.pip_pause else R.string.pip_play)
         return RemoteAction(icon, label, label, pendingIntent)
     }
 

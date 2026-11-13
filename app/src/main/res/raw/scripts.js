@@ -510,6 +510,8 @@ observer.observe(document.body, { childList: true, subtree: true });
 
   onReady(() => {
     const BUTTON_ID = 'custom-settings-btn';
+    // The gears' label, in the app's language (pageStrings).
+    const SETTINGS_LABEL = window.__astryxStrings?.settings || 'Astryxbook settings';
     const ICON_SVG = `
         <svg width="28" height="28" viewBox="0 -960 960 960"  fill="%FILL%">
             <path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"/>
@@ -574,7 +576,7 @@ observer.observe(document.body, { childList: true, subtree: true });
         z-index: 9999;
         pointer-events: auto;
       `);
-      btn.setAttribute('aria-label', 'Astryxbook settings');
+      btn.setAttribute('aria-label', SETTINGS_LABEL);
       btn.innerHTML = mobile
         ? ICON_SVG.replace('%FILL%', getFillColor()).replace(/"28"/g, '"22"')
         : ICON_SVG.replace('%FILL%', getFillColor());
@@ -650,7 +652,7 @@ observer.observe(document.body, { childList: true, subtree: true });
       }
       const btn = document.createElement('button');
       btn.id = REELS_BUTTON_ID;
-      btn.setAttribute('aria-label', 'Settings');
+      btn.setAttribute('aria-label', SETTINGS_LABEL);
       btn.setAttribute('style', `
         position: fixed;
         width: 40px;
@@ -756,7 +758,7 @@ observer.observe(document.body, { childList: true, subtree: true });
       }
       const btn = document.createElement('button');
       btn.id = PAGE_BUTTON_ID;
-      btn.setAttribute('aria-label', 'Astryxbook settings');
+      btn.setAttribute('aria-label', SETTINGS_LABEL);
       btn.setAttribute('style', `
         margin-top: -${pullUp}px;
         margin-${side}: ${Math.max(0, slotOffset - size)}px;
@@ -906,7 +908,8 @@ observer.observe(document.body, { childList: true, subtree: true });
     const ROW_ID = 'astryx-share-via';
     const COPY_GLYPH = '\u{F310F}';
     const ROW_HEIGHT = 56;
-    const LABEL = (navigator.language || '').toLowerCase().startsWith('he') ? 'שיתוף באמצעות…' : 'Share via…';
+    // In the app's language (pageStrings); it used to follow the page's, in English or Hebrew only.
+    const LABEL = window.__astryxStrings?.shareVia || 'Share via…';
     const SHARE_ICON = '<svg width="20" height="20" viewBox="0 -960 960 960" fill="currentColor"><path d="M720-80q-50 0-85-35t-35-85q0-7 1-14.5t3-13.5L322-392q-17 15-38 23.5t-44 8.5q-50 0-85-35t-35-85q0-50 35-85t85-35q23 0 44 8.5t38 23.5l282-164q-2-6-3-13.5t-1-14.5q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35q-23 0-44-8.5T638-672L356-508q2 6 3 13.5t1 14.5q0 7-1 14.5t-3 13.5l282 164q17-15 38-23.5t44-8.5q50 0 85 35t35 85q0 50-35 85t-85 35Z"/></svg>';
 
     // The last text the page put on the clipboard, however it did it.

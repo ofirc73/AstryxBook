@@ -62,6 +62,10 @@
 
     <!-- Sharing and downloads -->
     <string name="share_via">Udostępnij przez…</string>
+    <string name="ad_removed_title">Reklama usunięta</string>
+    <string name="ad_removed_text">Treść sponsorowana została usunięta</string>
+    <string name="pip_play">Odtwórz</string>
+    <string name="pip_pause">Wstrzymaj</string>
     <string name="download_open">Otwórz</string>
     <string name="download_already_saved">Już w folderze Pobrane</string>
 

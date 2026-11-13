@@ -351,7 +351,11 @@ user-visible change.
   index (`sidx`, fragments of about 2 s): `decodeAudioData` decodes the init plus any run of fragments
   (20 s in ~30 ms; the whole 165 s took 0.7 s on the phone), its sound starting 105-115 ms after the
   first fragment's start (the padding it drops from every decode), which the script measures against
-  the whole sound and keeps (`astryxSliceDelay`).
+  the whole sound and keeps (`astryxSliceDelay`). A sound over 5 minutes is never decoded whole
+  (about 23 MB a minute in the renderer): it plays slice after slice (`roll()`). The touch on the
+  comment button only fetches; the tap decodes and makes the page's AudioContext. A reel routed
+  through Web Audio is known by its own `__astryxSilencer`, never by a list (a list forgot a reel off
+  the page, and it came back silent).
 - *Wrap text when zoomed* (`text_wrap.js`, main view only, with pinch to zoom on) narrows text
   blocks to the visual viewport after a pinch settles. m.facebook.com is laid out on the
   server: text is `white-space: pre` with the line breaks in the text, and every box has a
@@ -493,6 +497,10 @@ user-visible change.
   the picker and the camera app are answered by an `Instrumentation.ActivityMonitor`
   (`onStartActivity`, which also sees the camera's output file); `pm revoke` kills the app.
 - `MainActivity` is a `FragmentActivity` because app lock uses `BiometricPrompt`.
+- Words a page script shows (a label, a card) come from the app's strings: `pageStrings`
+  (`utils/bundledScripts.kt`) sets `window.__astryxStrings` before the page scripts (the main view's
+  bundle, built again when the app's language changes), and a script keeps an English word for a
+  page without it (the fixed-page tests). A new one goes there, never `navigator.language`.
 - New fork strings go in `brand_strings.xml`, `extra_strings.xml` or `privacy_strings.xml`
   (with a copy in every translated locale: `values-iw`, `-ar`, `-bn`, `-de`, `-es`, `-fr`,
   `-in`, `-it`, `-pl`, `-pt`, `-zh-rTW`), not upstream's `strings.xml`.

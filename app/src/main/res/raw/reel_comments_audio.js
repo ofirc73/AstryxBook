@@ -55,6 +55,11 @@
   // stream's fragments (its sidx) from just before the reel's time, QUICK_S of them.
   var QUICK_FROM_S = 40;
   var QUICK_S = 20;
+  // A sound longer than this is never decoded whole: decoded, sound takes about 23 MB a minute in
+  // the renderer (a 30-minute Page video, 690 MB). It plays slice after slice (roll()), the next one
+  // decoded ROLL_AHEAD_S before the last ends.
+  var WHOLE_MAX_S = 300;
+  var ROLL_AHEAD_S = 5;
   // Where a slice's sound starts, after its first fragment's start: each decode drops the stream's
   // starting padding (5058 samples) and a little more (114.7 ms in all on the emulator; none for
   // the first fragment). Measured against the whole sound every time it takes over, and kept.
@@ -68,12 +73,11 @@
   // silenced, getting in step with the sound).
   var heard = null;
   // One Web Audio context for the page (Chrome allows only a few), suspended while nothing plays
-  // through it.
+  // through it. Made on the first tap, not the touch before it (a touch that brings no tap left it
+  // running for the page's life).
   var context = null;
-  // The reels whose sound goes through it (silence()).
-  var routed = [];
-  // The last sound fetched, from the touch on the comment button: { src, quick, whole } (promises:
-  // a slice of it or null, and the whole decoded sound).
+  // The last sound fetched, from the touch on the comment button: { src, data } (a promise of its
+  // bytes), dropped on a touch that brings no tap.
   var early = null;
 
   // Back lands on the reel's path first; Facebook adds its query a moment later.
@@ -137,7 +141,10 @@
   // slice waits for the whole one (false).
   function play(at, heardNow) {
     var sound = heard.sound, from = sound.whole ? at : at - sound.base;
-    if (!sound.whole && (from < 0 || from > sound.buffer.duration - 1)) return false;
+    if (!sound.whole && (from < 0 || from > sound.buffer.duration - 1)) {
+      if (heard.rolling) seekSlice(at, heardNow);
+      return false;
+    }
     if (heard.source) heard.source.stop();
     if (context.state === 'suspended') context.resume();
     var gain = context.createGain();
@@ -162,12 +169,13 @@
     heard.volume.gain.setTargetAtTime(1, context.currentTime, 0.01);
   }
 
-  // The context suspended when neither the sound nor a reel routed through it plays: a running
-  // one keeps the device's audio output open.
+  // The context suspended when neither the sound nor a reel routed through it (silence()) plays: a
+  // running one keeps the device's audio output open. A routed reel off the page (its comments
+  // open) is still routed: put back, its 'play' resumes the context (forgotten, it was silent).
   function rest() {
     if (!context || (heard && heard.source)) return;
-    routed = routed.filter(function (v) { return document.documentElement.contains(v); });
-    for (var i = 0; i < routed.length; i++) if (!routed[i].paused) return;
+    var videos = document.querySelectorAll('video');
+    for (var i = 0; i < videos.length; i++) if (videos[i].__astryxSilencer && !videos[i].paused) return;
     context.suspend();
   }
 
@@ -181,6 +189,7 @@
 
   function stop() {
     if (!heard) return;
+    clearInterval(heard.timer);
     if (heard.video) delete heard.video.pause;
     if (heard.source) heard.source.stop();
     if (heard.catchUp) heard.catchUp.release();
@@ -223,13 +232,17 @@
     return { initEnd: sidx, list: list, length: t / timescale };
   }
 
-  // A slice of a long sound, decoded at once: the init and QUICK_S of fragments from just before
-  // [from] s; null for a short sound or one without an index.
-  function quickSound(data, from) {
-    var f = fragments(data);
-    if (!f || f.length < QUICK_FROM_S) return Promise.resolve(null);
+  // The fragment [at] s is in (from half a second before it).
+  function fragmentAt(f, at) {
     var k = 0;
-    while (k + 1 < f.list.length && f.list[k + 1].start <= from - 0.5) k++;
+    while (k + 1 < f.list.length && f.list[k + 1].start <= at - 0.5) k++;
+    return k;
+  }
+
+  // A slice of the sound, decoded: the init and QUICK_S of fragments from fragment [k]. Its sound
+  // starts at base (sliceDelay after the fragment, none for the first) and goes to end; next is
+  // the fragment after its last.
+  function decodeSlice(data, f, k) {
     var end = k;
     while (end + 1 < f.list.length && f.list[end + 1].start < f.list[k].start + QUICK_S) end++;
     var last = f.list[end], bytes = new Uint8Array(f.initEnd + last.off + last.size - f.list[k].off);
@@ -237,25 +250,30 @@
     bytes.set(new Uint8Array(data, f.list[k].off, last.off + last.size - f.list[k].off), f.initEnd);
     var start = f.list[k].start;
     return context.decodeAudioData(bytes.buffer).then(function (buffer) {
-      return { buffer: buffer, base: start + (k ? sliceDelay : 0), start: start, whole: false, length: f.length };
+      return { buffer: buffer, base: start + (k ? sliceDelay : 0), start: start, whole: false, length: f.length,
+        last: end, end: end + 1 < f.list.length ? f.list[end + 1].start : f.length };
     });
   }
 
+  // A slice from just before [from] s, for a long sound (decoded at once while the whole one
+  // decodes, or for good above WHOLE_MAX_S); null for a short sound or one without an index.
+  function quickSound(data, f, from) {
+    if (!f || f.length < QUICK_FROM_S) return Promise.resolve(null);
+    return decodeSlice(data, f, fragmentAt(f, from));
+  }
+
   // The reel's sound, fetched from the touch on the button (the tap's click comes about 0.1 s
-  // later; the reel at [from] s then) and kept for the tap: a slice of a long one first, then the
-  // whole one (decoded after the slice: decodes run one after the other).
-  function fetchSound(src, from) {
+  // later) and kept for the tap: only fetched, decoded by the tap (load()). A touch that brings no
+  // tap (a swipe that began on the button) lets it go, and pointercancel stops the download.
+  function fetchSound(src) {
     if (early && early.src === src) return early;
-    if (!context) context = new (window.AudioContext || window.webkitAudioContext)();
-    var mine = early = { src: src };
-    var data = fetch(src).then(function (r) {
+    var mine = early = { src: src }, options = {};
+    if (window.AbortController) { mine.abort = new AbortController(); options.signal = mine.abort.signal; }
+    mine.data = fetch(src, options).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.arrayBuffer();
     });
-    mine.quick = data.then(function (d) { return quickSound(d, from); }).then(null, function () { return null; });
-    mine.whole = Promise.all([data, mine.quick]).then(function (got) {
-      return context.decodeAudioData(got[0]);
-    });
+    mine.data.then(null, function () {});
     setTimeout(function () { if (early === mine && !heard) early = null; }, EARLY_MS);
     return mine;
   }
@@ -300,26 +318,86 @@
     heard.startedAt = when;
   }
 
+  // The tap's sound: a slice of a long one first, then the whole one (decoded after the slice:
+  // decodes run one after the other); above WHOLE_MAX_S slices only, one after the other (roll()).
   function load(src) {
-    var mine = heard, sound = fetchSound(src, heard.time);
-    sound.quick.then(function (slice) {
+    if (!context) context = new (window.AudioContext || window.webkitAudioContext)();
+    var mine = heard, fetched = fetchSound(src);
+    var got = fetched.data.then(function (data) {
+      var f = fragments(data);
+      return { data: data, f: f, quick: quickSound(data, f, mine.time).then(null, function () { return null; }) };
+    });
+    got.then(function (g) { return g.quick; }).then(function (slice) {
       if (heard !== mine || !slice || heard.sound) return;
       heard.sound = slice;
       heard.length = slice.length;
       playWhenReady();
     });
-    sound.whole.then(function (buffer) {
-      early = null;
-      if (heard !== mine) return;
+    got.then(function (g) {
+      return g.quick.then(function (slice) {
+        if (g.f && g.f.length > WHOLE_MAX_S) {
+          if (!slice) throw new Error('no slice');
+          if (heard === mine) heard.rolling = { data: g.data, f: g.f };
+          return null;
+        }
+        return context.decodeAudioData(g.data);
+      });
+    }).then(function (buffer) {
+      if (early === fetched) early = null;
+      if (heard !== mine || !buffer) return;
       if (heard.sound) { swap(buffer); return; }
       heard.sound = { buffer: buffer, base: 0, whole: true };
       heard.length = buffer.duration;
       playWhenReady();
     }, function () {
-      early = null;
+      if (early === fetched) early = null;
       // No sound to play: the comments stay quiet, as Facebook has them.
       if (heard === mine) stop();
     });
+  }
+
+  // A long sound, slice after slice: some seconds before the playing slice ends, the next one (from
+  // the slice's last fragment, or from the sound's start after its end) is decoded, and takes over
+  // half a second before the end, through the same gain. Called on every tick of watch().
+  function roll() {
+    var r = heard.rolling, s = heard.sound;
+    if (!r || r.next || !heard.source || !s || s.whole || s.end - soundAt() > ROLL_AHEAD_S) return;
+    var mine = heard, again = s.last + 1 >= r.f.list.length;
+    r.next = decodeSlice(r.data, r.f, again ? 0 : s.last).then(function (next) {
+      r.next = null;
+      if (heard !== mine || heard.sound !== s || !heard.source) return;
+      var at = again ? s.end : Math.max(next.base, s.end - 0.5);
+      var when = heard.startedAt + (at - heard.offset);
+      if (when < context.currentTime + 0.02) {
+        when = context.currentTime + 0.02;
+        at = heard.offset + when - heard.startedAt;
+      }
+      var from = again ? at - s.end : at;
+      var source = context.createBufferSource();
+      source.buffer = next.buffer;
+      source.loop = false;
+      source.connect(heard.volume);
+      source.start(when, Math.max(0, from - next.base));
+      heard.source.stop(when);
+      heard.source = source;
+      heard.sound = next;
+      heard.offset = from;
+      heard.startedAt = when;
+    }, function () { r.next = null; });
+  }
+
+  // A long sound wanted at [at] s, outside the slice decoded (the page hidden a while, say): the
+  // slice there is decoded, then played from where the sound is by then.
+  function seekSlice(at, heardNow) {
+    var r = heard.rolling, mine = heard, asked = Date.now();
+    if (r.seeking) return;
+    r.seeking = true;
+    decodeSlice(r.data, r.f, fragmentAt(r.f, at)).then(function (s) {
+      r.seeking = false;
+      if (heard !== mine) return;
+      heard.sound = s;
+      play((at + (Date.now() - asked) / 1000) % heard.length, heardNow);
+    }, function () { r.seeking = false; });
   }
 
   // Facebook stopped the reel (paused it, or took it off the page): the sound takes over.
@@ -378,24 +456,29 @@
     return true;
   }
 
+  // The session's poll, kept with it (stop() ends it): a second tap's session has its own.
   function watch() {
-    var started = Date.now();
-    var timer = setInterval(function () {
-      if (!heard) { clearInterval(timer); return; }
+    var started = Date.now(), mine = heard;
+    mine.timer = setInterval(function () {
+      if (heard !== mine) { clearInterval(mine.timer); return; }
       var now = Date.now();
       if (heard.phase === 'opening') {
         track();
-        if (heard.phase === 'opening' && now - started > OPEN_WAIT_MS) { clearInterval(timer); stop(); }
+        if (heard.phase === 'opening' && now - started > OPEN_WAIT_MS) stop();
         return;
       }
+      roll();
       var href = window.location.href;
-      // The comments' address, once Facebook has moved there.
+      // The comments' address, once Facebook has moved there: not a reel's (swiped on to the next
+      // reel). A pause that opens nothing (the user paused the reel) stops the sound: it went on
+      // over the paused reel for good.
       if (!heard.commentsHref) {
-        if (!onReel()) heard.commentsHref = href;
+        if (!onReel() && !isReelPage()) heard.commentsHref = href;
+        else if (now - heard.timeAt > OPEN_WAIT_MS) stop();
         return;
       }
       if (heard.back) {
-        if (caughtUp()) { clearInterval(timer); return; }
+        if (caughtUp()) return;
         // Not loaded up to the sound yet, or its 'playing' came before the reel's path did.
         if (!heard.placed) moveBack();
       }
@@ -403,11 +486,11 @@
       // stops the sound.
       if (href === heard.commentsHref || onReel()) heard.awaySince = 0;
       else if (!heard.awaySince) heard.awaySince = now;
-      else if (now - heard.awaySince > AWAY_MS) { clearInterval(timer); stop(); return; }
+      else if (now - heard.awaySince > AWAY_MS) { stop(); return; }
       // Back on the reel: the listeners below hand over; this gives up if no reel gets in step.
       if (!onReel()) heard.backSince = 0;
       else if (!heard.backSince) heard.backSince = now;
-      else if (now - heard.backSince > BACK_WAIT_MS) { clearInterval(timer); stop(); }
+      else if (now - heard.backSince > BACK_WAIT_MS) stop();
     }, POLL_MS);
   }
 
@@ -440,7 +523,10 @@
 
   document.addEventListener('pointerdown', function (e) {
     var tap = commentTap(e);
-    if (tap) fetchSound(tap.src, tap.video.currentTime).whole.then(null, function () {});
+    if (tap) fetchSound(tap.src);
+  }, true);
+  document.addEventListener('pointercancel', function () {
+    if (early && !heard && early.abort) early.abort.abort();
   }, true);
 
   document.addEventListener('click', function (e) {
@@ -450,7 +536,7 @@
     stop();
     heard = { phase: 'opening', reelPath: window.location.pathname, video: video, time: video.currentTime,
       timeAt: Date.now(), sound: null, length: 0, source: null, played: false, offset: 0, startedAt: 0, back: null, placed: false,
-      moves: 0, catchUp: null, backAt: 0, silencer: null };
+      moves: 0, catchUp: null, backAt: 0, silencer: null, timer: 0, rolling: null };
     load(tap.src);
     // Facebook stops the reel for the comments with its pause(): the sound comes in right then, at
     // the reel's time just before it. Only this reel's own pause, and only until it's stopped.
@@ -463,9 +549,12 @@
     };
     // Its 'pause' event comes once the reel is off the page, where the document no longer sees it
     // (a reel that ends and starts again pauses too, on the page).
-    video.addEventListener('pause', function () {
-      if (heard && heard.video === video) track();
-    });
+    if (!video.__astryxPauseWatch) {
+      video.__astryxPauseWatch = true;
+      video.addEventListener('pause', function () {
+        if (heard && heard.video === video) track();
+      });
+    }
     watch();
   }, true);
 
@@ -484,16 +573,15 @@
       }
       v.__astryxSilencer.gain.value = 0;
       heard.silencer = v.__astryxSilencer;
-      if (routed.indexOf(v) < 0) routed.push(v);
     } catch (e) {}
   }
 
   // A reel routed through the context is heard only while it runs.
   document.addEventListener('play', function (e) {
-    if (routed.indexOf(e.target) >= 0 && context.state === 'suspended') context.resume();
+    if (e.target.__astryxSilencer && context.state === 'suspended') context.resume();
   }, true);
   document.addEventListener('pause', function (e) {
-    if (routed.indexOf(e.target) >= 0) rest();
+    if (e.target.__astryxSilencer) rest();
   }, true);
 
   // A capture listener on the document sees media events. Back fires the reel's 'play' while

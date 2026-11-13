@@ -723,7 +723,11 @@ Facebook changing what the scripts rely on. The fixed-page tests above run each 
 markup as it was when the test was written, so they keep passing when Facebook changes it. Every
 test added or changed gets its live check here, or a reason below why it has none. A page Facebook
 leaves blank on GitHub's emulator (Home, or the public reel the reel checks fall back to there) is
-reloaded once, with a note, before the check fails (`awaitPage`). What each live check guards:
+reloaded once, with a note, before the check fails (`awaitPage`). A check's page counts as open
+only once it has replaced the app's start page (`open`, by the page's own start time), or the
+Messages layer has opened: the start page is Home, so a check on Home read the start page and then
+lost it as the page it asked for came (the copy-text check's "evaluateJavascript never returned",
+2026-11-13). What each live check guards:
 - `aReel_keepsPlayingInPip`: a reel going to PiP from Home and playing there with a visible video
   (`pip_video_detector.js`, the keep-playing guard, focus mode; `PipKeepPlayingJsTest`,
   `PipVideoDetectorJsTest`, `PipFocusModeJsTest`), and no PiP-narrow `vpd` cookie left once it
@@ -806,10 +810,13 @@ reloaded once, with a note, before the check fails (`awaitPage`). What each live
 - `theFeed_isLaidOutAsTextWrapExpects`: feed text still `white-space: pre` in boxes of a fixed
   inline height, as `text_wrap.js` needs (`TextWrapJsTest`).
 - `holdingAPostsText_copiesIt_butNotItsName`: a real long press on a feed post's body copying its
-  text (read from the clipboard), and one on the post's name copying nothing; the body found by
+  text (read from the clipboard), then one on the post's name copying nothing; the body found by
   `copy_post_text.js`'s own `isPostBody` (a post's first text as wide as the post, before its
-  photos), so Facebook moving its posts' text fails it (`CopyPostTextJsTest`). The comment menu
-  winning over it and "See more" opened first were tried on the emulator by hand (2026-11-10).
+  photos), so Facebook moving its posts' text fails it (`CopyPostTextJsTest`). The name is held
+  last: a Page's name held opens Facebook's own card of the Page over the lower half of the screen,
+  where a hold after it landed (2026-11-13). Home is scrolled while no body shows (it once drew only
+  its top). The comment menu winning over it and "See more" opened first were tried on the
+  emulator by hand (2026-11-10).
 - `pageZoom_laysTheFeedOutForTheZoomedWidth`: Page zoom at 130% giving the zoomed viewport, a `vpd`
   cookie with the zoomed width and a feed laid out to fit it (`page_zoom.js`, `PageZoomJsTest`). A
   PiP-narrow host-only `vpd` beside it is noted.
@@ -1931,6 +1938,45 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   `tools/canary-run.ps1` (`Get-LockHolder`, `Get-HungCheck`) and were tried alone: a reused id,
   an old lock, a live lock, a gone process, the run's own lock, a lock without a time and a
   broken one; a log with and without a "started:" line. Tools only: no release.
+
+## Words in every language
+
+- The words the app put on Facebook's pages and its PiP window were English whatever the
+  app's language: the settings gear's label for screen readers ("Astryxbook settings" or
+  "Settings"), the card over a removed reel ad ("Ad Blocked / Sponsored content was removed",
+  now "Ad removed"), and the PiP window's Play/Pause. "Share via…" followed the page's
+  language, English or Hebrew only. All now come from the app's strings, in its 12 languages
+  (`pageStrings` hands the page scripts theirs).
+- The README now says that a message typed and not sent in a chat is kept in the app's own
+  storage for 30 days (end-to-end encrypted chats included), or until it's sent or *Log out
+  and clear data*.
+- Found by the audit (2026-11-12). Covered by `PageStringsTest`, `ReelsSettingsButtonJsTest`
+  (the gear's label), `ReelAdsJsTest` (the card) and `ShareViaJsTest` (new: the Share via row,
+  which had no fixed-page test). No live check: the words are the app's own, not read from
+  Facebook's page. The Share via row has no live check either; it was checked by hand on the
+  emulator when it was added.
+
+## Reel comments sound: long videos, stray pauses, a silent reel
+
+- **A long video's comments no longer decode its whole sound.** The comment tap decoded the
+  whole audio track: about 23 MB a minute in the page's process (a 30-minute Page video in the
+  reels viewer, about 690 MB), enough for Android to end the page and reload it. A sound
+  over 5 minutes now plays slice after slice, 20 s decoded at a time, the next one some seconds
+  before the last ends, taking over at the same spot.
+- **A pause that opens no comments stops the sound.** For 3 s after the tap any pause of the
+  reel brought the sound in, and with no comments opening it played on over the paused reel
+  for good; swiping to the next reel then played the first reel's sound over it.
+- **A reel put back on the page isn't silent.** A reel that had played through the app's
+  sound path was forgotten while off the page (its comments open again, a profile opened from
+  them), and when Facebook put it back it played silently.
+- Smaller: a touch on the comment button that brings no tap (a swipe that began there) now
+  only fetches, and stops fetching when cancelled; a second tap no longer leaves the first
+  tap's watch running.
+- Found by the audit's second reading pass (RC-1 to RC-4, RC-6, RC-7; 2026-11-12). Covered by
+  `ReelCommentsAudioJsTest`. Live: `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`
+  (the test account's reels are short; a long Page video's comments weren't tried live).
+  Not changed: RC-5 (a video playing away from the comments taken for the reel coming back),
+  which needs the reel back's attributes read on a real page first.
 
 ## Known limitations
 

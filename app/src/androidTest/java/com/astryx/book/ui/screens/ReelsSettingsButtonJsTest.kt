@@ -21,12 +21,14 @@ class ReelsSettingsButtonJsTest {
     private class Harness {
         private val page = PageFixture(width = 1080, height = 2000)
 
-        fun load(body: String, dir: String = "ltr") {
+        // [words]: the app's words for the page, as it sets them before its scripts (pageStrings).
+        fun load(body: String, dir: String = "ltr", words: String? = null) {
             page.load(
                 "https://m.facebook.com/reel/123/",
                 "<html dir='$dir'><head><meta name='viewport' content='width=device-width'></head>" +
                     "<body style='margin:0;background:#000'>$body<video style='width:100%;height:600px'></video></body></html>"
             )
+            words?.let { page.eval("window.__astryxStrings = $it; 1") }
             page.run(R.raw.scripts)
         }
 
@@ -41,6 +43,19 @@ class ReelsSettingsButtonJsTest {
         "(function (r) { return Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.right); })" +
             "($gear.getBoundingClientRect())"
     ).removeSurrounding("\"").split(",").map { it.toInt() }
+
+    // The gear's label for a screen reader: the app's own word, in its language; English without it.
+    @Test
+    fun theGearsLabel_isTheAppsWord() {
+        val named = Harness()
+        named.load("", words = "{ settings: 'הגדרות Astryxbook' }")
+        assertTrue("no gear on the reel page", named.waitFor("!!$gear", 6000))
+        assertEquals("\"הגדרות Astryxbook\"", named.eval("$gear.getAttribute('aria-label')"))
+        val plain = Harness()
+        plain.load("")
+        assertTrue(plain.waitFor("!!$gear", 6000))
+        assertEquals("\"Astryxbook settings\"", plain.eval("$gear.getAttribute('aria-label')"))
+    }
 
     @Test
     fun withoutTheTabBar_theGearIsAtTheTopRight() {
