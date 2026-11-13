@@ -11,8 +11,8 @@ import org.junit.runner.RunWith
 /**
  * scripts.js's "Share via…" row in Facebook's share sheet: added under Copy link, named in the
  * app's language (pageStrings), where it used to follow the page's, in English or Hebrew only.
- * The sheet's Copy link row as m.facebook.com draws it: a button holding its icon (an icon-font
- * glyph) and its label.
+ * The sheet's Copy link row as m.facebook.com draws it: in the sheet (role=presentation), a button
+ * holding its icon (an icon-font glyph) and its label.
  */
 @RunWith(AndroidJUnit4::class)
 class ShareViaJsTest {
@@ -21,7 +21,7 @@ class ShareViaJsTest {
         private val page = PageFixture(width = 1080, height = 2000)
 
         init {
-            page.load("https://m.facebook.com/", "<html><body><div id='sheet'></div></body></html>")
+            page.load("https://m.facebook.com/", "<html><body><div id='sheet' role='presentation'></div></body></html>")
             page.stubPageCalls() // the row is added only where the app's listener is
             words?.let { page.eval("window.__astryxStrings = $it; 1") }
             page.run(R.raw.scripts)
