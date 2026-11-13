@@ -683,7 +683,8 @@ on their own can't:
   many pieces and one the app couldn't read. No live check of their own: the live checks' shares
   (Feed, a group, Your story) go through the same hand-over.
 - `MessagesLayerBackTest`: Back in the Messages layer when its page doesn't answer in time still
-  going back (the layer closing, with no page to step back to). Its live check is the layer's Back
+  going back (a step back when its history has a page, the layer closing when it has none; on CI
+  the story creator the layer first opens can be in its history). Its live check is the layer's Back
   on a real chat, `backInAChat_goesToTheChatList_andThenClosesTheLayer`, which goes through the same
   `askPageForBack`.
 - `PagesAndSettingsTest`: the app's scripts on Facebook's pages, Hide stories on and off, Start
