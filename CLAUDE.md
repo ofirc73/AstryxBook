@@ -105,8 +105,12 @@ user-visible change.
   on the emulator's own login, the Messages layer checks included. It shares the emulator with the
   work on the app: an install or force-stop during its run killed it ("Process crashed", issue 147).
   While it runs it holds `%LOCALAPPDATA%\Astryxbook\canary\running.lock` (its PowerShell process's
-  id first): before installing on, force-stopping or testing on the emulator, check the lock, and
-  while it's there with that process running, wait (a run takes about 20 minutes plus the build). It
+  id first, then its time): before installing on, force-stopping or testing on the emulator, check
+  the lock, and while it's there with that process running, wait; a lock older than 2 h 15 min, or
+  whose process started after it was written (Windows reuses ids), is stale (`Get-LockHolder`,
+  `tools/canary-run.ps1`, which also names a hung run's check, `Get-HungCheck`; try them by
+  dot-sourcing that file). Two sessions sharing the emulator ask each other first: neither the lock
+  nor `ActiveInstrumentation` shows by-hand DevTools work (a run takes about 20 minutes plus the build). It
   waits for another test run itself (`ActiveInstrumentation` in `dumpsys activity processes`), up
   to half an hour, then skips the day. It must end inside the scheduled task's 2-hour limit (a task
   Windows ends runs none of its cleanup: the 11-08 and 11-09 runs hung, reported nothing and left

@@ -66,6 +66,7 @@ $issueTitle = 'Daily Facebook check failed'
 $gapsTitle = 'Daily Facebook check: parts unchecked for 7 runs'
 $gapRuns = 7
 . "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial, Stop-Emulator
+. "$PSScriptRoot\canary-run.ps1" # Get-LockHolder, Get-HungCheck
 $logDir = Join-Path $env:LOCALAPPDATA 'Astryxbook\canary'
 $gapsDir = Join-Path $logDir 'gaps'
 New-Item -ItemType Directory -Force $gapsDir | Out-Null
@@ -73,12 +74,11 @@ $stamp = Get-Date -Format 'yyyy-MM-dd_HHmm'
 $log = Join-Path $logDir "$stamp.log"
 Start-Transcript -Path $log | Out-Null
 
-# This run holds the lock until it's done; one whose process is gone (a run that was stopped) is stale.
+# This run holds the lock until it's done; a stale one (a run that was stopped) is taken over.
 $lock = Join-Path $logDir 'running.lock'
-$held = if (Test-Path $lock) { [int]((Get-Content $lock -Raw) -split '\s+')[0] } else { 0 }
-$holder = if ($held) { Get-Process -Id $held -ErrorAction SilentlyContinue }
-if ($held -ne $PID -and $holder.ProcessName -match '^(pwsh|powershell)$') {
-    Write-Host "Another daily check is running (process $held): skipped"
+$holder = Get-LockHolder -Path $lock -Self $PID
+if ($holder) {
+    Write-Host "Another daily check is running (process $($holder.Id)): skipped"
     Stop-Transcript | Out-Null
     exit 0
 }
@@ -159,14 +159,19 @@ try {
     # 4. The checks.
     $chatArgs = if ($Chat) { @('-e', 'fbChat', $Chat) } else { @() }
     $checks = Join-Path $logDir "$stamp.checks.txt"
+    # A bigger log buffer for the run (16 MB; the default rolled over a hung run's lines), so a
+    # hung run's last "started:" line is still there to name the check.
+    & $adb logcat -G 16M 2>$null
     & $adb logcat -c
     $run = Start-Process -FilePath $adb -PassThru -WindowStyle Hidden -RedirectStandardOutput $checks -RedirectStandardError "$checks.err" `
         -ArgumentList (@('shell', 'am', 'instrument', '-w', '-e', 'canary', 'true') + $chatArgs + @('-e', 'class',
             'com.astryx.book.LiveFacebookCanaryTest', 'com.astryx.book.test.test/androidx.test.runner.AndroidJUnitRunner'))
     if (-not $run.WaitForExit($ChecksMinutes * 60 * 1000)) {
         $run.Kill()
-        $hung = (& $adb logcat -d -s TestRunner:I | Select-String 'started: (.+)' | Select-Object -Last 1).Matches.Groups[1].Value
+        # Stopped first: the test run left going keeps the emulator busy, and the next day's run
+        # waits half an hour for it, then skips.
         & $adb shell am force-stop com.astryx.book.test
+        $hung = Get-HungCheck (& $adb logcat -d -s TestRunner:I)
         $failure = "The checks didn't finish in $ChecksMinutes minutes: stopped in $hung"
     }
     $output = (Get-Content $checks -Raw) + (Get-Content "$checks.err" -Raw)

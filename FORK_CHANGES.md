@@ -1921,6 +1921,24 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   doesn't depend on Facebook's page. The signing change first runs in this change's own
   release.
 
+## Daily check: a stale lock and a hung run
+
+- **A lock left behind no longer skips the daily check for good.** A run Windows ended at its
+  2-hour limit, or a shutdown mid-run, leaves `running.lock` behind. It counted as held while
+  a PowerShell process had its id, and Windows reuses ids on a PC that always runs several:
+  each day the check then said "Another daily check is running: skipped" and reported nothing,
+  and every session waited on an emulator nothing was using. A lock is now also stale when it
+  is older than 2 h 15 min, or its process started after it was written.
+- **A hung run is stopped, and reported, even when the log lost its place.** On its time limit
+  the script read the last check started from logcat and threw when the log no longer had one
+  ("Cannot index into a null array"), before stopping the app: the test run stayed on, and the
+  next day's run waited half an hour and skipped. The app is now stopped first, the check is
+  named "an unknown check" then, and logcat keeps 16 MB during the run.
+- Found by the audit's second reading pass (2026-11-12). The two decisions moved to
+  `tools/canary-run.ps1` (`Get-LockHolder`, `Get-HungCheck`) and were tried alone: a reused id,
+  an old lock, a live lock, a gone process, the run's own lock, a lock without a time and a
+  broken one; a log with and without a "started:" line. Tools only: no release.
+
 ## Words in every language
 
 - The words the app put on Facebook's pages and its PiP window were English whatever the
