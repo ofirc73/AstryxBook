@@ -56,6 +56,10 @@
     <string name="messenger_link_use_desktop">استخدام وضع سطح المكتب</string>
     <string name="messenger_link_open_app">فتح Messenger</string>
     <string name="share_via">مشاركة عبر…</string>
+    <string name="ad_removed_title">تمت إزالة الإعلان</string>
+    <string name="ad_removed_text">تمت إزالة المحتوى المموَّل</string>
+    <string name="pip_play">تشغيل</string>
+    <string name="pip_pause">إيقاف مؤقت</string>
     <string name="download_open">فتح</string>
     <string name="download_already_saved">موجود بالفعل في التنزيلات</string>
     <string name="text_wrap_on_zoom_title">التفاف النص عند التكبير</string>

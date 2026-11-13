@@ -52,6 +52,10 @@
     <string name="messenger_link_use_desktop">ডেস্কটপ মোড ব্যবহার করুন</string>
     <string name="messenger_link_open_app">Messenger খুলুন</string>
     <string name="share_via">এর মাধ্যমে শেয়ার করুন…</string>
+    <string name="ad_removed_title">বিজ্ঞাপন সরানো হয়েছে</string>
+    <string name="ad_removed_text">স্পনসর্ড কনটেন্ট সরানো হয়েছে</string>
+    <string name="pip_play">চালান</string>
+    <string name="pip_pause">বিরতি</string>
     <string name="download_open">খুলুন</string>
     <string name="download_already_saved">ইতিমধ্যে ডাউনলোডে আছে</string>
     <string name="text_wrap_on_zoom_title">জুম করলে লেখা মোড়ানো</string>
