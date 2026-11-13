@@ -532,6 +532,14 @@ rewritten to the new one, keeping its schedule.
 - Release APK filename cleaned up to `Astryxbook-<version>.apk`.
 - Combined test coverage report (JaCoCo, unit + instrumented merged) added
   as a downloadable CI artifact.
+- A release run that fails now says so: it opens the issue "Release run failed" (or comments on
+  it while it's open) with the version, the commit, the jobs that failed and the run, and the next
+  run that releases closes it (`create-release.yml`'s `report` job, `release-report.sh`). Before,
+  it showed only on the Actions page: PR 176's two features sat on main unreleased until someone
+  looked (2026-11-11), and step 2's release needed a rerun nobody was told about (2026-11-12).
+  Found by the audit. The script was tried against a stand-in `gh` (a failed run with and without
+  an open issue, a release with and without one, a run with nothing to release, a failed version
+  step, a failed signing); the workflow job itself first runs on the next release.
 
 ## Testing
 

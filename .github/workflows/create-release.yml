@@ -214,3 +214,28 @@ jobs:
           name: Astryxbook ${{ steps.vars.outputs.tag }}
           generate_release_notes: true
           files: Astryxbook-${{ steps.vars.outputs.version }}.apk
+
+  # A release run that failed says so in an issue, and the next one that releases closes it
+  # (release-report.sh). Not for a cancelled run, nor one with nothing to release (only
+  # Dependabot's changes: every job above skipped). Running the failed jobs again runs this again.
+  report:
+    needs: [compute-version, resolve-version, ci, release]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Report a Failed Run, or Close Its Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve-version.outputs.tag }}
+        run: |
+          bash .github/scripts/release-report.sh "$TAG" \
+            "compute-version=${{ needs.compute-version.result }}" \
+            "resolve-version=${{ needs.resolve-version.result }}" \
+            "ci=${{ needs.ci.result }}" \
+            "release=${{ needs.release.result }}"

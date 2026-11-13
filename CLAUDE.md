@@ -144,7 +144,12 @@ user-visible change.
   `app/src/test/`, `app/src/androidTest/`, `.github/`, `.gitignore`, `lint.xml`, `tools/`, `.claude/`)
   skips it via `paths-ignore`; those commits go out with the next release. So does a push whose commits since the last release are all
   Dependabot's (`compute-version`'s check; its security updates touch the Gradle files): they go
-  out with the next real release.
+  out with the next real release. A release run that fails opens (or comments on) the issue
+  "Release run failed", and the next run that releases closes it (`create-release.yml`'s `report`
+  job, `.github/scripts/release-report.sh`, through `canary-issue.sh`): a PR's green CI doesn't
+  mean main's release run passes, and until then what's on main isn't out. Running the failed jobs
+  again (`gh run rerun <id> --failed`) runs the report again. To try the script without GitHub,
+  put a stand-in `gh` first on `PATH` and set GitHub's run variables.
 
 ## WebView and PiP code (`ui/screens/MaterialbookWV.kt`)
 
