@@ -192,7 +192,10 @@ user-visible change.
   stories viewer's Stories column and top bar at phone width. After Share to story the creator
   moves in-page to `www.facebook.com/stories`, which already has the new story (the feed's tray
   gets it ~30 s later): `open_own_story.js` opens the user's own card there (found by its Add to
-  story link), and Back closes the layer. PiP effects act on
+  story link), and Back closes the layer. `story_layout.js` stops itself once the page leaves
+  `/stories/create`, and `layer_story_viewer.js` marks what it hides with its own attribute
+  (`data-astryx-viewer-hide`): with one name between them, the creator's script, still running on
+  the stories page after Share, took the viewer's marks off several times a second. PiP effects act on
   `pipNavigator`/`pipState` (the layer's while it's open, see `PipTarget`), never on
   `navigator` directly.
 - `m.facebook.com` redirects full loads of some pages (profiles) to

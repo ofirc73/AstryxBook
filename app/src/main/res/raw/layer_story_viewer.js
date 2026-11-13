@@ -13,7 +13,8 @@
   if (window.__astryxStoryViewerInstalled) return;
   window.__astryxStoryViewerInstalled = true;
 
-  var HIDE = 'data-astryx-story-hide';
+  // Its own mark, apart from story_layout.js's (which took both off the page).
+  var HIDE = 'data-astryx-viewer-hide';
   var ON = 'astryx-story-viewer';
   var NARROW = 720; // two of the Stories column's widths
   var BAR_HEIGHT = 64;
