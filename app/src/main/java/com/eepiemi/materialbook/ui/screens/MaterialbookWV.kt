@@ -1,6 +1,7 @@
 package com.eepiemi.materialbook.ui.screens
 
 import com.astryx.book.utils.pageScript
+import com.astryx.book.utils.pageStrings
 import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
@@ -619,7 +620,11 @@ fun MaterialbookWebView(
         fullscreen.hide()
     }
 
-    val userScripts by viewModel.scripts
+    // The bundle, after the app's words for it in the language the app shows now (pageStrings).
+    val bundledScripts by viewModel.scripts
+    val userScripts = remember(bundledScripts, LocalConfiguration.current) {
+        bundledScripts?.let { pageStrings(resources::getString) + it }
+    }
     val loadingState = state.loadingState
     // Next to loadingState in the effects below: see PageStarts.
     val pageStarts = mainPageStarts.count

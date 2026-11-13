@@ -489,6 +489,10 @@ user-visible change.
   the picker and the camera app are answered by an `Instrumentation.ActivityMonitor`
   (`onStartActivity`, which also sees the camera's output file); `pm revoke` kills the app.
 - `MainActivity` is a `FragmentActivity` because app lock uses `BiometricPrompt`.
+- Words a page script shows (a label, a card) come from the app's strings: `pageStrings`
+  (`utils/bundledScripts.kt`) sets `window.__astryxStrings` before the page scripts (the main view's
+  bundle, built again when the app's language changes), and a script keeps an English word for a
+  page without it (the fixed-page tests). A new one goes there, never `navigator.language`.
 - New fork strings go in `brand_strings.xml`, `extra_strings.xml` or `privacy_strings.xml`
   (with a copy in every translated locale: `values-iw`, `-ar`, `-bn`, `-de`, `-es`, `-fr`,
   `-in`, `-it`, `-pl`, `-pt`, `-zh-rTW`), not upstream's `strings.xml`.

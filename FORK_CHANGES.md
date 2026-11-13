@@ -1914,6 +1914,23 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   doesn't depend on Facebook's page. The signing change first runs in this change's own
   release.
 
+## Words in every language
+
+- The words the app put on Facebook's pages and its PiP window were English whatever the
+  app's language: the settings gear's label for screen readers ("Astryxbook settings" or
+  "Settings"), the card over a removed reel ad ("Ad Blocked / Sponsored content was removed",
+  now "Ad removed"), and the PiP window's Play/Pause. "Share via…" followed the page's
+  language, English or Hebrew only. All now come from the app's strings, in its 12 languages
+  (`pageStrings` hands the page scripts theirs).
+- The README now says that a message typed and not sent in a chat is kept in the app's own
+  storage for 30 days (end-to-end encrypted chats included), or until it's sent or *Log out
+  and clear data*.
+- Found by the audit (2026-11-12). Covered by `PageStringsTest`, `ReelsSettingsButtonJsTest`
+  (the gear's label), `ReelAdsJsTest` (the card) and `ShareViaJsTest` (new: the Share via row,
+  which had no fixed-page test). No live check: the words are the app's own, not read from
+  Facebook's page. The Share via row has no live check either; it was checked by hand on the
+  emulator when it was added.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:
