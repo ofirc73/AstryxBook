@@ -229,10 +229,8 @@ class LiveFacebookCanaryTest {
         // (its address as loaded, "<-" before it).
         override fun toString() = urls.mapIndexed { i, u ->
             val loaded = loadedUrls.getOrElse(i) { u }
-            (if (i == current) "*" else "") + path(u) + (if (path(loaded) != path(u)) "<-" + path(loaded) else "")
+            (if (i == current) "*" else "") + shortPath(u) + (if (shortPath(loaded) != shortPath(u)) "<-" + shortPath(loaded) else "")
         }.joinToString(" ")
-
-        private fun path(url: String) = url.substringAfter("facebook.com").substringBefore('?').replace(Regex("\\d{6,}"), "N")
     }
 
     private fun mainHistory(): History {
@@ -286,7 +284,15 @@ class LiveFacebookCanaryTest {
                 "/log in/i.test(document.title)"
         ) == "true"
         if (!loginCookie || loginPage) fail("Facebook session expired: log in again (FB_TEST_COOKIES) (${pageShape()})")
+        // Not done until [url]'s own page has replaced the start page (or, for a Messages link, the
+        // layer has opened over it): the start page goes on answering until then, and a check that
+        // read it (Home's feed is on it too) lost what it had marked there, or sent a script as the
+        // page was replaced, which no page answers (the copy-text check, 2026-11-13).
+        val startPage = eval(DOCUMENT_JS)
         eval("location.href = '$url'; 1")
+        assertTrue({ "${shortPath(url)} never opened: the app's start page stayed (${pageShape()})" }, app.waitFor(30_000) {
+            app.layerWebView() != null || app.evalWithin(3_000, DOCUMENT_JS).let { it != null && it != startPage }
+        })
     }
 
     // The Reels tab with a reel playing. The test account on GitHub gets "Content not found" for
@@ -1435,11 +1441,16 @@ class LiveFacebookCanaryTest {
         openFeed()
         val clipboard = app.context.getSystemService(ClipboardManager::class.java)
         fun clip() = app.onActivity { clipboard.primaryClip?.getItemAt(0)?.text?.toString() }
-        app.onActivity { clipboard.setPrimaryClip(ClipData.newPlainText("canary", CLIP_MARK)) }
+        fun markClipboard() = app.onActivity { clipboard.setPrimaryClip(ClipData.newPlainText("canary", CLIP_MARK)) }
+        markClipboard()
         // A post's body by copy_post_text.js's own rule, and the name above it: its post's first text.
+        // Scrolled down a screen at a time meanwhile: Home drew only its top, a video and no post text,
+        // for 30 s once (2026-11-13), and draws more as it's scrolled.
         val body = "[].filter.call(document.querySelectorAll('[data-mcomponent=\"TextArea\"]'), __astryxCopyPostText.isPostBody)[0]"
         assertTrue({ "no post's text on the feed counts as its body (copy_post_text.js isPostBody: a post's first text " +
-            "as wide as the post, before its photos; ${pageShape()})" }, app.waitFor(30_000) { eval("!!($body)") == "true" })
+            "as wide as the post, before its photos; ${pageShape()})" }, app.waitFor(30_000) {
+            eval("!!($body)") == "true" || false.also { scrollDown() }
+        })
         // The first post whose body has a name above it (its post's first text): some posts on the feed
         // have none (the first one, now and then, 2026-11-12). Marked again if the page was replaced
         // meanwhile (Facebook reloads Home a moment after the app starts).
@@ -1460,9 +1471,6 @@ class LiveFacebookCanaryTest {
         eval("window.__canaryCopies = []; var post = window.AstryxPage.postMessage.bind(window.AstryxPage);" +
             " window.AstryxPage.postMessage = function (m) { try { var d = JSON.parse(m); if (d.call === 'copyText')" +
             " __canaryCopies.push(d.text.slice(0, 30)); } catch (e) {} return post(m); }; 1")
-        app.tapOn(app.mainWebView(), "window.__canaryName", holdMs = LONG_PRESS_MS)
-        Thread.sleep(2000)
-        assertEquals("holding a post's name copied it", CLIP_MARK, clip())
         fun holdBody(): Boolean {
             if (eval("document.contains(window.__canaryBody)") != "true") markPost()
             val start = org.json.JSONArray("[${eval("window.__canaryStart")}]").getString(0)
@@ -1478,6 +1486,13 @@ class LiveFacebookCanaryTest {
         }
         assertTrue({ "holding a post's text didn't copy it (copy_post_text.js; the page asked to copy " +
             "${eval("JSON.stringify(window.__canaryCopies)")}, the clipboard has \"${clip()}\"; ${pageShape()})" }, copied)
+        // The name last: held, a Page's name opens Facebook's own card of the Page over the lower half
+        // of the screen, and a hold after it landed on the card (2026-11-13, a BBC News post).
+        markClipboard()
+        if (eval("document.contains(window.__canaryName)") != "true") markPost()
+        app.tapOn(app.mainWebView(), "window.__canaryName", holdMs = LONG_PRESS_MS)
+        Thread.sleep(2000)
+        assertEquals("holding a post's name copied it", CLIP_MARK, clip())
     }
 
     @Test
@@ -2069,6 +2084,8 @@ class LiveFacebookCanaryTest {
                 " var r = e.getBoundingClientRect(); return r.width > 200 && r.height > 30 && r.height < 80 && r.top > innerHeight / 3; })" +
                 ".map(function (e) { return e.getAttribute('aria-label'); }).join(', ')"
         // The feed drawn (m.facebook.com's components on the page).
+        // A page's own start time: another page's differs.
+        private const val DOCUMENT_JS = "performance.timeOrigin"
         private const val FEED_SHOWN_JS = "document.querySelectorAll('[data-mcomponent]').length > 0"
         private const val SHARE_ICON = "\\uDB80\\uDF7A"
         private const val MESSENGER_ICON = "\\uDB8C\\uDC31"
