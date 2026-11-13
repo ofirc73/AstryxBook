@@ -21,13 +21,21 @@ class ReelAdsJsTest {
     private class Harness {
         private val page = PageFixture(width = 1080, height = 2000)
 
-        fun load(body: String) {
+        // [words]: the app's words for the page, as it sets them before its scripts (pageStrings).
+        fun load(body: String, words: String? = null) {
             page.load("https://m.facebook.com/reel/1", "<html><body>$body</body></html>")
+            words?.let { eval("window.__astryxStrings = $it; 1") }
             // The mobile site (scripts.js defines this for the page scripts).
             eval("window.isDesktopMode = () => false;")
             page.stubPageCalls()
             page.run(R.raw.adblock)
         }
+
+        // The words on the card over the emptied reel [id]: its title, then its line (after its icon).
+        fun cardWords(id: String): String = eval(
+            "[].slice.call(document.getElementById('$id').firstElementChild.children, 1)" +
+                ".map(function (e) { return e.textContent; }).join('|')"
+        ).unquoted()
 
         // The ads the page told the app it emptied (AstryxPage call adHidden), as "adHidden reel" each.
         fun adsCounted(): String = page.pageCalls("kind").unquoted()
@@ -56,6 +64,17 @@ class ReelAdsJsTest {
         )
 
         assertEquals("true,true,true,true,true", h.hidden("en", "he", "ru", "ja", "hi"))
+    }
+
+    // The card left in a removed ad's place says so in the app's language; in English without it.
+    @Test
+    fun theCardOverARemovedAd_isInTheAppsWords() {
+        val named = Harness()
+        named.load(reel("ad", "Some Page", "Sponsored"), words = "{ adRemoved: 'הפרסומת הוסרה', adRemovedText: 'תוכן ממומן הוסר' }")
+        assertEquals("הפרסומת הוסרה|תוכן ממומן הוסר", named.cardWords("ad"))
+        val plain = Harness()
+        plain.load(reel("ad", "Some Page", "Sponsored"))
+        assertEquals("Ad removed|Sponsored content was removed", plain.cardWords("ad"))
     }
 
     @Test

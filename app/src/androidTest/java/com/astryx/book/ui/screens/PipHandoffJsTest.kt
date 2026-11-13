@@ -314,6 +314,13 @@ class PipHandoffJsTest {
 
     private val pip = "document.getElementById('pip')"
 
+    // The handback, with no lead remembered: removed in the same step, as an earlier test's page
+    // (same site, still alive) can write the one it learned after this page cleared the storage. Run
+    // after a test that learned 0.33 s, the video was moved by that, not the first guess (CI,
+    // 2026-11-13, once the parts were split six ways).
+    private fun Harness.handback(positionMs: Long?, positionAtMs: Long, play: Boolean, rearm: Boolean) =
+        eval("localStorage.removeItem('astryxHandbackLead');\n" + pipHandbackJs(positionMs, positionAtMs, play, rearm))
+
     @Test
     fun handback_playsTheVideoMuted_pastTheNativePlayer_andUnmutesItOnceInStep() {
         // Stopped first, the native player left a break: Facebook took 1.7 s to play the video
@@ -321,7 +328,7 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked()
         val at = System.currentTimeMillis()
-        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = at, play = true, rearm = false))
+        h.handback(positionMs = 45_250, positionAtMs = at, play = true, rearm = false)
 
         assertEquals("moved past the native player by the first lead (0.6 s)", 45.85, h.eval("$pip.currentTime").toDouble(), 0.2)
         assertEquals("play:pip", h.eval("window.__calls.join(',')").unquoted())
@@ -345,7 +352,7 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked()
         val at = System.currentTimeMillis()
-        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = at, play = true, rearm = false))
+        h.handback(positionMs = 45_250, positionAtMs = at, play = true, rearm = false)
         // (The fake video stands still while the native player's clock runs: each gap set below
         // shrinks by the time it takes the next step to see it.)
         h.inStepWithNative(45_250, at, offsetS = 1.5)
@@ -360,7 +367,7 @@ class PipHandoffJsTest {
         // A page script that failed: the video isn't left muted.
         val h = Harness(catchUp = false)
         h.locked()
-        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        h.handback(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false)
         assertTrue(h.events.toString(), h.waitFor { h.events == listOf("handbackDone") })
         assertEquals(45.25, h.eval("$pip.currentTime").toDouble(), 0.2)
         assertEquals("play:pip", h.eval("window.__calls.join(',')").unquoted())
@@ -373,7 +380,7 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked()
         h.eval("window.__vis = 'hidden'; 1")
-        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        h.handback(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false)
         Thread.sleep(300)
         assertEquals(12.5, h.eval("$pip.currentTime").toDouble(), 0.001)
         assertEquals("", h.eval("window.__calls.join(',')").unquoted())
@@ -386,7 +393,7 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked()
         h.eval("HTMLMediaElement.prototype.play = function () { return Promise.reject(new Error('no source')); };")
-        h.eval(pipHandbackJs(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        h.handback(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false)
         assertTrue(h.events.toString(), h.waitFor { h.events == listOf("handbackDone") })
         assertEquals("false", h.eval("$pip.muted"))
     }
@@ -397,7 +404,7 @@ class PipHandoffJsTest {
         // there made Facebook close the viewer (back to the feed, a black PiP window).
         val h = Harness()
         h.locked(duration = 260)
-        h.eval(pipHandbackJs(positionMs = 259_766, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        h.handback(positionMs = 259_766, positionAtMs = System.currentTimeMillis(), play = true, rearm = false)
         // Where the native player, looping, plays then: near the start.
         assertEquals(0.4, h.eval("$pip.currentTime").toDouble(), 0.4)
     }
@@ -406,7 +413,7 @@ class PipHandoffJsTest {
     fun handback_beforeTheEnd_keepsThePosition() {
         val h = Harness()
         h.locked(duration = 260)
-        h.eval(pipHandbackJs(positionMs = 200_000, positionAtMs = System.currentTimeMillis(), play = true, rearm = false))
+        h.handback(positionMs = 200_000, positionAtMs = System.currentTimeMillis(), play = true, rearm = false)
         assertEquals(200.6, h.eval("$pip.currentTime").toDouble(), 0.2)
     }
 
@@ -414,7 +421,7 @@ class PipHandoffJsTest {
     fun handback_doesNotPlay_whenNativePlayerWasPaused() {
         val h = Harness()
         h.locked()
-        h.eval(pipHandbackJs(positionMs = 20_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
+        h.handback(positionMs = 20_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false)
         assertEquals("", h.eval("window.__calls.join(',')").unquoted())
         assertEquals(20.0, h.eval("$pip.currentTime").toDouble(), 0.2)
         assertEquals("false", h.eval("$pip.muted"))
@@ -425,7 +432,7 @@ class PipHandoffJsTest {
     fun handback_restoresMutedTrue_whenVideoWasMutedBefore() {
         val h = Harness()
         h.locked(pipMuted = true)
-        h.eval(pipHandbackJs(positionMs = 1_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
+        h.handback(positionMs = 1_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false)
         assertEquals("true", h.eval("$pip.muted"))
     }
 
@@ -433,7 +440,7 @@ class PipHandoffJsTest {
     fun abortedHandback_withoutPosition_leavesTimeAlone() {
         val h = Harness()
         h.locked()
-        h.eval(pipHandbackJs(positionMs = null, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
+        h.handback(positionMs = null, positionAtMs = System.currentTimeMillis(), play = false, rearm = false)
         assertEquals(12.5, h.eval("$pip.currentTime").toDouble(), 0.001)
         assertEquals("false", h.eval("$pip.muted"))
     }
@@ -443,13 +450,13 @@ class PipHandoffJsTest {
         val h = Harness()
         h.locked()
 
-        h.eval(pipHandbackJs(positionMs = 1_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false))
+        h.handback(positionMs = 1_000, positionAtMs = System.currentTimeMillis(), play = false, rearm = false)
         assertEquals("null", h.eval("window.__astryxHandoffSnapshot"))
         assertEquals("null", h.eval("window.__astryxHandoffListener"))
         h.setVisibility("hidden")
         assertEquals("null", h.eval("window.__astryxHandoffSnapshot"))
 
-        h.eval(pipHandbackJs(positionMs = null, positionAtMs = System.currentTimeMillis(), play = false, rearm = true))
+        h.handback(positionMs = null, positionAtMs = System.currentTimeMillis(), play = false, rearm = true)
         h.setVisibility("visible")
         h.eval("$pip.__paused = false;")
         h.setVisibility("hidden")

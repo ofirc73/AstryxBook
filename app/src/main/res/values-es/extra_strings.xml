@@ -53,6 +53,10 @@
     <string name="messenger_link_use_desktop">Usar modo escritorio</string>
     <string name="messenger_link_open_app">Abrir Messenger</string>
     <string name="share_via">Compartir mediante…</string>
+    <string name="ad_removed_title">Anuncio eliminado</string>
+    <string name="ad_removed_text">Se eliminó el contenido patrocinado</string>
+    <string name="pip_play">Reproducir</string>
+    <string name="pip_pause">Pausar</string>
     <string name="download_open">Abrir</string>
     <string name="download_already_saved">Ya está en Descargas</string>
     <string name="text_wrap_on_zoom_title">Ajustar texto al hacer zoom</string>

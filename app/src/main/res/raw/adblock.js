@@ -174,7 +174,7 @@
                         margin-bottom: 8px;
                         color: #888;
                     `;
-                    title.textContent = 'Ad Blocked';
+                    title.textContent = window.__astryxStrings?.adRemoved || 'Ad removed';
 
                     const subtitle = document.createElement('div');
                     subtitle.style.cssText = `
@@ -182,7 +182,7 @@
                         color: #555;
                         line-height: 1.4;
                     `;
-                    subtitle.textContent = 'Sponsored content was removed';
+                    subtitle.textContent = window.__astryxStrings?.adRemovedText || 'Sponsored content was removed';
 
                     messageDiv.appendChild(icon);
                     messageDiv.appendChild(title);

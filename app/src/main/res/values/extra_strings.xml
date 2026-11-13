@@ -64,6 +64,10 @@
 
     <!-- Sharing and downloads -->
     <string name="share_via">Share via…</string>
+    <string name="ad_removed_title">Ad removed</string>
+    <string name="ad_removed_text">Sponsored content was removed</string>
+    <string name="pip_play">Play</string>
+    <string name="pip_pause">Pause</string>
     <string name="download_open">Open</string>
     <string name="download_already_saved">Already in Downloads</string>
 
