@@ -343,22 +343,7 @@ class ReelCommentsAudioJsTest {
         // Facebook brings the reel back in the same <video>, which Web Audio takes only once: a
         // second Back heard it from 0 along with the sound (on the phone).
         val h = Harness()
-        h.load()
-        h.openComments()
-        assertTrue(h.soundPlaying())
-        h.soundAt(21.0)
-        h.backToTheReel()
-        h.eval("${h.v2}.__rs = 4; 1")
-        h.soundAt(21.3)
-        assertTrue(h.soundStopped())
-        // The same reel's comments again: its button, the reel playing on screen, then gone.
-        h.eval(
-            "var v = ${h.v2}; v.style.cssText = 'width:400px;height:700px;display:block'; v.__time = 5;" +
-                " var b = document.createElement('div'); b.id = 'comment2'; b.setAttribute('role', 'button');" +
-                " b.setAttribute('aria-label', 'Comment on reel by Someone'); v.parentNode.appendChild(b); b.click();" +
-                " history.pushState(null, '', '/'); var player = v.parentNode; window.__player = player; player.remove(); 1"
-        )
-        assertTrue(h.soundPlaying())
+        h.commentsBackAndCommentsAgain()
         // Back: the same <video> again.
         h.eval(
             "history.pushState(null, '', '/watch/'); document.body.appendChild(window.__player);" +
@@ -366,6 +351,27 @@ class ReelCommentsAudioJsTest {
         )
         assertEquals("routed through Web Audio once only", "[\"v2\"]", h.json("window.__routed"))
         assertEquals("the reel back wasn't silenced again", "0", h.eval("window.__silencer.gain.value"))
+    }
+
+    // Comments on the reel, Back (the reel back is routed through Web Audio now), then the same
+    // reel's comments again: its button, the reel playing on screen, then off the page
+    // (window.__player, its player).
+    private fun Harness.commentsBackAndCommentsAgain() {
+        load()
+        openComments()
+        assertTrue(soundPlaying())
+        soundAt(21.0)
+        backToTheReel()
+        eval("$v2.__rs = 4; 1")
+        soundAt(21.3)
+        assertTrue(soundStopped())
+        eval(
+            "var v = $v2; v.style.cssText = 'width:400px;height:700px;display:block'; v.__time = 5;" +
+                " var b = document.createElement('div'); b.id = 'comment2'; b.setAttribute('role', 'button');" +
+                " b.setAttribute('aria-label', 'Comment on reel by Someone'); v.parentNode.appendChild(b); b.click();" +
+                " history.pushState(null, '', '/'); var player = v.parentNode; window.__player = player; player.remove(); 1"
+        )
+        assertTrue(soundPlaying())
     }
 
     @Test
@@ -526,6 +532,103 @@ class ReelCommentsAudioJsTest {
         h.openComments()
         assertTrue(h.soundPlaying())
         assertEquals("[\"whole\"]", h.json("window.__decodes"))
+    }
+
+    // RC-1: the whole of a long video's sound decoded is about 23 MB a minute in the renderer (a
+    // 30-minute Page video: 690 MB). Above 5 minutes it plays slice after slice instead, 20 s of
+    // it decoded at a time, the next one some seconds before the last ends, overlapping its last
+    // fragment, taking over at the same spot through the same gain.
+    @Test
+    fun aVeryLongSound_isNeverDecodedWhole_butSliceAfterSlice() {
+        val h = Harness()
+        h.load(time = 30.0, setup = streamJs(fragments = 200))
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        Thread.sleep(500)
+        assertEquals("[\"slice 14+10\"]", h.json("window.__decodes"))
+        // The slice covers 28-48 s; 4 s before its end the next is decoded.
+        h.soundAt(44.0)
+        assertTrue({ "no next slice (${h.json("window.__decodes")})" }, h.waitFor("window.__decodes.length === 2"))
+        assertEquals("slice 23+10", h.eval("window.__decodes[1]").removeSurrounding("\""))
+        val first = "window.__sources[0]"
+        val next = "window.__sources[1]"
+        assertTrue(h.waitFor("window.__sources.length === 2"))
+        // It takes over half a second before the first one's end (47.5 s), 1.4 s into its buffer
+        // (which starts 100 ms after its first fragment, at 46 s).
+        assertEquals(47.5, h.eval("$first.stopWhen - window.__now + 44").toDouble(), 0.02)
+        assertEquals(1.4, h.eval("$next.at").toDouble(), 0.12)
+        assertEquals("true", h.eval("$next.out === $first.out"))
+        assertEquals("false", h.eval("$next.loop"))
+    }
+
+    // RC-2: a pause of the reel that isn't the comments opening (the user paused it, swiped on
+    // before the comments drew) brought the sound in, and it played on over the reel for good.
+    @Test
+    fun aPauseThatOpensNoComments_stopsTheSound() {
+        val h = Harness()
+        h.load()
+        h.tapComment()
+        h.eval("document.getElementById('v1').pause(); 1")
+        assertTrue("the sound stayed on over the paused reel", h.waitFor(
+            "window.__sources.length > 0 && window.__sources.every(function (s) { return s.stopped; })" +
+                " && window.__astryxReelCommentsAudio.position() === -1", 6000))
+    }
+
+    @Test
+    fun anotherReel_isntTakenForTheComments() {
+        val h = Harness()
+        h.load()
+        h.tapComment()
+        h.eval("document.getElementById('v1').pause(); history.pushState(null, '', '/reel/999/'); 1")
+        assertTrue("the first reel's sound played on over the next one", h.waitFor(
+            "window.__sources.length > 0 && window.__sources.every(function (s) { return s.stopped; })" +
+                " && window.__astryxReelCommentsAudio.position() === -1", 6000))
+    }
+
+    // RC-3: a reel routed through Web Audio is heard only while the context runs. A reel off the
+    // page when the context rested was forgotten: put back and played, it was silent. The case:
+    // comments, Back (the reel is routed now); comments again; a commenter's profile from there
+    // (the sound stops, the context rests with the reel off the page); Back to the reel.
+    @Test
+    fun aRoutedReelPutBack_isHeardAgain() {
+        val h = Harness()
+        h.commentsBackAndCommentsAgain()
+        // A commenter's profile: the sound stops, the context rests with the reel off the page.
+        h.eval("history.pushState(null, '', '/someone.profile/'); 1")
+        assertTrue(h.soundStopped())
+        assertEquals("suspended", h.eval("window.__ctxState").removeSurrounding("\""))
+        // Back to the reel: Facebook puts the same <video> back, playing.
+        h.eval("history.pushState(null, '', '$REEL_PATH'); document.body.appendChild(window.__player);" +
+            " ${h.v2}.__paused = false; ${h.v2}.dispatchEvent(new Event('play')); 1")
+        assertEquals("the reel put back plays silent", "running", h.eval("window.__ctxState").removeSurrounding("\""))
+    }
+
+    // RC-4: a touch on the button with no tap after it (a swipe that began there) decoded the sound
+    // and left the context running for the page's life. Now it only fetches; the tap decodes.
+    @Test
+    fun aTouchWithNoTap_decodesNothing() {
+        val h = Harness()
+        h.load(setup = streamJs(fragments = 15))
+        h.eval("document.getElementById('comment').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1")
+        Thread.sleep(800)
+        assertEquals("1", h.eval("window.__fetched.length"))
+        assertEquals("a touch with no tap decoded the sound", "[]", h.json("window.__decodes"))
+        h.openComments()
+        assertTrue(h.soundPlaying())
+        assertEquals("the tap fetched the sound again", "1", h.eval("window.__fetched.length"))
+    }
+
+    // RC-6: a second tap left the first tap's watch running beside its own.
+    @Test
+    fun aSecondTap_leavesOneWatch() {
+        val h = Harness()
+        h.load(setup = "window.__watches = 0; var si = window.setInterval, ci = window.clearInterval, mine = {};" +
+            " window.setInterval = function (f, ms) { var id = si(f, ms); if (ms === 50) { mine[id] = 1; __watches++; } return id; };" +
+            " window.clearInterval = function (id) { if (mine[id]) { delete mine[id]; __watches--; } return ci(id); };")
+        h.tapComment()
+        h.tapComment()
+        Thread.sleep(300)
+        assertEquals("1", h.eval("window.__watches"))
     }
 
     @Test

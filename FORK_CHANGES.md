@@ -1931,6 +1931,28 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   Facebook's page. The Share via row has no live check either; it was checked by hand on the
   emulator when it was added.
 
+## Reel comments sound: long videos, stray pauses, a silent reel
+
+- **A long video's comments no longer decode its whole sound.** The comment tap decoded the
+  whole audio track: about 23 MB a minute in the page's process (a 30-minute Page video in the
+  reels viewer, about 690 MB), enough for Android to end the page and reload it. A sound
+  over 5 minutes now plays slice after slice, 20 s decoded at a time, the next one some seconds
+  before the last ends, taking over at the same spot.
+- **A pause that opens no comments stops the sound.** For 3 s after the tap any pause of the
+  reel brought the sound in, and with no comments opening it played on over the paused reel
+  for good; swiping to the next reel then played the first reel's sound over it.
+- **A reel put back on the page isn't silent.** A reel that had played through the app's
+  sound path was forgotten while off the page (its comments open again, a profile opened from
+  them), and when Facebook put it back it played silently.
+- Smaller: a touch on the comment button that brings no tap (a swipe that began there) now
+  only fetches, and stops fetching when cancelled; a second tap no longer leaves the first
+  tap's watch running.
+- Found by the audit's second reading pass (RC-1 to RC-4, RC-6, RC-7; 2026-11-12). Covered by
+  `ReelCommentsAudioJsTest`. Live: `aReelsComments_keepItsSoundPlaying_andBackPicksTheReelUpThere`
+  (the test account's reels are short; a long Page video's comments weren't tried live).
+  Not changed: RC-5 (a video playing away from the comments taken for the reel coming back),
+  which needs the reel back's attributes read on a real page first.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:
