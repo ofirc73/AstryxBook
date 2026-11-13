@@ -31,6 +31,10 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Nothing here writes to the repository: the jobs read the code and keep their reports as artifacts.
+permissions:
+  contents: read
+
 jobs:
   android-lint:
     name: Android Lint

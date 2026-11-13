@@ -118,6 +118,19 @@ class ShareMediaTest {
         assertNull(ShareMediaQueue.take(ShareTarget.STORY))
     }
 
+    // A share given up (timed out, the layer closed): the copies no page took go with it. The one a
+    // page took stays until that page is through with it (finishIfDone).
+    @Test
+    fun aShareGivenUp_deletesTheCopiesNoPageTook() {
+        val files = listOf("taken", "left", "left2").map { name ->
+            SharedFile(File.createTempFile(name, ".jpg").apply { deleteOnExit() }, name, "image/jpeg")
+        }
+        ShareMediaQueue.start(ShareTarget.STORY, files)
+        ShareMediaQueue.take(ShareTarget.STORY)
+        ShareMediaQueue.clear()
+        assertEquals(listOf(true, false, false), files.map { it.file.exists() })
+    }
+
     @Test
     fun aNewShare_replacesTheOneInProgress() {
         ShareMediaQueue.start(ShareTarget.STORY, listOf(SharedFile(File("a"), "a", "image/jpeg")))

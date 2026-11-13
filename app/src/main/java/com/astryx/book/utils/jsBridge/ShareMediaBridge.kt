@@ -17,7 +17,7 @@ import com.astryx.book.utils.FEED_COMPOSER_PAGE_URL
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.SharedFile
-import com.astryx.book.utils.clearSharedMedia
+import com.astryx.book.utils.endShare
 import com.astryx.book.utils.isFacebookWebUrl
 import org.json.JSONArray
 import org.json.JSONObject
@@ -85,8 +85,7 @@ fun installShareMediaBridge(webView: WebView, context: Context) {
                 val text = if (msg.optString("reason") == "noComposer") R.string.share_media_no_composer
                 else R.string.share_media_failed
                 Toast.makeText(context, text, Toast.LENGTH_LONG).show()
-                ShareMediaQueue.clear()
-                clearSharedMedia(context)
+                endShare(context)
             }
         }
     }
@@ -173,7 +172,6 @@ private fun postOnMain(main: Handler, post: () -> Unit) {
 // The page is through with the share: drop the copies once nothing's left to offer.
 private fun finishIfDone(context: Context, target: ShareTarget?) {
     if (target == null || ShareMediaQueue.remaining(target) == 0) {
-        ShareMediaQueue.clear()
-        clearSharedMedia(context)
+        endShare(context)
     }
 }

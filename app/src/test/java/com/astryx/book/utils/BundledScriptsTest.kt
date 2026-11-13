@@ -30,6 +30,17 @@ class BundledScriptsTest {
         assertEquals(listOf("content-1;"), contents(result))
     }
 
+    // A page script is read from the APK once, however many pages run it.
+    @Test
+    fun aScript_isReadOnce() {
+        val reads = mutableListOf<Int>()
+        val read = { id: Int -> reads += id; contentFor(id) }
+        assertEquals("content-901;", pageScript(901, read))
+        assertEquals("content-901;", pageScript(901, read))
+        assertEquals("content-902;", pageScript(902, read))
+        assertEquals(listOf(901, 902), reads)
+    }
+
     @Test
     fun eachScript_isInItsOwnTryBlock() {
         val result = bundledScripts(listOf(Script(true, 1), Script(true, 2)), ::contentFor)

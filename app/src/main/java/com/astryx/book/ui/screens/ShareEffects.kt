@@ -1,4 +1,5 @@
 package com.astryx.book.ui.screens
+import com.astryx.book.utils.pageScript
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +31,7 @@ internal fun shareMediaScript(
     target: ShareTarget,
     fromHome: Boolean = false,
 ): String {
-    val script = resources.openRawResource(R.raw.share_media).bufferedReader().use { it.readText() }
+    val script = resources.pageScript(R.raw.share_media)
     // The note shown while Facebook prepares the photos (share_media.js showAdding).
     val count = ShareMediaQueue.remaining(target)
     val adding = if (count > 1) resources.getString(R.string.share_media_adding_several, count)

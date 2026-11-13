@@ -1,4 +1,5 @@
 package com.astryx.book.ui.screens
+import com.astryx.book.utils.pageScript
 import android.util.Log
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
@@ -21,7 +22,7 @@ private fun installDocumentStartScript(
     webView: android.webkit.WebView, id: Int, origins: Set<String>, tag: String, prefix: String = ""
 ): ScriptHandler? {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return null
-    val script = webView.resources.openRawResource(id).bufferedReader().use { it.readText() }
+    val script = webView.resources.pageScript(id)
     return runCatching { WebViewCompat.addDocumentStartJavaScript(webView, prefix + script, origins) }
         .onFailure { Log.w(tag, "${webView.resources.getResourceEntryName(id)}.js not installed", it) }
         .getOrNull()

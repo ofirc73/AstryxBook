@@ -1,4 +1,5 @@
 package com.astryx.book.ui.screens
+import com.astryx.book.utils.pageScript
 import androidx.compose.runtime.rememberCoroutineScope
 import com.astryx.book.utils.cannotReachPage
 import com.astryx.book.ui.components.ConnectionErrorScreen
@@ -289,7 +290,7 @@ fun MessagesLayer(
         val page = state.lastLoadedUrl
         if (isStoryCreatePage(page)) {
             val (layout, posting) = listOf(R.raw.story_layout, R.raw.story_posting).map { id ->
-                resources.openRawResource(id).bufferedReader().use { it.readText() }
+                resources.pageScript(id)
             }
             val done = JSONObject.quote(resources.getString(R.string.story_panel_done))
             navigator.evaluateJavaScript(
@@ -311,7 +312,7 @@ fun MessagesLayer(
     LaunchedEffect(loadingState, pageStarts) {
         if (loadingState is LoadingState.Finished) {
             val script = listOf(R.raw.messages_layer_nav, R.raw.chat_box, R.raw.layer_photo_viewer, R.raw.layer_story_viewer).joinToString("\n") { id ->
-                resources.openRawResource(id).bufferedReader().use { it.readText() }
+                resources.pageScript(id)
             }
             navigator.evaluateJavaScript(script) {}
             // The page's focus, as a tap on it gives: chat_box.js puts a chat's unsent message back
@@ -328,7 +329,7 @@ fun MessagesLayer(
     }
     LaunchedEffect(showSharedStory) {
         if (!showSharedStory) return@LaunchedEffect
-        val script = resources.openRawResource(R.raw.open_own_story).bufferedReader().use { it.readText() }
+        val script = resources.pageScript(R.raw.open_own_story)
         repeat(SHARED_STORY_TRIES) {
             val result = CompletableDeferred<String>()
             navigator.evaluateJavaScript(script) { result.complete(it) }
@@ -351,7 +352,7 @@ fun MessagesLayer(
         val link = linkToSend ?: return@LaunchedEffect
         if (loadingState !is LoadingState.Finished) return@LaunchedEffect
         val script = "window.__astryxLinkToSend = ${JSONObject.quote(link)};\n" +
-            resources.openRawResource(R.raw.put_link_in_chat).bufferedReader().use { it.readText() }
+            resources.pageScript(R.raw.put_link_in_chat)
         Log.d("Astryxbook", "Link to send: waiting for a chat")
         var placed = false
         try {
@@ -377,8 +378,7 @@ fun MessagesLayer(
     // still count as "video playing".
     LaunchedEffect(loadingState, pageStarts, pipEnabled) {
         if (loadingState is LoadingState.Finished && pipEnabled) {
-            val detector = resources.openRawResource(R.raw.pip_video_detector)
-                .bufferedReader().use { it.readText() }
+            val detector = resources.pageScript(R.raw.pip_video_detector)
             navigator.evaluateJavaScript(detector) {}
         }
     }
@@ -387,8 +387,7 @@ fun MessagesLayer(
     LaunchedEffect(loadingState, pageStarts, trackVideoPlaying) {
         if (loadingState is LoadingState.Loading) currentOnScreenVideoPlayingChanged(false)
         if (loadingState is LoadingState.Finished && trackVideoPlaying) {
-            val script = resources.openRawResource(R.raw.video_playing)
-                .bufferedReader().use { it.readText() }
+            val script = resources.pageScript(R.raw.video_playing)
             navigator.evaluateJavaScript(script) {}
         }
     }

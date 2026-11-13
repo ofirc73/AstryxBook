@@ -1,4 +1,5 @@
 package com.astryx.book
+import com.astryx.book.utils.pageScript
 import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -65,7 +66,7 @@ class PageFixture(
 
     /** A page script bundled in the app (res/raw). */
     fun script(@RawRes id: Int): String =
-        context.resources.openRawResource(id).bufferedReader().use { it.readText() }
+        context.resources.pageScript(id)
 
     /** Runs the bundled page script [id] on the page. */
     fun run(@RawRes id: Int): String = eval(script(id))

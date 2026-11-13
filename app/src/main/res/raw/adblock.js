@@ -40,6 +40,20 @@
         window.AstryxPage?.postMessage(JSON.stringify({ call: 'adHidden', kind }));
     }
 
+    // The feed ads counted so far: each list's posts, by their id in it. Facebook draws an ad's
+    // post again while it sits in the feed (its rows shown again, or replaced by new ones): hidden
+    // again each time, it's still one ad. A count by hides grew by itself on a phone (2026-11-13).
+    const countedAds = new WeakMap();
+    function countOnce(rows) {
+        const list = rows[0].parentElement;
+        const id = rows[0].getAttribute('data-tracking-duration-id');
+        const ids = countedAds.get(list) || new Set();
+        countedAds.set(list, ids);
+        if (ids.has(id)) return;
+        ids.add(id);
+        adHidden('feed');
+    }
+
     function removeFeedAds() {
         const spans = document.querySelectorAll('span.f5[style*="color:#8a8d91"]:not([data-nosnippet])');
 
@@ -53,10 +67,11 @@
             // A label outside a feed post (a photo opened directly has some) has no post to hide.
             const rows = window.feedPostRows(parent);
             if (!rows.length) continue;
-            // Hidden again on every change (a post's rows can come one by one), counted the first time.
-            const counted = rows[0].style.display === 'none';
+            // Looked at on every change: left alone while hidden whole, hidden again when another of
+            // its rows came (they can come one by one) or Facebook drew it again.
+            if (rows.every(row => row.style.display === 'none')) continue;
             window.hideFeedPost(parent);
-            if (!counted) adHidden('feed');
+            countOnce(rows);
         }
     }
 
