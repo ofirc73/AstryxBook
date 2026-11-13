@@ -1997,7 +1997,7 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - Found by the audit's second reading pass (PS-1, PS-2, PS-3, PS-6, PS-D1, PS-D2; 2026-11-12).
   Covered by `PipFocusModeJsTest` and `PipKeepPlayingJsTest` (each new test failed before the
   change). Live: `aReel_keepsPlayingInPip`; a reel moving on in PiP (PS-2) wasn't tried live:
-  the test account's reels in PiP didn't advance while the check ran.
+  that check doesn't wait for a reel to end.
 
 ## Known limitations
 
