@@ -2118,6 +2118,18 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   appended one snapshot, skipped a second the same day, and wrote nothing when the call failed.
   Repo tooling only: no app change, no release.
 
+## Story editor and reel creator: one copy of each helper
+
+- No change in what the app does. `story_layout.js` builds its two Done buttons with one helper
+  and replays a finger's drag through its one mouse-event builder (the drag's own copy is gone);
+  the viewport rewrite it shared, as a copy, with `share_media.js` is one script now,
+  `viewport_meta.js`, run before both. The reel creator's layout (`fitReelPage`, named
+  `fitStoryPage` though only the reel share used it) is installed once a page: a share run again
+  on the same page added another timer and observer each time.
+- Found by the audit's second reading pass (SL-D, SM-4; 2026-11-12). Covered by
+  `StoryLayoutJsTest`, `LayerStoryViewerJsTest` and `ShareMediaJsTest` (they run
+  `viewport_meta.js` first, as the app does), and the whole live suite with the chat.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:

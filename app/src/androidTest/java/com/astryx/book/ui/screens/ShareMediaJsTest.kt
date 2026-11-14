@@ -38,7 +38,7 @@ class ShareMediaJsTest {
 
         /** share_media.js for [target], after [setup] (the flags the app sets, ShareEffects). */
         fun run(target: String, setup: String = "") {
-            eval("window.__astryxShareFindMs = 1500; window.__astryxShareTarget = '$target'; $setup\n${page.script(R.raw.share_media)}")
+            eval("window.__astryxShareFindMs = 1500; window.__astryxShareTarget = '$target'; $setup\n${page.script(R.raw.viewport_meta)}\n${page.script(R.raw.share_media)}")
         }
 
         fun eval(js: String) = page.eval(js)

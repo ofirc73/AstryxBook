@@ -82,6 +82,7 @@ class LayerStoryViewerJsTest {
     @Test
     fun yourStoriesAfterShare_stayLaidOut_withTheCreatorsScriptStillRunning() {
         page.load("https://www.facebook.com/stories/create", STORIES_PAGE)
+        page.run(R.raw.viewport_meta)
         page.run(R.raw.story_layout)
         eval("history.pushState(null, '', '/stories'); window.__astryxSharedStoryOpen = true;" +
             " window.__resized = 0; window.addEventListener('resize', function () { window.__resized++; }); 1")

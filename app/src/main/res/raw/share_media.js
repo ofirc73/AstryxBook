@@ -43,8 +43,8 @@
   var GROUP_PICK_MS = 10 * 60 * 1000; // the app gives up a group share after that too
   var FIND_MS = window.__astryxShareFindMs || 20000; // tests shorten it
   var TAKE_MS = 5000;
-  var STORY_MIN_WIDTH = 600;
-  var STORY_MAX_WIDTH = 1200;
+  var REEL_MIN_WIDTH = 600;
+  var REEL_MAX_WIDTH = 1200;
 
   var inbox = [];
   var waiting = null;
@@ -413,7 +413,7 @@
   }
 
   function shareToReel() {
-    fitStoryPage();
+    fitReelPage();
     waitFor(createReelButton, FIND_MS, function (button) {
       if (!button) { send({ call: 'failed', reason: 'noComposer' }); return; }
       button.click();
@@ -448,28 +448,21 @@
     return input;
   }
 
-  // The desktop story creator is wider than a phone (its preview sits right of the controls) and
+  // The desktop reel creator is wider than a phone (its preview sits right of the controls) and
   // its viewport says device-width: lay it out at its own width and fit that to the screen. The
   // layer allows a wide viewport on this page. Kept up when another script (pinch_to_zoom.js)
-  // rewrites the viewport.
-  function fitStoryPage() {
+  // rewrites the viewport (viewport_meta.js). Once a page: a share run again on it added another.
+  function fitReelPage() {
+    if (window.__astryxReelPageFit) return;
+    window.__astryxReelPageFit = true;
     var width = 0;
     var content = '';
     function apply() {
-      var metas = document.querySelectorAll('meta[name="viewport"]');
-      if (!metas.length && document.head) {
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        document.head.appendChild(meta);
-        metas = [meta];
-      }
-      for (var i = 0; i < metas.length; i++) {
-        if (metas[i].getAttribute('content') !== content) metas[i].setAttribute('content', content);
-      }
+      if (content) window.__astryxSetViewport(content);
     }
-    // The page grows when a story opens in the editor (its preview): follow it, widening only.
+    // The page grows when the creator opens a video (its preview): follow it, widening only.
     function fit() {
-      var wanted = Math.min(STORY_MAX_WIDTH, Math.max(STORY_MIN_WIDTH, document.documentElement.scrollWidth));
+      var wanted = Math.min(REEL_MAX_WIDTH, Math.max(REEL_MIN_WIDTH, document.documentElement.scrollWidth));
       if (wanted <= width) return;
       width = wanted;
       var scale = Math.min(1, (window.outerWidth || window.innerWidth) / width).toFixed(3);

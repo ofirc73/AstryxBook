@@ -25,13 +25,16 @@ private const val SHARE_LOAD_WAIT_MS = 2000L
 /** Photos or videos shared into the app for [target]; [seq] tells two shares apart. */
 data class ShareMediaRequest(val seq: Int, val target: ShareTarget)
 
-/** share_media.js for [target], with the target it's run for; [fromHome]: a feed share run on Home. */
+/**
+ * share_media.js for [target], with the target it's run for; [fromHome]: a feed share run on Home.
+ * After viewport_meta.js, which lays the reel creator out.
+ */
 internal fun shareMediaScript(
     resources: android.content.res.Resources,
     target: ShareTarget,
     fromHome: Boolean = false,
 ): String {
-    val script = resources.pageScript(R.raw.share_media)
+    val script = resources.pageScript(R.raw.viewport_meta) + "\n" + resources.pageScript(R.raw.share_media)
     // The note shown while Facebook prepares the photos (share_media.js showAdding).
     val count = ShareMediaQueue.remaining(target)
     val adding = if (count > 1) resources.getString(R.string.share_media_adding_several, count)
