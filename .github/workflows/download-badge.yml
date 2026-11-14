@@ -43,4 +43,5 @@ jobs:
 
       - name: Commit when the count changed
         working-directory: stats
-        run: bash ../.github/scripts/commit-stats.sh "stats: downloads badge $(date -u +%F)" badge.json
+        run: |
+          bash ../.github/scripts/commit-stats.sh "stats: downloads badge $(date -u +%F)" badge.json

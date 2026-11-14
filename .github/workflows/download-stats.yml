@@ -45,4 +45,5 @@ jobs:
 
       - name: Commit snapshot
         working-directory: stats
-        run: bash ../.github/scripts/commit-stats.sh "stats: download snapshot $(date -u +%F)" downloads.csv
+        run: |
+          bash ../.github/scripts/commit-stats.sh "stats: download snapshot $(date -u +%F)" downloads.csv
