@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricPrompt
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +16,12 @@ import com.astryx.book.utils.canUseAppLock
 import com.astryx.book.utils.isAppLockEnabled
 import com.astryx.book.utils.shouldLockOnReturn
 import com.eepiemi.materialbook.R
+
+/**
+ * Whether app lock covers the app (provided by MainActivity). What the lock screen can't cover, a
+ * dialog's own window, reads it to close itself when the app locks.
+ */
+val LocalAppLocked = compositionLocalOf { false }
 
 /**
  * App lock for [activity]. While locked, AppLockScreen covers the page and the system prompt asks

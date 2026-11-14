@@ -24,6 +24,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -60,6 +61,7 @@ import com.eepiemi.materialbook.ui.theme.MaterialbookTheme
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
 import com.astryx.book.AppLockController
+import com.astryx.book.LocalAppLocked
 import com.astryx.book.LockScreenAudioController
 import com.astryx.book.linkUrl
 import com.astryx.book.mediaShareTarget
@@ -258,39 +260,41 @@ class MainActivity : FragmentActivity() {
             MaterialbookTheme(dynamicColor = materialYou) {
                 // Stacks the lock screen over the page; passes the window's exact size on
                 // to the page, as the window itself did before.
-                Box(Modifier.fillMaxSize(), propagateMinConstraints = true) {
-                    MaterialbookWebView(
-                        url = startUrl,
-                        settingsVM = settingsVM,
-                        pipToggleTrigger = pipToggleTrigger,
-                        pipEnteringTrigger = pipEnteringTrigger,
-                        isInPipMode = isInPipMode,
-                        pipStartedWhilePlaying = pipStartedWhilePlaying,
-                        pipHandoffReadTrigger = lockScreenAudio.readTrigger,
-                        relayoutTrigger = relayoutTrigger,
-                        relayoutPending = relayoutPending,
-                        pipHandback = lockScreenAudio.handback,
-                        openLinkRequest = openLinkRequest,
-                        shareMediaRequest = shareMediaRequest,
-                        onPipHandoffRead = lockScreenAudio::onPageRead,
-                        onPipHandoffEvent = { event, data -> runOnUiThread { lockScreenAudio.onHandoffEvent(event, data) } },
-                        onPipVideoGone = { runOnUiThread { closeEmptyPip() } },
-                        isAppLocked = appLockController.isLocked,
-                        onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
-                            updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
-                        }
-                    )
-                    if (appLockController.isLocked) AppLockScreen(onUnlock = appLockController::authenticate)
-                    var askWebViewUpdate by remember { mutableStateOf(outdatedWebView != null) }
-                    if (askWebViewUpdate && outdatedWebView != null) {
-                        WebViewUpdateDialog(
-                            version = outdatedWebView.versionName ?: "",
-                            onUpdate = {
-                                askWebViewUpdate = false
-                                openStorePage(outdatedWebView.packageName)
-                            },
-                            onDismiss = { askWebViewUpdate = false }
+                CompositionLocalProvider(LocalAppLocked provides appLockController.isLocked) {
+                    Box(Modifier.fillMaxSize(), propagateMinConstraints = true) {
+                        MaterialbookWebView(
+                            url = startUrl,
+                            settingsVM = settingsVM,
+                            pipToggleTrigger = pipToggleTrigger,
+                            pipEnteringTrigger = pipEnteringTrigger,
+                            isInPipMode = isInPipMode,
+                            pipStartedWhilePlaying = pipStartedWhilePlaying,
+                            pipHandoffReadTrigger = lockScreenAudio.readTrigger,
+                            relayoutTrigger = relayoutTrigger,
+                            relayoutPending = relayoutPending,
+                            pipHandback = lockScreenAudio.handback,
+                            openLinkRequest = openLinkRequest,
+                            shareMediaRequest = shareMediaRequest,
+                            onPipHandoffRead = lockScreenAudio::onPageRead,
+                            onPipHandoffEvent = { event, data -> runOnUiThread { lockScreenAudio.onHandoffEvent(event, data) } },
+                            onPipVideoGone = { runOnUiThread { closeEmptyPip() } },
+                            isAppLocked = appLockController.isLocked,
+                            onVideoPlayingChanged = { isPlaying, videoWidth, videoHeight ->
+                                updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
+                            }
                         )
+                        if (appLockController.isLocked) AppLockScreen(onUnlock = appLockController::authenticate)
+                        var askWebViewUpdate by remember { mutableStateOf(outdatedWebView != null) }
+                        if (askWebViewUpdate && outdatedWebView != null) {
+                            WebViewUpdateDialog(
+                                version = outdatedWebView.versionName ?: "",
+                                onUpdate = {
+                                    askWebViewUpdate = false
+                                    openStorePage(outdatedWebView.packageName)
+                                },
+                                onDismiss = { askWebViewUpdate = false }
+                            )
+                        }
                     }
                 }
             }

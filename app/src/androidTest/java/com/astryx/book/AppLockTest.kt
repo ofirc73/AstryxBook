@@ -2,6 +2,7 @@ package com.astryx.book
 import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.data.local.SettingsDataStore
 import com.astryx.book.utils.AppLock
 import com.astryx.book.utils.canUseAppLock
@@ -105,6 +106,46 @@ class AppLockTest {
         assertTrue(app.waitFor(10_000) { !locked() })
     }
 
+    // A dialog open when the app locks has its own window, above the app's lock screen: left open,
+    // it showed once the system's unlock prompt was cancelled, and acted with the app still locked. Closed instead, as
+    // Settings is. [page]'s element [opener] (a JS expression) opens it, and its [title] shows.
+    private fun assertClosedWhenTheAppLocks(page: String, opener: String, title: Int) {
+        assumeTrue(canUseAppLock(app.context) && pin != null)
+        setLock(AppLock.IMMEDIATELY)
+        app.startOnPage(PAGE_URL, page)
+        assertTrue(app.waitFor { locked() })
+        unlockWithPin()
+        assertTrue(app.waitFor(10_000) { !locked() })
+        val shown = app.context.getString(title)
+        assertTrue(app.tapOn(app.mainWebView(), opener))
+        assertTrue("the dialog never showed", app.waitFor { app.textShown(shown) })
+
+        app.pressHome()
+        assertTrue(app.waitFor { app.isInBackground() })
+        app.start()
+        assertTrue(app.waitFor { locked() })
+        // The system's unlock prompt covers everything; cancelled, the app's lock screen shows.
+        Thread.sleep(2000)
+        shell("input keyevent KEYCODE_BACK")
+        Thread.sleep(1500)
+        assertTrue("cancelling the prompt unlocked the app", locked())
+        assertFalse("the dialog showed over the lock screen", app.textShown(shown))
+    }
+
+    @Test
+    fun aLinkIntoAnotherAppsDialog_isClosedWhenTheAppLocks() = assertClosedWhenTheAppLocks(
+        "<html><body><a id='l' href='market://details?id=com.example' style='display:block;padding:60px;font-size:30px'>store</a><script>window.__testPage = true;</script></body></html>",
+        "document.getElementById('l')",
+        R.string.external_link_title,
+    )
+
+    @Test
+    fun theChoiceWhereAFileComesFrom_isClosedWhenTheAppLocks() = assertClosedWhenTheAppLocks(
+        "<html><body><input id='f' type='file' accept='image/*' style='display:block;width:300px;height:120px;margin:80px 20px'><script>window.__testPage = true;</script></body></html>",
+        "document.getElementById('f')",
+        R.string.attach_take_photo,
+    )
+
     @Test
     fun aGracePeriod_letsAQuickReturnIn() {
         assumeTrue(canUseAppLock(app.context) && pin != null)
@@ -119,5 +160,9 @@ class AppLockTest {
         app.start()
         Thread.sleep(2000)
         assertFalse("a return within the grace period was locked", locked())
+    }
+
+    private companion object {
+        const val PAGE_URL = "https://m.facebook.com/some.page/posts/4/"
     }
 }
