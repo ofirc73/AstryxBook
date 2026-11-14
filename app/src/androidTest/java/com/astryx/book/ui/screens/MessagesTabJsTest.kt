@@ -1,4 +1,5 @@
 package com.astryx.book.ui.screens
+import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.astryx.book.PageFixture
@@ -44,8 +45,16 @@ class MessagesTabJsTest {
             " t.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true })); }); 1"
     )
 
+    // Logged out (CI's emulator), Facebook answers /messages/ with its login page, the address it
+    // was asked for in `next`: either way the tap went there.
     private fun assertGoesToMessages() {
-        assertTrue({ "the tap didn't go to /messages/ (${url()})" }, page.waitFor(10_000) { url() == "https://m.facebook.com/messages/" })
+        assertTrue({ "the tap didn't go to /messages/ (${url()})" }, page.waitFor(10_000) {
+            Uri.decode(url()).let { it.startsWith(MESSAGES) || it.contains("next=$MESSAGES") }
+        })
+    }
+
+    private companion object {
+        const val MESSAGES = "https://m.facebook.com/messages/"
     }
 
     @Test
