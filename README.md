@@ -16,6 +16,7 @@ Astryxbook is a **privacy-friendly Facebook client** and an open-source **altern
 
 Key features include optimized **webview** navigation, real **picture-in-picture** multitasking, native **material-design** component integration, and complete **adblock** / **no-ads** content filtering out of the box.
 
+> [!NOTE]
 > **Kept working as Facebook changes:** a daily check runs the app against the live Facebook site, so when Facebook changes its pages the break shows up on our side within a day and the fix ships in the next release.
 
 <h1 align="middle">
