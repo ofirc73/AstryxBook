@@ -88,7 +88,10 @@ user-visible change.
   tests then fail with `ActivityNotFoundException` for `MainActivity` and `ENOENT` in its cache.
   Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
   never returned"); `adb emu kill` and start it again (minimized: a windowed start may not come
-  up), which quick-boots the saved snapshot with older APKs, so reinstall both before testing. The live
+  up) cold, `emulator -avd astryx_api36 -no-snapshot-load -no-snapshot-save -feature -QuickbootFileBacked`
+  (the last two: no 4 GB snapshot written at exit, no 4 GB `snapshots\default_bootam.img` for the guest's
+  RAM; delete a `default_boot` an older start left, with the emulator stopped; keep `logged_in`: it, with the
+  data image, holds the test account's login), so reinstall the APKs before testing. The live
   checks against real Facebook (`LiveFacebookCanaryTest`; "canary" in file, class and argument names
   means these, and docs call them live checks) are skipped unless run with
   `-e canary true` on a device where the debug app is logged in; `tools/canary.ps1` builds main
@@ -117,9 +120,7 @@ user-visible change.
   qemu running): the checks get `-ChecksMinutes` (60), their output streams to `<date>.checks.txt`,
   and a hung run is reported with the check it hung in (logcat's `TestRunner` `started:`); the
   emulator it started is stopped with `Stop-Emulator` (`tools/emulator.ps1`: `emu kill`, then the
-  qemu process if it's still there a minute on, then the AVD's `snapshots\default_boot` deleted: even
-  with `-no-snapshot-save` the emulator keeps its 4 GB RAM file there, made again at each cold boot;
-  `tools/stop-emulator.ps1` does the same for a by-hand stop, never `adb emu kill` alone). It reports through
+  qemu process if it's still there a minute on). It reports through
   `.github/scripts/canary-issue.sh`, as the workflow does: failures in one "Daily Facebook check
   failed" issue, closed when the checks pass again; a check that passed only after a workaround (the
   reel check's second Home) prints a `CANARY NOTE:` line (`note()`), listed in the issue. A part

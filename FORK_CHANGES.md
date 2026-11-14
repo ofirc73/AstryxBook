@@ -2109,20 +2109,19 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - **The daily check stops only the emulator it started.** `Stop-Emulator` waited for and then
   stopped every `qemu-system-*` process, so a second emulator open at the time was stopped too.
   It now stops the one this run started (its serial and qemu processes).
-- **The local emulator no longer saves a quick-boot snapshot.** It is always cold-booted
-  (`-no-snapshot-load`), so the `default_boot` snapshot the emulator wrote at every exit (4.1 GB
-  in the AVD folder, 2026-11-14) was never loaded. The daily check starts it with
-  `-no-snapshot-save` too, and by hand the same pair of flags is used (`emulator -avd
-  astryx_api36 -no-snapshot-load -no-snapshot-save`). The `logged_in` snapshot and the data image
-  (the test account's login) are untouched. Tools only, no release; CI's AVD cache is a different
+- **The local emulator no longer writes or backs its RAM with a 4 GB snapshot file.** It is always
+  cold-booted (`-no-snapshot-load`), yet the emulator wrote its `default_boot` snapshot at every exit
+  (4.1 GB in the AVD folder, 2026-11-14) and, with `-no-snapshot-save` alone, still kept the guest's
+  RAM in `snapshots\default_bootam.img` (4 GB, no `snapshot.pb`) for as long as it ran, which is
+  most of the day. The daily check now starts it with `-no-snapshot-save -feature
+  -QuickbootFileBacked`, and by hand the same flags are used (`emulator -avd astryx_api36
+  -no-snapshot-load -no-snapshot-save -feature -QuickbootFileBacked`). Tried on the emulator
+  (2026-11-14): two cold starts, each booted in 28 s, with no `default_boot` made, the `logged_in`
+  snapshot and the data image untouched, the debug app still logged in (the feed showed), and
+  `HideGroupsJsTest` passing; the AVD folder stayed at 21.3 GB (25.3 GB with the file). Not tried
+  through `canary.ps1`'s headless start itself. A `default_boot` an older start left can be deleted by
+  hand with the emulator stopped. Tools and docs only, no release; CI's AVD cache is a different
   matter and is unchanged (a `-no-snapshot-save` try there once broke a PiP test).
-- **Stopping the local emulator deletes its 4 GB RAM file.** `-no-snapshot-save` (above) stops the
-  snapshot write at exit, but the emulator (37.1.11) still keeps the guest RAM's backing file,
-  `snapshots\default_boot\ram.img` (no `snapshot.pb`), and makes it again at each start: the AVD
-  folder was back to 25.3 GB after one cold start (2026-11-14). `Stop-Emulator` now deletes that
-  folder once the emulator's processes have ended (`Remove-RamSnapshot`; the `logged_in` snapshot
-  and the data image stay), and the new `tools/stop-emulator.ps1` stops the running emulator the
-  same way for a by-hand stop. Tools only, no release.
 - `renew-fb-cookies.ps1` needs PowerShell 7 and now says so (`#requires -Version 7`): Windows
   PowerShell 5.1 split the quoted Python it passes to `python -c`, and the syntax error was
   reported as Python missing.
