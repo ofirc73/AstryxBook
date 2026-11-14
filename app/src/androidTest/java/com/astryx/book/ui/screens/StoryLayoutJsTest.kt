@@ -385,6 +385,45 @@ class StoryLayoutJsTest {
         assertTrue(h.eval("window.__mouse.join(' ')"), h.waitFor("window.__mouse.join(' ').indexOf('mousedown@') >= 0 && window.__mouse.join(' ').indexOf('mouseup@') >= 0"))
     }
 
+    // SL-2: a second finger landing during a drag (to resize a sticker), or a cancelled touch (a
+    // system gesture), ended the drag with no mouseup: Facebook's editor kept the mouse down on the
+    // sticker, and the next tap moved it there.
+    @Test
+    fun aDragEndedByASecondFingerOrACancel_releasesTheMouse() {
+        val h = Harness()
+        h.load(CREATOR)
+        h.run()
+        h.eval("window.__showFrame()")
+        assertTrue(h.waitFor("!!document.querySelector('[data-astryx-story=main]')"))
+        h.eval(RECORD_MOUSE)
+
+        h.eval(touch("touchstart", 100, 300) + touch("touchmove", 100, 330) + touch("touchmove", 100, 360) +
+            touch("touchstart", 100, 360, fingers = 2))
+        assertTrue("a second finger left the drag open: ${h.eval("window.__mouse.join(' ')")}",
+            h.eval("window.__mouse.join(' ')").unquoted().endsWith("pointerup@100,360 mouseup@100,360"))
+        h.eval("window.__mouse = []")
+
+        h.eval(touch("touchstart", 100, 300) + touch("touchmove", 100, 330) + touch("touchcancel", 100, 330))
+        assertTrue("a cancelled touch left the drag open: ${h.eval("window.__mouse.join(' ')")}",
+            h.eval("window.__mouse.join(' ')").unquoted().endsWith("pointerup@100,330 mouseup@100,330"))
+    }
+
+    // SL-3: an action button without text (Share while it shows a spinner) made every row of icon
+    // buttons outside the tools match it, and each such row was hidden.
+    @Test
+    fun anActionWithoutText_hidesNoRowOfIconButtons() {
+        val h = Harness()
+        h.load(CREATOR)
+        h.run()
+        h.eval("window.__showFrame()")
+        assertTrue(h.waitFor("!!document.querySelector('[data-astryx-story=main]')"))
+        h.eval("document.querySelectorAll('#actions [role=button]')[1].textContent = '';" +
+            " document.body.insertAdjacentHTML('beforeend', \"<div id='icons'><div role='button' aria-label='Pause'><svg width='20' height='20'></svg></div>" +
+            "<div role='button' aria-label='Undo'><svg width='20' height='20'></svg></div></div>\"); 1")
+        Thread.sleep(1200)
+        assertEquals("a row of icon buttons was hidden", "false", h.hidden("#icons"))
+    }
+
     @Test
     fun aFingerDraggingAStickerOnTheStory_isReplayedAsAMouseDrag_aTapIsNot() {
         val h = Harness()
@@ -491,11 +530,13 @@ class StoryLayoutJsTest {
             "  document.getElementById('frame').addEventListener(t, function (e) {" +
             "    if (e.pointerType === undefined || e.pointerType === 'mouse') window.__mouse.push(t + '@' + e.clientX + ',' + e.clientY); }); });"
 
-        // A one-finger touch event on the story's frame, at (x, y).
-        fun touch(type: String, x: Int, y: Int) =
+        // A touch event on the story's frame, at (x, y), with [fingers] down (a second one beside it).
+        fun touch(type: String, x: Int, y: Int, fingers: Int = 1) =
             "(function () { var f = document.getElementById('frame');" +
                 " var t = new Touch({ identifier: 1, target: f, clientX: $x, clientY: $y, screenX: $x, screenY: $y });" +
+                " var down = [t]; if ($fingers > 1) down.push(new Touch({ identifier: 2, target: f, clientX: $x + 40, clientY: $y, screenX: $x + 40, screenY: $y }));" +
+                " var up = '$type' === 'touchend' || '$type' === 'touchcancel';" +
                 " f.dispatchEvent(new TouchEvent('$type', { bubbles: true, cancelable: true, composed: true," +
-                "   touches: '$type' === 'touchend' ? [] : [t], targetTouches: '$type' === 'touchend' ? [] : [t], changedTouches: [t] })); })();"
+                "   touches: up ? [] : down, targetTouches: up ? [] : down, changedTouches: [t] })); })();"
     }
 }

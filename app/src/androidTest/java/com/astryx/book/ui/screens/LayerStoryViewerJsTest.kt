@@ -75,6 +75,24 @@ class LayerStoryViewerJsTest {
         assertEquals("Facebook's search box is still over the story", "\"none\"", display("search"))
     }
 
+    // SL-1: after Share to story the creator moves in-page to /stories with story_layout.js still
+    // running. It found no story frame there and took its marks off the whole page, the Stories
+    // column this script had just hidden included: the column flashed back several times a second,
+    // and Facebook sized the story again each time.
+    @Test
+    fun yourStoriesAfterShare_stayLaidOut_withTheCreatorsScriptStillRunning() {
+        page.load("https://www.facebook.com/stories/create", STORIES_PAGE)
+        page.run(R.raw.story_layout)
+        eval("history.pushState(null, '', '/stories'); window.__astryxSharedStoryOpen = true;" +
+            " window.__resized = 0; window.addEventListener('resize', function () { window.__resized++; }); 1")
+        page.run(R.raw.layer_story_viewer)
+        Thread.sleep(1500)
+        assertEquals("the Stories column came back", "\"none\"", display("column"))
+        assertTrue("the story was sized again and again (${eval("window.__resized")} resizes)", eval("window.__resized").toInt() <= 2)
+        assertEquals("the creator's script still runs on the stories page", "undefined",
+            eval("typeof window.__astryxStoryLayout").removeSurrounding("\""))
+    }
+
     @Test
     fun theStoriesPage_withNoStoryOpenedByTheApp_isLeftAlone() {
         load(STORIES_URL, STORIES_PAGE)

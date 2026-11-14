@@ -210,7 +210,14 @@
 
   // Tags the preview, the sidebar and its tools for the style sheet, and hides the rest of the
   // sidebar (its header, the AI label, its own Discard / Share).
+  // The creator moves in-page to the stories page after Share to story: there this script stops
+  // (it found no story frame and took its marks off the whole page, layer_story_viewer.js's too,
+  // several times a second).
   function layout() {
+    if (!/^\/stories\/create/.test(location.pathname)) {
+      if (window.__astryxStoryLayout) window.__astryxStoryLayout.stop();
+      return;
+    }
     try {
       arrange();
     } catch (e) {
@@ -582,7 +589,11 @@
     var actionLabels = [];
     if (actions) {
       var actionButtons = actions.querySelectorAll('[role="button"]');
-      for (var a = 0; a < actionButtons.length; a++) actionLabels.push((actionButtons[a].innerText || '').replace(/^\s+|\s+$/g, ''));
+      for (var a = 0; a < actionButtons.length; a++) {
+        // An action without text (Share showing a spinner) matched every icon-only button.
+        var actionLabel = (actionButtons[a].innerText || '').replace(/^\s+|\s+$/g, '');
+        if (actionLabel) actionLabels.push(actionLabel);
+      }
     }
     var all = document.querySelectorAll('[role="button"]');
     for (var o = 0; o < all.length; o++) {
@@ -592,7 +603,8 @@
         other.setAttribute('data-astryx-story-hide', ''); // its privacy button, kept in the bottom bar
         continue;
       }
-      if (actionLabels.indexOf((other.innerText || '').replace(/^\s+|\s+$/g, '')) === -1) continue;
+      var otherLabel = (other.innerText || '').replace(/^\s+|\s+$/g, '');
+      if (!otherLabel || actionLabels.indexOf(otherLabel) === -1) continue;
       var row = other.parentElement;
       while (row && row !== document.body && row.querySelectorAll('[role="button"]').length < 2) row = row.parentElement;
       if (row && row !== document.body && !row.contains(frame) && !row.contains(nav)) {
@@ -754,9 +766,17 @@
       }
       start.target.dispatchEvent(new MouseEvent(mouseType, init));
     }
+    // A drag that ends without its finger lifting (a second finger landing to resize a sticker, a
+    // system gesture cancelling the touch) releases the mouse where the finger last was: left
+    // down, Facebook's editor moved the sticker to the next tap.
+    function release() {
+      if (start && dragging) fire(start.last || start.touch, 'mouseup', 'pointerup', 0);
+      start = null;
+      dragging = false;
+    }
     on(document, 'touchstart', function (e) {
       var main = document.querySelector('[data-astryx-story="main"]');
-      if (e.touches.length !== 1 || !main || !main.contains(e.target)) { start = null; return; }
+      if (e.touches.length !== 1 || !main || !main.contains(e.target)) { release(); return; }
       var t = e.touches[0];
       start = { target: e.target, x: t.clientX, y: t.clientY, touch: t };
       dragging = false;
@@ -770,8 +790,10 @@
         fire(start.touch, 'mousedown', 'pointerdown', 1);
       }
       e.preventDefault();
+      start.last = t;
       fire(t, 'mousemove', 'pointermove', 1);
     }, { capture: true, passive: false });
+    on(document, 'touchcancel', release, { capture: true, passive: true });
     on(document, 'touchend', function (e) {
       if (!start) return;
       var end = e.changedTouches[0];

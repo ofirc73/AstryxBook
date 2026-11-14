@@ -1999,6 +1999,25 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   change). Live: `aReel_keepsPlayingInPip`; a reel moving on in PiP (PS-2) wasn't tried live:
   that check doesn't wait for a reel to end.
 
+## Story editor: after Share, and a drag with two fingers
+
+- **Your story right after posting stays laid out.** After Share to story the creator moves to
+  Facebook's stories page in the same page, and the editor's layout script went on running
+  there. It found no story to lay out and took its marks off the whole page, including the
+  ones the story viewer had just used to hide the Stories column and top bar: they flashed
+  back several times a second, and Facebook sized the story again each time. The editor's
+  script now stops when the page leaves the creator, and the viewer uses its own mark.
+- **A second finger during a drag no longer leaves the sticker stuck to the next tap.** Putting
+  a second finger down while dragging a sticker (to resize it), or a system gesture cancelling
+  the touch, ended the drag without releasing the mouse; Facebook's editor then moved the
+  sticker to wherever the next tap landed. The mouse is released where the finger last was.
+- Smaller: an action button with no text (Share while it shows a spinner) no longer hides every
+  row of icon buttons outside the tools.
+- Found by the audit's second reading pass (SL-1, SL-2, SL-3; 2026-11-12). Covered by
+  `LayerStoryViewerJsTest` and `StoryLayoutJsTest` (each new test failed before the change).
+  Live: the seven story checks pass; the real case of SL-1 needs a posted story, which the
+  checks never make, so it's covered by the fixed-page test only.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:
