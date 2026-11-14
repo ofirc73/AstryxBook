@@ -1,5 +1,6 @@
 package com.astryx.book.ui.components.settings
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -43,17 +44,19 @@ import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eepiemi.materialbook.R
 import com.eepiemi.materialbook.ui.viewmodel.SettingsViewModel
 import com.astryx.book.utils.AdsHidden
-import com.astryx.book.utils.AppLock
-import com.astryx.book.utils.KeepScreenOn
-import com.astryx.book.utils.TextZoom
 import com.astryx.book.utils.canUseAppLock
 import com.eepiemi.materialbook.utils.effectiveDesktop
 import com.astryx.book.utils.isAppLockEnabled
@@ -126,7 +129,6 @@ internal fun AppearanceSettings(
     val materialYou = viewModel.materialYou.collectAsState()
     val amoledBlack = viewModel.amoledBlack.collectAsState()
     val textZoom = viewModel.textZoom.collectAsState()
-    val textZoomLabels = TextZoom.ALL.associateWith { textZoomLabel(it) }
     val stickyNavbar = viewModel.stickyNavbar.collectAsState()
     val immersiveMode = viewModel.immersiveMode.collectAsState()
     val desktopLayout = viewModel.desktopLayout.collectAsState()
@@ -153,8 +155,7 @@ internal fun AppearanceSettings(
             SettingsItem(
                 icon = Icons.Outlined.FormatSize,
                 title = stringResource(R.string.text_size_title),
-                supportingText = textZoomLabels[textZoom.value]
-                    ?: textZoomLabels.getValue(TextZoom.DEFAULT),
+                supportingText = textZoomLabel(textZoom.value),
                 isActive = null,
                 onClick = onTextSize
             ),
@@ -212,7 +213,6 @@ internal fun VideoSettings(
     val pipPortraitRatio = viewModel.pipPortraitRatio.collectAsState()
     val pipLockscreenAudio = viewModel.pipLockscreenAudio.collectAsState()
     val keepScreenOn = viewModel.keepScreenOn.collectAsState()
-    val keepScreenOnLabels = KeepScreenOn.ALL.associateWith { keepScreenOnLabel(it) }
     SettingsHeading(stringResource(R.string.settings_section_video))
     SettingsGroup(
         items = buildList {
@@ -260,8 +260,7 @@ internal fun VideoSettings(
                 SettingsItem(
                     icon = Icons.Outlined.LightMode,
                     title = stringResource(R.string.keep_screen_on_title),
-                    supportingText = keepScreenOnLabels[keepScreenOn.value]
-                        ?: keepScreenOnLabels.getValue(KeepScreenOn.OFF),
+                    supportingText = keepScreenOnLabel(keepScreenOn.value),
                     isActive = null,
                     onClick = onKeepScreenOn
                 )
@@ -317,19 +316,44 @@ internal fun MessagesLinksSettings(
     )
 }
 
-// Notifications: Facebook notifications and their text.
+// Notifications: Facebook notifications and their text. [canNotify]: whether Android lets the app
+// show notifications (tests stand in for it).
 @Composable
 internal fun NotificationsSettings(
     viewModel: SettingsViewModel,
+    canNotify: (Context) -> Boolean = { NotificationManagerCompat.from(it).areNotificationsEnabled() },
 ) {
     val context = LocalContext.current
     val facebookNotifications = viewModel.facebookNotifications.collectAsState()
     val facebookNotificationText = viewModel.facebookNotificationText.collectAsState()
+    // On, with notifications blocked in Android (the permission withdrawn, or never given to
+    // settings imported from another phone), the worker ran and every notification was dropped,
+    // with nothing to say so. Looked at again each time the app comes back: the user may have just
+    // allowed them in Android's settings.
+    var resumes by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumes++
+        onPauseOrDispose {}
+    }
+    val blocked = facebookNotifications.value && remember(resumes) { !canNotify(context) }
+    fun openNotificationSettings() {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            )
+        }
+    }
     // Facebook notifications needs Android's notification permission (API 33+): asked when the
-    // setting is turned on, which only sticks if it's granted.
+    // setting is turned on, which only sticks if it's granted, or when it's on without it.
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) viewModel.setFacebookNotifications(true)
-        else Toast.makeText(context, R.string.facebook_notifications_denied, Toast.LENGTH_LONG).show()
+        when {
+            granted -> {
+                viewModel.setFacebookNotifications(true)
+                resumes++
+            }
+            facebookNotifications.value -> openNotificationSettings()
+            else -> Toast.makeText(context, R.string.facebook_notifications_denied, Toast.LENGTH_LONG).show()
+        }
     }
     SettingsHeading(stringResource(R.string.settings_section_notifications))
     SettingsGroup(
@@ -337,15 +361,21 @@ internal fun NotificationsSettings(
             SettingsItem(
                 icon = Icons.Outlined.Notifications,
                 title = stringResource(R.string.facebook_notifications_title),
-                supportingText = stringResource(R.string.facebook_notifications_summary),
+                supportingText = stringResource(
+                    if (blocked) R.string.facebook_notifications_denied else R.string.facebook_notifications_summary
+                ),
                 isActive = facebookNotifications.value,
                 onClick = {
-                    val needsPermission = !facebookNotifications.value &&
+                    val needsPermission = (blocked || !facebookNotifications.value) &&
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                         PackageManager.PERMISSION_GRANTED
-                    if (needsPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else viewModel.setFacebookNotifications(!facebookNotifications.value)
+                    when {
+                        needsPermission -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        // Allowed for the app but turned off in Android's settings.
+                        blocked -> openNotificationSettings()
+                        else -> viewModel.setFacebookNotifications(!facebookNotifications.value)
+                    }
                 }
             ),
             // Only while Facebook notifications is on, like the PiP options under PiP.
@@ -369,7 +399,6 @@ internal fun PrivacySettings(
 ) {
     val context = LocalContext.current
     val appLock = viewModel.appLock.collectAsState()
-    val appLockLabels = AppLock.ALL.associateWith { appLockLabel(it) }
     // Checked on each composition: the user may set a screen lock and come back.
     val appLockAvailable = canUseAppLock(context)
     val appLockOnScreenOff = viewModel.appLockOnScreenOff.collectAsState()
@@ -382,7 +411,7 @@ internal fun PrivacySettings(
                 icon = Icons.Outlined.Lock,
                 title = stringResource(R.string.app_lock_title),
                 supportingText = when {
-                    appLockAvailable -> appLockLabels[appLock.value] ?: appLockLabels.getValue(AppLock.OFF)
+                    appLockAvailable -> appLockLabel(appLock.value)
                     else -> stringResource(R.string.app_lock_open_security_settings)
                 },
                 isActive = null,

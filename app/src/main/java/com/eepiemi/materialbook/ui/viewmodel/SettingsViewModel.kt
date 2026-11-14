@@ -454,15 +454,18 @@ class SettingsViewModel(
         /**
          * Converts a stored "W:H" string to a [Rational] suitable for
          * [android.app.PictureInPictureParams.Builder.setAspectRatio].
-         * Falls back to Rational(4, 7) on any parse error so a corrupt pref
+         * Falls back to Rational(4, 7) on any parse error, or a side that isn't
+         * positive ("4:0", which setAspectRatio throws on), so a corrupt pref
          * can never crash the app.
          */
         fun parsedPipRational(stored: String): Rational {
+            val fallback = Rational(4, 7)
             return try {
                 val parts = stored.split(":")
-                Rational(parts[0].trim().toInt(), parts[1].trim().toInt())
+                val (width, height) = parts[0].trim().toInt() to parts[1].trim().toInt()
+                if (width > 0 && height > 0) Rational(width, height) else fallback
             } catch (_: Exception) {
-                Rational(4, 7)
+                fallback
             }
         }
 

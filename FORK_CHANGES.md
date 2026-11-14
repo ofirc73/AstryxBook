@@ -2067,6 +2067,30 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   story posted to prove, RC-5 a reel's way back read on a real page, and LP-1 (the photo
   viewer's work on each page change) is to be measured first.
 
+## Settings: blocked notifications and dialogs that scroll
+
+- **Facebook notifications says when Android blocks them.** With the setting on and the app's
+  notifications off in Android (the permission withdrawn, or never given to settings imported
+  from another phone), the worker ran and every notification was dropped while the row looked as
+  usual. The row now says "Notifications are off for Astryxbook in Android's settings"; a tap asks
+  for the permission (or opens the app's notification settings), and the row is checked again
+  each time the app comes back.
+- **The choice dialogs scroll.** At Android's largest font size in a short window (split screen),
+  App lock's last choice ran off its dialog with no way to reach it (seen on the emulator); the
+  other choice dialogs and Customize feed had the same layout. They now share one dialog box
+  that scrolls.
+- Smaller: a stored PiP ratio with a side that isn't positive ("4:0") falls back to 4:7, as its
+  comment promised (Android throws on it; the presets and import never store one), and the
+  settings rows use the same label functions as their dialogs instead of building the same maps.
+- Found by the audit's second reading pass (SET-2, SET-3, SET-4; 2026-11-12). Covered by
+  `SettingsDialogsTest` (new: the App lock dialog's last choice reached by scrolling, which failed
+  before; the notifications row blocked and allowed) and `PipRatioTest`. Checked by hand on the
+  emulator: the setting on, the permission withdrawn, the row's warning, a tap, Allow, the usual
+  text again. No live check: Settings is the app's own screen, not Facebook's.
+- Not changed: `SettingsViewModel` reads the settings with `runBlocking` when it's created, and
+  repeats one `stateIn` block and one setter per setting. It's upstream's file, and a rewrite
+  would conflict with every upstream merge; the read is one small file, not shown to be slow.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:
