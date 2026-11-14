@@ -1580,6 +1580,15 @@ class LiveFacebookCanaryTest {
                 "data-on-first-visibility-action-id): feed_prefetch.js has nothing to watch (${eval(FEED_LOADING_JS)})")
         }
         val firstPosts = feed.posts
+        val atStart = feed
+        // A first batch shorter than the screen (the test account's feed with its suggested posts
+        // hidden, some runs, 2026-11-14: "at most -466 px below the window" three runs in a row) has
+        // its loading row on screen from the start: there's no early to check.
+        if (atStart.loaderBelow!! <= 0) {
+            gap("feed-prefetch", "the feed's first batch ($firstPosts posts) ended on screen, its loading row " +
+                "${atStart.loaderBelow} px below the window: that feed_prefetch.js asks early wasn't checked")
+            return
+        }
         for (screen in 1..FEED_SCREENS) {
             if (feed.prefetched > 0 && feed.posts > firstPosts) break
             scrollDown()
@@ -1588,7 +1597,7 @@ class LiveFacebookCanaryTest {
         assertTrue("feed_prefetch.js never passed the loading row on to Facebook early (${eval(FEED_LOADING_JS)})",
             feed.prefetched > 0)
         assertTrue("feed_prefetch.js passed the loading row on only once it was on screen " +
-            "(at most ${feed.prefetchedBelow} px below the window)", (feed.prefetchedBelow ?: 0) > 0)
+            "(at most ${feed.prefetchedBelow} px below the window; at the start $atStart)", (feed.prefetchedBelow ?: 0) > 0)
         // The test account's feed stopped after one batch, in Chrome too (2026-10-30).
         if (feed.posts <= firstPosts) {
             untestable("the test account's feed got no second batch (${feed.posts} posts): that the next posts " +

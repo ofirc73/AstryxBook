@@ -851,7 +851,12 @@ lost it as the page it asked for came (the copy-text check's "evaluateJavascript
   the app passes it on to Facebook while it's still below the window (`window.__astryxFeedPrefetched`'s
   `farthest`; `FeedPrefetchJsTest`). It read the last pass's distance until 2026-11-04, when the
   daily check failed on a pass made on screen after the first had gone out early: Facebook can
-  watch the row again once it's on screen, after an ask that brought nothing. That the next posts then arrive is untestable for now: the test account's
+  watch the row again once it's on screen, after an ask that brought nothing. A first batch
+  shorter than the screen (its loading row on screen from the start) leaves no early to check: a
+  gap (`feed-prefetch`), not a failure. On 2026-11-14 the check failed 4 of 7 runs with "at most
+  -466 px below the window", main's build too, then passed 12 of 12; the failure now also shows
+  the feed as it was at the start, to tell that case from a script that stopped asking early.
+  That the next posts then arrive is untestable for now: the test account's
   feed stops after one batch, in Chrome on the emulator too (2026-10-30, after it followed NASA,
   National Geographic and BBC News); the check counts them and says so. Asking again when an early
   ask brings nothing has no live check: it waits for Facebook to drop an ask, which no run can
