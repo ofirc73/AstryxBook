@@ -87,6 +87,8 @@ Set-Content -Path $lock -Value "$PID $(Get-Date -Format o)"
 # The issues are opened, commented on and closed by the script facebook-canary.yml uses, through
 # Git's own bash (a plain `bash` can be WSL's).
 $gitBash = Join-Path (Split-Path (Split-Path (Get-Command git).Source -Parent) -Parent) 'bin\bash.exe'
+# They all carry the label the daily check's issues are listed under (the script reads it).
+$env:ISSUE_LABEL = 'daily-facebook-check'
 # A failed report (gh logged out, no network) throws: it ended unseen, the issue saying nothing.
 function Update-Issue([string]$action, [string]$title, [string]$text) {
     $said = & $gitBash "$repo/.github/scripts/canary-issue.sh" $action $title $text 2>&1
