@@ -2118,6 +2118,20 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   appended one snapshot, skipped a second the same day, and wrote nothing when the call failed.
   Repo tooling only: no app change, no release.
 
+## App lock: dialogs closed when it locks
+
+- **A dialog open when the app locks no longer shows over the lock screen.** The "open this in
+  another app?" dialog and the choice of where a file comes from (camera or files) have their
+  own windows, above the app's lock screen. Left open when the user left the app, they showed
+  over the lock screen once the system's unlock prompt was cancelled, and still worked: the other
+  app opened, or the camera or picker filled the page behind the lock. They now close when the
+  app locks, as Settings already did; the file request is answered as dismissed, so the page's
+  next one comes. (`LocalAppLocked`, provided by MainActivity.)
+- Found by the audit's first pass (left open there; step 22 of the plan, 2026-11-14). Covered by
+  `AppLockTest` (two new tests: a link dialog and the file choice, each open when the app locks;
+  both failed before). They need the emulator's screen lock PIN (`-e pin`), as the other lock
+  tests do. No live check: the dialogs are the app's own, not Facebook's.
+
 ## Story editor and reel creator: one copy of each helper
 
 - No change in what the app does. `story_layout.js` builds its two Done buttons with one helper

@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.astryx.book.ui.components.AttachSourceDialog
 import com.astryx.book.utils.CaptureFile
+import com.astryx.book.LocalAppLocked
 import com.astryx.book.utils.CaptureKind
 import com.astryx.book.utils.newCaptureFile
 import com.eepiemi.materialbook.R
@@ -101,6 +102,16 @@ fun FileRequestEffects(request: FileRequest?, onTaken: () -> Unit, onFiles: (Arr
     }
     fun openPicker(intent: Intent) {
         runCatching { picker.launch(intent) }.onFailure { onCancel() }
+    }
+
+    // The choice has its own window, above the lock screen: answered as dismissed when the app
+    // locks (shown, the camera or the picker could fill the page behind the lock).
+    val locked = LocalAppLocked.current
+    LaunchedEffect(locked) {
+        if (locked && asking != null) {
+            asking = null
+            onCancel()
+        }
     }
 
     LaunchedEffect(request) {

@@ -754,10 +754,13 @@ fun MaterialbookWebView(
     }
 
     // App lock covers the Compose content only: leave what sits above it (a fullscreen
-    // video on the decor view, the Settings dialog's own window) when it locks.
+    // video on the decor view, the Settings dialog's and the link dialogs' own windows) when it
+    // locks. Left open, a link dialog showed over the lock screen and its Open worked locked.
     LaunchedEffect(isAppLocked) {
         if (isAppLocked) {
             fullscreen.hide()
+            pendingExternalLink = null
+            pendingMessengerLink = null
             if (settingsToggle) {
                 setWindow(settingsVM.immersiveMode.value)
                 viewModel.setThemeColor(originalColor.value)
