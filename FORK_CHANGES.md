@@ -644,6 +644,15 @@ on their own can't:
   time when the first request left the window in PiP on a busy CI emulator (no live check: that's
   the test's own step, not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
+- Fixed-page tests for four page scripts that had none (2026-11-14, the audit): `HideGroupsJsTest`
+  (`hide_groups.js`: the search page's last row and the groups card under a post's comments
+  hidden, nothing on Home; no live check, the test account isn't shown these reliably),
+  `StickyNavbarJsTest` (`sticky_navbar.js`: the top and tab bars pinned, the feed below them),
+  `MessagesTabJsTest` (`messages_tab.js`: the Messages tab by its label or its icon goes to
+  `/messages/` unseen by Facebook's handler, another tab doesn't) and `VideoPlayingJsTest`
+  (`video_playing.js`: playing and paused told once each, a video removed while playing told
+  by the poll). Their live checks: `stickyNavbar_keepsTheTabBarOnScreen_downTheFeed`,
+  `theMessagesTab_opensMessagesInTheLayer`, `keepScreenOnWhileVideo_keepsItOnWhileAReelPlays`.
 - `ChatBoxJsTest`: a chat's unsent message back in its box on a new page, once; a sent one (Enter
   empties the box without an input event) not; another chat's box, and a box already holding text,
   left as they are; one kept over a month dropped.
