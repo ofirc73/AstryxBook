@@ -5,11 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BurstMode
 import androidx.compose.material.icons.filled.Camera
@@ -33,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -61,74 +65,85 @@ internal fun HideOptionsDialog(
     val hidePeopleYouMayKnow = viewModel.hidePeopleYouMayKnow.collectAsState()
     val hideGroups = viewModel.hideGroups.collectAsState()
 
-    Dialog(
-        onDismissRequest = { onDismiss() }
-    ) {
+    SettingsDialogColumn(onDismiss = onDismiss, spacing = 8.dp) {
+        // The switches turn hiding on: on means the item is hidden.
+        Text(
+            text = stringResource(R.string.hide_from_feed_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+        )
 
-        Column(
-            modifier = Modifier
-                .clip(RoundedCornerShape(24.dp))
-                .background(color = MaterialTheme.colorScheme.surfaceContainer)
-                .padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // The switches turn hiding on: on means the item is hidden.
-            Text(
-                text = stringResource(R.string.hide_from_feed_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+        HideDialogItem(
+            SettingsItem(
+                icon = Icons.Filled.Try,
+                title = stringResource(R.string.suggested_posts),
+                isActive = hideSuggested.value,
+                onClick = { viewModel.setHideSuggested(!hideSuggested.value) }
+            )
+        )
+
+        HideDialogItem(
+            SettingsItem(
+                icon = Icons.Filled.Camera,
+                title = stringResource(R.string.reels),
+                isActive = hideReels.value,
+                onClick = { viewModel.setHideReels(!hideReels.value) }
+            )
+        )
+
+        HideDialogItem(
+            SettingsItem(
+                icon = Icons.Filled.BurstMode,
+                title = stringResource(R.string.stories),
+                isActive = hideStories.value,
+                onClick = { viewModel.setHideStories(!hideStories.value) }
+            )
+        )
+
+        if (!effectiveDesktop(viewModel.desktopLayout.collectAsState().value, rememberAutoDesktop())) {
+            HideDialogItem(
+                SettingsItem(
+                    icon = Icons.Filled.EmojiPeople,
+                    title = stringResource(R.string.people_you_may_know),
+                    isActive = hidePeopleYouMayKnow.value,
+                    onClick = { viewModel.setHidePeopleYouMayKnow(!hidePeopleYouMayKnow.value) }
+                )
             )
 
             HideDialogItem(
                 SettingsItem(
-                    icon = Icons.Filled.Try,
-                    title = stringResource(R.string.suggested_posts),
-                    isActive = hideSuggested.value,
-                    onClick = { viewModel.setHideSuggested(!hideSuggested.value) }
+                    icon = Icons.Filled.Diversity1,
+                    title = stringResource(R.string.groups),
+                    isActive = hideGroups.value,
+                    onClick = { viewModel.setHideGroups(!hideGroups.value) }
                 )
             )
-
-            HideDialogItem(
-                SettingsItem(
-                    icon = Icons.Filled.Camera,
-                    title = stringResource(R.string.reels),
-                    isActive = hideReels.value,
-                    onClick = { viewModel.setHideReels(!hideReels.value) }
-                )
-            )
-
-            HideDialogItem(
-                SettingsItem(
-                    icon = Icons.Filled.BurstMode,
-                    title = stringResource(R.string.stories),
-                    isActive = hideStories.value,
-                    onClick = { viewModel.setHideStories(!hideStories.value) }
-                )
-            )
-
-            if (!effectiveDesktop(viewModel.desktopLayout.collectAsState().value, rememberAutoDesktop())) {
-                HideDialogItem(
-                    SettingsItem(
-                        icon = Icons.Filled.EmojiPeople,
-                        title = stringResource(R.string.people_you_may_know),
-                        isActive = hidePeopleYouMayKnow.value,
-                        onClick = { viewModel.setHidePeopleYouMayKnow(!hidePeopleYouMayKnow.value) }
-                    )
-                )
-
-                HideDialogItem(
-                    SettingsItem(
-                        icon = Icons.Filled.Diversity1,
-                        title = stringResource(R.string.groups),
-                        isActive = hideGroups.value,
-                        onClick = { viewModel.setHideGroups(!hideGroups.value) }
-                    )
-                )
-            }
         }
     }
 
+}
+
+// A settings dialog's rounded box, its rows in a column that scrolls: at a large font size in a
+// short window (split screen) the last rows of App lock's choices ran off the dialog with no way
+// to reach them.
+@Composable
+private fun SettingsDialogColumn(
+    onDismiss: () -> Unit,
+    spacing: Dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(spacing),
+            content = content,
+        )
+    }
 }
 
 @Composable
@@ -193,10 +208,13 @@ internal fun appLockLabel(mode: String): String = when (mode) {
     else -> stringResource(R.string.app_lock_off)
 }
 
+// Each choice's label, also for a stored value that isn't one of them (the default's).
 @Composable
-internal fun textZoomLabel(zoom: String): String =
-    if (zoom == TextZoom.DEFAULT) stringResource(R.string.text_size_default, TextZoom.percent(zoom))
-    else stringResource(R.string.text_size_percent, TextZoom.percent(zoom))
+internal fun textZoomLabel(zoom: String): String {
+    val percent = TextZoom.percent(zoom)
+    return if (percent == TextZoom.percent(TextZoom.DEFAULT)) stringResource(R.string.text_size_default, percent)
+    else stringResource(R.string.text_size_percent, percent)
+}
 
 
 private const val DEVELOPER_TAPS = 7
@@ -243,51 +261,43 @@ internal fun ChoiceDialog(
     onDismiss: () -> Unit,
     note: String? = null,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-            )
+    SettingsDialogColumn(onDismiss = onDismiss, spacing = 4.dp) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+        )
 
-            options.forEach { (value, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.large)
-                        .clickable { onSelect(value) }
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    RadioButton(
-                        selected = value == current,
-                        onClick = { onSelect(value) }
-                    )
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-
-            note?.let {
+        options.forEach { (value, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.large)
+                    .clickable { onSelect(value) }
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                RadioButton(
+                    selected = value == current,
+                    onClick = { onSelect(value) }
+                )
                 Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
+        }
+
+        note?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
         }
     }
 }

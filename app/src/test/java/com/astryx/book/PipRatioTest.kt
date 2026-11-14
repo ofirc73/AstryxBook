@@ -38,6 +38,13 @@ class PipRatioTest {
     // ── Default & error handling ─────────────────────────────────────────────
 
     @Test
+    fun aZeroOrNegativeSide_fallsBackTo_4_7() {
+        // Parsed but not a ratio Android takes: setAspectRatio throws on it.
+        assertEquals(Rational(4, 7), parse("4:0"))
+        assertEquals(Rational(4, 7), parse("-3:4"))
+    }
+
+    @Test
     fun defaultRatioIs_4_7() {
         assertEquals(Rational(4, 7), parse("4:7"))
     }
