@@ -289,14 +289,11 @@ fun MessagesLayer(
         if (loadingState !is LoadingState.Finished) return@LaunchedEffect
         val page = state.lastLoadedUrl
         if (isStoryCreatePage(page)) {
-            val (layout, posting) = listOf(R.raw.story_layout, R.raw.story_posting).map { id ->
-                resources.pageScript(id)
-            }
+            // viewport_meta.js first: story_layout.js sets the page's viewport through it.
+            val scripts = listOf(R.raw.viewport_meta, R.raw.story_layout, R.raw.story_posting)
+                .joinToString("\n") { resources.pageScript(it) }
             val done = JSONObject.quote(resources.getString(R.string.story_panel_done))
-            navigator.evaluateJavaScript(
-                "window.__astryxStoryDone = $done;" +
-                    layout + "\n" + posting
-            ) {}
+            navigator.evaluateJavaScript("window.__astryxStoryDone = $done;\n$scripts") {}
         }
         val target = when {
             isStoryCreatePage(page) && ShareMediaQueue.pending(ShareTarget.STORY) -> ShareTarget.STORY

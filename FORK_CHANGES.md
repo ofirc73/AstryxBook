@@ -644,6 +644,15 @@ on their own can't:
   time when the first request left the window in PiP on a busy CI emulator (no live check: that's
   the test's own step, not Facebook's page).
 - `MessagesLayerReelTest`: a reel shared in a chat opening in the main view, Back to the chat.
+- Fixed-page tests for four page scripts that had none (2026-11-14, the audit): `HideGroupsJsTest`
+  (`hide_groups.js`: the search page's last row and the groups card under a post's comments
+  hidden, nothing on Home; no live check, the test account isn't shown these reliably),
+  `StickyNavbarJsTest` (`sticky_navbar.js`: the top and tab bars pinned, the feed below them),
+  `MessagesTabJsTest` (`messages_tab.js`: the Messages tab by its label or its icon goes to
+  `/messages/` unseen by Facebook's handler, another tab doesn't) and `VideoPlayingJsTest`
+  (`video_playing.js`: playing and paused told once each, a video removed while playing told
+  by the poll). Their live checks: `stickyNavbar_keepsTheTabBarOnScreen_downTheFeed`,
+  `theMessagesTab_opensMessagesInTheLayer`, `keepScreenOnWhileVideo_keepsItOnWhileAReelPlays`.
 - `ChatBoxJsTest`: a chat's unsent message back in its box on a new page, once; a sent one (Enter
   empties the box without an input event) not; another chat's box, and a box already holding text,
   left as they are; one kept over a month dropped.
@@ -2143,6 +2152,18 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   hand. Checked with a stand-in `gh` on `PATH` that logs its arguments (open or no open issue,
   each action, with and without the label); no issue was created. Repo tooling only: no app
   change, no release.
+
+## Story editor and reel creator: one copy of each helper
+
+- No change in what the app does. `story_layout.js` builds its two Done buttons with one helper
+  and replays a finger's drag through its one mouse-event builder (the drag's own copy is gone);
+  the viewport rewrite it shared, as a copy, with `share_media.js` is one script now,
+  `viewport_meta.js`, run before both. The reel creator's layout (`fitReelPage`, named
+  `fitStoryPage` though only the reel share used it) is installed once a page: a share run again
+  on the same page added another timer and observer each time.
+- Found by the audit's second reading pass (SL-D, SM-4; 2026-11-12). Covered by
+  `StoryLayoutJsTest`, `LayerStoryViewerJsTest` and `ShareMediaJsTest` (they run
+  `viewport_meta.js` first, as the app does), and the whole live suite with the chat.
 
 ## Known limitations
 

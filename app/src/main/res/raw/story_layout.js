@@ -43,19 +43,9 @@
     observers.push(observer);
   }
 
-  // Phone width, kept when another script (pinch_to_zoom.js) rewrites the viewport.
+  // Phone width, kept when another script (pinch_to_zoom.js) rewrites the viewport (viewport_meta.js).
   function viewport() {
-    var content = wantedViewport();
-    var metas = document.querySelectorAll('meta[name="viewport"]');
-    if (!metas.length && document.head) {
-      var meta = document.createElement('meta');
-      meta.name = 'viewport';
-      document.head.appendChild(meta);
-      metas = [meta];
-    }
-    for (var i = 0; i < metas.length; i++) {
-      if (metas[i].getAttribute('content') !== content) metas[i].setAttribute('content', content);
-    }
+    window.__astryxSetViewport(wantedViewport());
   }
 
   // The story's frame: sized by Facebook with an inline width in px and a height relative to its
@@ -257,10 +247,9 @@
     if (layer.hasAttribute('data-astryx-story-popup')) addDone(row);
   }
 
+  // The app's Done button, which does close() when tapped.
   var DONE_LABEL = window.__astryxStoryDone || 'Done';
-  function addDone(row) {
-    var next = row.nextElementSibling;
-    if (next && next.hasAttribute('data-astryx-story-done')) return;
+  function doneButton(close) {
     var done = document.createElement('div');
     done.setAttribute('role', 'button');
     done.setAttribute('tabindex', '0');
@@ -268,31 +257,33 @@
     done.textContent = DONE_LABEL;
     done.addEventListener('click', function (e) {
       e.stopPropagation();
-      tapStoryBackground();
+      close();
     });
-    row.parentElement.insertBefore(done, next);
+    return done;
+  }
+
+  function addDone(row) {
+    var next = row.nextElementSibling;
+    if (next && next.hasAttribute('data-astryx-story-done')) return;
+    row.parentElement.insertBefore(doneButton(tapStoryBackground), next);
   }
 
   // Done under a tool's editor: closes it the way Facebook does, by tapping its tool again.
   function addSheetDone(sheet, tool) {
     if (sheet.querySelector('[data-astryx-story-done]')) return;
-    var done = document.createElement('div');
-    done.setAttribute('role', 'button');
-    done.setAttribute('tabindex', '0');
-    done.setAttribute('data-astryx-story-done', '');
-    done.textContent = DONE_LABEL;
-    done.addEventListener('click', function (e) {
-      e.stopPropagation();
-      tool.click();
-    });
-    sheet.appendChild(done);
+    sheet.appendChild(doneButton(function () { tool.click(); }));
   }
 
   // A mouse event of `type` at (x, y) on target: a pointer event (pointerType mouse) for the
-  // pointer types, a mouse event for the others. Facebook's editor follows only the mouse.
-  function mouseEvent(target, type, x, y, buttons) {
+  // pointer types, a mouse event for the others. Facebook's editor follows only the mouse. [screen]:
+  // a touch whose screen position it carries (a finger's drag replayed).
+  function mouseEvent(target, type, x, y, buttons, screen) {
     var init = { bubbles: !/enter|leave/.test(type), cancelable: true, composed: true, view: window,
       clientX: x, clientY: y, button: 0, buttons: buttons || 0 };
+    if (screen) {
+      init.screenX = screen.screenX;
+      init.screenY = screen.screenY;
+    }
     if (type.indexOf('pointer') === 0) {
       if (!window.PointerEvent) return;
       init.pointerId = 1;
@@ -751,20 +742,8 @@
     var start = null;
     var dragging = false;
     function fire(touch, mouseType, pointerType, buttons) {
-      var init = {
-        bubbles: true, cancelable: true, composed: true, view: window,
-        clientX: touch.clientX, clientY: touch.clientY, screenX: touch.screenX, screenY: touch.screenY,
-        button: 0, buttons: buttons
-      };
-      if (pointerType && window.PointerEvent) {
-        var p = {};
-        for (var k in init) p[k] = init[k];
-        p.pointerId = 1;
-        p.pointerType = 'mouse';
-        p.isPrimary = true;
-        start.target.dispatchEvent(new PointerEvent(pointerType, p));
-      }
-      start.target.dispatchEvent(new MouseEvent(mouseType, init));
+      mouseEvent(start.target, pointerType, touch.clientX, touch.clientY, buttons, touch);
+      mouseEvent(start.target, mouseType, touch.clientX, touch.clientY, buttons, touch);
     }
     // A drag that ends without its finger lifting (a second finger landing to resize a sticker, a
     // system gesture cancelling the touch) releases the mouse where the finger last was: left
