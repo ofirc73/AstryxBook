@@ -21,9 +21,9 @@
   var MIN_FIT = 0.5;                  // narrowest a block gets to end at the screen edge, as a share of the screen
   var SETTLE_MS = 250;
   var timer = null;
-  var pinched = false;
   var run = 0;                        // marks elements already looked at in this pass
   var lastScale = 1;
+  var lastWidth = 0;
   var changed = [];                   // elements and text nodes changed, to put back
   var sized = [];                     // boxes given a taller height
   var tapped = null;                  // where the view was on a wrapped block the user tapped
@@ -47,26 +47,42 @@
     changed.push(el);
   }
 
-  function unwrapAll() {
-    for (var i = changed.length - 1; i >= 0; i--) {
-      var item = changed[i];
-      if (item.nodeType === 3) {
-        if (item.nodeValue === item.__astryxWrapText.now) item.nodeValue = item.__astryxWrapText.was;
-        item.__astryxWrapText = null;
-        continue;
-      }
-      var saved = item.__astryxWrapSaved;
-      item.style.maxWidth = saved.maxWidth;
-      item.style.whiteSpace = saved.whiteSpace;
-      item.style.height = saved.height;
-      item.style.marginLeft = saved.marginLeft;
-      item.style.marginRight = saved.marginRight;
-      item.__astryxWrapSaved = null;
-      item.__astryxWrapFromRight = null;
-      item.removeAttribute(ATTR);
+  // Puts back an element or text node this script changed.
+  function unwrap(item) {
+    if (item.nodeType === 3) {
+      if (item.nodeValue === item.__astryxWrapText.now) item.nodeValue = item.__astryxWrapText.was;
+      item.__astryxWrapText = null;
+      return;
     }
+    var saved = item.__astryxWrapSaved;
+    item.style.maxWidth = saved.maxWidth;
+    item.style.whiteSpace = saved.whiteSpace;
+    item.style.height = saved.height;
+    item.style.marginLeft = saved.marginLeft;
+    item.style.marginRight = saved.marginRight;
+    item.__astryxWrapSaved = null;
+    item.__astryxWrapFromRight = null;
+    item.removeAttribute(ATTR);
+  }
+
+  function unwrapAll() {
+    for (var i = changed.length - 1; i >= 0; i--) unwrap(changed[i]);
     changed = [];
     sized = [];
+  }
+
+  // Puts back and forgets what Facebook has taken off the page (rows of a feed scrolled past):
+  // kept, a long zoomed-in read held every one of them until the user zoomed out. Put back, one
+  // Facebook shows again is wrapped again like any other.
+  function forgetRemoved() {
+    var root = document.documentElement;
+    var kept = [];
+    for (var i = changed.length - 1; i >= 0; i--) {
+      if (root.contains(changed[i])) kept.unshift(changed[i]);
+      else unwrap(changed[i]);
+    }
+    changed = kept;
+    sized = sized.filter(function(el) { return root.contains(el); });
   }
 
   function heightOf(el) {
@@ -140,6 +156,8 @@
     var joined = window.__astryxServerLines.join(block);
     for (var i = 0; i < joined.length; i++) {
       var node = joined[i].node;
+      // Joined already, as part of a wrapped block around this one: kept as that one joined it.
+      if (node.__astryxWrapText) continue;
       if (joined[i].text !== node.nodeValue) {
         node.__astryxWrapText = { was: node.nodeValue, now: joined[i].text };
         node.nodeValue = joined[i].text;
@@ -283,8 +301,11 @@
     }
     var full = Math.floor(vv.width) - 2 * GUTTER;
     if (full < 40) return;
-    if (Math.abs(vv.scale - lastScale) > 0.01) afterPinch = true;
+    forgetRemoved();
+    // A pinch changes the view's scale or its width; the keyboard only its height.
+    if (Math.abs(vv.scale - lastScale) > 0.01 || Math.abs(vv.width - lastWidth) > 1) afterPinch = true;
     lastScale = vv.scale;
+    lastWidth = vv.width;
     var blocks;
     if (afterPinch) {
       blocks = allWrapped();
@@ -330,24 +351,22 @@
     return true;
   }
 
-  function settle(isPinch) {
-    if (isPinch) pinched = true;
+  // What changed (a pinch, or only a pan or the keyboard) is told by the view's scale and width.
+  function settle() {
     clearTimeout(timer);
     timer = setTimeout(function() {
       timer = null;
-      var afterPinch = pinched;
-      pinched = false;
-      update(afterPinch);
+      update(false);
     }, SETTLE_MS);
   }
 
-  vv.addEventListener('resize', function() { settle(true); });
-  vv.addEventListener('scroll', function() { settle(false); });
+  vv.addEventListener('resize', settle);
+  vv.addEventListener('scroll', settle);
 
   // Text Facebook adds or replaces while zoomed in (See more, more comments) is wrapped too.
   // Doesn't postpone a pass already due, so a page that keeps changing can't hold it off.
   new MutationObserver(function() {
-    if (changed.length && !timer) settle(false);
+    if (changed.length && !timer) settle();
   }).observe(document.body, { childList: true, subtree: true });
 
   // Facebook acts on taps itself, often without a click event.

@@ -399,6 +399,20 @@ class PipHandoffJsTest {
     }
 
     @Test
+    fun handback_doneOnce_whenThePlayFailsAfterIt() {
+        // Facebook pausing a video still loading rejects its play() (AbortError), here after the
+        // handback was already done: done again, it told the app twice, re-armed twice and unmuted a
+        // video muted before the lock (its saved state already gone).
+        val h = Harness(catchUp = false)
+        h.locked(pipMuted = true)
+        h.eval("HTMLMediaElement.prototype.play = function () { return new Promise(function (_, no) { setTimeout(function () { no(new Error('AbortError')); }, 100); }); };")
+        h.handback(positionMs = 45_250, positionAtMs = System.currentTimeMillis(), play = true, rearm = false)
+        Thread.sleep(500)
+        assertEquals(listOf("handbackDone"), h.events.toList())
+        assertEquals("true", h.eval("$pip.muted"))
+    }
+
+    @Test
     fun handback_atTheVideosEnd_startsItOver() {
         // The lock-screen player reached the end of a 260 s video; seeking the page's video
         // there made Facebook close the viewer (back to the feed, a black PiP window).

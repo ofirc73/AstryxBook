@@ -2032,6 +2032,41 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (failed before, on main's code). No live check: Settings is the app's own screen, not
   Facebook's.
 
+## Small page-script fixes from the audit
+
+- **Wrap text when zoomed: the keyboard no longer moves the view.** Zoomed in, tapping a comment
+  box brought the keyboard, which changes the view's height; that was taken for a pinch, every
+  wrapped block was fitted again and the view panned sideways, away from the box. A pinch is now
+  told by the view's scale or width changing.
+- **Wrap text when zoomed: text Facebook takes off the page is put back and let go.** Every
+  wrapped block was held until the user zoomed out, those Facebook had removed (a feed's rows
+  scrolled past) too. And text inside two wrapped blocks, joined once for each, made zooming out
+  stop half-way, leaving the blocks before it narrow at full size.
+- **A share's photo button answers the user again once the share is over.** A share whose
+  Facebook page didn't take the photo was reported as failed while the page's next file click
+  still got the shared photo for 3.5 s; and two such shares within a few seconds left the first
+  one's answer in place for good, so the user's own tap on Photo got the old files instead of
+  the picker.
+- **A share whose files the app couldn't read says so.** It ended as if done, and nothing
+  happened; it now shows the share failed.
+- **A chat message can't be taken for the photo viewer.** The viewer's row (a photo between two
+  arrow columns) is now also required to fill most of the window: a message row of that shape
+  (avatar, picture, actions) would have made every Back only press Escape.
+- **PiP:** a lock-screen hand-back whose video's play failed after it was done (Facebook pausing
+  a video still loading) was done twice: the app was told twice, and a video muted before the
+  lock came back unmuted. And the fullscreen change replayed after PiP now bubbles to the
+  window, as the browser's own does.
+- Found by the audit's second reading pass (TW-1, TW-2, TW-3, SM-2, SM-3, SM-5, LP-2, PS-4,
+  PS-5; 2026-11-12). Covered by `TextWrapJsTest`, `ShareMediaJsTest`, `LayerPhotoViewerJsTest`,
+  `PipHandoffJsTest` and `PipFocusModeJsTest`: each of the 9 new tests failed on the old
+  scripts. Live: the whole suite with the chat, `aPhotoInAChat_fillsTheLayersViewer_andBackClosesIt`
+  among it (the real viewer still counts as one), and the share and text-wrap checks. The
+  keyboard case, two shares in a row, unreadable files and the PiP hand-back can't be made to
+  happen on Facebook's page by a check; the hand-back needs a lock screen.
+- Not changed, from the same list: SM-1 (the next story file while one still uploads) needs a
+  story posted to prove, RC-5 a reel's way back read on a real page, and LP-1 (the photo
+  viewer's work on each page change) is to be measured first.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:

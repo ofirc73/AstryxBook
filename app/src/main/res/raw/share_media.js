@@ -76,19 +76,25 @@
     return new Blob([bytes], { type: type });
   }
 
-  // Asks the app for files ('all' or 'next'); calls back with the File objects and the header.
+  // Asks the app for files ('all' or 'next'); calls back with the File objects and the header (no
+  // files when none are left). Files the app sent but couldn't read are reported as failed, not
+  // passed on as none left: the share then ended as if done, and the user saw nothing happen.
   function receiveFiles(call, done) {
     send({ call: call });
     receive(function (text) {
       var header;
-      try { header = JSON.parse(text); } catch (e) { done([], {}); return; }
+      try { header = JSON.parse(text); } catch (e) { send({ call: 'failed', reason: 'unreadable' }); return; }
       if (header.done) { done([], header); return; }
       // Each file comes in pieces, then its end ({"end":true}, with "failed" when the app couldn't
       // read it whole: dropped). A piece is never a JSON text (bytes, or base64, which has no "{").
       var files = [];
       var index = 0;
       (function nextFile() {
-        if (index >= header.count) { done(files, header); return; }
+        if (index >= header.count) {
+          if (files.length) done(files, header);
+          else send({ call: 'failed', reason: 'unreadable' });
+          return;
+        }
         var meta = header.files[index++];
         var parts = [];
         (function nextPart() {
@@ -195,26 +201,44 @@
     // The composer opens with the first photo given (before TAKE_MS): the note shows from then.
     waitFor(taken, TAKE_MS, function (given) { if (given) showAdding(files.length, before); });
     setTimeout(function () {
-      if (!taken()) { send({ call: 'failed', reason: 'notTaken' }); return; }
+      if (!taken()) { notTaken(taken); return; }
       addOneByOne(rest);
     }, TAKE_MS);
   }
 
   // Answers the page's next click on a file input (which would open Android's picker) with
-  // answer(input); returns a function telling whether that happened. Gives up after TAKE_MS.
+  // answer(input); returns a function telling whether that happened, whose stop() gives up (as
+  // TAKE_MS does). A share whose answer is given up passes clicks on: one put back over a later
+  // share's answer (two shares within TAKE_MS) answered the user's own tap with the old files.
   function whenFileClicked(answer) {
     var nativeClick = HTMLInputElement.prototype.click;
     var taken = false;
-    HTMLInputElement.prototype.click = function () {
-      if (this.type !== 'file') return nativeClick.apply(this, arguments);
-      HTMLInputElement.prototype.click = nativeClick;
+    function answering() {
+      if (this.type !== 'file' || answering.__astryxStopped) return nativeClick.apply(this, arguments);
+      stop();
       taken = true;
       answer(this);
-    };
-    setTimeout(function () {
-      if (HTMLInputElement.prototype.click !== nativeClick && !taken) HTMLInputElement.prototype.click = nativeClick;
-    }, TAKE_MS);
-    return function () { return taken; };
+    }
+    answering.__astryxUnder = nativeClick;
+    function stop() {
+      answering.__astryxStopped = true;
+      if (HTMLInputElement.prototype.click !== answering) return;
+      var click = nativeClick;
+      while (click.__astryxStopped) click = click.__astryxUnder;
+      HTMLInputElement.prototype.click = click;
+    }
+    HTMLInputElement.prototype.click = answering;
+    setTimeout(stop, TAKE_MS);
+    var given = function () { return taken; };
+    given.stop = stop;
+    return given;
+  }
+
+  // A click whenFileClicked waited for didn't come: it stops answering now (a tap on the page's
+  // own photo button after the app was told the share failed got the shared file) and says so.
+  function notTaken(taken) {
+    taken.stop();
+    send({ call: 'failed', reason: 'notTaken' });
   }
 
   function addPhotoButton() {
@@ -237,7 +261,7 @@
       var taken = whenFileClicked(function (input) { giveFiles(input, files.slice(0, 1)); });
       button.click();
       setTimeout(function () {
-        if (!taken()) { send({ call: 'failed', reason: 'notTaken' }); return; }
+        if (!taken()) { notTaken(taken); return; }
         addOneByOne(files.slice(1));
       }, ADD_STEP_MS);
     });
