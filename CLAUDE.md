@@ -89,7 +89,7 @@ user-visible change.
   Don't `adb reboot` it (tests then failed at random, "evaluateJavascript
   never returned"); `adb emu kill` and start it again (minimized: a windowed start may not come
   up) cold, `emulator -avd astryx_api36 -no-snapshot-load -no-snapshot-save -feature -QuickbootFileBacked`
-  (the last two: no 4 GB snapshot written at exit, no 4 GB `snapshots\default_bootam.img` for the guest's
+  (the last two: no 4 GB snapshot written at exit, no 4 GB `snapshots\default_boot\ram.img` for the guest's
   RAM; delete a `default_boot` an older start left, with the emulator stopped; keep `logged_in`: it, with the
   data image, holds the test account's login), so reinstall the APKs before testing. The live
   checks against real Facebook (`LiveFacebookCanaryTest`; "canary" in file, class and argument names

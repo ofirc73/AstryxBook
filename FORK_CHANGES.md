@@ -2112,7 +2112,7 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - **The local emulator no longer writes or backs its RAM with a 4 GB snapshot file.** It is always
   cold-booted (`-no-snapshot-load`), yet the emulator wrote its `default_boot` snapshot at every exit
   (4.1 GB in the AVD folder, 2026-11-14) and, with `-no-snapshot-save` alone, still kept the guest's
-  RAM in `snapshots\default_bootam.img` (4 GB, no `snapshot.pb`) for as long as it ran, which is
+  RAM in `snapshots\default_boot\ram.img` (4 GB, no `snapshot.pb`) for as long as it ran, which is
   most of the day. The daily check now starts it with `-no-snapshot-save -feature
   -QuickbootFileBacked`, and by hand the same flags are used (`emulator -avd astryx_api36
   -no-snapshot-load -no-snapshot-save -feature -QuickbootFileBacked`). Tried on the emulator
