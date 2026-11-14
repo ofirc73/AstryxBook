@@ -529,6 +529,8 @@ limitations in `FORK_CHANGES.md`.
   and read each diff for repeats before committing. This is a standing rule: apply it unasked,
   including to a variant of an existing function (delegate or add a parameter instead of a copy).
 
+- Never spawn subagents (the Agent tool, any type) unless the owner explicitly asks for one in that
+  request: do the reading, searching and checking with the session's own tools (2026-11-13).
 - Plan files (`*_PLAN.md`) and `spike.log` are working notes; don't commit them.
 - The `stats` branch is data-only (weekly release download counts written by
   `download-stats.yml`, and `badge.json`, the README's downloads total, by `download-badge.yml`);
