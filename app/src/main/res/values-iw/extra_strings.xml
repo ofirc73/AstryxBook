@@ -61,6 +61,7 @@
 
     <!-- Sharing and downloads -->
     <string name="share_via">שיתוף באמצעות…</string>
+    <string name="navigate_back">חזרה</string>
     <string name="ad_removed_title">הפרסומת הוסרה</string>
     <string name="ad_removed_text">תוכן ממומן הוסר</string>
     <string name="pip_play">הפעלה</string>

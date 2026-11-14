@@ -53,6 +53,7 @@
     <string name="messenger_link_use_desktop">Usa la modalità desktop</string>
     <string name="messenger_link_open_app">Apri Messenger</string>
     <string name="share_via">Condividi tramite…</string>
+    <string name="navigate_back">Indietro</string>
     <string name="ad_removed_title">Pubblicità rimossa</string>
     <string name="ad_removed_text">Il contenuto sponsorizzato è stato rimosso</string>
     <string name="pip_play">Riproduci</string>

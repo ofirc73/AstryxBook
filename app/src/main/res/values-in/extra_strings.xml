@@ -59,6 +59,7 @@
 
     <!-- Sharing and downloads -->
     <string name="share_via">Bagikan melalui…</string>
+    <string name="navigate_back">Kembali</string>
     <string name="ad_removed_title">Iklan dihapus</string>
     <string name="ad_removed_text">Konten bersponsor telah dihapus</string>
     <string name="pip_play">Putar</string>

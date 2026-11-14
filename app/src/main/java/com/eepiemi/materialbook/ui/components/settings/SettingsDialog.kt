@@ -7,10 +7,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -94,7 +96,7 @@ fun SettingsDialog(
                     IconButton(
                         modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
                         onClick = close
-                    ) { Icon(Icons.AutoMirrored.Default.ArrowBackIos, "back button") }
+                    ) { Icon(Icons.AutoMirrored.Default.ArrowBackIos, stringResource(R.string.navigate_back)) }
 
                     // Shares the Facebook page underneath; Settings stays open behind the share sheet.
                     onSharePage?.let { share ->
@@ -118,17 +120,14 @@ fun SettingsDialog(
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut()
                 ) {
-                    ExtendedFloatingActionButton(
-                        onClick = close,
-                        text = {
-                            Text(
-                                stringResource(R.string.reload_to_apply)
-                            )
-                        },
-                        icon = {
-                            Icon(Icons.Default.Refresh, null)
-                        }
-                    )
+                    // Its icon and text as its content: the overload taking them apart (text = …,
+                    // icon = …) showed with no node for accessibility at all (Material 3
+                    // 1.5.0-rc01, SET-5): TalkBack couldn't reach it, nor tests.
+                    ExtendedFloatingActionButton(onClick = close) {
+                        Icon(Icons.Default.Refresh, null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(R.string.reload_to_apply))
+                    }
                 }
             }
         ) { paddingValues ->

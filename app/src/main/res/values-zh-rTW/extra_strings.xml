@@ -51,6 +51,7 @@
     <string name="messenger_link_use_desktop">使用桌面模式</string>
     <string name="messenger_link_open_app">開啟 Messenger</string>
     <string name="share_via">分享方式…</string>
+    <string name="navigate_back">返回</string>
     <string name="ad_removed_title">已移除廣告</string>
     <string name="ad_removed_text">已移除贊助內容</string>
     <string name="pip_play">播放</string>

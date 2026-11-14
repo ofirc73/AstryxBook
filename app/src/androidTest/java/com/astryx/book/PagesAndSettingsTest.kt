@@ -82,10 +82,28 @@ class PagesAndSettingsTest {
     fun aPageSettingChanged_appliesWhenSettingsIsClosedWithBack() {
         // Before, only Settings' Reload button applied a page setting: closed with Back, the page kept
         // its scripts until the app restarted, and Settings opened again showed no Reload button.
+        hideStoriesInSettings()
+        app.pressBack()
+        assertStoriesHiddenAfterReload()
+    }
+
+    // SET-5: Settings' Reload button showed, but its node for accessibility had no text and couldn't
+    // be pressed (an empty Button in `uiautomator dump`): TalkBack couldn't reach it, nor tests.
+    @Test
+    fun aPageSettingChanged_offersReload_thatScreenReadersCanFindAndPress() {
+        hideStoriesInSettings()
+        val reload = app.context.getString(R.string.reload_to_apply)
+        assertTrue("no Reload button a screen reader can find", app.waitFor { app.textShown(reload) })
+        assertTrue(app.tapText(reload))
+        assertStoriesHiddenAfterReload()
+    }
+
+    // Settings opened on the feed page, Hide stories turned on as the user does it (Customize feed,
+    // Stories, Back to Settings).
+    private fun hideStoriesInSettings() {
         startOnPage()
         app.eval("window.__notReloaded = true; 1")
         openSettings()
-        // As the user does it: Customize feed, Stories, Back to Settings.
         assertTrue(app.tapText(app.context.getString(R.string.customize_feed_title)))
         val stories = app.context.getString(R.string.stories)
         assertTrue("Customize feed never opened", app.waitFor { app.textShown(stories) })
@@ -93,15 +111,16 @@ class PagesAndSettingsTest {
         assertTrue("Hide stories wasn't turned on", app.waitFor { runBlocking { SettingsDataStore(app.context).hideStories.first() } })
         app.pressBack()
         assertTrue("Customize feed stayed open after Back", app.waitFor { !app.textShown(stories) })
-        // Settings' Reload button shows now, but its accessibility node has no text (a fix of its own):
-        // not looked for. Back must do what it does.
         Thread.sleep(1000)
-        app.pressBack()
-        assertTrue("Settings stayed open after Back", app.waitFor { !app.textShown(settingsTitle) })
+    }
+
+    // Settings closed, the page reloaded with the stories tray hidden.
+    private fun assertStoriesHiddenAfterReload() {
+        assertTrue("Settings stayed open", app.waitFor { !app.textShown(settingsTitle) })
         assertTrue("the page wasn't reloaded with the new setting", app.waitFor(20_000) {
             app.eval("!window.__notReloaded && !!window.__testPage") == "true"
         })
-        assertTrue("the stories tray shows after Hide stories was turned on and Settings closed", app.waitFor {
+        assertTrue("the stories tray shows after Hide stories was turned on", app.waitFor {
             app.eval("getComputedStyle(document.getElementById('stories')).display") == "\"none\""
         })
     }
