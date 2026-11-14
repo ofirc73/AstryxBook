@@ -58,16 +58,17 @@ jobs:
       # Re-runs unit tests here (cheap, no device needed) purely to
       # regenerate the .exec file jacocoTestReport needs from a fresh
       # classpath — the instrumented .ec downloaded above is the one piece
-      # that genuinely can't be regenerated without a device.
+      # that genuinely can't be regenerated without a device. A report that
+      # can't be made fails this run (it gates nothing): passed over, a broken
+      # report task left green runs with no report.
       - name: Generate Coverage Report
-        continue-on-error: true
         run: |
           chmod +x gradlew
           ./gradlew jacocoTestReport --build-cache --stacktrace
 
       - name: Upload Coverage Report
-        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
           path: app/build/reports/jacoco/jacocoTestReport/html
+          if-no-files-found: error

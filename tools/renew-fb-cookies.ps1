@@ -18,6 +18,10 @@
 .PARAMETER NoRun
   Only set the secret; don't start the checks.
 #>
+
+#requires -Version 7
+# (Windows PowerShell 5.1 drops the double quotes in the Python passed with -c below: a syntax
+# error, reported as Python missing.)
 param(
     [switch]$NoRun
 )

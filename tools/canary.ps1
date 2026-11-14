@@ -87,11 +87,14 @@ Set-Content -Path $lock -Value "$PID $(Get-Date -Format o)"
 # The issues are opened, commented on and closed by the script facebook-canary.yml uses, through
 # Git's own bash (a plain `bash` can be WSL's).
 $gitBash = Join-Path (Split-Path (Split-Path (Get-Command git).Source -Parent) -Parent) 'bin\bash.exe'
+# A failed report (gh logged out, no network) throws: it ended unseen, the issue saying nothing.
 function Update-Issue([string]$action, [string]$title, [string]$text) {
-    & $gitBash "$repo/.github/scripts/canary-issue.sh" $action $title $text | Out-Null
+    $said = & $gitBash "$repo/.github/scripts/canary-issue.sh" $action $title $text 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "canary-issue.sh $action failed (exit $LASTEXITCODE): $($said -join ' ')" }
 }
 
-$startedEmulator = $false
+$startedEmulator = $null # the qemu processes of the emulator this run started
+$reportFailed = $false
 $skipped = $null
 $failure = $null
 $output = ''
@@ -101,13 +104,14 @@ try {
     $serial = Get-EmulatorSerial
     if (-not $serial) {
         Write-Host "Starting emulator $Avd (headless, cold boot)"
+        $before = @(Get-Process -Name 'qemu-system-*' -ErrorAction SilentlyContinue).Id
         Start-Process -FilePath $emulatorExe -ArgumentList "-avd $Avd -no-window -no-audio -no-boot-anim -no-snapshot-load" -WindowStyle Hidden
-        $startedEmulator = $true
         $deadline = (Get-Date).AddMinutes(6)
         while (-not ($serial = Get-EmulatorSerial)) {
             if ((Get-Date) -gt $deadline) { throw 'The emulator never came up' }
             Start-Sleep 5
         }
+        $startedEmulator = @{ Serial = $serial; Ids = @(Get-Process -Name 'qemu-system-*' -ErrorAction SilentlyContinue | Where-Object Id -notin $before).Id }
         while ((& $adb -s $serial shell getprop sys.boot_completed 2>$null) -ne '1') {
             if ((Get-Date) -gt $deadline) { throw 'The emulator never finished booting' }
             Start-Sleep 5
@@ -187,7 +191,7 @@ try {
 } catch {
     if (-not $skipped) { $failure = "The check couldn't run: $($_.Exception.Message)" }
 } finally {
-    if ($startedEmulator) { Stop-Emulator }
+    if ($startedEmulator) { Stop-Emulator $startedEmulator.Serial $startedEmulator.Ids }
     Remove-Item $lock -Force -ErrorAction SilentlyContinue
 }
 
@@ -229,6 +233,7 @@ if (-not $NoIssue -and -not $skipped) {
         }
     } catch {
         Write-Host "Couldn't report on GitHub: $($_.Exception.Message)"
+        $reportFailed = $true
     }
 }
 
@@ -238,4 +243,6 @@ elseif ($failure) { Write-Host "FAILED:`n$failure" } else { Write-Host 'All live
 Stop-Transcript | Out-Null
 # Keep a month of logs and gaps.
 Get-ChildItem $logDir, $gapsDir -File | Where-Object LastWriteTime -lt (Get-Date).AddDays(-30) | Remove-Item -Force
+# Shown as the scheduled task's Last Run Result: nothing on GitHub says this run happened.
+if ($reportFailed) { exit 2 }
 exit ([int][bool]$failure)

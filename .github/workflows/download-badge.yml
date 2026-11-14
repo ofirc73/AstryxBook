@@ -19,27 +19,29 @@ jobs:
   badge:
     runs-on: ubuntu-latest
     steps:
+      # main's scripts, and the stats branch (data only) in stats/.
+      - name: Checkout scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+
       - name: Checkout stats branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: stats
+          path: stats
 
       - name: Count downloads
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -o pipefail
-          total=$(gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
-            --jq '.[] | ([.assets[].download_count] | add // 0)' | awk '{ s += $1 } END { print s + 0 }')
+          downloads=$(bash .github/scripts/release-downloads.sh)
+          total=$(printf '%s\n' "$downloads" | awk -F'\t' '{ s += $2 } END { print s + 0 }')
           # A failed or empty answer never replaces the last good count.
           [ "$total" -gt 0 ]
-          printf '{"schemaVersion":1,"label":"Downloads","message":"%s","color":"1877F2"}\n' "$total" > badge.json
+          printf '{"schemaVersion":1,"label":"Downloads","message":"%s","color":"1877F2"}\n' "$total" > stats/badge.json
 
       - name: Commit when the count changed
+        working-directory: stats
         run: |
-          git add badge.json
-          if git diff --cached --quiet; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git commit -m "stats: downloads badge $(date -u +%F)"
-          git push
+          bash ../.github/scripts/commit-stats.sh "stats: downloads badge $(date -u +%F)" badge.json
