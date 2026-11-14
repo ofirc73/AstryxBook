@@ -40,9 +40,9 @@ jobs:
           # One snapshot a day: a second run (by hand) appended the same date again.
           if grep -q "^$today," "$csv"; then echo "Already taken today"; exit 0; fi
           # Read whole first: a failed page leaves the file as it was.
-          downloads=$(.github/scripts/release-downloads.sh)
+          downloads=$(bash .github/scripts/release-downloads.sh)
           printf '%s\n' "$downloads" | awk -F'\t' -v day="$today" '{ print day "," $1 "," $2 }' >> "$csv"
 
       - name: Commit snapshot
         working-directory: stats
-        run: ../.github/scripts/commit-stats.sh "stats: download snapshot $(date -u +%F)" downloads.csv
+        run: bash ../.github/scripts/commit-stats.sh "stats: download snapshot $(date -u +%F)" downloads.csv

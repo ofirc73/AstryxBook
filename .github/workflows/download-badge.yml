@@ -35,7 +35,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          downloads=$(.github/scripts/release-downloads.sh)
+          downloads=$(bash .github/scripts/release-downloads.sh)
           total=$(printf '%s\n' "$downloads" | awk -F'\t' '{ s += $2 } END { print s + 0 }')
           # A failed or empty answer never replaces the last good count.
           [ "$total" -gt 0 ]
@@ -43,4 +43,4 @@ jobs:
 
       - name: Commit when the count changed
         working-directory: stats
-        run: ../.github/scripts/commit-stats.sh "stats: downloads badge $(date -u +%F)" badge.json
+        run: bash ../.github/scripts/commit-stats.sh "stats: downloads badge $(date -u +%F)" badge.json
