@@ -104,6 +104,25 @@ class PipKeepPlayingJsTest {
         assertEquals(0, h.plays())
     }
 
+    // PS-3: every page finishing in PiP (an in-page move, a reel moving on) runs the guard's
+    // activation again: it set wanting-play back to how PiP started, and the user's pause from the
+    // PiP button was undone 150 ms later.
+    @Test
+    fun userPause_sticks_whenThePageFinishesAgainInPip() {
+        val h = Harness()
+        h.load()
+        h.enterPip()
+        h.eval(PIP_TOGGLE_JS) // the user pauses
+        h.settle()
+        h.eval("window.__plays = 0;")
+
+        h.eval(pipKeepPlayingActivateJs(wantsPlay = true)) // a page finishing in PiP
+        h.settle()
+
+        assertEquals("the user's pause was undone", 0, h.plays())
+        assertEquals(true, h.paused())
+    }
+
     @Test
     fun userPauseFromThePipButton_sticks() {
         val h = Harness()

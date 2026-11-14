@@ -172,7 +172,10 @@ user-visible change.
   through live DevTools sessions and is covered by `PipFocusModeJsTest`. Never
   restyle or resize the video's ancestor elements: Facebook's reels controller
   watches them and pauses the reel. Add new PiP behaviour as separate scripts
-  and effects instead of editing focus mode.
+  and effects instead of editing focus mode. PiP applies it as `PIP_APPLY_FOCUS_MODE_JS` (the old
+  video unmarked first, then focus mode, the keep chain and the gone watch), every time; a kept
+  ancestor is forced visible and given its style back only through `PIP_STYLE_FNS_JS`
+  (`__astryxForceVisible`, `__astryxRestoreStyle`), shared by focus mode, the chain and restore.
 - The page scripts in `res/raw` always run from the copy bundled in the APK
   (`bundledScripts.kt`); nothing is fetched at runtime, so script changes ship
   only with an app release. Read one with `resources.pageScript(R.raw.x)` (read from the APK once

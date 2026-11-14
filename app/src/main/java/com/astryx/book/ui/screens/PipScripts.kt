@@ -43,6 +43,25 @@ internal const val PIP_TOGGLE_JS = """
 })();
 """
 
+// What focus mode, its keep chain and restore share (installed by each, before it runs): a kept
+// ancestor forced visible with its own style saved first, and an element given that style back.
+// The keep-visible observer used to force without saving: an ancestor Facebook hid after focus
+// mode ran stayed `display: block !important` after PiP, whatever its display was (PS-1).
+internal const val PIP_STYLE_FNS_JS = """
+window.__astryxForceVisible = function(el) {
+  if (!el.hasAttribute('data-astryx-orig-style')) {
+    el.setAttribute('data-astryx-orig-style', el.getAttribute('style') || '');
+  }
+  el.style.setProperty('display', 'block', 'important');
+};
+window.__astryxRestoreStyle = function(el) {
+  if (!el.hasAttribute('data-astryx-orig-style')) return;
+  var orig = el.getAttribute('data-astryx-orig-style');
+  if (orig) el.setAttribute('style', orig); else el.removeAttribute('style');
+  el.removeAttribute('data-astryx-orig-style');
+};
+"""
+
 // Hides everything on the page except the currently-playing video and its
 // ancestor chain, forcing the video to fill the viewport — makes PiP show
 // just the video, like a native player, instead of the whole shrunk page.
@@ -50,7 +69,7 @@ internal const val PIP_TOGGLE_JS = """
 // any ancestor of the video uses CSS transform/filter/contain, it creates a
 // new containing block and position:fixed on the video won't actually reach
 // the real viewport edges — not something fixable from our side if so.
-internal const val PIP_FOCUS_MODE_JS = """
+internal const val PIP_FOCUS_MODE_JS = PIP_STYLE_FNS_JS + """
 (function() {
   // Android may pause the active video before PiP focus mode runs. Prefer the
   // detector's last real active video so a paused, larger reel cannot replace it.
@@ -82,12 +101,7 @@ internal const val PIP_FOCUS_MODE_JS = """
     // a renderable display - risk: unlike the other fixes here, this pushes
     // back against an ongoing Facebook process, not just passive residue, so
     // it may have side effects we haven't seen yet.
-    if (getComputedStyle(el).display === 'none') {
-      if (!el.hasAttribute('data-astryx-orig-style')) {
-        el.setAttribute('data-astryx-orig-style', el.getAttribute('style') || '');
-      }
-      el.style.setProperty('display', 'block', 'important');
-    }
+    if (getComputedStyle(el).display === 'none') window.__astryxForceVisible(el);
     el = el.parentElement;
   }
 
@@ -101,7 +115,7 @@ internal const val PIP_FOCUS_MODE_JS = """
       for (var mi = 0; mi < mutations.length; mi++) {
         var t = mutations[mi].target;
         if (t.hasAttribute && t.hasAttribute('data-astryx-pip-keep') && getComputedStyle(t).display === 'none') {
-          t.style.setProperty('display', 'block', 'important');
+          window.__astryxForceVisible(t);
         }
       }
     });
@@ -194,6 +208,9 @@ internal const val PIP_FOCUS_MODE_JS = """
   // Belt-and-suspenders re-assertion on the next frame, in case the first
   // application still landed mid-paint-cycle despite the scroll reset above.
   requestAnimationFrame(function() {
+    // Not once it's no longer the PiP video: run again on another one within the frame, focus mode
+    // gave this one its style back, and this put top/left back on it (CI, 2026-11-13).
+    if (!best.hasAttribute('data-astryx-pip-video')) return;
     if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
       window.scrollTo(0, 0);
     }
@@ -283,7 +300,7 @@ internal const val PIP_FOCUS_MODE_JS = """
 })();
 """
 
-internal const val PIP_RESTORE_MODE_JS = """
+internal const val PIP_RESTORE_MODE_JS = PIP_STYLE_FNS_JS + """
 (function() {
   var style = document.getElementById('astryx-pip-style');
   if (style) style.remove();
@@ -295,15 +312,7 @@ internal const val PIP_RESTORE_MODE_JS = """
     k.removeAttribute('data-astryx-pip-keep');
     // Undo the display:none override above, same save/restore-exact-string
     // pattern as the video element below (see its comment).
-    if (k.hasAttribute('data-astryx-orig-style')) {
-      var kOrigStyle = k.getAttribute('data-astryx-orig-style');
-      if (kOrigStyle) {
-        k.setAttribute('style', kOrigStyle);
-      } else {
-        k.removeAttribute('style');
-      }
-      k.removeAttribute('data-astryx-orig-style');
-    }
+    window.__astryxRestoreStyle(k);
   }
   var vids = document.querySelectorAll('[data-astryx-pip-video]');
   for (var j = 0; j < vids.length; j++) {
@@ -312,15 +321,7 @@ internal const val PIP_RESTORE_MODE_JS = """
     // Restore Facebook's own original inline style exactly as it was, saved
     // by PIP_FOCUS_MODE_JS before we touched anything (see its comment for
     // why removeProperty alone silently destroyed it instead).
-    if (v.hasAttribute('data-astryx-orig-style')) {
-      var origStyle = v.getAttribute('data-astryx-orig-style');
-      if (origStyle) {
-        v.setAttribute('style', origStyle);
-      } else {
-        v.removeAttribute('style');
-      }
-      v.removeAttribute('data-astryx-orig-style');
-    }
+    window.__astryxRestoreStyle(v);
   }
   // Let download_content.js's own .visible class control this again, now
   // that we're back in the normal view where it's a wanted control.
@@ -382,9 +383,13 @@ internal const val PIP_FREEZE_ACTIVE_VIDEO_JS = """
 // can't ping-pong with Facebook forever.
 internal fun pipKeepPlayingActivateJs(wantsPlay: Boolean) = """
 (function() {
-  window.__astryxPipWantsPlay = $wantsPlay;
+  // Run again on every page finishing in PiP: the user's choice from the PiP button and the
+  // resumes so far are kept then (set back to how PiP started, a pause was undone; PS-3).
+  if (!window.__astryxPipActive) {
+    window.__astryxPipWantsPlay = $wantsPlay;
+    window.__astryxPipResumes = [];
+  }
   window.__astryxPipActive = true;
-  window.__astryxPipResumes = [];
   window.__astryxPipVideo = function() {
     var marked = document.querySelector('[data-astryx-pip-video]');
     if (marked) return marked;
@@ -766,7 +771,7 @@ internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean,
 // window (seen on a Galaxy A56 with v1.32.6, on every PiP). While PiP is on, this marks any
 // unmarked ancestor of the PiP video and forces it visible the way focus mode does (restore undoes
 // both). Stops by itself once focus mode is restored.
-internal const val PIP_KEEP_CHAIN_JS = """
+internal const val PIP_KEEP_CHAIN_JS = PIP_STYLE_FNS_JS + """
 (function() {
   if (window.__astryxKeepChain) clearInterval(window.__astryxKeepChain);
   function keepChain() {
@@ -784,12 +789,7 @@ internal const val PIP_KEEP_CHAIN_JS = """
           window.__astryxKeepVisibleObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
         }
       }
-      if (getComputedStyle(el).display === 'none') {
-        if (!el.hasAttribute('data-astryx-orig-style')) {
-          el.setAttribute('data-astryx-orig-style', el.getAttribute('style') || '');
-        }
-        el.style.setProperty('display', 'block', 'important');
-      }
+      if (getComputedStyle(el).display === 'none') window.__astryxForceVisible(el);
     }
   }
   keepChain();
@@ -858,3 +858,31 @@ internal const val PIP_PAGE_IS_PIPS_JS = "window.__astryxPipPage === true"
 // again (it does once per session, noting when here), so Facebook lays the page out for the screen
 // instead of the PiP window. Checked live on a Galaxy A56.
 internal const val RELAYOUT_PAGE_JS = "sessionStorage.removeItem('sharedprefs.web.last_device_info'); true"
+
+// Focus mode run again in PiP (a page finishing there, fullscreen ending in PiP) after the active
+// video changed (a reel moving on in-page): the video it marked before, and its kept ancestors off
+// the new video's chain, are given their own style back. Left marked, the old video stayed beside
+// the new one, and the PiP button and the hand-off took the first marked one in the page (PS-2).
+internal const val PIP_UNMARK_STALE_VIDEO_JS = PIP_STYLE_FNS_JS + """
+(function() {
+  var current = window.__astryxLastActiveVideo;
+  if (!current || !document.documentElement.contains(current)) return;
+  var videos = document.querySelectorAll('[data-astryx-pip-video]');
+  for (var i = 0; i < videos.length; i++) {
+    if (videos[i] === current) continue;
+    videos[i].removeAttribute('data-astryx-pip-video');
+    window.__astryxRestoreStyle(videos[i]);
+  }
+  var kept = document.querySelectorAll('[data-astryx-pip-keep]');
+  for (var k = 0; k < kept.length; k++) {
+    if (kept[k].contains(current)) continue;
+    kept[k].removeAttribute('data-astryx-pip-keep');
+    window.__astryxRestoreStyle(kept[k]);
+  }
+})();
+"""
+
+// Focus mode as PiP applies it, each time: the old video unmarked, focus mode, the keep chain and
+// the watch for the video leaving the page.
+internal const val PIP_APPLY_FOCUS_MODE_JS =
+    PIP_UNMARK_STALE_VIDEO_JS + PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS + PIP_VIDEO_GONE_WATCH_JS

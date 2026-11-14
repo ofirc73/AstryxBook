@@ -118,7 +118,7 @@ internal fun PipEffects(
             } else if (focusModeInPip) {
                 pipNavigator.evaluateJavaScript(PIP_PAGE_IS_PIPS_JS) { same ->
                     if (same == "true") {
-                        pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS + PIP_VIDEO_GONE_WATCH_JS) {}
+                        pipNavigator.evaluateJavaScript(PIP_APPLY_FOCUS_MODE_JS) {}
                     } else {
                         Log.d("AstryxbookPiP", "a new page loaded in PiP: the PiP video is gone")
                         currentOnPipVideoGone()
@@ -126,7 +126,7 @@ internal fun PipEffects(
                 }
             } else {
                 focusModeInPip = true
-                pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS + PIP_VIDEO_GONE_WATCH_JS) {}
+                pipNavigator.evaluateJavaScript(PIP_APPLY_FOCUS_MODE_JS) {}
             }
         }
     }
@@ -156,7 +156,8 @@ internal fun PipEffects(
         if (!isFullscreen && isInPipMode && pipState.loadingState is LoadingState.Finished) {
             Log.d("AstryxbookPiP", "fullscreen ended during PiP: applying focus mode")
             fullscreenEndedInPip = true
-            pipNavigator.evaluateJavaScript(PIP_FOCUS_MODE_JS + PIP_KEEP_CHAIN_JS + PIP_VIDEO_GONE_WATCH_JS) {}
+            focusModeInPip = true
+            pipNavigator.evaluateJavaScript(PIP_APPLY_FOCUS_MODE_JS) {}
         }
     }
 

@@ -1978,6 +1978,27 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   Not changed: RC-5 (a video playing away from the comments taken for the reel coming back),
   which needs the reel back's attributes read on a real page first.
 
+## PiP: around focus mode
+
+- **A box Facebook hides during PiP gets its own style back after it.** Facebook's screen code
+  can hide the video's screen during PiP; the app forced it visible again but, on that one path,
+  without saving its style first, so after PiP it stayed `display: block !important` for good
+  (a flex box turned block, and Facebook could no longer hide it). Every path now saves first
+  (one shared helper).
+- **Only the video in the PiP window is marked as it.** A page finishing in PiP after the reel
+  moved on (a short reel ending) ran focus mode again on the new reel, and the old one stayed
+  marked too: the PiP window's Play/Pause and the lock-screen sound could take the old reel.
+  The old one is now given back its style first.
+- **A pause from the PiP window sticks.** Each page finishing in PiP set the keep-playing guard
+  back to how PiP started, and a pause the user made from the PiP window was undone 150 ms later.
+- Smaller: focus mode applied once fullscreen ends in PiP is remembered like any other (a page
+  loading after it was taken for the same page), and the three places that apply focus mode
+  share one script.
+- Found by the audit's second reading pass (PS-1, PS-2, PS-3, PS-6, PS-D1, PS-D2; 2026-11-12).
+  Covered by `PipFocusModeJsTest` and `PipKeepPlayingJsTest` (each new test failed before the
+  change). Live: `aReel_keepsPlayingInPip`; a reel moving on in PiP (PS-2) wasn't tried live:
+  that check doesn't wait for a reel to end.
+
 ## Story editor: after Share, and a drag with two fingers
 
 - **Your story right after posting stays laid out.** After Share to story the creator moves to
