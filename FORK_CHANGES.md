@@ -2091,6 +2091,33 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   repeats one `stateIn` block and one setter per setting. It's upstream's file, and a rewrite
   would conflict with every upstream merge; the read is one small file, not shown to be slow.
 
+## Tools and workflows: small fixes from the audit
+
+- **The daily check says when it couldn't report.** A failed GitHub report (gh logged out, no
+  network) went unseen: `canary-issue.sh`'s exit code was dropped, so no issue said anything and
+  the run looked fine. It now fails the report step, writes why to the run's log and ends the
+  run with exit code 2, shown as the scheduled task's Last Run Result.
+- **The daily check stops only the emulator it started.** `Stop-Emulator` waited for and then
+  stopped every `qemu-system-*` process, so a second emulator open at the time was stopped too.
+  It now stops the one this run started (its serial and qemu processes).
+- `renew-fb-cookies.ps1` needs PowerShell 7 and now says so (`#requires -Version 7`): Windows
+  PowerShell 5.1 split the quoted Python it passes to `python -c`, and the syntax error was
+  reported as Python missing.
+- **Download stats never commits a partial week, nor a second snapshot the same day.** Without
+  `pipefail`, a failed page of the releases call still appended the rows read before it as that
+  week's snapshot; a second run the same day (by hand) appended the same date again. The
+  releases call is now one script both stats workflows use (`release-downloads.sh`, failing on
+  any failed page), read whole before anything is written, and so is their commit step
+  (`commit-stats.sh`).
+- **The coverage report fails its run when it can't be made.** Every step was
+  `continue-on-error`, so a broken report task left green runs with no report. Only the download
+  of the test parts' coverage data still may fail (a run can have none).
+- Found by the audit's second reading pass (T-3, T-4, T-5, W-1, W-2, W-3; 2026-11-12). Checked by
+  hand: `canary-issue.sh` with a bad token exits 1 (and was ignored); Windows PowerShell 5.1 now
+  refuses `renew-fb-cookies.ps1` at once; the stats step run against a copy of the `stats` branch
+  appended one snapshot, skipped a second the same day, and wrote nothing when the call failed.
+  Repo tooling only: no app change, no release.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:

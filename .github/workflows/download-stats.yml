@@ -18,27 +18,31 @@ jobs:
   snapshot:
     runs-on: ubuntu-latest
     steps:
+      # main's scripts, and the stats branch (data only) in stats/.
+      - name: Checkout scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+
       - name: Checkout stats branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: stats
+          path: stats
 
       - name: Append download counts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           today=$(date -u +%F)
-          [ -f downloads.csv ] || echo "date,tag,downloads" > downloads.csv
-          gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
-            --jq '.[] | [.tag_name, ([.assets[].download_count] | add // 0)] | @tsv' |
-            while IFS=$'\t' read -r tag count; do
-              echo "$today,$tag,$count"
-            done >> downloads.csv
+          csv=stats/downloads.csv
+          [ -f "$csv" ] || echo "date,tag,downloads" > "$csv"
+          # One snapshot a day: a second run (by hand) appended the same date again.
+          if grep -q "^$today," "$csv"; then echo "Already taken today"; exit 0; fi
+          # Read whole first: a failed page leaves the file as it was.
+          downloads=$(.github/scripts/release-downloads.sh)
+          printf '%s\n' "$downloads" | awk -F'\t' -v day="$today" '{ print day "," $1 "," $2 }' >> "$csv"
 
       - name: Commit snapshot
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add downloads.csv
-          git commit -m "stats: download snapshot $(date -u +%F)"
-          git push
+        working-directory: stats
+        run: ../.github/scripts/commit-stats.sh "stats: download snapshot $(date -u +%F)" downloads.csv
