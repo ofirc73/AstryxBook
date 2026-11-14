@@ -31,7 +31,9 @@ class StoryLayoutJsTest {
             )
         }
 
+        // viewport_meta.js first, as the app runs it.
         fun run() {
+            page.run(R.raw.viewport_meta)
             page.run(R.raw.story_layout)
         }
 
