@@ -2141,6 +2141,18 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   both failed before). They need the emulator's screen lock PIN (`-e pin`), as the other lock
   tests do. No live check: the dialogs are the app's own, not Facebook's.
 
+## Daily check: its issues carry one label
+
+- **Every "Daily Facebook check" issue has the label `daily-facebook-check`**, so they can be
+  listed together (`label:"daily-facebook-check"`): the "Daily Facebook check failed" issues and
+  the "parts unchecked" one, from the PC's scheduled task (`tools/canary.ps1`) and from
+  `facebook-canary.yml` alike. The callers set `ISSUE_LABEL`; `canary-issue.sh` puts it on an issue
+  it opens and on an open one it comments on or edits. The release run's "Release run failed"
+  issue sets none and gets none. The 20 issues opened so far (open and closed) were labelled by
+  hand. Checked with a stand-in `gh` on `PATH` that logs its arguments (open or no open issue,
+  each action, with and without the label); no issue was created. Repo tooling only: no app
+  change, no release.
+
 ## Story editor and reel creator: one copy of each helper
 
 - No change in what the app does. `story_layout.js` builds its two Done buttons with one helper
