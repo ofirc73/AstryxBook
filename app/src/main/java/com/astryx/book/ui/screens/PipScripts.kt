@@ -564,7 +564,8 @@ internal const val PIP_RELAYOUT_AFTER_FULLSCREEN_JS = PIP_RELEASE_FULLSCREENCHAN
     clearTimeout(settle);
     clearTimeout(cap);
     window.removeEventListener('resize', onResize, true);
-    document.dispatchEvent(new Event('fullscreenchange'));
+    // Bubbling, as Chromium's own does: a listener on the window hears it too.
+    document.dispatchEvent(new Event('fullscreenchange', { bubbles: true }));
   }
   function onResize() {
     clearTimeout(settle);
@@ -723,14 +724,17 @@ internal fun pipHandbackJs(positionMs: Long?, positionAtMs: Long, play: Boolean,
   var v = document.querySelector('[data-astryx-handoff-muted]');
   if (!v) { rearm(); return 'none'; }
   var position = ${if (positionMs != null) positionMs / 1000.0 else "null"}, at = $positionAtMs;
-  var started = Date.now(), moved = false, timer = null;
+  var started = Date.now(), moved = false, timer = null, finished = false;
   // Where the native player is now (it loops the video).
   function nativeAt() {
     var length = isFinite(v.duration) && v.duration > 0 ? v.duration : Infinity;
     return (position + (Date.now() - at) / 1000) % length;
   }
   var catchUp = window.__astryxCatchUp ? window.__astryxCatchUp(v, nativeAt, { leadKey: 'astryxHandbackLead', firstLead: 0.6 }) : null;
+  // Once: a play() rejected after the handback was done (AbortError) calls it again.
   function done() {
+    if (finished) return;
+    finished = true;
     if (timer) clearInterval(timer);
     if (catchUp) catchUp.release();
     v.muted = v.getAttribute('data-astryx-handoff-muted') === 'true';

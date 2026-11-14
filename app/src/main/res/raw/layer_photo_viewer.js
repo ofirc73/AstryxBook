@@ -20,13 +20,16 @@
   }
 
   // The viewer's row: an ancestor with three children, the photo in the middle one and narrow,
-  // tall arrow columns on both sides.
+  // tall arrow columns on both sides, filling most of the window as the viewer does. A chat's
+  // message row can have that shape (avatar, picture, actions): marked, every Back took it for an
+  // open viewer and did nothing else.
   function photoRow(img) {
     var child = img;
     for (var e = img.parentElement, n = 0; e && n < MAX_LEVELS; child = e, e = e.parentElement, n++) {
       var kids = e.children;
       if (kids.length !== 3 || kids[1] !== child) continue;
       var row = e.getBoundingClientRect();
+      if (row.width < window.innerWidth * 0.9 || row.height < window.innerHeight * 0.7) continue;
       var left = kids[0].getBoundingClientRect();
       var right = kids[2].getBoundingClientRect();
       if (left.width > 0 && left.width <= MAX_ARROW_COLUMN && right.width > 0 && right.width <= MAX_ARROW_COLUMN &&

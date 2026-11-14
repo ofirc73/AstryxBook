@@ -330,6 +330,60 @@ class ShareMediaJsTest {
     }
 
     @Test
+    fun filesTheAppCouldntRead_failTheShare_insteadOfEndingItAsDone() {
+        // Ended as "finished", the app dropped the share and the user saw nothing happen.
+        val h = Harness()
+        h.load("https://m.facebook.com/composer/", COMPOSER_PAGE)
+        h.eval(ADD_PHOTO_ICON)
+        h.files(Triple("0_a.jpg", "image/jpeg", 10))
+        h.eval("window.__files[0].failed = true; 1")
+        h.run("feed")
+
+        assertTrue({ h.calls() }, h.waitFor("window.__calls.indexOf('failed:feed:unreadable') >= 0"))
+        assertFalse(h.calls(), h.calls().contains("finished"))
+    }
+
+    @Test
+    fun twoSharesNotTaken_leaveTheUsersOwnTapToThePicker() {
+        // A Photo button that opened nothing, twice within a few seconds: the first share's answer,
+        // put back when the second gave up, answered the user's own tap later with its files.
+        val h = Harness()
+        h.load("https://m.facebook.com/", feedPage(label = "Photo").replace("i.click();", "if (!window.__broken) i.click();"))
+        h.eval("window.__broken = true; 1")
+        h.files(Triple("0_a.jpg", "image/jpeg", 3))
+        h.run("feed", "window.__astryxShareId = 1;")
+        Thread.sleep(1000)
+        h.files(Triple("1_b.jpg", "image/jpeg", 4))
+        h.run("feed", "window.__astryxShareId = 2;")
+        assertTrue({ h.calls() }, h.waitFor("window.__calls.filter(function (c) { return c === 'failed:feed:notTaken'; }).length === 2", 9000))
+
+        h.eval("document.getElementById('in').click(); 1")
+        Thread.sleep(300)
+        assertEquals("a share's files answered the user's tap", "false", h.eval("!!window.__got"))
+    }
+
+    @Test
+    fun group_aPhotoNotTakenOneByOne_leavesTheUsersNextTapToThePicker() {
+        // Told the share failed, the app shows so; the page's next file click still got the
+        // shared photo for 3.5 s more.
+        val h = Harness()
+        h.load(
+            "https://m.facebook.com/groups/355723031242469/",
+            GROUP_COMPOSER.replace(
+                "addEventListener('click', function () { document.getElementById('in').click(); })",
+                "addEventListener('click', function () {})"
+            )
+        )
+        h.files(Triple("0_a.jpg", "image/jpeg", 3), Triple("1_b.jpg", "image/jpeg", 4))
+        h.run("group")
+        assertTrue({ h.calls() }, h.waitFor("window.__calls.indexOf('failed:group:notTaken') >= 0", 9000))
+
+        h.eval("document.getElementById('in').click(); 1")
+        Thread.sleep(300)
+        assertEquals("0_a.jpg", h.eval("window.__got.join(',')").unquoted())
+    }
+
+    @Test
     fun filesSentAsBase64_onOlderWebViews_arriveWhole() {
         val h = Harness()
         h.load("https://www.facebook.com/stories/create", STORY_PAGE)

@@ -619,6 +619,21 @@ class PipFocusModeJsTest {
     }
 
     @Test
+    fun relayoutAfterFullscreen_replaysABubblingChange_thatTheWindowHears() {
+        // Chromium's own change bubbles from the document to the window: a page listening there
+        // missed a replay that didn't.
+        val h = Harness()
+        h.loadHtml("<html><body></body></html>")
+        h.eval("window.__heard = 0; window.addEventListener('fullscreenchange', function () { window.__heard++; });")
+        h.eval(PIP_HOLD_FULLSCREENCHANGE_JS)
+
+        h.eval(PIP_RELAYOUT_AFTER_FULLSCREEN_JS)
+
+        Thread.sleep(1500)
+        assertEquals("1", h.eval("window.__heard"))
+    }
+
+    @Test
     fun relayoutAfterFullscreen_waitsWhileResizesKeepComing() {
         val h = Harness()
         h.loadHtml("<html><body></body></html>")

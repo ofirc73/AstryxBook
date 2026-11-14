@@ -43,10 +43,25 @@ class LayerPhotoViewerJsTest {
     @Test
     fun aPhotoAddedLater_isWidenedToo() {
         // The viewer opens over the chat after the page loaded.
-        load("https://www.facebook.com/messages/e2ee/t/1/", "<html><body style='margin:0;width:384px'><p>chat</p></body></html>")
+        load("https://www.facebook.com/messages/e2ee/t/1/", "<html><body style='margin:0'><p>chat</p></body></html>")
         eval("document.body.insertAdjacentHTML('beforeend', \"$ROW\"); 1")
         Thread.sleep(300)
         assertTrue("a viewer opened after the page loaded stayed narrow (${photoWidth()})", photoWidth() > rowWidth() * 0.9f)
+    }
+
+    @Test
+    fun aChatMessageShapedLikeTheViewer_isLeftAlone() {
+        // An avatar, a picture and its actions, stretched to the row's height: marked as the viewer,
+        // every Back after it only sent Escape.
+        load(
+            "https://www.facebook.com/messages/e2ee/t/1/",
+            "<html><body style='margin:0'><div id='row' style='display:flex;width:100vw;height:240px'>" +
+                "<div style='width:36px;flex:none'>avatar</div>" +
+                "<div style='flex:1'><img id='photo' style='width:200px;height:240px;object-fit:contain;background:#468'></div>" +
+                "<div style='width:40px;flex:none'>react</div></div></body></html>"
+        )
+        assertEquals("false", eval("document.getElementById('row').hasAttribute('data-astryx-photo-row')"))
+        assertEquals("false", eval("window.__astryxClosePhotoViewer()"))
     }
 
     @Test
@@ -57,16 +72,16 @@ class LayerPhotoViewerJsTest {
 
     companion object {
         private const val ROW =
-                "<div id='row' style='display:flex;justify-content:space-between;width:384px;height:708px'>" +
-                "<div id='prev' style='width:72px;height:708px;flex:none'>prev</div>" +
+                "<div id='row' style='display:flex;justify-content:space-between;width:100vw;height:93vh'>" +
+                "<div id='prev' style='width:72px;height:100%;flex:none'>prev</div>" +
                 "<div id='middle' style='display:flex;flex:0 0 216px;width:216px'><div style='width:100%;display:flex;justify-content:center;align-items:center'>" +
                 "<div style='width:100%;max-height:calc(100vh - 76px)'><div style='position:relative;padding-top:75%'>" +
                 "<img id='photo' style='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:#468'>" +
                 "</div></div></div></div>" +
-                "<div id='next' style='width:72px;height:708px;flex:none'>next</div>" +
+                "<div id='next' style='width:72px;height:100%;flex:none'>next</div>" +
                 "</div>"
         private const val VIEWER =
             "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'></head>" +
-                "<body style='margin:0;width:384px'>" + ROW + "</body></html>"
+                "<body style='margin:0'>" + ROW + "</body></html>"
     }
 }

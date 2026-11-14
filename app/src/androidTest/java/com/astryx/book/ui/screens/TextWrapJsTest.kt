@@ -209,6 +209,76 @@ class TextWrapJsTest {
     }
 
     @Test
+    fun theKeyboardOpening_isNotTakenForAPinch() {
+        // Only the view's height changes: taken for a pinch, every block was fitted again and the
+        // view panned sideways, away from the comment box just tapped.
+        val h = Harness()
+        h.load()
+        h.zoom(scale = 2.0, width = 200)
+        h.eval("window.__pans = 0; Element.prototype.scrollIntoView = function () { window.__pans++; };")
+
+        h.eval("window.__z.height = 300; visualViewport.dispatchEvent(new Event('resize'));")
+        Thread.sleep(600)
+
+        assertEquals("0", h.eval("window.__pans"))
+        assertEquals("184px", h.maxWidth("post"))
+    }
+
+    @Test
+    fun textTakenOffThePage_isPutBack_whileZoomedIn() {
+        // Rows of a feed scrolled past: each wrapped one was held, as it was, until the user zoomed
+        // out. Put back and forgotten, one Facebook shows again is wrapped like any other.
+        val h = Harness()
+        h.load()
+        h.zoom(scale = 2.0, width = 200)
+        h.eval("window.__gone = [document.getElementById('post'), document.getElementById('box')]; window.__gone.forEach(function (el) { el.remove(); });")
+
+        h.eval("window.__astryxTextWrap.update(false);")
+
+        assertEquals("\"\"", h.eval("window.__gone[0].style.maxWidth"))
+        assertEquals("\"60px\"", h.eval("window.__gone[1].style.height"))
+        assertEquals(JSONObject.quote(SERVER_TEXT), h.eval("window.__gone[1].querySelector('#server').textContent"))
+    }
+
+    @Test
+    fun textInTwoWrappedBlocks_joinedTwice_isStillPutBack() {
+        // A block inside another wrapped block, its text judged once for each (two line limits):
+        // recorded twice, its zoom-out threw half-way and left the blocks before it narrow. The
+        // judging is faked here: each join turns the text's first line break into a space.
+        val h = Harness()
+        h.load()
+        val inner = "first line of the inner text\nsecond line of it here\nthird line"
+        h.eval(
+            """
+            var nest = document.createElement('div');
+            nest.id = 'nest';
+            nest.style.cssText = 'white-space:pre;width:400px';
+            nest.appendChild(document.createTextNode('The outer block has some text of its own. '));
+            var inner = document.createElement('div');
+            inner.id = 'inner';
+            inner.style.width = '360px';
+            inner.textContent = ${JSONObject.quote(inner)};
+            nest.appendChild(inner);
+            document.body.insertBefore(nest, document.body.firstChild);
+            window.__astryxServerLines.join = function (block) {
+              var out = [], walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT), node;
+              while ((node = walker.nextNode())) out.push({ node: node, text: node.nodeValue.replace('\n', ' ') });
+              return out;
+            };
+            """.trimIndent()
+        )
+        h.zoom(scale = 2.0, width = 200)
+        assertTrue(h.isWrapped("nest"))
+        assertTrue(h.isWrapped("inner"))
+
+        h.zoom(scale = 1.0, width = 300)
+
+        assertEquals(JSONObject.quote(inner), h.text("inner"))
+        assertEquals("", h.maxWidth("nest"))
+        assertEquals("0", h.eval("document.querySelectorAll('[data-astryx-wrap]').length"))
+    }
+
+    @Test
     fun runningTheScriptTwice_installsItOnce() {
         val h = Harness()
         h.load()
