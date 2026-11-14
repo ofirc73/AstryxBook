@@ -704,10 +704,11 @@ class PipFocusModeJsTest {
             </body></html>
             """.trimIndent()
         )
-        h.eval("window.__astryxLastActiveVideo = document.getElementById('A');")
-        h.eval(PIP_APPLY_FOCUS_MODE_JS)
-        h.eval("window.__astryxLastActiveVideo = document.getElementById('B');")
-        h.eval(PIP_APPLY_FOCUS_MODE_JS)
+        // Both runs in one step: the first run's next-frame re-assertion then lands after the second
+        // (on CI's emulator it did anyway, and put top/left back on A).
+        h.eval("window.__astryxLastActiveVideo = document.getElementById('A');\n" + PIP_APPLY_FOCUS_MODE_JS +
+            "\nwindow.__astryxLastActiveVideo = document.getElementById('B');\n" + PIP_APPLY_FOCUS_MODE_JS)
+        Thread.sleep(200)
 
         assertEquals("\"B\"", h.eval("[].map.call(document.querySelectorAll('[data-astryx-pip-video]'), function (v) { return v.id; }).join(',')"))
         assertEquals("A kept focus mode's style", "width:100px;height:100px", h.eval("document.getElementById('A').getAttribute('style')").unquoted().replace(" ", "").trimEnd(';'))

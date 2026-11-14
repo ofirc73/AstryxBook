@@ -208,6 +208,9 @@ internal const val PIP_FOCUS_MODE_JS = PIP_STYLE_FNS_JS + """
   // Belt-and-suspenders re-assertion on the next frame, in case the first
   // application still landed mid-paint-cycle despite the scroll reset above.
   requestAnimationFrame(function() {
+    // Not once it's no longer the PiP video: run again on another one within the frame, focus mode
+    // gave this one its style back, and this put top/left back on it (CI, 2026-11-13).
+    if (!best.hasAttribute('data-astryx-pip-video')) return;
     if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
       window.scrollTo(0, 0);
     }
