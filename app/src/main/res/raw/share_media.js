@@ -201,7 +201,7 @@
     // The composer opens with the first photo given (before TAKE_MS): the note shows from then.
     waitFor(taken, TAKE_MS, function (given) { if (given) showAdding(files.length, before); });
     setTimeout(function () {
-      if (!taken()) { taken.stop(); send({ call: 'failed', reason: 'notTaken' }); return; }
+      if (!taken()) { notTaken(taken); return; }
       addOneByOne(rest);
     }, TAKE_MS);
   }
@@ -234,6 +234,13 @@
     return given;
   }
 
+  // A click whenFileClicked waited for didn't come: it stops answering now (a tap on the page's
+  // own photo button after the app was told the share failed got the shared file) and says so.
+  function notTaken(taken) {
+    taken.stop();
+    send({ call: 'failed', reason: 'notTaken' });
+  }
+
   function addPhotoButton() {
     var buttons = document.querySelectorAll('[role="button"], [data-action-id]');
     var found = null;
@@ -254,9 +261,7 @@
       var taken = whenFileClicked(function (input) { giveFiles(input, files.slice(0, 1)); });
       button.click();
       setTimeout(function () {
-        // Given up now: a tap on the page's own photo button after the app was told the share
-        // failed got the shared file.
-        if (!taken()) { taken.stop(); send({ call: 'failed', reason: 'notTaken' }); return; }
+        if (!taken()) { notTaken(taken); return; }
         addOneByOne(files.slice(1));
       }, ADD_STEP_MS);
     });
