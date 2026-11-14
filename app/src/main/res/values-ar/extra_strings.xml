@@ -56,6 +56,7 @@
     <string name="messenger_link_use_desktop">استخدام وضع سطح المكتب</string>
     <string name="messenger_link_open_app">فتح Messenger</string>
     <string name="share_via">مشاركة عبر…</string>
+    <string name="navigate_back">رجوع</string>
     <string name="ad_removed_title">تمت إزالة الإعلان</string>
     <string name="ad_removed_text">تمت إزالة المحتوى المموَّل</string>
     <string name="pip_play">تشغيل</string>

@@ -52,6 +52,7 @@
     <string name="messenger_link_use_desktop">Desktop-Modus verwenden</string>
     <string name="messenger_link_open_app">Messenger öffnen</string>
     <string name="share_via">Teilen über…</string>
+    <string name="navigate_back">Zurück</string>
     <string name="ad_removed_title">Werbung entfernt</string>
     <string name="ad_removed_text">Gesponserter Inhalt wurde entfernt</string>
     <string name="pip_play">Wiedergabe</string>

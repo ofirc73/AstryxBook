@@ -2018,6 +2018,20 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   Live: the seven story checks pass; the real case of SL-1 needs a posted story, which the
   checks never make, so it's covered by the fixed-page test only.
 
+## Settings: Reload reachable by screen readers
+
+- **Reload to apply can be found and pressed with TalkBack.** The button that shows once a
+  page setting changes was on screen, but had no node in the accessibility tree at all, so
+  TalkBack and the tests couldn't reach it. The cause was Material 3's Extended FAB in the
+  overload that takes its text and icon apart (1.5.0-rc01): the same button built with its
+  icon and text as its content is found and pressed. It looks the same.
+- The back arrow at Settings' top said "back button" to screen readers in English whatever the
+  app's language; it now says Back in the app's 12 languages.
+- Found by the audit (SET-5, SET-4; 2026-11-12). Covered by
+  `PagesAndSettingsTest.aPageSettingChanged_offersReload_thatScreenReadersCanFindAndPress`
+  (failed before, on main's code). No live check: Settings is the app's own screen, not
+  Facebook's.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:

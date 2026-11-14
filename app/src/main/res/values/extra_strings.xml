@@ -64,6 +64,7 @@
 
     <!-- Sharing and downloads -->
     <string name="share_via">Share via…</string>
+    <string name="navigate_back">Back</string>
     <string name="ad_removed_title">Ad removed</string>
     <string name="ad_removed_text">Sponsored content was removed</string>
     <string name="pip_play">Play</string>
