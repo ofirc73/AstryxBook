@@ -2116,6 +2116,13 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   astryx_api36 -no-snapshot-load -no-snapshot-save`). The `logged_in` snapshot and the data image
   (the test account's login) are untouched. Tools only, no release; CI's AVD cache is a different
   matter and is unchanged (a `-no-snapshot-save` try there once broke a PiP test).
+- **Stopping the local emulator deletes its 4 GB RAM file.** `-no-snapshot-save` (above) stops the
+  snapshot write at exit, but the emulator (37.1.11) still keeps the guest RAM's backing file,
+  `snapshots\default_boot\ram.img` (no `snapshot.pb`), and makes it again at each start: the AVD
+  folder was back to 25.3 GB after one cold start (2026-11-14). `Stop-Emulator` now deletes that
+  folder once the emulator's processes have ended (`Remove-RamSnapshot`; the `logged_in` snapshot
+  and the data image stay), and the new `tools/stop-emulator.ps1` stops the running emulator the
+  same way for a by-hand stop. Tools only, no release.
 - `renew-fb-cookies.ps1` needs PowerShell 7 and now says so (`#requires -Version 7`): Windows
   PowerShell 5.1 split the quoted Python it passes to `python -c`, and the syntax error was
   reported as Python missing.

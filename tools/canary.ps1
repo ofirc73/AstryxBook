@@ -65,7 +65,7 @@ $env:GH_REPO = 'ofirc73/AstryxBook'
 $issueTitle = 'Daily Facebook check failed'
 $gapsTitle = 'Daily Facebook check: parts unchecked for 7 runs'
 $gapRuns = 7
-. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial, Stop-Emulator
+. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial, Stop-Emulator, Remove-RamSnapshot
 . "$PSScriptRoot\canary-run.ps1" # Get-LockHolder, Get-HungCheck
 $logDir = Join-Path $env:LOCALAPPDATA 'Astryxbook\canary'
 $gapsDir = Join-Path $logDir 'gaps'
@@ -194,7 +194,7 @@ try {
 } catch {
     if (-not $skipped) { $failure = "The check couldn't run: $($_.Exception.Message)" }
 } finally {
-    if ($startedEmulator) { Stop-Emulator $startedEmulator.Serial $startedEmulator.Ids }
+    if ($startedEmulator) { Stop-Emulator $startedEmulator.Serial $startedEmulator.Ids $Avd }
     Remove-Item $lock -Force -ErrorAction SilentlyContinue
 }
 
