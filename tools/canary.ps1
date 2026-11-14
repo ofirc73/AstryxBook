@@ -101,11 +101,12 @@ $output = ''
 $commit = ''
 try {
     # 1. The emulator, cold-booted: a quick-boot snapshot brought older APKs and flaky tests back.
+    #    -no-snapshot-save too: nothing loads that snapshot, and writing it took 4 GB at every exit.
     $serial = Get-EmulatorSerial
     if (-not $serial) {
         Write-Host "Starting emulator $Avd (headless, cold boot)"
         $before = @(Get-Process -Name 'qemu-system-*' -ErrorAction SilentlyContinue).Id
-        Start-Process -FilePath $emulatorExe -ArgumentList "-avd $Avd -no-window -no-audio -no-boot-anim -no-snapshot-load" -WindowStyle Hidden
+        Start-Process -FilePath $emulatorExe -ArgumentList "-avd $Avd -no-window -no-audio -no-boot-anim -no-snapshot-load -no-snapshot-save" -WindowStyle Hidden
         $deadline = (Get-Date).AddMinutes(6)
         while (-not ($serial = Get-EmulatorSerial)) {
             if ((Get-Date) -gt $deadline) { throw 'The emulator never came up' }
