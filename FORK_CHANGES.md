@@ -2183,6 +2183,16 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   `StoryLayoutJsTest`, `LayerStoryViewerJsTest` and `ShareMediaJsTest` (they run
   `viewport_meta.js` first, as the app does), and the whole live suite with the chat.
 
+## Daily check: a failed run keeps the device's log
+
+- The 2026-11-16 daily check ended "Process crashed" two minutes in, before any check ran, and
+  nothing said why: the run stops the emulator it started, and the device's log went with it. A
+  failed run now saves it first, next to the run's own log (`<date>.device.txt`), and the issue
+  names it. It's the same set of lines CI keeps for a failed part (the app's and the test
+  runner's, and why a process ended), now one script both use (`.github/scripts/device-log.sh`).
+  The whole live suite run again that evening passed 49 of 49, the copy-text check that failed on
+  11-15 included. Tools only, no release.
+
 ## No emoji font from Google Play services
 
 - **The app no longer depends on Google Play services at start.** `androidx.emoji2`, which Compose

@@ -118,7 +118,9 @@ user-visible change.
   to half an hour, then skips the day. It must end inside the scheduled task's 2-hour limit (a task
   Windows ends runs none of its cleanup: the 11-08 and 11-09 runs hung, reported nothing and left
   qemu running): the checks get `-ChecksMinutes` (60), their output streams to `<date>.checks.txt`,
-  and a hung run is reported with the check it hung in (logcat's `TestRunner` `started:`); the
+  and a hung run is reported with the check it hung in (logcat's `TestRunner` `started:`); a failed
+  run keeps the device's log, `<date>.device.txt` (`.github/scripts/device-log.sh`, the lines CI keeps
+  for a failed part), named in the issue; the
   emulator it started is stopped with `Stop-Emulator` (`tools/emulator.ps1`: `emu kill`, then the
   qemu process if it's still there a minute on). It reports through
   `.github/scripts/canary-issue.sh`, as the workflow does: failures in one "Daily Facebook check
