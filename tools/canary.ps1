@@ -195,6 +195,15 @@ try {
 } catch {
     if (-not $skipped) { $failure = "The check couldn't run: $($_.Exception.Message)" }
 } finally {
+    # A failed run's device log, before the emulator goes with it: the 11-16 run ended "Process
+    # crashed" with nothing left to say why. The lines CI keeps for a failed part (device-log.sh).
+    $deviceLog = $null
+    if ($failure -and $env:ANDROID_SERIAL) {
+        $env:ADB = $adb -replace '\\', '/'
+        $deviceLog = Join-Path $logDir "$stamp.device.txt"
+        & $gitBash "$repo/.github/scripts/device-log.sh" ($deviceLog -replace '\\', '/') 2>$null
+        if ($LASTEXITCODE -ne 0) { $deviceLog = $null }
+    }
     if ($startedEmulator) { Stop-Emulator $startedEmulator.Serial $startedEmulator.Ids }
     Remove-Item $lock -Force -ErrorAction SilentlyContinue
 }
@@ -214,7 +223,8 @@ if (-not $NoIssue -and -not $skipped) {
         if ($failure) {
             $body = "**$date** on the PC's emulator${at}:`n`n```````n$failure`n``````" +
                 $(if ($notes) { "`n`nNotes:`n```````n$notes`n``````" } else { '' }) +
-                "`n`nLiveFacebookCanaryTest against today's m.facebook.com. Full log on the PC: ``$log``."
+                "`n`nLiveFacebookCanaryTest against today's m.facebook.com. Full log on the PC: ``$log``" +
+                $(if ($deviceLog) { ", the device's: ``$deviceLog``." } else { '.' })
             Update-Issue comment $issueTitle $body
         } else {
             Update-Issue close $issueTitle "Passing again on $date$at."
