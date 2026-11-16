@@ -2193,6 +2193,20 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   The whole live suite run again that evening passed 49 of 49, the copy-text check that failed on
   11-15 included. Tools only, no release.
 
+## No emoji font from Google Play services
+
+- **The app no longer depends on Google Play services at start.** `androidx.emoji2`, which Compose
+  brings in, loaded an emoji font through Play services' `FontsProvider` as the app started, and
+  Android kills an app that holds a provider whose process dies: when Play services hung in those
+  first seconds, the app went with it ("depends on provider … FontsProvider in dying proc
+  com.google.android.gms.persistent"). Seen three times in three days on CI's emulator (PRs 211
+  and 217, 2026-11-14 and 11-16), and possibly the 11-16 daily check that crashed right after a
+  cold boot. EmojiCompat's startup step is removed in the manifest: emoji in the app's own
+  screens (Settings, dialogs) use the phone's own emoji font, and the newest emoji may show as a
+  box on older Android versions. Facebook's pages are unaffected.
+- Covered by `StartupInitializersTest` (EmojiCompat's initializer absent, WorkManager's still
+  there). No live check: it's the app's own start, not Facebook's page.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:

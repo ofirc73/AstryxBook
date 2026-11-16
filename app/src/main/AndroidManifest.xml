@@ -195,6 +195,19 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
+        <!-- No emoji font from Google Play services at start (androidx.emoji2, which Compose brings):
+             loading it made the app depend on Play services' FontsProvider, and Android killed the
+             app whenever that process died meanwhile (CI's emulator, 2026-11-14 and 11-16). Emoji in
+             the app's own screens use the system font; Facebook's pages are unaffected. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>
