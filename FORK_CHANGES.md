@@ -2341,3 +2341,15 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   onto a real photo, a big one kept within the story size); live checks below. In every test and
   live check the auto share runs with `ShareMediaQueue.noPress` (`window.__astryxShareNoPress`),
   checked in the page's script before Share: it finds the button and presses nothing.
+
+## Daily check: an emulator that dies mid-run
+
+- When the emulator died a few checks into a run (2026-11-17), the run never ended: the failed
+  run's device log is read with `adb logcat`, which waits for a device that's gone ("- waiting for
+  device -"), so the run held its lock for 4.5 hours, until stopped by hand. Its 60-minute limit
+  (`-ChecksMinutes`) didn't help, as the checks themselves had ended. Run by the scheduled task, it
+  would have been ended at 2 hours with no report. Now the run asks adb whether the emulator is still
+  there (`Test-Emulator`, `adb get-state`, which answers at once) before each read of its log, and
+  reports "The emulator stopped during the checks: the ones after it never ran", with any failures
+  before it. Tried by killing the emulator's qemu a few seconds into a run: it ended 13 s later,
+  reported, and released its lock. Tools only, no release.

@@ -65,7 +65,7 @@ $env:GH_REPO = 'ofirc73/AstryxBook'
 $issueTitle = 'Daily Facebook check failed'
 $gapsTitle = 'Daily Facebook check: parts unchecked for 7 runs'
 $gapRuns = 7
-. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial, Stop-Emulator
+. "$PSScriptRoot\emulator.ps1" # $adb, $emulatorExe, Get-EmulatorSerial, Test-Emulator, Stop-Emulator
 . "$PSScriptRoot\canary-run.ps1" # Get-LockHolder, Get-HungCheck
 $logDir = Join-Path $env:LOCALAPPDATA 'Astryxbook\canary'
 $gapsDir = Join-Path $logDir 'gaps'
@@ -177,10 +177,12 @@ try {
     if (-not $run.WaitForExit($ChecksMinutes * 60 * 1000)) {
         $run.Kill()
         # Stopped first: the test run left going keeps the emulator busy, and the next day's run
-        # waits half an hour for it, then skips.
-        & $adb shell am force-stop com.astryx.book.test
-        $hung = Get-HungCheck (& $adb logcat -d -s TestRunner:I)
-        $failure = "The checks didn't finish in $ChecksMinutes minutes: stopped in $hung"
+        # waits half an hour for it, then skips. Not on an emulator that's gone (its logcat waits).
+        if (Test-Emulator $serial) {
+            & $adb shell am force-stop com.astryx.book.test
+            $hung = Get-HungCheck (& $adb logcat -d -s TestRunner:I)
+            $failure = "The checks didn't finish in $ChecksMinutes minutes: stopped in $hung"
+        }
     }
     $output = (Get-Content $checks -Raw) + (Get-Content "$checks.err" -Raw)
     Write-Host $output
@@ -192,13 +194,19 @@ try {
         }) -join "`n"
         if (-not $failure) { $failure = 'No test result (see the log on the PC)' }
     }
+    # The emulator gone during the checks (it died mid-run, 2026-11-17: the test run ended with no
+    # result): said first, with what the checks said before it.
+    if (-not (Test-Emulator $serial)) {
+        $checksSaid = $failure -replace '^No test result.*$', '' -replace "^The checks didn't finish.*$", ''
+        $failure = 'The emulator stopped during the checks: the ones after it never ran' + $(if ($checksSaid) { "`n$checksSaid" } else { '' })
+    }
 } catch {
     if (-not $skipped) { $failure = "The check couldn't run: $($_.Exception.Message)" }
 } finally {
     # A failed run's device log, before the emulator goes with it: the 11-16 run ended "Process
     # crashed" with nothing left to say why. The lines CI keeps for a failed part (device-log.sh).
     $deviceLog = $null
-    if ($failure -and $env:ANDROID_SERIAL) {
+    if ($failure -and (Test-Emulator $env:ANDROID_SERIAL)) {
         $env:ADB = $adb -replace '\\', '/'
         $deviceLog = Join-Path $logDir "$stamp.device.txt"
         & $gitBash "$repo/.github/scripts/device-log.sh" ($deviceLog -replace '\\', '/') 2>$null
