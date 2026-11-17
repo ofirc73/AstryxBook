@@ -3,7 +3,7 @@
 // on the user's mobile profile, 'group' on the mobile groups (the user picks one), 'story' on the
 // desktop site's story creator (www.facebook.com/stories/create) and 'reel' on its reels page
 // (both in the Messages layer). The user writes the caption and posts (or saves the profile
-// picture); nothing here posts anything.
+// picture), unless the share is an auto one (below).
 //
 // The files come from the app through the AstryxShare message listener (ShareMediaBridge.kt):
 // a header (JSON) and then each file's bytes (an ArrayBuffer, or base64 on WebViews without
@@ -20,6 +20,10 @@
 //   (story_layout.js lays that page out like the Facebook app's story editor.)
 // - Reel: the reels page's Create reel (found by its icon) opens the creator, whose video input
 //   gets the shared video.
+// An auto share (window.__astryxShareAuto: the user pressed Share on the app's native share
+// screen, which drew any text onto the photos) goes on to post, the user's own press done for
+// them: a story's Share to story once its editor is ready, a feed post's text
+// (window.__astryxShareCaption) typed and its Post tapped. Never without that.
 // ES5 on purpose, like the PiP scripts.
 (function () {
   var target = window.__astryxShareTarget;
@@ -28,6 +32,7 @@
   // taken). A feed share opened from Home stays on Home's page, so a later share runs there too:
   // each share has its own id (window.__astryxShareId), and a run whose share was replaced stops.
   var share = window.__astryxShareId || 1;
+  var auto = !!window.__astryxShareAuto;
   if (!target || !bridge || window.__astryxShareRunning === share) return;
   window.__astryxShareRunning = share;
   function replaced() { return window.__astryxShareRunning !== share; }
@@ -255,7 +260,7 @@
   }
 
   function addOneByOne(files) {
-    if (!files.length) { send({ call: 'finished' }); return; }
+    if (!files.length) { finish(); return; }
     waitFor(addPhotoButton, TAKE_MS, function (button) {
       if (!button) { send({ call: 'failed', reason: 'notTaken' }); return; }
       var taken = whenFileClicked(function (input) { giveFiles(input, files.slice(0, 1)); });
@@ -264,6 +269,113 @@
         if (!taken()) { notTaken(taken); return; }
         addOneByOne(files.slice(1));
       }, ADD_STEP_MS);
+    });
+  }
+
+  // The files are in the composer: done, or on an auto feed share, its text and Post.
+  function finish() {
+    if (auto && target === 'feed') autoPost();
+    else send({ call: 'finished' });
+  }
+
+  // An auto share's press, as the user's own: once ready() finds the button and keeps finding it
+  // for READY_CHECKS checks in a row (the page settled), press(button); pressed() tells whether
+  // the page took it, and if it hasn't PRESS_RETRY_MS on, it's pressed once more. Gives up
+  // (done(false)) after AUTO_MS. Tests set window.__astryxShareNoPress: the button found is kept
+  // (window.__astryxShareWouldPress) and nothing is pressed.
+  var AUTO_MS = window.__astryxShareAutoMs || 90000;
+  var READY_CHECKS = 3;
+  var PRESS_RETRY_MS = window.__astryxSharePressRetryMs || 6000;
+  function pressWhenReady(ready, press, pressed, done) {
+    var started = Date.now();
+    var seen = 0;
+    var presses = 0;
+    (function check() {
+      if (replaced()) return;
+      if (presses && pressed()) { done(true); return; }
+      if (Date.now() - started > AUTO_MS) { done(false); return; }
+      var button = ready();
+      seen = button ? seen + 1 : 0;
+      if (seen >= READY_CHECKS && presses < 2) {
+        if (window.__astryxShareNoPress) { window.__astryxShareWouldPress = button; done(true); return; }
+        presses++;
+        press(button);
+        setTimeout(check, PRESS_RETRY_MS);
+        return;
+      }
+      setTimeout(check, 500);
+    })();
+  }
+
+  // The composer's Post: the right-most of its top row's buttons right of back (feed_posting.js
+  // isPostButton), not greyed out.
+  function postButton() {
+    var feedPosting = window.__astryxFeedPosting;
+    if (!onComposerPage() || !feedPosting || !feedPosting.isPostButton) return null;
+    var buttons = document.querySelectorAll('[role="button"]');
+    var found = null;
+    for (var i = 0; i < buttons.length; i++) {
+      if (!feedPosting.isPostButton(buttons[i]) || buttons[i].getAttribute('aria-disabled') === 'true') continue;
+      if (!found || buttons[i].getBoundingClientRect().left > found.getBoundingClientRect().left) found = buttons[i];
+    }
+    return found;
+  }
+
+  // The composer's text box (a textarea, or an editable box).
+  function captionBox() {
+    return document.querySelector('textarea, [contenteditable="true"], [role="textbox"]');
+  }
+  function boxText(box) {
+    return box.value !== undefined ? box.value : (box.textContent || '');
+  }
+  // Types text into the composer's box as typing would (insertText, which the page sees as input),
+  // then done(true), or done(false) when the box never took it. The box is a Lexical editor
+  // (2026-11-17), which takes insertText only in a focused page: the app's WebView, under the
+  // native share screen, has no focus, so the app is asked to give it (AstryxShare "focus") and
+  // the text tried again until it's in (CAPTION_TRIES). Set by hand Lexical puts its own text back;
+  // a textarea takes it, with an input event.
+  var CAPTION_TRIES = 10;
+  function typeCaption(text, done) {
+    if (!text) { done(true); return; }
+    send({ call: 'focus' });
+    var tries = 0;
+    (function attempt() {
+      if (replaced()) return;
+      var box = captionBox();
+      if (box && boxText(box).indexOf(text) !== -1) { done(true); return; }
+      if (box) {
+        box.focus();
+        document.execCommand('insertText', false, text);
+        if (boxText(box).indexOf(text) !== -1) { done(true); return; }
+        if (box.value !== undefined) {
+          var setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(box), 'value');
+          if (setter && setter.set) setter.set.call(box, text); else box.value = text;
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+          done(true);
+          return;
+        }
+      }
+      if (++tries >= CAPTION_TRIES) { done(false); return; }
+      setTimeout(attempt, 300);
+    })();
+  }
+
+  // An auto feed share's last step: the photos' previews in (or ADDING_MS), the text typed, then
+  // a real tap on Post (feed_posting.js sees it and reports the posting). A text that didn't go in
+  // fails the share: never posted without it.
+  function autoPost() {
+    waitFor(function () { return previewCount() > 0; }, ADDING_MS, function () {
+      typeCaption(window.__astryxShareCaption, function (typed) {
+        if (!typed) { send({ call: 'failed', reason: 'captionNotTyped' }); return; }
+        pressWhenReady(postButton, function (button) {
+          var point = screenPoint(button, button);
+          if (point) send({ call: 'tap', x: point.x, y: point.y, width: point.width });
+        }, function () {
+          return !!(window.__astryxFeedPosting && window.__astryxFeedPosting.posting) || !onComposerPage();
+        }, function (ok) {
+          send(ok ? { call: 'finished' } : { call: 'failed', reason: 'notPosted' });
+        });
+      });
     });
   }
 
@@ -487,13 +599,39 @@
         if (!files.length) { send({ call: 'finished' }); return; }
         input.__astryxShared = true;
         giveFiles(input, files.slice(0, 1));
-        if (header.remaining > 0) shareToStory(false);
-        else {
-          send({ call: 'finished' });
-          closeWhenDone();
-        }
+        var next = function () {
+          if (header.remaining > 0) shareToStory(false);
+          else {
+            send({ call: 'finished' });
+            closeWhenDone();
+          }
+        };
+        if (!auto) { next(); return; }
+        // An auto share: Share to story once the editor shows the story, then (posted, the page
+        // back to the creator) the next file.
+        pressWhenReady(storyShareButton, function (button) { button.click(); }, function () {
+          return !!document.querySelector('[data-astryx-story="actions"] [aria-busy="true"]') ||
+            window.location.pathname.indexOf('/stories/create') !== 0;
+        }, function (ok) {
+          if (ok) next(); else send({ call: 'failed', reason: 'notPosted' });
+        });
       });
     });
+  }
+
+  // The story editor's Share to story, ready to press: the last of the bottom row's buttons
+  // (story_layout.js marks the row; Discard comes first), labelled, not greyed out or busy, with the
+  // story in the editor (a picture or a video in its preview) and no dialog over it.
+  function storyShareButton() {
+    if (window.location.pathname.indexOf('/stories/create') !== 0) return null;
+    if (document.querySelector('[role="dialog"]')) return null;
+    var main = document.querySelector('[data-astryx-story="main"]');
+    if (!main || !main.querySelector('img, video, canvas')) return null;
+    var buttons = document.querySelectorAll('[data-astryx-story="actions"] [role="button"]');
+    var button = buttons[buttons.length - 1];
+    if (!button || buttons.length < 2 || !/\S/.test(button.innerText || '')) return null;
+    if (button.getAttribute('aria-disabled') === 'true' || button.getAttribute('aria-busy') === 'true') return null;
+    return button;
   }
 
   // After the last shared item: once the creator is back to choosing a story (the user discarded

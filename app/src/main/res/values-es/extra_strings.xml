@@ -137,4 +137,21 @@
     <string name="attach_camera_denied">No se permitió la cámara, así que no se tomó nada.</string>
     <string name="attach_no_camera">No se encontró ninguna app de cámara.</string>
     <string name="download_started">Guardando en Descargas…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">Tu historia</string>
+    <string name="native_share_title_feed">Crear publicación</string>
+    <string name="native_share_close">Cerrar</string>
+    <string name="native_share_edit_in_facebook">Editar en Facebook</string>
+    <string name="native_share_add_text">Añadir texto</string>
+    <string name="native_share_done">Listo</string>
+    <string name="native_share_text_background">Fondo del texto</string>
+    <string name="native_share_share_story">Compartir en la historia</string>
+    <string name="native_share_post">Publicar</string>
+    <string name="native_share_caption_hint">Di algo sobre esto…</string>
+    <string name="native_share_sharing_story">Compartiendo tu historia…</string>
+    <string name="native_share_sharing_post">Publicando…</string>
+    <string name="native_share_failed">No se pudo compartir: la página de Facebook no respondió. Termínalo en el editor de Facebook o cierra.</string>
+    <string name="native_share_page">%1$d de %2$d</string>
+    <string name="native_share_render_failed">No se pudo preparar la foto con su texto.</string>
 </resources>

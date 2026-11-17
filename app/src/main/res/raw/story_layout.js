@@ -372,6 +372,13 @@
       // innerText skips hidden content; a closed popup keeps its (hidden) images.
       var shown = layer.firstElementChild && getComputedStyle(layer.firstElementChild).visibility !== 'hidden';
       var showing = shown && (/\S/.test(layer.innerText || '') || !!layer.querySelector('input, textarea, [contenteditable]'));
+      // The music list focuses its search box as it opens, which brought up the keyboard over the
+      // list (the phone, 2026-11-16): a box the popup focused by itself is let go; a tap on it
+      // focuses it as usual. Text boxes (the text tool's) aren't inputs and keep their focus.
+      if (showing && !layer.hasAttribute('data-astryx-story-popup')) {
+        var focused = document.activeElement;
+        if (focused && focused.tagName === 'INPUT' && layer.contains(focused)) focused.blur();
+      }
       if (showing) layer.setAttribute('data-astryx-story-popup', '');
       else layer.removeAttribute('data-astryx-story-popup');
       if (showing) anyShowing = true;

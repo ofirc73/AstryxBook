@@ -49,8 +49,9 @@ internal object HomeComposer {
  * Page messages (JSON), each with the share's target (ShareTarget.key): {call: "next"} (one
  * file), {call: "all"} (every file left), {call: "finished"}, {call: "failed", reason}; and, while
  * a feed share's files wait, {call: "tap", x, y, width} (a real tap on Home's composer box, at a
- * point of the visual viewport, [width] CSS px wide) and {call: "openComposer", reason} (loads
- * the composer, where Home's box couldn't open it).
+ * point of the visual viewport, [width] CSS px wide; on an auto share, on the composer's Post too),
+ * {call: "openComposer", reason} (loads the composer, where Home's box couldn't open it) and, on
+ * an auto share, {call: "focus"} (the WebView focused, for the post's text to be typed in).
  */
 fun installShareMediaBridge(webView: WebView, context: Context) {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
@@ -71,10 +72,14 @@ fun installShareMediaBridge(webView: WebView, context: Context) {
                 if (files.isEmpty()) reply.postMessage(DONE) else sendFiles(reply, files, binary, main, remaining = 0)
             }
             "finished" -> finishIfDone(context, target)
-            "tap" -> if (target == ShareTarget.FEED && ShareMediaQueue.pending(target)) {
+            // Home's composer box while the files wait, or the composer's Post once they're in
+            // (an auto share: the user pressed Share on the native share screen).
+            "tap" -> if (target == ShareTarget.FEED && (ShareMediaQueue.pending(target) || ShareMediaQueue.auto)) {
                 HomeComposer.taps.incrementAndGet()
                 tapPage(webView, msg.optDouble("x"), msg.optDouble("y"), msg.optDouble("width"))
             }
+            // The composer's text box (Lexical) takes typed text only in a focused WebView.
+            "focus" -> if (target == ShareTarget.FEED && ShareMediaQueue.auto) webView.requestFocus()
             "openComposer" -> if (target == ShareTarget.FEED && ShareMediaQueue.pending(target)) {
                 Log.i("Astryxbook", "Share: Home's composer box didn't open the composer (${msg.optString("reason")}): loading it")
                 HomeComposer.loads.incrementAndGet()
@@ -85,6 +90,7 @@ fun installShareMediaBridge(webView: WebView, context: Context) {
                 val text = if (msg.optString("reason") == "noComposer") R.string.share_media_no_composer
                 else R.string.share_media_failed
                 Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+                ShareMediaQueue.failed()
                 endShare(context)
             }
         }

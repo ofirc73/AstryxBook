@@ -132,4 +132,21 @@
     <string name="attach_camera_denied">ক্যামেরার অনুমতি দেওয়া হয়নি, তাই কিছু তোলা হয়নি।</string>
     <string name="attach_no_camera">কোনো ক্যামেরা অ্যাপ পাওয়া যায়নি।</string>
     <string name="download_started">ডাউনলোডে সংরক্ষণ করা হচ্ছে…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">আপনার স্টোরি</string>
+    <string name="native_share_title_feed">পোস্ট তৈরি করুন</string>
+    <string name="native_share_close">বন্ধ করুন</string>
+    <string name="native_share_edit_in_facebook">Facebook-এ সম্পাদনা করুন</string>
+    <string name="native_share_add_text">লেখা যোগ করুন</string>
+    <string name="native_share_done">সম্পন্ন</string>
+    <string name="native_share_text_background">লেখার পটভূমি</string>
+    <string name="native_share_share_story">স্টোরিতে শেয়ার করুন</string>
+    <string name="native_share_post">পোস্ট করুন</string>
+    <string name="native_share_caption_hint">এটি সম্পর্কে কিছু বলুন…</string>
+    <string name="native_share_sharing_story">আপনার স্টোরি শেয়ার হচ্ছে…</string>
+    <string name="native_share_sharing_post">পোস্ট হচ্ছে…</string>
+    <string name="native_share_failed">শেয়ার করা যায়নি: Facebook-এর পেজ সাড়া দেয়নি। Facebook-এর এডিটরে শেষ করুন, বা বন্ধ করুন।</string>
+    <string name="native_share_page">%2$d-এর মধ্যে %1$d</string>
+    <string name="native_share_render_failed">লেখাসহ ছবিটি প্রস্তুত করা যায়নি।</string>
 </resources>

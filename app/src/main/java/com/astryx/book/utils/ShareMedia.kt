@@ -1,12 +1,17 @@
 package com.astryx.book.utils
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import java.io.File
 
 /**
  * Photos and videos shared into the app from another app's share sheet: the entries named like
  * the Facebook app's own (Your story, Feed, Set as profile picture, Your groups, Reels; the
  * ShareTo... aliases in the manifest). They go into Facebook's own composer, where the user writes
- * the caption and posts; nothing is posted by the app. See share_media.js for how the page takes
- * them. [key] is the target's name in share_media.js and its bridge.
+ * the caption and posts. Story and Feed show the app's own share screen first (NativeShareScreen),
+ * whose Share has the page press Facebook's Share or Post for the user (ShareMediaQueue.auto);
+ * nothing else is posted by the app. See share_media.js for how the page takes them. [key] is the
+ * target's name in share_media.js and its bridge.
  *
  * - Story: the desktop site's story creator (m.facebook.com sends stories to the Facebook app),
  *   in the Messages layer's desktop WebView; it takes one photo or video at a time, so several
@@ -144,19 +149,81 @@ object ShareMediaQueue {
     private var files: List<SharedFile> = emptyList()
     private var next = 0
     private var startedAt = 0L
+    private var preparing = false
 
     /** The share in progress's number, telling share_media.js runs for two shares apart. */
     @get:Synchronized
     var id = 0
         private set
 
+    /**
+     * Whether the page presses Share (a story) or Post (the feed) itself once it has the files:
+     * the user pressed Share on the native share screen (NativeShareScreen). Otherwise the user
+     * does, in Facebook's own editor.
+     */
+    @get:Synchronized
+    var auto = false
+        private set
+
+    /**
+     * The live checks only: an auto share finds Facebook's Share or Post and presses nothing
+     * (share_media.js window.__astryxShareNoPress). Never set by the app.
+     */
+    @Volatile
+    var noPress = false
+
+    /** The feed post's text, typed on the native share screen, for the composer (auto shares). */
+    @get:Synchronized
+    var caption: String? = null
+        private set
+
+    /**
+     * Counts every start, preparation and failure, for Compose: the story creator, loaded while
+     * the share was being prepared, runs share_media.js once the files come.
+     */
+    var version by mutableIntStateOf(0)
+        private set
+
+    /** Counts the shares the page couldn't take (share_media.js "failed"), for the native screen. */
+    var failures by mutableIntStateOf(0)
+        private set
+
     @Synchronized
-    fun start(newTarget: ShareTarget, newFiles: List<SharedFile>, now: Long = System.currentTimeMillis()) {
+    fun start(
+        newTarget: ShareTarget,
+        newFiles: List<SharedFile>,
+        now: Long = System.currentTimeMillis(),
+        auto: Boolean = false,
+        caption: String? = null,
+    ) {
         target = newTarget
         files = newFiles
         next = 0
         startedAt = now
+        preparing = false
+        this.auto = auto
+        this.caption = caption?.takeIf { it.isNotBlank() }
         id++
+        version++
+    }
+
+    /**
+     * A share to [newTarget] is on the native share screen, its files not ready yet: its page can
+     * load meanwhile (the story creator, without its text-story backgrounds). Nothing is offered.
+     */
+    @Synchronized
+    fun prepare(newTarget: ShareTarget, now: Long = System.currentTimeMillis()) {
+        start(newTarget, emptyList(), now)
+        preparing = true
+    }
+
+    /** A share to [forTarget] is being prepared on the native share screen ([prepare]). */
+    @Synchronized
+    fun preparing(forTarget: ShareTarget): Boolean = preparing && target == forTarget
+
+    /** The page couldn't take the share's files ([failures]). */
+    fun failed() {
+        failures++
     }
 
     /** Whether the share in progress started more than [ms] ago. */
@@ -200,6 +267,10 @@ object ShareMediaQueue {
         target = null
         files = emptyList()
         next = 0
+        preparing = false
+        auto = false
+        caption = null
+        version++
     }
 }
 

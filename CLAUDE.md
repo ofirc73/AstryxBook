@@ -438,6 +438,13 @@ user-visible change.
   order); files are copied to the cache and handed to the page through the `AstryxShare` listener:
   a header, then each file in 4 MB pieces (the next read only once the last is posted) and its end
   (`{"end":true}`, `"failed"` when unreadable); one message per file ran out of memory on a big video.
+  Story and Feed show the native share screen first (`NativeShareScreen`, `NativeShareController`,
+  zIndex 5; its share kept for the process): a story's creator preloads hidden under it
+  (`ShareOpen.PRELOAD`, so its Back doesn't outrank the screen's), photos with texts are drawn with
+  `StoryText`, and Share hands them over as an auto share (`ShareMediaQueue.auto`): `share_media.js`
+  presses Share to story, or types the text (the composer's box is Lexical: the app focuses the
+  WebView first, `focus`) and taps Post, and the app goes back once `Posting.starts` counts it; Edit
+  in Facebook is the flow below.
   Feed, group and profile picture: a mobile button's click on its hidden file input is answered with
   the files. A Feed share with Home showing opens the composer from Home's box instead of loading
   `/composer/` (which has the server draw Home's whole feed first: 9 s at 1 Mbps): the app taps the
@@ -452,7 +459,10 @@ user-visible change.
   The emulator account joined the public group "Android Developer With Android Studio" (2026-10-15)
   for testing group shares; never post there, discard drafts. A group page's Photo button has no
   `role="button"` (a `data-action-id` container), so composer buttons are looked up by both.
-  Nothing ever presses Post/Share: when testing, discard drafts. A story posting
+  Nothing presses Post/Share except the native share screen's auto share (below), after the user's
+  own Share there: when testing, discard drafts, and run an auto share with `ShareMediaQueue.noPress`
+  (`window.__astryxShareNoPress`), checked in the page's script before Share is pressed (a dry run
+  posted for real on 2026-11-17 when its guard hadn't gone in). A story posting
   (`story_posting.js`, Share to story's `aria-busy`) hides the layer and keeps it, with
   `PostingService`'s notification, until the page moves to `/stories` (posted) or the editor
   comes back (failed); `MessagesLayerState.storyPosting` makes opening anything else show it

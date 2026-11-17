@@ -14,6 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -128,6 +129,10 @@ object Posting {
     var current by mutableStateOf<Kind?>(null)
         private set
 
+    /** How many postings started since the app started (the native share screen waits for its own). */
+    var starts by mutableIntStateOf(0)
+        private set
+
     /** The last posting Facebook said is posted, and when (for the snackbar and the stories row). */
     data class Posted(val kind: Kind, val at: Long)
 
@@ -150,6 +155,7 @@ object Posting {
         Log.d(TAG, "Posting: ${kind.name.lowercase()} started")
         synchronized(this) { active.remove(kind); active += kind }
         current = showing()
+        starts++
         startService(context)
         NotificationManagerCompat.from(context).cancel(kind.outcomeId)
     }

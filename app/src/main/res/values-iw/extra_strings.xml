@@ -149,4 +149,21 @@
     <string name="attach_camera_denied">לא ניתנה הרשאה למצלמה, ולכן לא צולם דבר.</string>
     <string name="attach_no_camera">לא נמצאה אפליקציית מצלמה.</string>
     <string name="download_started">שומר בהורדות…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">הסטורי שלך</string>
+    <string name="native_share_title_feed">יצירת פוסט</string>
+    <string name="native_share_close">סגירה</string>
+    <string name="native_share_edit_in_facebook">עריכה בפייסבוק</string>
+    <string name="native_share_add_text">הוספת טקסט</string>
+    <string name="native_share_done">סיום</string>
+    <string name="native_share_text_background">רקע לטקסט</string>
+    <string name="native_share_share_story">שיתוף לסטורי</string>
+    <string name="native_share_post">פרסום</string>
+    <string name="native_share_caption_hint">כתבו משהו על זה…</string>
+    <string name="native_share_sharing_story">הסטורי שלך משותף…</string>
+    <string name="native_share_sharing_post">מפרסם…</string>
+    <string name="native_share_failed">לא ניתן היה לשתף: הדף של פייסבוק לא הגיב. אפשר לסיים בעורך של פייסבוק, או לסגור.</string>
+    <string name="native_share_page">%1$d מתוך %2$d</string>
+    <string name="native_share_render_failed">לא ניתן היה להכין את התמונה עם הטקסט.</string>
 </resources>

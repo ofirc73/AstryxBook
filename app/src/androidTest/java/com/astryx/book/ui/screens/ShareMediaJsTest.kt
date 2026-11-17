@@ -237,6 +237,95 @@ class ShareMediaJsTest {
         assertTrue(h.waitFor("window.__closed === 1", 5000))
     }
 
+    // An auto share (the user's Share pressed on the app's native share screen): Facebook's own Share
+    // to story pressed once the editor shows the story, then the next file once the creator's back.
+    @Test
+    fun story_anAutoShare_pressesShareToStory_forEachFile() {
+        val h = autoStory()
+        h.files(Triple("0_a.jpg", "image/jpeg", 4), Triple("1_b.jpg", "image/jpeg", 6))
+        h.run("story", AUTO)
+        assertTrue({ "Share to story was never pressed twice (${h.calls()})" }, h.waitFor("window.__shared === 2", 15_000))
+        assertEquals("0_a.jpg:image/jpeg:4,1_b.jpg:image/jpeg:6", h.eval("window.__got.join(',')").unquoted())
+        assertTrue(h.waitFor("window.__calls.indexOf('finished:story') >= 0"))
+    }
+
+    @Test
+    fun story_anAutoShare_waitsForADialogOverTheEditorToGo() {
+        // Facebook's own dialogs over the editor (a first story's audience): Share waits.
+        val h = autoStory()
+        h.eval("window.__dialog = true;")
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", AUTO)
+        assertTrue(h.waitFor("window.__got.length === 1"))
+        Thread.sleep(2500)
+        assertEquals("Share pressed with a dialog over the editor", "0", h.eval("window.__shared"))
+        h.eval("document.getElementById('dialog').remove(); 1")
+        assertTrue({ "Share never pressed once the dialog went (${h.calls()})" }, h.waitFor("window.__shared === 1", 5000))
+    }
+
+    @Test
+    fun story_anAutoShare_whoseShareStaysGreyedOut_fails() {
+        val h = autoStory()
+        h.eval("window.__shareDisabled = true;")
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", "$AUTO window.__astryxShareAutoMs = 2000;")
+        assertTrue({ "the share didn't fail (${h.calls()})" }, h.waitFor("window.__calls.indexOf('failed:story:notPosted') >= 0", 6000))
+        assertEquals("0", h.eval("window.__shared"))
+    }
+
+    // The live check's way (window.__astryxShareNoPress): the button found, nothing pressed.
+    @Test
+    fun story_anAutoShare_withNoPress_findsShareToStory_andPressesNothing() {
+        val h = autoStory()
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", "$AUTO window.__astryxShareNoPress = true;")
+        assertTrue(h.waitFor("window.__astryxShareWouldPress === document.getElementById('share')", 8000))
+        Thread.sleep(1000)
+        assertEquals("0", h.eval("window.__shared"))
+    }
+
+    private fun autoStory() = Harness().apply { load("https://www.facebook.com/stories/create", AUTO_STORY_PAGE) }
+
+    @Test
+    fun feed_anAutoShare_typesItsText_andTapsPost_onceThePhotosShow() {
+        val h = autoComposer()
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed", "$AUTO window.__astryxShareCaption = 'Hello there';")
+        assertTrue({ "Post was never tapped (${h.calls()})" }, h.waitFor("window.__posted === 1", 15_000))
+        assertEquals("Hello there", h.eval("document.getElementById('text').textContent").unquoted())
+        assertTrue("the app wasn't asked to focus the page first: ${h.calls()}", h.calls().contains("focus:feed tap:feed"))
+        assertEquals("Post tapped before the photo's preview showed", "true", h.eval("window.__photoFirst"))
+        assertTrue(h.calls(), h.waitFor("window.__calls.indexOf('finished:feed') >= 0"))
+        assertTrue("Post wasn't the app's own tap: ${h.calls()}", h.calls().contains("tap:feed"))
+    }
+
+    @Test
+    fun feed_aShareNotAuto_leavesPostToTheUser() {
+        val h = autoComposer()
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed")
+        assertTrue(h.waitFor("window.__calls.indexOf('finished:feed') >= 0", 8000))
+        Thread.sleep(2000)
+        assertEquals("0", h.eval("window.__posted"))
+        assertEquals("", h.eval("document.getElementById('text').textContent").unquoted())
+    }
+
+    @Test
+    fun feed_anAutoShare_whoseTextDoesntGoIn_failsWithoutPosting() {
+        // The page never focused (the app's WebView kept from it): the text can't be typed.
+        val h = autoComposer()
+        h.eval("window.__noFocus = true;")
+        h.files(Triple("0_a.jpg", "image/jpeg", 5))
+        h.run("feed", "$AUTO window.__astryxShareCaption = 'Hello there';")
+        assertTrue({ "the share didn't fail (${h.calls()})" }, h.waitFor("window.__calls.indexOf('failed:feed:captionNotTyped') >= 0", 10_000))
+        assertEquals("0", h.eval("window.__posted"))
+    }
+
+    private fun autoComposer() = Harness().apply {
+        load("https://m.facebook.com/composer/", AUTO_COMPOSER_PAGE)
+        eval(ADD_PHOTO_ICON)
+    }
+
     @Test
     fun profilePicture_goesToUploadPhoto_throughTheProfilePictureMenu() {
         val h = Harness()
@@ -525,6 +614,54 @@ class ShareMediaJsTest {
                 "    window.__got = e.target.files[0].name + ':' + e.target.files[0].type + ':' + e.target.files[0].size;" +
                 "    e.target.value = ''; }); });" +
                 "</script>"
+
+        // The flags of an auto share (ShareEffects), its retry quick for the tests.
+        const val AUTO = "window.__astryxShareAuto = true; window.__astryxSharePressRetryMs = 500;"
+
+        // A picture as the editor and the composer show one (a preview from the file).
+        private const val PREVIEW = "<img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' width='40' height='40'>"
+
+        // The story creator as story_layout.js marks it: a file input, then (a file taken) the editor
+        // with the story and the bottom row, Discard and Share to story. Share marks itself busy as
+        // Facebook's does while posting, and a moment later the creator is choosing again (the next
+        // file). window.__dialog: a dialog over the editor; window.__shareDisabled: Share greyed out.
+        const val AUTO_STORY_PAGE =
+            "<div id='creator'></div>" +
+                "<script>window.__got = []; window.__shared = 0;" +
+                "function __choose() { var c = document.getElementById('creator');" +
+                "  c.innerHTML = \"<input type='file' accept='image/*,video/*'>\";" +
+                "  c.firstChild.addEventListener('change', function (e) {" +
+                "    window.__got.push(e.target.files[0].name + ':' + e.target.files[0].type + ':' + e.target.files[0].size);" +
+                "    setTimeout(__edit, 300); }); }" +
+                "function __edit() { var c = document.getElementById('creator');" +
+                "  c.innerHTML = \"<div data-astryx-story='main'>$PREVIEW</div><div data-astryx-story='actions'>" +
+                "<div role='button'>Discard</div><div role='button' id='share'>Share to story</div></div>\"" +
+                "    + (window.__dialog ? \"<div role='dialog' id='dialog'>Audience</div>\" : '');" +
+                "  var share = document.getElementById('share');" +
+                "  if (window.__shareDisabled) share.setAttribute('aria-disabled', 'true');" +
+                "  share.addEventListener('click', function () { window.__shared++; share.setAttribute('aria-busy', 'true');" +
+                "    setTimeout(__choose, 1000); }); }" +
+                "__choose();</script>"
+
+        // The feed composer (COMPOSER_PAGE) with its text box and its top row, back and Post, which
+        // feed_posting.js tells apart (stubbed here: Post by its id). The box is an editable box that,
+        // like Facebook's Lexical editor, puts its own text back unless the app has focused the page
+        // (the bridge's "focus"; never with window.__noFocus). A file given shows its preview a
+        // moment later; Post records the press (window.__posted) and whether the preview was in.
+        const val AUTO_COMPOSER_PAGE =
+            "<div id='top' style='display:flex;justify-content:space-between;height:48px'>" +
+                "<div role='button' aria-label='Back' style='width:48px'>&lt;</div>" +
+                "<div role='button' id='post' style='width:80px'>POST</div></div>" +
+                "<div id='text' contenteditable='true' role='textbox'></div><div id='previews'></div>" + COMPOSER_PAGE +
+                "<script>window.__posted = 0;" +
+                "document.getElementById('text').addEventListener('input', function (e) {" +
+                "  if (window.__noFocus || window.__calls.indexOf('focus:feed') < 0) e.target.textContent = ''; });" +
+                "window.__astryxFeedPosting = { posting: false, isPostButton: function (b) { return b.id === 'post'; } };" +
+                "document.getElementById('in').addEventListener('change', function () {" +
+                "  setTimeout(function () { document.getElementById('previews').innerHTML = \"$PREVIEW\"; }, 300); });" +
+                "document.getElementById('post').addEventListener('click', function () { window.__posted++;" +
+                "  window.__photoFirst = !!document.querySelector('#previews img');" +
+                "  window.__astryxFeedPosting.posting = true; });</script>"
 
         // The desktop story creator: an input ready on load; after a story, a new one replaces it.
         const val STORY_PAGE =

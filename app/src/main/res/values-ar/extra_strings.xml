@@ -150,4 +150,21 @@
     <string name="attach_camera_denied">لم يُسمح باستخدام الكاميرا، فلم يُلتقط شيء.</string>
     <string name="attach_no_camera">لم يُعثر على تطبيق كاميرا.</string>
     <string name="download_started">جارٍ الحفظ في التنزيلات…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">قصتك</string>
+    <string name="native_share_title_feed">إنشاء منشور</string>
+    <string name="native_share_close">إغلاق</string>
+    <string name="native_share_edit_in_facebook">التعديل في فيسبوك</string>
+    <string name="native_share_add_text">إضافة نص</string>
+    <string name="native_share_done">تم</string>
+    <string name="native_share_text_background">خلفية النص</string>
+    <string name="native_share_share_story">مشاركة في القصة</string>
+    <string name="native_share_post">نشر</string>
+    <string name="native_share_caption_hint">قل شيئًا عن هذا…</string>
+    <string name="native_share_sharing_story">جارٍ مشاركة قصتك…</string>
+    <string name="native_share_sharing_post">جارٍ النشر…</string>
+    <string name="native_share_failed">تعذّرت المشاركة: لم تستجب صفحة فيسبوك. أكملها في محرر فيسبوك أو أغلق.</string>
+    <string name="native_share_page">%1$d من %2$d</string>
+    <string name="native_share_render_failed">تعذّر تجهيز الصورة مع نصها.</string>
 </resources>

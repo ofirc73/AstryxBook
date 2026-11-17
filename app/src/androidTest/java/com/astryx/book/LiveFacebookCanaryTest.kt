@@ -24,6 +24,9 @@ import com.astryx.book.utils.KeepScreenOn
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.StoryBackgrounds
+import com.astryx.book.utils.StoryTextLayer
+import com.astryx.book.ui.screens.NativeShare
+import com.astryx.book.ui.screens.shareMediaScript
 import com.astryx.book.utils.jsBridge.HomeComposer
 import com.astryx.book.utils.TextZoom
 import com.astryx.book.utils.adsPixelBlocks
@@ -94,6 +97,9 @@ class LiveFacebookCanaryTest {
     @After
     fun tearDown() {
         app.finish()
+        ShareMediaQueue.noPress = false
+        ShareMediaQueue.clear()
+        NativeShareController.clear()
         runBlocking {
             SettingsDataStore(app.context).setPipEnabled(false)
             SettingsDataStore(app.context).setMessagesDesktop(false)
@@ -505,8 +511,15 @@ class LiveFacebookCanaryTest {
 
     // [count] plain pictures of [width] x [height], each its own colour, shared to the app's [alias]
     // (ShareToFeed, ...) as the share sheet would (several: SEND_MULTIPLE): served through the app's
-    // own FileProvider.
-    private fun sharePictures(alias: String, count: Int = 1, width: Int = 64, height: Int = 64) {
+    // own FileProvider. Story and Feed show the app's share screen first: its Edit in Facebook goes on
+    // to Facebook's own editor or composer, unless [edit] is false.
+    private fun sharePictures(
+        alias: String,
+        count: Int = 1,
+        width: Int = 64,
+        height: Int = 64,
+        edit: Boolean = alias == "ShareToStory" || alias == "ShareToFeed",
+    ) {
         val uris = ArrayList((1..count).map { n ->
             app.servedUri(app.servedFile("canary$n.png", app.picture(width, height, Color.rgb(30 * n, 120, 200))))
         })
@@ -517,7 +530,27 @@ class LiveFacebookCanaryTest {
                 .setType("image/png")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         )
+        if (edit) app.editInFacebook()
     }
+
+    // A picture shared to [alias] and, on the app's share screen, changed by [change] and shared (an
+    // auto share): share_media.js finds Facebook's own Share or Post and presses nothing
+    // (ShareMediaQueue.noPress, made sure of in the page's script before Share: the checks never post).
+    private fun shareFromTheShareScreen(alias: String, width: Int = 64, height: Int = 64, change: (NativeShare) -> Unit) {
+        ShareMediaQueue.noPress = true
+        sharePictures(alias, 1, width, height, edit = false)
+        val shared = app.nativeShare()
+        assertTrue("the share's script would press Facebook's Share (ShareMediaQueue.noPress)",
+            shareMediaScript(app.context.resources, shared.target).contains("window.__astryxShareNoPress = true;"))
+        app.onActivity {
+            change(shared)
+            it.nativeShare.onShare()
+        }
+    }
+
+    // The button share_media.js would have pressed (its text), in [webView].
+    private fun wouldPress(webView: WebView) =
+        app.eval("(function (b) { return b ? (b.innerText || '').trim() : ''; })(window.__astryxShareWouldPress)", webView).trim('"')
 
     @Test
     fun sharingPhotosToFeed_opensTheComposerWithThemAll() {
@@ -545,6 +578,20 @@ class LiveFacebookCanaryTest {
             "feed_posting.js doesn't find the composer's Post (isPostButton: the top row's button right of back; ${pageShape()})",
             "\"/composer/ Post\"", eval(posts)
         )
+    }
+
+    @Test
+    fun aPhotoPostedFromTheShareScreen_hasItsTextTyped_andFindsFacebooksPost() {
+        shareFromTheShareScreen("ShareToFeed") { it.caption = "Astryxbook live check" }
+        awaitComposerPhotos()
+        assertTrue({ "share_media.js never found the composer's Post ready (postButton; ${pageShape()})" }, app.waitFor(60_000) {
+            wouldPress(app.mainWebView()) == "Post"
+        })
+        // The page's text boxes, as share_media.js captionBox looks for them: each one's tag, role and text.
+        val boxes = "[].map.call(document.querySelectorAll('textarea, [contenteditable=\"true\"], [role=\"textbox\"]'), function (b) {" +
+            " return b.tagName + '/' + b.getAttribute('role') + ':' + (b.value !== undefined ? b.value : b.textContent).slice(0, 40); })"
+        assertTrue({ "the post's text wasn't typed into the composer's box (share_media.js captionBox; ${eval("$boxes.join(' | ')")})" },
+            eval("$boxes.length > 0 && $boxes[0].indexOf('Astryxbook live check') >= 0") == "true")
     }
 
     @Test
@@ -1065,22 +1112,33 @@ class LiveFacebookCanaryTest {
     }
 
     @Test
+    fun aStoryFromTheShareScreen_withItsText_findsFacebooksShareToStory() {
+        shareFromTheShareScreen("ShareToStory", 720, 1280) { it.texts[0] = listOf(StoryTextLayer("Live check")) }
+        assertTrue({ "share_media.js never found Share to story ready (storyShareButton: the last of story_layout.js's bottom " +
+            "row, the story in its editor, no dialog; ${app.layerWebView()?.let { app.eval(STORY_LAYOUT_JS, it) }})" }, app.waitFor(90_000) {
+            app.layerWebView()?.let { wouldPress(it) } == "Share to story"
+        })
+    }
+
+    @Test
     fun theStoryEditorsMusicList_isClosedByATapOnDiscard() {
         // Facebook's popups aren't modal (Share posted a story with the music list open, Galaxy A56,
         // 2026-10-27): story_layout.js dims Discard and Share while one is open and a tap on either
         // only closes it, through its close button. Tried with Discard, never Share: had the tap
         // gone through, it would only ask "Discard story?".
+        // A real tap: the list's search box took the focus from it, and the keyboard came up over
+        // the list (2026-11-16); story_layout.js takes the focus off it.
         val layer = shareToStory()
         assertStoryEditorLaidOut(layer)
-        val opened = app.eval(
-            "(function () { var t = [].filter.call(document.querySelectorAll('[data-astryx-story=tool]'), function (b) {" +
-                " return /music/i.test(b.innerText); })[0]; if (!t) return false; t.click(); return true; })()", layer
-        ) == "true"
+        val music = "[].filter.call(document.querySelectorAll('[data-astryx-story=tool]'), function (b) {" +
+            " return /music/i.test(b.innerText); })[0]"
         assertTrue("no Add music tool on the story editor (by its English label, among story_layout.js's " +
-            "data-astryx-story=tool buttons)", opened)
+            "data-astryx-story=tool buttons)", app.tapOn(layer, music))
         assertTrue("the music list never opened as a popup (data-astryx-story-popup)", app.waitFor(15_000) {
             app.eval("document.documentElement.classList.contains('astryx-story-popup-open')", layer) == "true"
         })
+        Thread.sleep(1500)
+        assertFalse("the keyboard came up with the music list (story_layout.js: the popup's focused search box)", app.keyboardShown())
         app.eval("document.querySelector('[data-astryx-story=actions] [role=button]').click(); 1", layer)
         assertTrue("a tap on Discard didn't close the music list (its close button, found at the popup's top right)",
             app.waitFor(5_000) {

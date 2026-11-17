@@ -1,6 +1,7 @@
 package com.astryx.book.ui.screens
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.astryx.book.PageFixture
+import com.astryx.book.assertTrue
 import com.eepiemi.materialbook.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -53,6 +54,18 @@ class StoryPostingJsTest {
         setBusy(false)
         Thread.sleep(POSTED_WAIT_MS)
         assertEquals("\"storyPosting posting\"", calls())
+    }
+
+    @Test
+    fun theStorysMusic_isMutedWhileItPosts_andNotAfter() {
+        // A story's music plays on in the creator's <audio> while it posts (the layer out of sight).
+        open(CREATOR.replace("</body>", "<audio id='music'></audio><video id='own' muted></video></body>"))
+        fun muted() = page.eval("[music.muted, own.muted].join()")
+        setBusy(true)
+        assertTrue({ "the music isn't muted while posting: ${muted()}" }, page.waitFor { muted() == "\"true,true\"" })
+        setBusy(false)
+        // Unmuted, and what the page had muted itself stays muted.
+        assertTrue({ "the music stayed muted after posting: ${muted()}" }, page.waitFor { muted() == "\"false,true\"" })
     }
 
     @Test

@@ -783,9 +783,22 @@ lost it as the page it asked for came (the copy-text check's "evaluateJavascript
   `story_posting.js` reads (`StoryPostingJsTest`). Its `"true"` while posting and the failure that
   follows can't be checked live without posting: they were read on the emulator with every request
   held (2026-11-02).
-- `theStoryEditorsMusicList_isClosedByATapOnDiscard`: the real music list seen as an open panel,
-  and a tap on Discard closing it through its close button without going through (tried on
-  Discard, never Share; `StoryLayoutJsTest`).
+- `theStoryEditorsMusicList_isClosedByATapOnDiscard`: the real music list opened by a real tap on
+  Add music, seen as an open panel with the keyboard down, and a tap on Discard closing it through
+  its close button without going through (tried on Discard, never Share; `StoryLayoutJsTest`). The
+  music muted while a story posts can't be checked live without posting (`StoryPostingJsTest`); its
+  `<audio>` element was read on the emulator with a song picked (2026-11-17).
+- `aStoryFromTheShareScreen_withItsText_findsFacebooksShareToStory`,
+  `aPhotoPostedFromTheShareScreen_hasItsTextTyped_andFindsFacebooksPost`: a picture shared to Your
+  story (a text drawn on it) or Feed (with the post's text), Share pressed on the app's share
+  screen: on the real creator `share_media.js` finds Share to story ready with the story in the
+  editor, and in the real composer the text typed into Facebook's box and Post found, never pressed
+  (`ShareMediaQueue.noPress`, checked in the page's script first; `ShareMediaJsTest`,
+  `ShareIntoFacebookTest`). The press itself and the app going back once posting can't be checked
+  live without posting: the feed's was tried on the emulator with an Only-me test post, deleted
+  right after (2026-11-17). The share screen itself doesn't depend on Facebook's page
+  (`ShareIntoFacebookTest`, `StoryTextRenderTest`). The other Story and Feed live checks go through
+  its Edit in Facebook.
 - `facebooksStoriesPage_afterAStory_showsYourStoriesOrClosesTheStoryScreen`: Facebook's stories page
   still at `www.facebook.com/stories`, with the Add to story link `open_own_story.js` finds your
   card by; on the real page the account's own stories open (full screen, Back closes the story
@@ -1562,7 +1575,8 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   open Facebook's story creator with the first one in it; photos shared to the second open
   Facebook's **Create post** with them attached, several at once. (They were *Facebook story* and
   *Post to Facebook* in v1.27.0.) The user writes the caption, adds music or text, and posts or shares: the app
-  never posts anything itself. `activity-alias` entries for `MainActivity` tell the targets
+  never posts anything itself. (Since the share screen, see "Story and Feed shares: the app's own
+  share screen", Story and Feed show it first, and its Share has the app press Facebook's.) `activity-alias` entries for `MainActivity` tell the targets
   apart. Off-type items (a video for the feed) and items over the limits (30 photos or 10 story
   items; 40 MB a photo, 250 MB a video) are left out, with a message.
 - **Set as profile picture**, **Your groups** and **Reels** complete the Facebook app's menu:
@@ -2278,3 +2292,51 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   file.
 - Store listing screenshots (`fastlane/metadata/.../phoneScreenshots/`)
   removed as stale; not replaced yet (need real device captures).
+
+## Story and Feed shares: the app's own share screen
+
+- **A photo or video shared to Your story or Feed opens the app's own share screen** first, as the
+  Facebook app does, instead of Facebook's desktop story editor at phone width (its text tool hard to
+  use, the keyboard over Add music, music playing on while the story posted, Facebook's "better on
+  the app" sheet over it). The screen shows each shared item to swipe through, with:
+  - **Text on a story's photos** (Tt): type a text, pick its colour and a box behind it, drag it into
+    place and pinch it bigger or smaller; tap it to change it. The texts are drawn onto the photo
+    (`StoryText`) before it goes to Facebook. Text on a video comes in a later release.
+  - **The post's text** for the feed.
+  - **Share to story** / **Post**: the app hands the items to Facebook's page out of sight and
+    presses Facebook's own Share to story (each story in turn) or types the text and taps Post
+    itself, then goes back to the app the share came from once the story or post is posting (its
+    notification follows). The notification permission is asked for first, as it's the only sign
+    of how the share went. If Facebook's page can't take it (2 minutes without posting, or the page
+    fails), the screen says so and **Edit in Facebook** shows the page to finish there.
+  - **Edit in Facebook** hands the items (texts drawn on) to Facebook's own editor or composer, as
+    before, for music, stickers and the rest.
+  - The close button and Back give the share up and go back to the sharing app.
+- Facebook's page gets ready under the screen: a story share loads the story creator out of sight
+  meanwhile (its 16 MB of text-story backgrounds skipped, `StoryBackgrounds`), so Share is quick. A
+  feed share no longer starts the app on the composer: it starts on Home, whose box opens the
+  composer on Share (no load of `/composer/`). The screen and its share are kept for the app's
+  process, so an activity created again (font size, language) still shows it.
+- The share's press is `share_media.js`'s auto mode (`window.__astryxShareAuto`): it waits until
+  the page has settled with the button ready (three checks in a row; for a story, the story in the
+  editor and no dialog over it), presses it, and presses once more if the page didn't take it.
+  m.facebook.com's composer box is a Lexical editor, which takes typed text only in a focused page:
+  the app focuses the WebView (`AstryxShare` `focus`) and the text is tried again until it's in; a
+  text that doesn't go in fails the share rather than posting without it.
+- **A story's music no longer plays on while it posts**: Facebook's creator plays it through an
+  `<audio>` element, which `story_posting.js` mutes while Share to story is busy (unmuted when it
+  ends, for a failed story's editor).
+- **Add music no longer brings up the keyboard**: the music list's search box took the focus from
+  the tap; `story_layout.js` takes it off as the list opens.
+- Testing: `ShareIntoFacebookTest` (the screen for Story and Feed, the creator loading out of sight
+  under it, Back giving the share up, the screen kept through the activity created again, Share
+  handing over the photo with its text drawn on and the app going back once posting, a failure
+  said); `ShareMediaJsTest` (the auto share on fake pages: Share to story pressed for each file,
+  waiting for a dialog to go, failing when Share stays greyed out, the text typed and Post tapped
+  once the photos show, a text that doesn't go in failing without posting, a share that isn't auto
+  pressing nothing); `StoryPostingJsTest` (the page's media muted while posting and unmuted after);
+  `StoryLayoutJsTest` (the music list's search box let go as the list opens, kept when tapped after);
+  `StoryTextTest` and `StoryTextRenderTest` (the text's place and size at any photo size, drawn
+  onto a real photo, a big one kept within the story size); live checks below. In every test and
+  live check the auto share runs with `ShareMediaQueue.noPress` (`window.__astryxShareNoPress`),
+  checked in the page's script before Share: it finds the button and presses nothing.

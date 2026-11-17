@@ -22,8 +22,20 @@ import kotlinx.coroutines.delay
 // A shared photo's page: how long to wait for a fresh load before using the page showing.
 private const val SHARE_LOAD_WAIT_MS = 2000L
 
+/** What a [ShareMediaRequest] asks of the share's page. */
+enum class ShareOpen {
+    /** Its page opens anew, for the files. */
+    NEW,
+    /** A story's creator loads out of sight, under the native share screen; nothing's offered to it yet. */
+    PRELOAD,
+    /** The creator loaded under the native share screen is kept, shown, and takes the files. */
+    REUSE,
+    /** The share was given up on the native share screen: the creator opened for it closes. */
+    CLOSE,
+}
+
 /** Photos or videos shared into the app for [target]; [seq] tells two shares apart. */
-data class ShareMediaRequest(val seq: Int, val target: ShareTarget)
+data class ShareMediaRequest(val seq: Int, val target: ShareTarget, val open: ShareOpen = ShareOpen.NEW)
 
 /**
  * share_media.js for [target], with the target it's run for; [fromHome]: a feed share run on Home.
@@ -43,6 +55,10 @@ internal fun shareMediaScript(
         (if (fromHome) "window.__astryxShareFromHome = true;\n" else "") +
         // The creator opened again for a story share's next file: it's waited for as long as it takes.
         (if (target == ShareTarget.STORY && ShareMediaQueue.started(target)) "window.__astryxShareNextStory = true;\n" else "") +
+        // Shared from the native share screen: the page presses Share or Post itself, with its text.
+        (if (ShareMediaQueue.auto) "window.__astryxShareAuto = true;\n" else "") +
+        (if (ShareMediaQueue.noPress) "window.__astryxShareNoPress = true;\n" else "") +
+        (ShareMediaQueue.caption?.let { "window.__astryxShareCaption = ${org.json.JSONObject.quote(it)};\n" } ?: "") +
         "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
 }
 
@@ -60,7 +76,7 @@ internal fun MainViewShareEffects(
     loadingState: LoadingState,
     pageStarts: Int = 0,
     pageUrl: () -> String? = { null },
-    onOpenLayer: (String) -> Unit,
+    onOpenLayer: (url: String, open: ShareOpen) -> Unit,
     onCloseLayer: () -> Unit,
 ) {
     val resources = LocalResources.current
@@ -80,6 +96,10 @@ internal fun MainViewShareEffects(
         shareMediaScript(resources, target, fromHome = target == ShareTarget.FEED && isMobileHomePage(pageUrl()))
     LaunchedEffect(shareMediaRequest?.seq) {
         val request = shareMediaRequest ?: return@LaunchedEffect
+        if (request.open == ShareOpen.CLOSE) {
+            onCloseLayer()
+            return@LaunchedEffect
+        }
         val startUrl = shareStartPageUrl(request.target)
         if (startUrl != null) {
             onCloseLayer()
@@ -91,7 +111,9 @@ internal fun MainViewShareEffects(
             if (pageShareLoadSeen) navigator.evaluateJavaScript(script(request.target)) {}
             else navigator.loadUrl(startUrl)
         } else {
-            onOpenLayer(if (request.target == ShareTarget.REEL) REEL_CREATE_URL else STORY_CREATE_URL)
+            // A story shared from the native share screen: the creator it loaded while the user
+            // prepared the story takes the files (MessagesLayer runs the script as they come).
+            onOpenLayer(if (request.target == ShareTarget.REEL) REEL_CREATE_URL else STORY_CREATE_URL, request.open)
         }
     }
     // A share that starts the app (a cold start from a gallery) can come while the first page is
