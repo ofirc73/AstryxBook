@@ -432,12 +432,27 @@ class LiveFacebookCanaryTest {
             "sound, quieter than the reel's (${pageShape()})", "true",
             eval("(function (p) { return !!p && window.__astryxReelCommentsAudio.soundUrl(p) !== p.getAttribute('data-video-url'); })" +
                 "(document.querySelector('video').closest('[data-video-url]'))"))
-        // Its index (sidx), by which a long sound is first played from a slice of it.
-        eval("window.__canaryIndex = 'pending'; (function (a, p) { fetch(a.soundUrl(p)).then(function (r) { return r.arrayBuffer(); })" +
-            ".then(function (d) { var f = a.fragments(d); window.__canaryIndex = f ? 'fragments=' + f.list.length : 'none'; }," +
-            " function (e) { window.__canaryIndex = 'failed: ' + e; }); })(window.__astryxReelCommentsAudio," +
+        // Its index (sidx), by which a long sound is first played from a slice of it. The track is
+        // fetched whole; fetch [n] ([n] the try: a late answer to an earlier one is left out) says
+        // how far it got in window.__canaryGot.
+        fun fetchIndex(n: Int) = eval("window.__canaryTry = $n; window.__canaryIndex = 'pending'; window.__canaryGot = 'no answer';" +
+            " (function (a, p) { fetch(a.soundUrl(p)).then(function (r) {" +
+            " if (window.__canaryTry === $n) window.__canaryGot = 'answered ' + r.status + ', ' + (r.headers.get('content-length') || '?') + ' bytes';" +
+            " return r.arrayBuffer(); }).then(function (d) { if (window.__canaryTry !== $n) return;" +
+            " var f = a.fragments(d); window.__canaryIndex = f ? 'fragments=' + f.list.length : 'none'; }," +
+            " function (e) { if (window.__canaryTry === $n) window.__canaryIndex = 'failed: ' + e; }); })(window.__astryxReelCommentsAudio," +
             " document.querySelector('video').closest('[data-video-url]')); 1")
-        assertTrue("the reel's audio track never came", app.waitFor(20_000) { eval("window.__canaryIndex !== 'pending'") == "true" })
+        fun indexCame() = app.waitFor(20_000) { eval("window.__canaryIndex !== 'pending'") == "true" }
+        fetchIndex(1)
+        // Fetched once more when the first fetch stalls (the 2026-11-17 daily run: nothing in 20 s,
+        // and fine when run again).
+        if (!indexCame()) {
+            val first = eval("window.__canaryGot")
+            fetchIndex(2)
+            assertTrue({ "the reel's audio track never came, fetched twice (the first: $first; the second: " +
+                "${eval("window.__canaryGot")})" }, indexCame())
+            note("the reel's audio track came only when fetched again (the first fetch: $first)")
+        }
         val index = eval("window.__canaryIndex").removeSurrounding("\"")
         assertTrue("the reel's audio track has no index of its fragments (sidx): reel_comments_audio.js then decodes a long " +
             "sound whole before playing it, a break going into the comments ($index)",
