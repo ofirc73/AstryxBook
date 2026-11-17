@@ -752,7 +752,10 @@ lost it as the page it asked for came (the copy-text check's "evaluateJavascript
   account's Reels tab shows "Content not found"); a Page's `/videos/` address, which the phone's Reels
   tab uses, is a path check only, in `ReelCommentsAudioJsTest`. It also reads the reel's audio track's
   index (`sidx`, more than one fragment), by which a long sound is first played from a slice; the
-  slice and the takeover are in `ReelCommentsAudioJsTest` (a fake indexed track and decoder).
+  slice and the takeover are in `ReelCommentsAudioJsTest` (a fake indexed track and decoder). The
+  track, fetched whole for that, is fetched once more when the first fetch stalls (the 2026-11-17
+  daily run: nothing in 20 s, fine run again), with a note; failed, the message says how far each
+  fetch got.
 - `sharingPhotosToFeed_opensTheComposerWithThemAll`, `sharingPhotosToAGroup_opensItsComposerWithThemAll`:
   three photos shared at once, each its own, all reaching Home's composer, and a group's (the public
   group the test account joined; a group's composer takes the first alone and the others one by one;
