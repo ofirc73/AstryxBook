@@ -56,7 +56,11 @@ user-visible change.
   Android's "Pixel Launcher isn't responding" dialog over the app: it takes the tests' taps and is the
   window screen reads see, so a test failed only there with the app fine underneath (2026-11-12).
   `AppHarness.dismissNotResponding` presses its Wait before every tap and screen read and waits for
-  the app's window focus; a new input path in the harness calls it too.
+  one of the app's windows (a dialog of its own included) to be the active one; a new input path in
+  the harness calls it too. Screen reads (`textShown`, `tapText`) look at the active window and every
+  window of the app's: with the launcher still hung the dialog came straight back, and the app's
+  camera-or-files choice under it went unseen (`AttachFromCameraTest`, CI 2026-11-14 and 11-16).
+  Run shell commands through `AppHarness.shell` (it waits for the command to end).
   A tap on a page (`tapIn`/`tapOn`) also checks the page saw its `pointerdown` and taps again (up
   to 3 times, same page only): there the first tap after a test closed the app reached nothing. To raise the dialog
   locally: the API 34 Google APIs image (rootable, CI's), `adb root`, `settings put global

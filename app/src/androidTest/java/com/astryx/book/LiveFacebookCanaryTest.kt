@@ -72,12 +72,7 @@ class LiveFacebookCanaryTest {
         runBlocking { SettingsDataStore(app.context).setPipEnabled(true) }
         dropPipNarrowViewportCookie()
         // With the screen off the app's WebView is never created (it's made during layout).
-        shell("input keyevent KEYCODE_WAKEUP")
-    }
-
-    private fun shell(command: String): List<String> {
-        val out = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
-        return android.os.ParcelFileDescriptor.AutoCloseInputStream(out).bufferedReader().readLines()
+        app.shell("input keyevent KEYCODE_WAKEUP")
     }
 
     // PiP can leave a host-only vpd cookie with the PiP window's size on m.facebook.com, which
@@ -117,7 +112,7 @@ class LiveFacebookCanaryTest {
 
     // The app's log lines under [tag], without the line prefixes.
     private fun logLines(tag: String): List<String> =
-        shell("logcat -d -s $tag:D").filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
+        app.shell("logcat -d -s $tag:D").filter { "$tag: " in it }.map { it.substringAfter("$tag: ") }
 
     // A note in the run's output for a check that passed only after working around something: am
     // instrument prints a status's stream text (the workflow turns these into warnings), and logcat
@@ -174,7 +169,7 @@ class LiveFacebookCanaryTest {
         }.getOrElse { it.javaClass.simpleName }
         val renderer = runCatching { logLines("Astryxbook").filter { "renderer gone" in it } }.getOrDefault(emptyList())
         // Awake, Asleep or Dozing: no WebView is made with the screen off.
-        val screen = runCatching { shell("dumpsys power").firstOrNull { "mWakefulness=" in it }?.substringAfter("=")?.trim() }
+        val screen = runCatching { app.shell("dumpsys power").firstOrNull { "mWakefulness=" in it }?.substringAfter("=")?.trim() }
             .getOrNull() ?: "?"
         return "webViews=$webViews activity=$activity screen=$screen views=[$views] renderer lost: ${renderer.joinToString(" | ").ifEmpty { "no" }}"
     }
@@ -1191,7 +1186,7 @@ class LiveFacebookCanaryTest {
         // (put_link_in_chat.js). That part needs the test chat (-e fbChat, local only). Nothing is
         // sent: the box is emptied again.
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
-        shell("logcat -c")
+        app.shell("logcat -c")
         open("https://m.facebook.com/")
         awaitPage("the feed has no post with a Share button (its icon, U+F037A)", "!!(${iconActionJs(SHARE_ICON)})")
         eval(RECORD_WINDOW_OPEN_JS)
@@ -1271,7 +1266,7 @@ class LiveFacebookCanaryTest {
                 app.eval("document.activeElement === $MESSAGE_BOX_FIND_JS", layer) == "true"
             })
             Thread.sleep(500)
-            shell("input text $DRAFT")
+            app.shell("input text $DRAFT")
             assertTrue({ "the typed text never reached the chat's message box (box: ${app.eval(MESSAGE_BOX_TEXT_JS, layer)})" }, app.waitFor(10_000) { boxHoldsDraft(layer) })
             backToChatList(layer, chat)
             assertTrue({ "the chat never showed again from the list (${layerShape(layer)})" },
@@ -1308,8 +1303,8 @@ class LiveFacebookCanaryTest {
 
     // Empties the focused message box (Ctrl+A, Delete): never sent.
     private fun emptyMessageBox() {
-        shell("input keycombination 113 29")
-        shell("input keyevent 67")
+        app.shell("input keycombination 113 29")
+        app.shell("input keyevent 67")
     }
 
     @Test

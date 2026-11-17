@@ -468,7 +468,7 @@ class MainActivityPipTest {
         assertTrue(app.waitFor { pipActive() })
         assertTrue("the hand-off was never armed", app.waitFor { eval("!!window.__astryxHandoffListener") == "true" })
 
-        shell("input keyevent KEYCODE_SLEEP")
+        app.shell("input keyevent KEYCODE_SLEEP")
         Thread.sleep(3000)
         unlock(keyguard, pin)
         assertTrue("the screen never unlocked", app.waitFor(15_000) { !keyguard.isKeyguardLocked })
@@ -493,22 +493,16 @@ class MainActivityPipTest {
         val metrics = app.context.resources.displayMetrics
         val x = metrics.widthPixels / 2
         repeat(3) {
-            shell("input keyevent KEYCODE_WAKEUP")
-            shell("wm dismiss-keyguard")
+            app.shell("input keyevent KEYCODE_WAKEUP")
+            app.shell("wm dismiss-keyguard")
             Thread.sleep(1000)
             if (!keyguard.isKeyguardLocked || pin == null) return
-            shell("input touchscreen swipe $x ${metrics.heightPixels * 3 / 4} $x ${metrics.heightPixels / 6} 300")
+            app.shell("input touchscreen swipe $x ${metrics.heightPixels * 3 / 4} $x ${metrics.heightPixels / 6} 300")
             Thread.sleep(1500)
-            shell("input text $pin")
-            shell("input keyevent KEYCODE_ENTER")
+            app.shell("input text $pin")
+            app.shell("input keyevent KEYCODE_ENTER")
             if (app.waitFor(4000) { !keyguard.isKeyguardLocked }) return
         }
-    }
-
-    // Waits for the command to finish (executeShellCommand itself returns at once).
-    private fun shell(command: String) {
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
-            .use { it.readBytes() }
     }
 
     companion object {
