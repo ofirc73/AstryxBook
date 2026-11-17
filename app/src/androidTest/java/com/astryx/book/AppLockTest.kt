@@ -1,5 +1,4 @@
 package com.astryx.book
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.eepiemi.materialbook.R
@@ -45,18 +44,13 @@ class AppLockTest {
 
     private fun locked() = app.onActivity { it.isAppLocked }
 
-    private fun shell(command: String) {
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
-            .use { it.readBytes() }
-    }
-
     // The system's prompt is up: the screen lock's PIN, as the user types it (again if the prompt
     // wasn't up yet the first time).
     private fun unlockWithPin() {
         for (attempt in 1..3) {
             Thread.sleep(2000)
-            shell("input text $pin")
-            shell("input keyevent KEYCODE_ENTER")
+            app.shell("input text $pin")
+            app.shell("input keyevent KEYCODE_ENTER")
             if (app.waitFor(5_000) { !locked() }) return
         }
     }
@@ -126,7 +120,7 @@ class AppLockTest {
         assertTrue(app.waitFor { locked() })
         // The system's unlock prompt covers everything; cancelled, the app's lock screen shows.
         Thread.sleep(2000)
-        shell("input keyevent KEYCODE_BACK")
+        app.shell("input keyevent KEYCODE_BACK")
         Thread.sleep(1500)
         assertTrue("cancelling the prompt unlocked the app", locked())
         assertFalse("the dialog showed over the lock screen", app.textShown(shown))

@@ -2207,6 +2207,20 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - Covered by `StartupInitializersTest` (EmojiCompat's initializer absent, WorkManager's still
   there). No live check: it's the app's own start, not Facebook's page.
 
+## Tests: screen reads see the app's own dialogs under Android's
+
+- CI's emulator now and then shows Android's "isn't responding" dialog for the launcher. With the
+  launcher still hung, the dialog comes back right after the harness presses its Wait, and the
+  harness then read only the active window: the app's camera-or-files choice under it went unseen,
+  and `AttachFromCameraTest` failed twice at the same step (main's release run for PR 207 and PR
+  218's CI). Screen reads now also look at every window of the app's, and after Wait the harness
+  waits for one of them (not only the activity's) to be the active window. Shell commands from the
+  tests go through one `AppHarness.shell` (three copies before).
+- Reproduced on the API 34 Google APIs emulator (rooted, CI's image) with the launcher frozen
+  (`kill -STOP`): reading the open choice once a second for 30 s, main's harness saw it 4 times,
+  the changed one 30 times, with the dialog raised twice meanwhile. No test for it in the suite:
+  raising the dialog needs root, which CI's runs don't have. Test code only, no release.
+
 ## Known limitations
 
 - The first PiP window after the app opens is Android's default size, too small for its controls:

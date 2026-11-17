@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityNodeInfo
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -76,8 +77,7 @@ class AppHarness {
         // The window Android sends keys and touches to, as the system has it (a dialog of another
         // app's, "isn't responding", would be named here).
         val focus = runCatching {
-            ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("dumpsys window"))
-                .bufferedReader().readLines()
+            shell("dumpsys window")
                 .filter { "mCurrentFocus" in it || "mFocusedApp" in it }
                 .joinToString(" | ") { it.trim() }
         }.getOrDefault("?")
@@ -92,14 +92,16 @@ class AppHarness {
      * there was one.
      */
     fun dismissNotResponding(): Boolean {
-        val root = runCatching { instrumentation.uiAutomation.rootInActiveWindow }.getOrNull() ?: return false
+        val root = activeWindowRoot() ?: return false
         if (root.packageName?.toString() != "android") return false
         val wait = root.findAccessibilityNodeInfosByViewId("android:id/aerr_wait").firstOrNull() ?: return false
         Log.w("AppHarness", "An app isn't responding: pressed Wait on Android's dialog")
         wait.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        // Until the app's window has the focus back: a tap sent while the dialog was still going
-        // reached nothing (on the emulator, the launcher frozen to raise the dialog).
-        waitFor(5_000) { runCatching { activity()?.let { a -> onActivity { a.hasWindowFocus() } } }.getOrNull() == true }
+        // Until one of the app's windows has the focus back: a tap sent while the dialog was still
+        // going reached nothing (on the emulator, the launcher frozen to raise the dialog). One of
+        // its windows, not only the activity's: with the app's own dialog open (the camera-or-files
+        // choice) the activity's window never gets it, and each Wait waited its whole 5 s.
+        waitFor(5_000) { runCatching { activeWindowRoot()?.packageName?.toString() == context.packageName }.getOrDefault(false) }
         return true
     }
 
@@ -416,6 +418,26 @@ class AppHarness {
         Thread.sleep(500)
     }
 
+    private fun activeWindowRoot(): AccessibilityNodeInfo? =
+        runCatching { instrumentation.uiAutomation.rootInActiveWindow }.getOrNull()
+
+    // The windows a screen read looks at: the active one (Android's own, another app's: a permission
+    // prompt, the picker) and every one of the app's. Not the active one alone: Android's "isn't
+    // responding" dialog for the launcher, back as soon as Wait was pressed while the launcher stayed
+    // hung, was the active window, and the app's camera-or-files choice under it wasn't seen for 15 s
+    // (CI's emulator, 2026-11-14 and 11-16, AttachFromCameraTest).
+    private fun readableRoots(): List<AccessibilityNodeInfo> {
+        val ui = instrumentation.uiAutomation
+        if (!allWindows) {
+            ui.serviceInfo = ui.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+            allWindows = true
+        }
+        val apps = runCatching { ui.windows.mapNotNull { it.root }.filter { it.packageName?.toString() == context.packageName } }
+            .getOrDefault(emptyList())
+        return (listOfNotNull(activeWindowRoot()) + apps).distinctBy { it.windowId }
+    }
+    private var allWindows = false
+
     // The screen's elements showing [text], each one's bounds in px: the accessibility tree walked
     // node by node (the app's Compose UI answers that, not findAccessibilityNodeInfosByText).
     private fun shownBounds(text: String): List<android.graphics.Rect> {
@@ -424,7 +446,7 @@ class AppHarness {
         // (CI's emulator, 2026-11-12, ShareIntoFacebookTest's posting bar).
         if (Build.VERSION.SDK_INT >= 34) instrumentation.uiAutomation.clearCache()
         val found = mutableListOf<android.graphics.Rect>()
-        val queue = ArrayDeque(listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow))
+        val queue = ArrayDeque(readableRoots())
         while (queue.isNotEmpty()) {
             val node = queue.removeFirst()
             if (node.text?.toString() == text) found += android.graphics.Rect().also(node::getBoundsInScreen)
@@ -499,10 +521,13 @@ class AppHarness {
     }
 
     fun pressHome() {
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(
-            instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME")
-        ).use { it.readBytes() }
+        shell("input keyevent KEYCODE_HOME")
     }
+
+    /** Runs [command] in the device's shell and waits for it to end (executeShellCommand alone returns at once): its output, by line. */
+    fun shell(command: String): List<String> =
+        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
+            .bufferedReader().use { it.readLines() }
 
     // The app has been told it's in PiP (onPictureInPictureModeChanged, its private isInPipMode),
     // which can come a second after isInPictureInPictureMode turns true.
