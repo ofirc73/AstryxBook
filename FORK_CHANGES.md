@@ -764,7 +764,8 @@ lost it as the page it asked for came (the copy-text check's "evaluateJavascript
 - `sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp`: with
   the feed showing, the share's composer opened by the app's tap on Home's box, never loaded
   (`HomeComposer`'s counts), with the photo in it; Back asks Facebook's "Discard post?", and the
-  discarded draft goes back to Home, in the app (`share_media.js` `homeComposerBox`,
+  discarded draft goes back to Home, in the app (a composer the app had to load, Home's box hidden,
+  may go straight back to Home without asking: seen 2026-11-17; `share_media.js` `homeComposerBox`,
   `ShareMediaJsTest`, `ShareIntoFacebookTest`). It also checks that `feed_posting.js` wraps
   Facebook's WebSocket and sees the photo go up over it (`FeedPostingJsTest`); the snackbar after
   Post isn't checked, as the checks never post: it was read by hand with Only-me test posts

@@ -598,15 +598,16 @@ class LiveFacebookCanaryTest {
     fun sharingAPhotoToFeed_withTheFeedShowing_opensTheComposerFromHomesBox_andBackStaysInTheApp() {
         openFeed()
         // Back asks "Discard post?" (the draft has the photo); discarded, the composer goes back to Home.
-        // The sheet's button: its icon, then "Discard post".
-        fun discardDraft() {
+        // The sheet's button: its icon, then "Discard post". A composer the app loaded ([loaded]) may go
+        // straight back to Home without asking (2026-11-17, after boxHidden): the draft is gone either way.
+        fun discardDraft(loaded: Boolean = false) {
             app.pressBack()
             val discard = "[].filter.call(document.querySelectorAll('[role=\"button\"]'), function (b) {" +
                 " return /(^|\\s)Discard post$/.test((b.innerText || '').trim()); }).pop()"
             assertTrue({ "Back from the composer didn't ask to discard the draft (${pageShape()}; ${appState()})" }, app.waitFor(15_000) {
-                eval("!!($discard)") == "true"
+                eval("!!($discard)") == "true" || (loaded && eval("location.pathname") == "\"/\"")
             })
-            eval("($discard).click(); 1")
+            if (eval("!!($discard)") == "true") eval("($discard).click(); 1")
             assertTrue({ "discarding the draft didn't go back to Home (${pageShape()})" }, app.waitFor(15_000) {
                 eval("location.pathname") == "\"/\""
             })
@@ -630,7 +631,7 @@ class LiveFacebookCanaryTest {
         // passed when run again): Home being drawn again as the share came can hide the box.
         if (!shareFromHome()) {
             val reason = loadReason()
-            discardDraft()
+            discardDraft(loaded = true)
             assertTrue(
                 "the composer was loaded twice, not opened from Home's box (share_media.js homeComposerBox: the widest " +
                     "button in the Photo button's row, tapped by the app; first $reason, then ${loadReason()}; " +
