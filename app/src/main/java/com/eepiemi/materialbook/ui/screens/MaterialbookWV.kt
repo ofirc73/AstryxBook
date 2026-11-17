@@ -1073,7 +1073,7 @@ fun MaterialbookWebView(
         pageStarts = pageStarts,
         // The WebView's own URL follows Facebook's in-page navigation, lastLoadedUrl may not.
         pageUrl = { runCatching { state.nativeWebView.url }.getOrNull() ?: state.lastLoadedUrl },
-        onOpenLayer = { layerUrl -> messagesLayer.openCreator(layerUrl) },
+        onOpenLayer = { layerUrl, open -> messagesLayer.openCreator(layerUrl, open) },
         onCloseLayer = { messagesLayer.close() },
     )
     // A tap on a story's posting notification (Posting): the story creator, if it's kept; on

@@ -119,13 +119,22 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
         linkToSend = messengerShareLink(link)
     }
 
-    /** Opens the layer anew at a share's creator [url] (or shows the one still posting). */
-    fun openCreator(url: String) {
+    /**
+     * Opens the layer anew at a share's creator [url] (or shows the one still posting). [open]: a
+     * creator loaded under the native share screen (PRELOAD) stays out of sight, its Back not
+     * taken from the screen's, until it's used (REUSE: kept as it is, and shown).
+     */
+    fun openCreator(url: String, open: ShareOpen = ShareOpen.NEW) {
         if (storyPosting) {
             hidden = false
             return
         }
+        if (open == ShareOpen.REUSE && this.url == url) {
+            hidden = false
+            return
+        }
         open(url)
+        hidden = open == ShareOpen.PRELOAD
         generation++
     }
 

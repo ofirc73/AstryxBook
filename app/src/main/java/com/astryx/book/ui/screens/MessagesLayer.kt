@@ -284,8 +284,9 @@ fun MessagesLayer(
 
     // A story share (ShareMedia): the desktop story creator takes the shared files one at a time,
     // laid out like the Facebook app's story editor (story_layout.js). A reel share: the reels
-    // page's Create reel takes the shared video.
-    LaunchedEffect(loadingState, pageStarts) {
+    // page's Create reel takes the shared video. A story prepared on the native share screen: the
+    // creator loads meanwhile and takes the files once they come (ShareMediaQueue.version).
+    LaunchedEffect(loadingState, pageStarts, ShareMediaQueue.version) {
         if (loadingState !is LoadingState.Finished) return@LaunchedEffect
         val page = state.lastLoadedUrl
         if (isStoryCreatePage(page)) {
@@ -418,7 +419,9 @@ fun MessagesLayer(
             onCreated = { webView ->
                 hardenWebView(state, webView)
                 // A story share: the creator's text-story backgrounds aren't loaded (StoryBackgrounds).
-                if (storyShare && ShareMediaQueue.pending(ShareTarget.STORY)) StoryBackgrounds.skipIn(webView)
+                if (storyShare && (ShareMediaQueue.pending(ShareTarget.STORY) || ShareMediaQueue.preparing(ShareTarget.STORY))) {
+                    StoryBackgrounds.skipIn(webView)
+                }
                 state.webSettings.androidWebSettings.textZoom = layerTextZoom
                 // The story and reel creators (a story or reel share) are laid out for a desktop window:
                 // at phone width their preview is off screen. Lay them out wide and fit them to the screen.

@@ -151,4 +151,21 @@
     <string name="attach_camera_denied">Nie zezwolono na aparat, więc nic nie zostało zrobione.</string>
     <string name="attach_no_camera">Nie znaleziono aplikacji aparatu.</string>
     <string name="download_started">Zapisywanie w Pobranych…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">Twoja relacja</string>
+    <string name="native_share_title_feed">Utwórz post</string>
+    <string name="native_share_close">Zamknij</string>
+    <string name="native_share_edit_in_facebook">Edytuj w Facebooku</string>
+    <string name="native_share_add_text">Dodaj tekst</string>
+    <string name="native_share_done">Gotowe</string>
+    <string name="native_share_text_background">Tło tekstu</string>
+    <string name="native_share_share_story">Udostępnij w relacji</string>
+    <string name="native_share_post">Opublikuj</string>
+    <string name="native_share_caption_hint">Napisz coś o tym…</string>
+    <string name="native_share_sharing_story">Udostępnianie relacji…</string>
+    <string name="native_share_sharing_post">Publikowanie…</string>
+    <string name="native_share_failed">Nie udało się udostępnić: strona Facebooka nie odpowiedziała. Dokończ w edytorze Facebooka lub zamknij.</string>
+    <string name="native_share_page">%1$d z %2$d</string>
+    <string name="native_share_render_failed">Nie udało się przygotować zdjęcia z tekstem.</string>
 </resources>

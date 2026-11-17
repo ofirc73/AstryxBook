@@ -5,7 +5,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.astryx.book.utils.ShareMedia
-import com.astryx.book.utils.ShareMediaQueue
+import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.appLinkUrl
 import com.astryx.book.utils.copySharedMedia
@@ -28,14 +28,14 @@ internal fun mediaShareTarget(intent: Intent?): ShareTarget? {
 /**
  * Copies the shared items the target takes into the cache (off the main thread; the sharing
  * app's permission to read them lasts only while the activity has the intent), then calls
- * [onReady], which has the WebView open Facebook's composer for them. Says so when some or all were
- * left out.
+ * [onReady] with the copies: the native share screen, or Facebook's composer for them. Says so when
+ * some or all were left out.
  */
 internal fun receiveSharedMedia(
     activity: ComponentActivity,
     intent: Intent,
     target: ShareTarget,
-    onReady: (ShareTarget) -> Unit,
+    onReady: (ShareTarget, List<SharedFile>) -> Unit,
 ) {
     val uris = sharedUris(intent)
     val type = intent.type
@@ -60,8 +60,7 @@ internal fun receiveSharedMedia(
                 Toast.LENGTH_LONG
             ).show()
         }
-        ShareMediaQueue.start(target, files)
-        onReady(target)
+        onReady(target, files)
     }
 }
 

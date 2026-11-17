@@ -232,6 +232,24 @@ class StoryLayoutJsTest {
         assertEquals("Share didn't go through once the list was closed", "1", h.eval("window.__shared"))
     }
 
+    // The music list focuses its search box as it opens, which brought up the keyboard over the list
+    // (the phone, 2026-11-16): that focus is let go; a tap on the box afterwards keeps it.
+    @Test
+    fun theMusicListsSearchBox_focusedAsItOpens_isLetGo() {
+        val h = Harness()
+        h.load(CREATOR + MUSIC_LIST)
+        h.eval("document.querySelector('#music input').focus(); 1")
+        h.run()
+        h.eval("window.__showFrame()")
+        assertTrue("the music list was never seen as open", h.waitFor(POPUP_OPEN_AND_LAID_OUT))
+        assertTrue("the search box kept the focus it took as the list opened",
+            h.waitFor("document.activeElement !== document.querySelector('#music input')"))
+        h.eval("document.querySelector('#music input').focus(); 1")
+        Thread.sleep(1500)
+        assertEquals("a focus given once the list was open was taken off", "true",
+            h.eval("document.activeElement === document.querySelector('#music input')"))
+    }
+
     // A popup it can't close (no close button found) never keeps Share from posting: the second tap goes.
     @Test
     fun aPopupThatCantBeClosed_letsTheSecondTapThrough() {

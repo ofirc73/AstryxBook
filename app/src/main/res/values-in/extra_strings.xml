@@ -136,4 +136,21 @@
     <string name="attach_camera_denied">Kamera tidak diizinkan, jadi tidak ada yang diambil.</string>
     <string name="attach_no_camera">Aplikasi kamera tidak ditemukan.</string>
     <string name="download_started">Menyimpan ke Download…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">Cerita Anda</string>
+    <string name="native_share_title_feed">Buat postingan</string>
+    <string name="native_share_close">Tutup</string>
+    <string name="native_share_edit_in_facebook">Edit di Facebook</string>
+    <string name="native_share_add_text">Tambahkan teks</string>
+    <string name="native_share_done">Selesai</string>
+    <string name="native_share_text_background">Latar teks</string>
+    <string name="native_share_share_story">Bagikan ke cerita</string>
+    <string name="native_share_post">Posting</string>
+    <string name="native_share_caption_hint">Katakan sesuatu tentang ini…</string>
+    <string name="native_share_sharing_story">Membagikan cerita Anda…</string>
+    <string name="native_share_sharing_post">Memposting…</string>
+    <string name="native_share_failed">Tidak dapat dibagikan: halaman Facebook tidak merespons. Selesaikan di editor Facebook, atau tutup.</string>
+    <string name="native_share_page">%1$d dari %2$d</string>
+    <string name="native_share_render_failed">Tidak dapat menyiapkan foto dengan teksnya.</string>
 </resources>

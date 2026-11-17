@@ -127,4 +127,21 @@
     <string name="attach_camera_denied">未允許使用相機，因此沒有拍攝任何內容。</string>
     <string name="attach_no_camera">找不到相機應用程式。</string>
     <string name="download_started">正在儲存至「下載」…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">你的限時動態</string>
+    <string name="native_share_title_feed">建立貼文</string>
+    <string name="native_share_close">關閉</string>
+    <string name="native_share_edit_in_facebook">在 Facebook 中編輯</string>
+    <string name="native_share_add_text">新增文字</string>
+    <string name="native_share_done">完成</string>
+    <string name="native_share_text_background">文字背景</string>
+    <string name="native_share_share_story">分享到限時動態</string>
+    <string name="native_share_post">發佈</string>
+    <string name="native_share_caption_hint">說說這個…</string>
+    <string name="native_share_sharing_story">正在分享你的限時動態…</string>
+    <string name="native_share_sharing_post">正在發佈…</string>
+    <string name="native_share_failed">無法分享：Facebook 的頁面沒有回應。請在 Facebook 的編輯器中完成，或關閉。</string>
+    <string name="native_share_page">第 %1$d 個，共 %2$d 個</string>
+    <string name="native_share_render_failed">無法準備加上文字的相片。</string>
 </resources>

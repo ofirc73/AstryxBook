@@ -37,6 +37,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import com.eepiemi.materialbook.MainActivity
+import com.astryx.book.ui.screens.NativeShare
 import com.eepiemi.materialbook.R
 
 /**
@@ -244,6 +245,18 @@ class AppHarness {
      * (MessagesLayerState.hidden) doesn't count.
      */
     fun layerOpen(): Boolean = webViews().drop(1).any { webView -> onActivity { webView.visibility == View.VISIBLE } }
+
+    /** The share on the native share screen (a story or feed share shows it), once it's there. */
+    fun nativeShare(): NativeShare {
+        assertTrue("the native share screen never showed", waitFor(15_000) { NativeShareController.current != null })
+        return NativeShareController.current!!
+    }
+
+    /** "Edit in Facebook" on the native share screen: Facebook's own editor or composer gets the files. */
+    fun editInFacebook() {
+        nativeShare()
+        onActivity { it.nativeShare.onEditInFacebook() }
+    }
 
     /** Whether the on-screen keyboard is up. */
     fun keyboardShown(): Boolean = onActivity {

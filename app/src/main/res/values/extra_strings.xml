@@ -149,4 +149,21 @@
     <string name="attach_no_camera">No camera app found.</string>
     <!-- A video being saved: the app fetches it and writes it to Downloads (DownloadBridge.downloadUrl). -->
     <string name="download_started">Saving to Downloads…</string>
+
+    <!-- The native share screen (NativeShareScreen) for a story or a feed post. -->
+    <string name="native_share_title_story">Your story</string>
+    <string name="native_share_title_feed">Create post</string>
+    <string name="native_share_close">Close</string>
+    <string name="native_share_edit_in_facebook">Edit in Facebook</string>
+    <string name="native_share_add_text">Add text</string>
+    <string name="native_share_done">Done</string>
+    <string name="native_share_text_background">Text background</string>
+    <string name="native_share_share_story">Share to story</string>
+    <string name="native_share_post">Post</string>
+    <string name="native_share_caption_hint">Say something about this…</string>
+    <string name="native_share_sharing_story">Sharing your story…</string>
+    <string name="native_share_sharing_post">Posting…</string>
+    <string name="native_share_failed">Couldn\'t share it: Facebook\'s page didn\'t respond. Finish it in Facebook\'s editor, or close.</string>
+    <string name="native_share_page">%1$d of %2$d</string>
+    <string name="native_share_render_failed">Couldn\'t prepare the photo with its text.</string>
 </resources>

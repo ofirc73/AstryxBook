@@ -17,7 +17,8 @@ fun isStoryBackgroundUrl(url: String): Boolean = STORY_BACKGROUND_URL.containsMa
 
 /**
  * The Messages layer WebViews opened for photos or videos shared to a story: while the share's
- * files are still waiting (the page preloads the backgrounds as it loads, before it takes them),
+ * files are still waiting, or are being prepared on the native share screen (the page preloads the
+ * backgrounds as it loads, before it takes them),
  * their backgrounds are answered empty (RequestBlockingClient). Once the files are taken, a text
  * story there loads its backgrounds as usual. Create story on the feed isn't one of them.
  */
@@ -33,5 +34,6 @@ object StoryBackgrounds {
 
     /** Whether [view]'s request for [url] is a background to skip; called off the main thread. */
     fun skips(view: WebView?, url: String): Boolean =
-        view != null && view in sharing && ShareMediaQueue.pending(ShareTarget.STORY) && isStoryBackgroundUrl(url)
+        view != null && view in sharing && isStoryBackgroundUrl(url) &&
+            (ShareMediaQueue.pending(ShareTarget.STORY) || ShareMediaQueue.preparing(ShareTarget.STORY))
 }

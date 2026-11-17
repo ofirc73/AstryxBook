@@ -4,13 +4,18 @@ import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.astryx.book.notifications.Posting
 import com.astryx.book.notifications.PostingService
+import com.astryx.book.ui.screens.NativeShare
 import com.astryx.book.ui.screens.ShareMediaJsTest
+import com.astryx.book.ui.screens.shareMediaScript
 import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.ShareTarget
+import com.astryx.book.utils.StoryTextLayer
+import com.eepiemi.materialbook.R
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,7 +30,9 @@ import java.net.URLDecoder
  * Sharing photos into Facebook from another app (the gallery's share sheet), through each of the
  * app's share targets: the files are taken in, and the right Facebook page opens for them, in
  * the right view (Feed, profile picture and groups in the main view; Story and Reel in the
- * Messages layer, Facebook's desktop creators). What the pages then do with the files is
+ * Messages layer, Facebook's desktop creators). Story and Feed show the app's own share screen
+ * first (NativeShareScreen), whose Edit in Facebook leads to those pages as before, and whose Share
+ * hands the files to them as an auto share. What the pages then do with the files is
  * ShareMediaJsTest's (and the live check's, for Feed).
  *
  * No login here: the pages may be Facebook's login page with the page asked for in its address,
@@ -40,6 +47,12 @@ class ShareIntoFacebookTest {
     fun setUp() {
         File(app.context.filesDir, "datastore").deleteRecursively()
         ShareMediaQueue.clear()
+        NativeShareController.clear()
+        // An auto share never presses Facebook's Share or Post here: on a logged-in device the real
+        // creator and composer are there (made sure of in the script itself).
+        ShareMediaQueue.noPress = true
+        assertTrue("an auto share's script would press Facebook's Share",
+            shareMediaScript(app.context.resources, ShareTarget.STORY).contains("window.__astryxShareNoPress = true;"))
         // Posting asks for it, and Android's dialog over the app hid the posting bar (CI).
         allowNotifications()
     }
@@ -48,6 +61,8 @@ class ShareIntoFacebookTest {
     fun tearDown() {
         app.finish()
         ShareMediaQueue.clear()
+        ShareMediaQueue.noPress = false
+        NativeShareController.clear()
         File(app.context.filesDir, "datastore").deleteRecursively()
     }
 
@@ -56,7 +71,15 @@ class ShareIntoFacebookTest {
     // Reels take videos only; the file's content doesn't matter until Facebook reads it.
     private fun video(name: String): Uri = app.servedUri(app.servedFile(name, ByteArray(2048) { it.toByte() }))
 
-    private fun share(alias: String, vararg uris: Uri, type: String = "image/png", flags: Int = 0) {
+    // Shared to [alias]; through the native share screen's Edit in Facebook where it shows one,
+    // unless [edit] is false (the screen itself tested, or no share taken).
+    private fun share(
+        alias: String,
+        vararg uris: Uri,
+        type: String = "image/png",
+        flags: Int = 0,
+        edit: Boolean = alias == "ShareToStory" || alias == "ShareToFeed",
+    ) {
         val intent = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
         } else {
@@ -67,6 +90,7 @@ class ShareIntoFacebookTest {
                 .setType(type)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or flags)
         )
+        if (edit) app.editInFacebook()
     }
 
     // The app is there, its start page asked for, and a while has passed: time enough for a share
@@ -82,7 +106,7 @@ class ShareIntoFacebookTest {
         // started with, marked as coming from history: an old share's photos went to the composer
         // again (or, their permission gone, the app said there was nothing to share).
         val shares = ShareMediaQueue.id
-        share("ShareToFeed", photo("old.png"), flags = Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)
+        share("ShareToFeed", photo("old.png"), flags = Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, edit = false)
         awaitStartPage()
         assertEquals("the old share was taken again", shares, ShareMediaQueue.id)
         assertFalse("the old share opened the composer", decoded(app.url(app.mainWebView())).contains("/composer"))
@@ -210,6 +234,105 @@ class ShareIntoFacebookTest {
         assertFalse("Back left the app", app.isInBackground())
     }
 
+    // A story or feed share shows the app's own share screen first. For a story, Facebook's creator
+    // loads out of sight under it meanwhile (its text-story backgrounds skipped), and gets nothing
+    // before Share.
+    @Test
+    fun toYourStory_showsTheShareScreen_withTheCreatorLoadingUnderIt() {
+        share("ShareToStory", photo("story.png"), edit = false)
+        val shared = app.nativeShare()
+        assertEquals(ShareTarget.STORY, shared.target)
+        assertEquals(1, shared.files.size)
+        assertTrue("the share screen's Share to story isn't on screen", app.waitFor { app.textShown(string(R.string.native_share_share_story)) })
+        assertTrue("the creator never loaded under the share screen", app.waitFor(20_000) {
+            app.layerWebView()?.let { decoded(app.url(it)).contains("/stories/create") } == true
+        })
+        assertFalse("the creator was given the photo before Share", ShareMediaQueue.pending(ShareTarget.STORY))
+        assertFalse("the creator is on screen (and takes Back) under the share screen", app.layerOpen())
+        assertEquals("a background was loaded under the share screen", 204, app.clientAnswer(app.layerWebView()!!, BACKGROUND)?.statusCode)
+    }
+
+    @Test
+    fun toFeed_showsTheShareScreen_andLeavesThePageAsItIs() {
+        share("ShareToFeed", photo("feed.png"), edit = false)
+        assertEquals(ShareTarget.FEED, app.nativeShare().target)
+        Thread.sleep(3000)
+        assertFalse("the composer opened before Post", decoded(app.url(app.mainWebView())).contains("/composer"))
+        assertEquals("a feed share opened the Messages layer", 1, app.webViews().size)
+    }
+
+    // Back (as the close button): the share given up, and the app back to the app it came from.
+    @Test
+    fun backOnTheShareScreen_givesTheShareUp_andGoesBackToTheSharingApp() {
+        share("ShareToStory", photo("story.png"), edit = false)
+        app.nativeShare()
+        assertTrue(app.waitFor(20_000) { app.layerWebView() != null })
+        app.pressBack()
+        assertTrue("Back didn't send the app back to the sharing app", app.waitFor { app.isInBackground() })
+        assertTrue("the share screen stayed", NativeShareController.current == null)
+        assertFalse("the creator still waits for the share", ShareMediaQueue.preparing(ShareTarget.STORY))
+    }
+
+    // An activity created again (font size, language) shows the same share, its text kept.
+    @Test
+    fun theShareScreen_staysThroughTheActivityCreatedAgain() {
+        share("ShareToFeed", photo("feed.png"), edit = false)
+        val shared = app.nativeShare()
+        app.onActivity { shared.caption = "kept" }
+        val first = app.activity()
+        app.onActivity { it.recreate() }
+        assertTrue("the app was never created again", app.waitFor(15_000) { app.activity().let { it != null && it !== first } })
+        assertTrue("the share was lost", app.nativeShare() === shared)
+        assertEquals("kept", app.onActivity { shared.caption })
+    }
+
+    // Share: the photos, texts drawn on them, go to Facebook's page as an auto share (share_media.js
+    // presses Facebook's own Share, ShareMediaJsTest); once it's posting, the app goes back to the
+    // sharing app.
+    @Test
+    fun shareOnTheShareScreen_handsThePhotoWithItsTextOver_andGoesBackOncePosting() {
+        share("ShareToStory", photo("story.png"), edit = false)
+        val shared = app.nativeShare()
+        // The creator, a test page that takes nothing: the photo stays in the queue to be read here.
+        assertTrue("the creator never loaded under the share screen", app.waitFor(20_000) { app.layerWebView() != null })
+        val layer = app.layerWebView()!!
+        app.keepOffTheNetwork(layer)
+        app.loadPage(STORY_CREATE_URL, PAGE, layer)
+        app.onActivity {
+            shared.texts[0] = listOf(StoryTextLayer("Hi"))
+            it.nativeShare.onShare()
+        }
+        assertTrue("Share didn't hand the photo over as an auto share", app.waitFor { ShareMediaQueue.auto && ShareMediaQueue.pending(ShareTarget.STORY) })
+        val given = ShareMediaQueue.take(ShareTarget.STORY)
+        assertTrue("the photo went without its text drawn on it: ${given?.name}", given?.name?.endsWith("_text.jpg") == true)
+        assertTrue("no \"Sharing\" over the share screen", app.waitFor { app.textShown(string(R.string.native_share_sharing_story)) })
+        app.onActivity { Posting.started(it, Posting.Kind.STORY) }
+        try {
+            assertTrue("the app stayed once the story was posting", app.waitFor { app.isInBackground() })
+            assertTrue("the share screen stayed", NativeShareController.current == null)
+        } finally {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { Posting.ended(app.context, Posting.Kind.STORY, Posting.Outcome.FAILED, notify = false) }
+        }
+    }
+
+    // Facebook's page couldn't post it (share_media.js "failed"): said on the screen, whose Edit in
+    // Facebook then leaves the page to the user.
+    @Test
+    fun aShareFacebooksPageCouldntPost_isSaid_andEditInFacebookShowsThePage() {
+        share("ShareToFeed", photo("feed.png"), edit = false)
+        val shared = app.nativeShare()
+        app.onActivity { it.nativeShare.onShare() }
+        assertTrue(app.waitFor { ShareMediaQueue.auto })
+        ShareMediaQueue.failed()
+        assertTrue("the failure wasn't shown", app.waitFor { shared.phase == NativeShare.Phase.FAILED })
+        assertTrue(app.waitFor { app.textShown(string(R.string.native_share_failed)) })
+        app.onActivity { it.nativeShare.onEditInFacebook() }
+        assertTrue("the share screen stayed", app.waitFor { NativeShareController.current == null })
+        assertFalse("the app left", app.isInBackground())
+    }
+
+    private fun string(id: Int) = app.context.getString(id)
+
     @Test
     fun toYourStory_opensTheStoryCreatorInTheLayer() {
         share("ShareToStory", photo("story.png"))
@@ -308,9 +431,9 @@ class ShareIntoFacebookTest {
         assertTrue("the creator stayed after the story was posted", app.waitFor { app.layerWebView() == null })
 
         // On screen: "Your story is posted", whose View opens the user's own stories in the layer.
-        val view = app.context.getString(com.eepiemi.materialbook.R.string.posting_view)
+        val view = string(R.string.posting_view)
         assertTrue("no \"Your story is posted\" with View (PostedStoryEffects)", app.waitFor {
-            app.textShown(app.context.getString(com.eepiemi.materialbook.R.string.story_posted)) && app.textShown(view)
+            app.textShown(string(R.string.story_posted)) && app.textShown(view)
         })
         assertTrue(app.tapText(view))
         assertOwnStoriesOpen("View")
@@ -373,7 +496,7 @@ class ShareIntoFacebookTest {
     @Test
     fun aStoryPosted_isSaidOnce_notAgainWhenTheActivityIsCreatedAgain() {
         app.start()
-        val said = app.context.getString(com.eepiemi.materialbook.R.string.story_posted)
+        val said = string(R.string.story_posted)
         app.onActivity {
             Posting.started(it, Posting.Kind.STORY)
             Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
@@ -413,7 +536,7 @@ class ShareIntoFacebookTest {
 
         report("posting")
         assertTrue("the posting notification never showed", app.waitFor { postingNotificationShows() })
-        val postingText = app.context.getString(com.eepiemi.materialbook.R.string.post_posting)
+        val postingText = string(R.string.post_posting)
         assertTrue("no posting bar over the page (PostingBar)", app.waitFor { app.textShown(postingText) })
         report("posted")
         assertTrue("the posting notification stayed after the post was sent", app.waitFor { !postingNotificationShows() })

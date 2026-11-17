@@ -51,6 +51,7 @@ import com.astryx.book.utils.isWebViewTooOld
 import com.astryx.book.ui.components.WebViewUpdateDialog
 import androidx.webkit.WebViewCompat
 import com.astryx.book.ui.screens.ShareMediaRequest
+import com.astryx.book.ui.screens.ShareOpen
 import com.eepiemi.materialbook.ui.screens.OpenLinkRequest
 import com.eepiemi.materialbook.utils.appOrientation
 import com.astryx.book.utils.PipWindowParams
@@ -66,6 +67,9 @@ import com.astryx.book.LockScreenAudioController
 import com.astryx.book.linkUrl
 import com.astryx.book.mediaShareTarget
 import com.astryx.book.receiveSharedMedia
+import com.astryx.book.NativeShareController
+import com.astryx.book.utils.ShareMediaQueue
+import com.astryx.book.utils.SharedFile
 import com.astryx.book.isReplayedLaunch
 import com.astryx.book.startRequest
 
@@ -238,13 +242,14 @@ class MainActivity : FragmentActivity() {
         createdInPip = isInPictureInPictureMode
 
         // Read once: the page the app starts on (a link it was opened with, or Home/Feeds).
-        // A share that opens a mobile page starts there (Home's composer, the profile, the groups);
-        // stories and reels open in the layer over the usual start page.
+        // A share that opens a mobile page starts there (the profile, the groups); a feed share
+        // shows the native share screen over the usual start page (Home, whose box opens the
+        // composer on Share), and stories and reels open in the layer over it.
         // Not for an intent Android hands over again (startRequest): opened from Recents, the app
         // took an old share's photos to the composer once more.
         val request = startRequest(this, intent, restored = savedInstanceState != null)
         val mediaTarget = request.mediaTarget
-        val startUrl = mediaTarget?.let { shareStartPageUrl(it) }
+        val startUrl = mediaTarget?.takeUnless { NativeShareController.shows(it) }?.let { shareStartPageUrl(it) }
             ?: startPageUrl(request.linkUrl, settingsVM.startOnFeeds.value)
         mediaTarget?.let { receiveSharedMedia(this, intent, it, ::onSharedMediaReady) }
         // Started by a tap on a posting notification: acted on over the start page.
@@ -283,6 +288,7 @@ class MainActivity : FragmentActivity() {
                                 updateVideoPlaybackState(isPlaying, videoWidth, videoHeight)
                             }
                         )
+                        nativeShare.Content()
                         if (appLockController.isLocked) AppLockScreen(onUnlock = appLockController::authenticate)
                         var askWebViewUpdate by remember { mutableStateOf(outdatedWebView != null) }
                         if (askWebViewUpdate && outdatedWebView != null) {
@@ -352,10 +358,20 @@ class MainActivity : FragmentActivity() {
         openLinkRequest = OpenLinkRequest((openLinkRequest?.seq ?: 0) + 1, url)
     }
 
-    // The shared items are copied (IncomingIntents.kt): the WebView opens Facebook's composer.
-    private fun onSharedMediaReady(target: ShareTarget) {
-        shareMediaRequest = ShareMediaRequest((shareMediaRequest?.seq ?: 0) + 1, target)
+    // The shared items are copied (IncomingIntents.kt): the native share screen (a story, the
+    // feed), or the WebView opens Facebook's composer for them.
+    private fun onSharedMediaReady(target: ShareTarget, files: List<SharedFile>) {
+        if (nativeShare.offer(target, files)) return
+        ShareMediaQueue.start(target, files)
+        requestShare(target)
     }
+
+    private fun requestShare(target: ShareTarget, open: ShareOpen = ShareOpen.NEW) {
+        shareMediaRequest = ShareMediaRequest((shareMediaRequest?.seq ?: 0) + 1, target, open)
+    }
+
+    /** The native share screen for a story or the feed (NativeShareController). */
+    internal val nativeShare = NativeShareController(this, ::requestShare)
 
 
     // Handback signals besides the page's own visibilitychange: the activity
