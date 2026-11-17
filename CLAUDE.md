@@ -124,7 +124,9 @@ user-visible change.
   qemu running): the checks get `-ChecksMinutes` (60), their output streams to `<date>.checks.txt`,
   and a hung run is reported with the check it hung in (logcat's `TestRunner` `started:`); a failed
   run keeps the device's log, `<date>.device.txt` (`.github/scripts/device-log.sh`, the lines CI keeps
-  for a failed part), named in the issue; the
+  for a failed part), named in the issue, only while adb still has the emulator (`Test-Emulator`,
+  `get-state`: `adb logcat` waits for a device that's gone, and a run whose emulator died mid-run
+  waited 4.5 h for it, 2026-11-17; such a run reports "The emulator stopped during the checks"); the
   emulator it started is stopped with `Stop-Emulator` (`tools/emulator.ps1`: `emu kill`, then the
   qemu process if it's still there a minute on). It reports through
   `.github/scripts/canary-issue.sh`, as the workflow does: failures in one "Daily Facebook check
