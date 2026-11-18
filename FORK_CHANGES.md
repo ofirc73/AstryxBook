@@ -2356,3 +2356,28 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   reports "The emulator stopped during the checks: the ones after it never ran", with any failures
   before it. Tried by killing the emulator's qemu a few seconds into a run: it ended 13 s later,
   reported, and released its lock. Tools only, no release.
+
+## Your story in the stories row after posting
+
+- **A posted story shows in Home's stories row without a manual refresh.** The row gets a new story
+  some 30 s after it's posted, so Home was reloaded once, then, if it was at its top. Two cases
+  missed it (the phone, 2026-11-17): with the app away at that moment (the share screen's Share sends
+  it back to the app the share came from) Home was never reloaded, and 30 s wasn't always enough.
+  Now the reload waits until the app is on screen again (within 15 minutes of posting), and Home is
+  reloaded again every 20 s, up to five times, while its row still lacks the user's own card
+  (labelled "View your story", read on the emulator 2026-11-17 with a test story seen by nobody,
+  deleted right after). With Facebook in another language that label is unknown: two reloads.
+  Home scrolled down is never reloaded.
+- Also found then: tapping that card in the row, or the app's View on "Your story is posted", opened
+  National Geographic's story, the next one in the row; only Facebook's desktop Stories list opened
+  the test story. The app doesn't touch a tap on a story card, so it looks like Facebook's viewer
+  moving on when it can't show the story asked for, which may also be why a story reply in a chat
+  opened another story (reported 2026-11-16). Not changed; to be checked in Chrome the next time it
+  happens (Facebook behaviour, not ours).
+- Testing: `StoriesRowJsTest` (the row with your story left as it is, without it Home reloaded, a
+  row in another language reloaded blind, Home scrolled down left where it is);
+  `ShareIntoFacebookTest` (a story posted with the app away: Home reloaded once it's back, not
+  before). Live: `createStoryOnHome_opensTheStoryCreator` also checks the Create story card's English
+  label, by which the script tells an English row; the user's own card can't be checked live without
+  posting a story. The waits around `evaluateJavascript` are one helper now (`evaluated`, also used
+  by the Messages layer's two).

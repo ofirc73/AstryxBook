@@ -475,7 +475,9 @@ user-visible change.
   "Uploading your post...": closed then, the app lost the post (2026-11-03). While either posts,
   `PostingBar` shows over the page (`Posting.current`); a posted story (`Posting.lastPosted`) gets a
   snackbar (once a story: not again from an activity created again) whose View, like its notification (`ACTION_VIEW_STORY`), opens `OWN_STORY_URL` in the
-  layer, and Home reloads 30 s later if at its top (the feed's stories row is that slow). `feed_posting.js`
+  layer, and Home reloads 30 s later if at its top (the feed's stories row is that slow), again every
+  20 s while the row lacks the user's card (`STORIES_ROW_JS`: "View your story", English only; other
+  languages get two reloads), and only once the app is on screen again (after an auto share it's away). `feed_posting.js`
   (document start, main view) wraps the page's WebSocket and reports a post posting from the tap
   on the composer's Post (the top row's button right of back) with a photo in it until its snackbar
   shows a second text ("Posted"; `bufferedAmount` was 0 long before it, and a post closed 2.6 s after

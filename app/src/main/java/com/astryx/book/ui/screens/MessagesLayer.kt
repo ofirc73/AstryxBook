@@ -79,7 +79,6 @@ import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.WebViewState
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
@@ -329,9 +328,7 @@ fun MessagesLayer(
         if (!showSharedStory) return@LaunchedEffect
         val script = resources.pageScript(R.raw.open_own_story)
         repeat(SHARED_STORY_TRIES) {
-            val result = CompletableDeferred<String>()
-            navigator.evaluateJavaScript(script) { result.complete(it) }
-            if (result.await().contains("opened")) return@LaunchedEffect
+            if (navigator.evaluated(script).contains("opened")) return@LaunchedEffect
             delay(SHARED_STORY_RETRY_MS)
         }
         currentOnLeave(null, pageUrl)
@@ -355,9 +352,7 @@ fun MessagesLayer(
         var placed = false
         try {
             while (true) {
-                val result = CompletableDeferred<String>()
-                navigator.evaluateJavaScript(script) { result.complete(it) }
-                if (result.await().contains("placed")) {
+                if (navigator.evaluated(script).contains("placed")) {
                     placed = true
                     Log.d("Astryxbook", "Link to send: in the chat's message box")
                     currentOnLinkToSendDone()

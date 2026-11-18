@@ -133,6 +133,7 @@ import com.astryx.book.ui.screens.PipEffects
 import com.astryx.book.ui.screens.PipTarget
 import com.astryx.book.ui.screens.RELAYOUT_PAGE_JS
 import com.astryx.book.ui.screens.ShareMediaRequest
+import com.astryx.book.ui.screens.evaluated
 import com.astryx.book.ui.screens.installFeedPostingScript
 import com.astryx.book.ui.screens.installFeedPrefetchScript
 import com.astryx.book.ui.screens.rememberFeedPosting
@@ -144,7 +145,6 @@ import com.astryx.book.ui.screens.rememberMessagesLayerState
 private const val HOME_URL = HOME_PAGE_URL
 
 // Reloads the page if it's at (or near) its top: the feed's stories row then has a new story.
-private const val RELOAD_AT_TOP_JS = "(function () { if (window.scrollY < 300) location.reload(); return 1; })()"
 
 // The main view's videos while the Messages layer is over it: paused, and paused again whenever
 // they start (Facebook's reel player starts a paused reel again, so a reel went on playing, with
@@ -1135,10 +1135,10 @@ fun MaterialbookWebView(
     PostedStoryEffects(
         snackbarHostState,
         onView = { messagesLayer.showOwnStory() },
-        // Home at its top only: a reload elsewhere would lose the user's place.
-        onRefreshFeed = {
+        // Home only (the script checks it's at its top): a reload elsewhere would lose the user's place.
+        onHome = { script ->
             val mainUrl = runCatching { state.nativeWebView.url }.getOrNull()
-            if (messagesLayer.url == null && isMobileHomePage(mainUrl)) navigator.evaluateJavaScript(RELOAD_AT_TOP_JS) {}
+            if (messagesLayer.url == null && isMobileHomePage(mainUrl)) navigator.evaluated(script) else null
         },
     )
     LaunchedEffect(Unit) {
