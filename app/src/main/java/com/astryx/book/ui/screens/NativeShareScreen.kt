@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatColorFill
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.AlertDialog
@@ -82,6 +83,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.SharedFile
+import com.astryx.book.utils.Song
 import com.astryx.book.utils.StoryText
 import com.astryx.book.utils.StoryTextLayer
 import com.eepiemi.materialbook.R
@@ -105,12 +107,31 @@ class NativeShare(val target: ShareTarget, val files: List<SharedFile>) {
     val altTexts = mutableStateListOf<String>().apply { repeat(files.size) { add("") } }
     /** Whether the story gets Facebook's AI label ("made with AI"). */
     var aiLabel by mutableStateOf(false)
+
+    /**
+     * The music picker's side: the photo given to Facebook's editor for it (its name there; its
+     * texts can't change after, short of removing the music), whether Facebook's music panel is open
+     * for it ([musicReady]; false while it opens, or when it couldn't), and the song chosen.
+     */
+    var staged by mutableStateOf<String?>(null)
+    var musicReady by mutableStateOf<Boolean?>(null)
+    var music by mutableStateOf<MusicChoice?>(null)
+
+    /** Whether the music picker is offered: a story of one photo. */
+    val musicTool: Boolean get() = target == ShareTarget.STORY && files.size == 1 && files[0].isPhoto()
     var caption by mutableStateOf("")
     var phase by mutableStateOf(Phase.EDITING)
 
     /** Whether the tool for texts on photos is offered ([target]'s a story). */
     val textTool: Boolean get() = target == ShareTarget.STORY
 }
+
+/**
+ * The song for a story: where its clip starts, as a share of the way along that the user chose
+ * ([startFraction]) and the time Facebook took for it ([startMs]; null while it's being moved), and
+ * its lyrics style (Facebook's order).
+ */
+data class MusicChoice(val song: Song, val startFraction: Float = 0f, val startMs: Long? = 0, val style: Int = 0)
 
 /** Whether [file] is a photo (texts can go on it). */
 internal fun SharedFile.isPhoto(): Boolean = mimeType.lowercase().startsWith("image/")
@@ -132,6 +153,8 @@ fun NativeShareScreen(
     onEditInFacebook: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    onMusic: () -> Unit = {},
+    music: MusicActions? = null,
 ) {
     val pager = rememberPagerState { share.files.size }
     // The text being edited: its page and its place in that page's texts (-1: a new one).
@@ -139,6 +162,10 @@ fun NativeShareScreen(
     var movingText by remember { mutableStateOf(false) }
     // The page whose alternative text is being written.
     var altEditing by remember { mutableStateOf<Int?>(null) }
+    // The music picker on screen.
+    var picker by remember { mutableStateOf(false) }
+    // The photo is in Facebook's editor (the music picker gave it): its texts can't change now.
+    val textsFixed = share.staged != null
     val busy = share.phase != NativeShare.Phase.EDITING
 
     BackHandler {
@@ -180,6 +207,9 @@ fun NativeShareScreen(
                     Text(stringResource(R.string.native_share_edit_in_facebook), color = Color.White)
                 }
             }
+            share.music?.let { choice ->
+                MusicChip(choice, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 6.dp).clickable(enabled = !busy) { picker = true })
+            }
             HorizontalPager(
                 state = pager,
                 userScrollEnabled = !movingText && !busy,
@@ -189,7 +219,7 @@ fun NativeShareScreen(
                 MediaPreview(
                     file = file,
                     texts = share.texts[page],
-                    editable = share.textTool && file.isPhoto() && !busy,
+                    editable = share.textTool && file.isPhoto() && !busy && !textsFixed,
                     onTextChange = { index, layer ->
                         share.texts[page] = share.texts[page].toMutableList().also { it[index] = layer }
                     },
@@ -230,7 +260,7 @@ fun NativeShareScreen(
                 if (share.textTool && onPhoto) {
                     IconButton(
                         onClick = { editing = pager.currentPage to -1 },
-                        enabled = !busy,
+                        enabled = !busy && !textsFixed,
                         modifier = Modifier.background(Color.White.copy(alpha = 0.15f), CircleShape),
                     ) {
                         Icon(Icons.Filled.TextFields, contentDescription = stringResource(R.string.native_share_add_text), tint = Color.White)
@@ -253,6 +283,21 @@ fun NativeShareScreen(
                             modifier = Modifier.semantics { contentDescription = altLabel },
                         )
                     }
+                    if (share.musicTool && music != null) {
+                        IconButton(
+                            onClick = { onMusic(); picker = true },
+                            enabled = !busy,
+                            modifier = Modifier.padding(start = 8.dp)
+                                .background(if (share.music != null) Color.White else Color.White.copy(alpha = 0.15f), CircleShape)
+                                .testTag("nativeShareMusic"),
+                        ) {
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = stringResource(R.string.native_share_music),
+                                tint = if (share.music != null) Color.Black else Color.White,
+                            )
+                        }
+                    }
                     IconToggleButton(
                         checked = share.aiLabel,
                         onCheckedChange = { share.aiLabel = it },
@@ -273,6 +318,17 @@ fun NativeShareScreen(
                     Text(stringResource(if (share.target == ShareTarget.STORY) R.string.native_share_share_story else R.string.native_share_post))
                 }
             }
+        }
+
+        if (picker && music != null) {
+            MusicPicker(
+                share,
+                MusicActions(
+                    search = music.search, play = music.play, choose = music.choose, start = music.start, style = music.style,
+                    close = { music.close(); picker = false },
+                    remove = { music.remove(); picker = false },
+                ),
+            )
         }
 
         altEditing?.let { page ->
@@ -547,6 +603,5 @@ internal fun renderedFiles(share: NativeShare): List<SharedFile>? = share.files.
     val name = file.name.substringBeforeLast('.') + "_text.jpg"
     val out = File(file.file.parentFile, name)
     if (!StoryText.render(file.file, texts, out)) return null
-    file.file.delete()
     SharedFile(out, name, "image/jpeg")
 }

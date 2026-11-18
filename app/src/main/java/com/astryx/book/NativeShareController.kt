@@ -24,9 +24,14 @@ import com.astryx.book.ui.screens.renderedFiles
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.SharedFile
+import com.astryx.book.utils.Song
+import com.astryx.book.utils.StoryMusic
+import com.astryx.book.ui.screens.MusicChoice
+import com.astryx.book.ui.screens.MusicActions
 import com.astryx.book.utils.endShare
 import com.eepiemi.materialbook.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,6 +104,7 @@ internal class NativeShareController(
     fun offer(target: ShareTarget, files: List<SharedFile>): Boolean {
         if (!shows(target)) return false
         share = NativeShare(target, files)
+        StoryMusic.clear()
         // The story creator loads under the screen meanwhile; nothing's offered to it yet.
         if (target == ShareTarget.STORY) {
             ShareMediaQueue.prepare(target)
@@ -129,12 +135,92 @@ internal class NativeShareController(
     /** "Edit in Facebook": Facebook's own editor gets the photos (texts drawn on them), the screen goes. */
     fun onEditInFacebook() {
         val share = share ?: return
-        // Failed: Facebook's page is left as it is, for the user to finish there.
-        if (share.phase == NativeShare.Phase.FAILED) {
+        // Failed, or the photo already in Facebook's editor (the music picker): the page is shown as
+        // it is, for the user to finish there.
+        if (share.phase == NativeShare.Phase.FAILED || share.staged != null) {
+            if (share.staged != null) request(share.target, ShareOpen.REUSE)
             this.share = null
             return
         }
         hand(share, auto = false)
+    }
+
+    /**
+     * The music picker (♪): Facebook adds music only to a story in its editor, so the photo (its
+     * texts drawn on) goes there out of sight first, then its music panel is opened (StoryMusic).
+     */
+    fun onMusic() {
+        val share = share ?: return
+        if (share.staged != null) return
+        share.musicReady = false
+        activity.lifecycleScope.launch {
+            val files = withContext(Dispatchers.IO) { renderedFiles(share) }
+            if (this@NativeShareController.share !== share) return@launch
+            if (files == null) {
+                Toast.makeText(activity, R.string.native_share_render_failed, Toast.LENGTH_LONG).show()
+                share.musicReady = null
+                return@launch
+            }
+            share.staged = files[0].name
+            ShareMediaQueue.start(share.target, files, keepFiles = true)
+            request(share.target, ShareOpen.STAGE)
+            // Not opened: the picker says music isn't available now (Edit in Facebook is the way).
+            share.musicReady = if (StoryMusic.open()) true else null
+        }
+    }
+
+    fun onSearch(text: String) = music { StoryMusic.search(text.trim()) }
+    fun onPlay(song: Song) = music { StoryMusic.play(song.id) }
+
+    fun onChoose(song: Song) = music { share ->
+        if (StoryMusic.choose(song.id)) share.music = MusicChoice(song)
+    }
+
+    // The clip start being moved there (one at a time: a new start cancels the last one's drags).
+    private var startMove: Job? = null
+
+    fun onStart(fraction: Float) {
+        val share = share ?: return
+        val choice = share.music ?: return
+        share.music = choice.copy(startFraction = fraction, startMs = null)
+        startMove?.cancel()
+        startMove = activity.lifecycleScope.launch {
+            val startMs = StoryMusic.setStart(fraction)
+            share.music?.takeIf { it.song == choice.song }?.let { share.music = it.copy(startMs = startMs ?: it.startMs) }
+        }
+    }
+
+    fun onStyle(index: Int) = music { share ->
+        val choice = share.music ?: return@music
+        share.music = choice.copy(style = index)
+        StoryMusic.style(index)
+    }
+
+    /** The picker closed: a chosen song kept (Facebook's Done); without one, the photo taken back. */
+    fun onMusicClosed() {
+        val share = share ?: return
+        if (share.music == null) onRemoveMusic() else music { StoryMusic.done() }
+    }
+
+    /**
+     * The music removed: Facebook's editor, with the photo in it, is closed and loaded again, out of
+     * sight as at first, so the texts can change again.
+     */
+    fun onRemoveMusic() {
+        val share = share ?: return
+        share.music = null
+        share.staged = null
+        share.musicReady = null
+        ShareMediaQueue.clear()
+        request(share.target, ShareOpen.CLOSE)
+        ShareMediaQueue.prepare(share.target)
+        request(share.target, ShareOpen.PRELOAD)
+    }
+
+    // A music picker step, on the screen's share (gone: nothing).
+    private fun music(step: suspend (NativeShare) -> Unit) {
+        val share = share ?: return
+        activity.lifecycleScope.launch { if (this@NativeShareController.share === share) step(share) }
     }
 
     /** Closed or Back: the share is given up, and the app goes back to the app it came from. */
@@ -146,8 +232,18 @@ internal class NativeShareController(
         activity.moveTaskToBack(true)
     }
 
-    // The photos drawn with their texts (off the main thread), then into the queue for the page.
+    // The photos drawn with their texts (off the main thread), then into the queue for the page. A
+    // story already in Facebook's editor (the music picker) only has its Share pressed.
     private fun hand(share: NativeShare, auto: Boolean) {
+        share.staged?.let { name ->
+            Shared.startsAtShare = Posting.starts
+            Shared.failuresAtShare = ShareMediaQueue.failures
+            ShareMediaQueue.start(share.target, emptyList(), auto = true, pressOnly = name,
+                altTexts = mapOf(name to share.altTexts[0]), aiLabel = share.aiLabel)
+            request(share.target, ShareOpen.STAGE)
+            Shared.sent++
+            return
+        }
         activity.lifecycleScope.launch {
             val files = withContext(Dispatchers.IO) { renderedFiles(share) }
             if (this@NativeShareController.share !== share) return@launch
@@ -180,6 +276,11 @@ internal class NativeShareController(
             onEditInFacebook = ::onEditInFacebook,
             onCancel = ::onCancel,
             modifier = modifier,
+            onMusic = ::onMusic,
+            music = MusicActions(
+                search = ::onSearch, play = ::onPlay, choose = ::onChoose, start = ::onStart, style = ::onStyle,
+                close = ::onMusicClosed, remove = ::onRemoveMusic,
+            ),
         )
         // Sent: waits for Facebook's page to post each file (a story is one file; the feed's post
         // all of them), or to fail, or for NATIVE_SHARE_SEND_MS without either.

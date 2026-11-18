@@ -593,6 +593,25 @@
     setInterval(fit, 500);
   }
 
+  // A story the native music picker already put into the editor (by this name): no file to give,
+  // its extras put in and its Share to story pressed (auto) once the editor's ready, then done.
+  function pressStory(name) {
+    storyExtras(name, function () {
+      pressStoryShare(function () { send({ call: 'finished' }); });
+    });
+  }
+
+  // An auto story's Share to story pressed once the editor shows the story, then [posted] (posting:
+  // Share busy, or the page moved on); the share fails when it never was.
+  function pressStoryShare(posted) {
+    pressWhenReady(storyShareButton, function (button) { button.click(); }, function () {
+      return !!document.querySelector('[data-astryx-story="actions"] [aria-busy="true"]') ||
+        window.location.pathname.indexOf('/stories/create') !== 0;
+    }, function (ok) {
+      if (ok) posted(); else send({ call: 'failed', reason: 'notPosted' });
+    });
+  }
+
   function shareToStory(first) {
     // The first file waits for the page to load; the next ones for the user to finish a story.
     // The first file waits for the creator (a cold start can take a while), up to 45 s; on a
@@ -615,14 +634,8 @@
         };
         storyExtras(name, function () {
           if (!auto) { next(); return; }
-          // An auto share: Share to story once the editor shows the story, then (posted, the page
-          // back to the creator) the next file.
-          pressWhenReady(storyShareButton, function (button) { button.click(); }, function () {
-            return !!document.querySelector('[data-astryx-story="actions"] [aria-busy="true"]') ||
-              window.location.pathname.indexOf('/stories/create') !== 0;
-          }, function (ok) {
-            if (ok) next(); else send({ call: 'failed', reason: 'notPosted' });
-          });
+          // An auto share: Share to story, then (posted, the page back to the creator) the next file.
+          pressStoryShare(next);
         });
       });
     });
@@ -688,10 +701,16 @@
 
   // The story editor's Share to story, ready to press: the last of the bottom row's buttons
   // (story_layout.js marks the row; Discard comes first), labelled, not greyed out or busy, with the
-  // story in the editor (a picture or a video in its preview) and no dialog over it.
+  // story in the editor (a picture or a video in its preview) and no dialog over it (on screen).
   function storyShareButton() {
     if (window.location.pathname.indexOf('/stories/create') !== 0) return null;
-    if (document.querySelector('[role="dialog"]')) return null;
+    // A dialog on screen with something to read (a question for the user). Not one Facebook leaves in
+    // the page hidden, nor the song sticker's icon-only style menu ("Music sticker style options",
+    // on screen beside the sticker once a song is added; Facebook's Share works with it there).
+    if ([].some.call(document.querySelectorAll('[role="dialog"]'), function (d) {
+      var r = d.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && /\S/.test(d.innerText || '');
+    })) return null;
     var main = document.querySelector('[data-astryx-story="main"]');
     if (!main || !main.querySelector('img, video, canvas')) return null;
     var buttons = document.querySelectorAll('[data-astryx-story="actions"] [role="button"]');
@@ -720,6 +739,6 @@
   if (target === 'feed') shareToFeed();
   else if (target === 'group') shareToGroup();
   else if (target === 'profile') shareToProfilePicture();
-  else if (target === 'story') shareToStory(true);
+  else if (target === 'story') { if (window.__astryxSharePressOnly) pressStory(window.__astryxSharePressOnly); else shareToStory(true); }
   else if (target === 'reel') shareToReel();
 })();

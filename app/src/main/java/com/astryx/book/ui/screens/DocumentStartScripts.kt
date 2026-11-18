@@ -35,6 +35,16 @@ internal fun installPipVisibilityScript(webView: android.webkit.WebView) {
     installDocumentStartScript(webView, R.raw.pip_visibility, PIP_VISIBILITY_ORIGINS, "AstryxbookPiP")
 }
 
+// Installs story_music.js (Messages layer; see the script): the story creator's music panel's songs,
+// read from its own answers, for the native share screen's music picker. A document-start script, as
+// the creator loads its For you list with the page. Without DOCUMENT_START_SCRIPT (Chrome 87+) the
+// picker has no songs, and Edit in Facebook is the way to music.
+internal fun installStoryMusicScript(webView: android.webkit.WebView) {
+    installDocumentStartScript(webView, R.raw.story_music, STORY_MUSIC_ORIGINS, "Astryxbook")
+}
+
+private val STORY_MUSIC_ORIGINS = setOf("https://www.facebook.com")
+
 // Installs feed_prefetch.js (main view; see the script): a list's next posts are asked for while
 // its loading row is still a few screens below, not once it shows. Without DOCUMENT_START_SCRIPT
 // (Chrome 87+) they load as Facebook's own page does.

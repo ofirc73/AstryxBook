@@ -2,11 +2,8 @@ package com.astryx.book.utils.jsBridge
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
-import android.view.InputDevice
-import android.view.MotionEvent
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.webkit.JavaScriptReplyProxy
@@ -15,6 +12,8 @@ import androidx.webkit.WebViewFeature
 import com.eepiemi.materialbook.R
 import com.astryx.book.utils.FEED_COMPOSER_PAGE_URL
 import com.astryx.book.utils.ShareMediaQueue
+import com.astryx.book.utils.StoryMusic
+import com.astryx.book.utils.tapPage
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.endShare
@@ -72,6 +71,8 @@ fun installShareMediaBridge(webView: WebView, context: Context) {
                 if (files.isEmpty()) reply.postMessage(DONE) else sendFiles(reply, files, binary, main, remaining = 0)
             }
             "finished" -> finishIfDone(context, target)
+            // The songs Facebook's music panel got (story_music.js), for the native music picker.
+            "music" -> msg.optJSONArray("songs")?.let { StoryMusic.onSongs(msg.optString("query"), it) }
             // Home's composer box while the files wait, or the composer's Post once they're in
             // (an auto share: the user pressed Share on the native share screen).
             "tap" -> if (target == ShareTarget.FEED && (ShareMediaQueue.pending(target) || ShareMediaQueue.auto)) {
@@ -98,24 +99,6 @@ fun installShareMediaBridge(webView: WebView, context: Context) {
 }
 
 private const val DONE = "{\"done\":true}"
-
-// A finger's tap on [webView] at ([x], [y]), CSS px of a visual viewport [width] px wide: unlike a
-// script's click() it counts as the user's, so the history entry the page then adds stays for Back.
-private fun tapPage(webView: WebView, x: Double, y: Double, width: Double) {
-    if (!(width > 0) || x.isNaN() || y.isNaN()) return
-    val scale = webView.width / width
-    val downAt = SystemClock.uptimeMillis()
-    fun touch(action: Int, at: Long) {
-        val event = MotionEvent.obtain(downAt, at, action, (x * scale).toFloat(), (y * scale).toFloat(), 0)
-        event.source = InputDevice.SOURCE_TOUCHSCREEN
-        webView.dispatchTouchEvent(event)
-        event.recycle()
-    }
-    touch(MotionEvent.ACTION_DOWN, downAt)
-    webView.postDelayed({ touch(MotionEvent.ACTION_UP, SystemClock.uptimeMillis()) }, TAP_MS)
-}
-
-private const val TAP_MS = 60L
 
 // A file goes to the page in pieces of this size, the next read only once the last was posted: a
 // file read whole and posted as one message, up to 250 MB for a video (MAX_VIDEO_BYTES), couldn't fit
@@ -178,6 +161,6 @@ private fun postOnMain(main: Handler, post: () -> Unit) {
 // The page is through with the share: drop the copies once nothing's left to offer.
 private fun finishIfDone(context: Context, target: ShareTarget?) {
     if (target == null || ShareMediaQueue.remaining(target) == 0) {
-        endShare(context)
+        if (ShareMediaQueue.keepFiles) ShareMediaQueue.clear() else endShare(context)
     }
 }

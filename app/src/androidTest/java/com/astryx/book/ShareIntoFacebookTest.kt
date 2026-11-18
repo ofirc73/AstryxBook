@@ -290,6 +290,51 @@ class ShareIntoFacebookTest {
         assertFalse("the creator still waits for the share", ShareMediaQueue.preparing(ShareTarget.STORY))
     }
 
+    // The music picker (♪): Facebook adds music only to a story in its editor, so the photo goes to
+    // the creator, which stays under the share screen (shown, for the focus its music search needs,
+    // but covered): Back is still the screen's, which gives the share up.
+    @Test
+    fun theMusicPicker_handsThePhotoToTheCreator_underTheScreen_whoseBackStaysTheScreens() {
+        share("ShareToStory", photo("story.png"), edit = false)
+        val shared = app.nativeShare()
+        assertTrue("the creator never loaded under the share screen", app.waitFor(20_000) { app.layerWebView() != null })
+        app.onActivity { it.nativeShare.onMusic() }
+        assertTrue("the photo never went to the creator for its music", app.waitFor { shared.staged != null })
+        assertTrue("the share's files weren't kept for the music picker", ShareMediaQueue.keepFiles)
+        assertTrue("the creator isn't under the share screen", app.waitFor { app.layerOpen() })
+        app.pressBack()
+        assertTrue("Back went to the creator, not the share screen", app.waitFor { app.isInBackground() })
+        assertTrue(NativeShareController.current == null)
+    }
+
+    // Share once the photo's in the editor: only Facebook's Share to story pressed (press only), with
+    // the photo's alternative text; Remove music takes the photo back (the creator loaded again, out
+    // of sight, the texts free again).
+    @Test
+    fun aStoryWithMusic_isOnlyPressedOnShare_andRemovingTheMusicTakesThePhotoBack() {
+        share("ShareToStory", photo("story.png"), edit = false)
+        val shared = app.nativeShare()
+        assertTrue(app.waitFor(20_000) { app.layerWebView() != null })
+        app.onActivity { it.nativeShare.onMusic() }
+        assertTrue(app.waitFor { shared.staged != null })
+        val name = shared.staged
+        app.onActivity { it.nativeShare.onRemoveMusic() }
+        assertTrue("the photo was kept after the music was removed", shared.staged == null && shared.music == null)
+        assertTrue("the creator wasn't loaded again for the share", app.waitFor { ShareMediaQueue.preparing(ShareTarget.STORY) })
+        assertTrue("the creator stayed on screen after the music was removed", app.waitFor { !app.layerOpen() })
+
+        app.onActivity { it.nativeShare.onMusic() }
+        assertTrue(app.waitFor { shared.staged != null })
+        app.onActivity {
+            shared.altTexts[0] = "A test photo"
+            it.nativeShare.onShare()
+        }
+        assertTrue({ "Share didn't only press Facebook's Share (pressOnly ${ShareMediaQueue.pressOnly}, staged ${shared.staged})" },
+            app.waitFor { ShareMediaQueue.auto && ShareMediaQueue.pressOnly == shared.staged })
+        assertEquals("A test photo", ShareMediaQueue.altTexts[shared.staged])
+        assertTrue("the staged photo's name changed: $name, ${shared.staged}", name == shared.staged)
+    }
+
     // An activity created again (font size, language) shows the same share, its text kept.
     @Test
     fun theShareScreen_staysThroughTheActivityCreatedAgain() {

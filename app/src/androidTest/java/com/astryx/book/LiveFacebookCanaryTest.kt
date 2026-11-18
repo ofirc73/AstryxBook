@@ -25,6 +25,7 @@ import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.StoryBackgrounds
 import com.astryx.book.utils.StoryTextLayer
+import com.astryx.book.utils.StoryMusic
 import com.astryx.book.ui.screens.NativeShare
 import com.astryx.book.ui.screens.shareMediaScript
 import com.astryx.book.utils.jsBridge.HomeComposer
@@ -551,10 +552,14 @@ class LiveFacebookCanaryTest {
     // A picture shared to [alias] and, on the app's share screen, changed by [change] and shared (an
     // auto share): share_media.js finds Facebook's own Share or Post and presses nothing
     // (ShareMediaQueue.noPress, made sure of in the page's script before Share: the checks never post).
-    private fun shareFromTheShareScreen(alias: String, width: Int = 64, height: Int = 64, change: (NativeShare) -> Unit) {
+    // [prepare] runs on the test thread first (steps that wait on the page, the music picker's).
+    private fun shareFromTheShareScreen(
+        alias: String, width: Int = 64, height: Int = 64, prepare: (NativeShare) -> Unit = {}, change: (NativeShare) -> Unit,
+    ) {
         ShareMediaQueue.noPress = true
         sharePictures(alias, 1, width, height, edit = false)
         val shared = app.nativeShare()
+        prepare(shared)
         assertTrue("the share's script would press Facebook's Share (ShareMediaQueue.noPress)",
             shareMediaScript(app.context.resources, shared.target).contains("window.__astryxShareNoPress = true;"))
         app.onActivity {
@@ -1160,6 +1165,50 @@ class LiveFacebookCanaryTest {
                 app.eval("(function (c) { var t = document.querySelector('textarea'); return !!c && c.checked && !!t &&" +
                     " t.value === 'Astryxbook live check'; })(document.querySelector('input[type=radio][name=CUSTOM]'))", layer) == "true"
             })
+    }
+
+    // The share screen's music picker against Facebook's real story creator (nothing posted): the
+    // photo goes to the creator, Facebook's For you songs are read from its own answer (story_music.js),
+    // a search finds songs, one is chosen, its clip start is moved by real drags and taken by
+    // Facebook (its preview played from there), a lyrics style, Done keeps it (Facebook's Add music
+    // greyed out), and Share finds Share to story (never pressed).
+    @Test
+    fun aStorysMusic_fromTheShareScreen_worksFacebooksMusicPanel() {
+        shareFromTheShareScreen("ShareToStory", 720, 1280, prepare = { shared ->
+            app.onActivity { it.nativeShare.onMusic() }
+            assertTrue({ "Facebook's music panel never opened for the photo (story_music.js open: the Add music tool, " +
+                "usable once the editor shows the story; ${app.layerWebView()?.let { app.eval(STORY_MUSIC_STATE_JS, it) }})" },
+                app.waitFor(90_000) { shared.musicReady == true })
+            assertTrue({ "no For you songs read from Facebook's answer (story_music.js: StoriesCreateMusicSelectorMainPageQuery's " +
+                "AudioAssets; ${StoryMusic.songs("")?.size} songs)" }, app.waitFor(30_000) { (StoryMusic.songs("")?.size ?: 0) >= 5 })
+            val forYou = StoryMusic.songs("")!!
+            assertTrue("For you songs without a title, an artist, a cover or a length: ${forYou.take(3)}",
+                forYou.all { it.title.isNotBlank() && it.artist.isNotBlank() && it.cover.startsWith("https://") && it.durationMs > 0 })
+            app.onActivity { it.nativeShare.onSearch("love") }
+            assertTrue({ "a search found no songs (story_music.js search: typed into Facebook's box, Enter; " +
+                "${app.layerWebView()?.let { app.eval(STORY_MUSIC_STATE_JS, it) }})" },
+                app.waitFor(30_000) { (StoryMusic.songs("love")?.size ?: 0) > 0 })
+            val song = StoryMusic.songs("love")!!.first()
+            app.onActivity { it.nativeShare.onChoose(song) }
+            assertTrue({ "the song wasn't chosen in Facebook's panel (story_music.js choose: its row by title and artist; ${song.title})" },
+                app.waitFor(30_000) { shared.music?.song == song })
+            app.onActivity { it.nativeShare.onStart(0.5f) }
+            assertTrue({ "Facebook didn't take the clip's start (StoryMusic.setStart: finger drags on its strip, then its " +
+                "preview played again; ${shared.music})" }, app.waitFor(60_000) { (shared.music?.startMs ?: 0) > 0 })
+            app.onActivity { it.nativeShare.onStyle(2) }
+            app.onActivity { it.nativeShare.onMusicClosed() }
+            val layer = app.layerWebView()!!
+            assertTrue({ "the song wasn't kept (Facebook's Add music still usable after Done; ${app.eval(STORY_MUSIC_STATE_JS, layer)})" },
+                app.waitFor(15_000) {
+                    app.eval("[].some.call(document.querySelectorAll('[data-astryx-story=tool]'), function (t) {" +
+                        " return /music/i.test(t.innerText) && t.getAttribute('tabindex') === '-1'; })", layer) == "true"
+                })
+        }) { }
+        assertTrue({ "share_media.js never found Share to story ready after the music (pressStory; " +
+            "${app.layerWebView()?.let { app.eval(STORY_LAYOUT_JS, it) + " share run " + app.eval("window.__astryxShareRunning", it) +
+                " dialogs " + app.eval("${shownJs("[role=dialog]")}.length", it) }})" }, app.waitFor(90_000) {
+            app.layerWebView()?.let { wouldPress(it) } == "Share to story"
+        })
     }
 
     @Test
@@ -2065,6 +2114,9 @@ class LiveFacebookCanaryTest {
         // The story editor as story_layout.js tags it: "ok ..." once it has the preview (as wide as
         // the screen), the tools sidebar with two or more tools and the Discard / Share row, else
         // what it has.
+        // story_music.js's view of the creator: its panel, rows, a chosen song, the songs it read.
+        private const val STORY_MUSIC_STATE_JS = "JSON.stringify(window.__astryxStoryMusic && window.__astryxStoryMusic.state())"
+
         private const val STORY_LAYOUT_JS = """
             (function () {
               function count(v) { return document.querySelectorAll('[data-astryx-story="' + v + '"]').length; }

@@ -158,4 +158,19 @@
     <string name="settings_section_sharing">Condivisione</string>
     <string name="native_share_setting_title">Schermata di condivisione</string>
     <string name="native_share_setting_desc">Le foto condivise nella tua storia o nel feed aprono prima la schermata dell\'app (testo, testo alternativo, etichetta IA). Disattivato: l\'editor di Facebook</string>
+    <string name="native_share_music">Musica</string>
+    <string name="native_share_music_preparing">Preparazione della storia per la musica…</string>
+    <string name="native_share_music_unavailable">La musica di Facebook non è disponibile ora. Usa Modifica in Facebook per aggiungerla lì.</string>
+    <string name="native_share_music_search">Cerca musica</string>
+    <string name="native_share_music_for_you">Per te</string>
+    <string name="native_share_music_loading">Caricamento dei brani…</string>
+    <string name="native_share_music_none">Nessun brano trovato</string>
+    <string name="native_share_music_play">Riproduci %1$s</string>
+    <string name="native_share_music_starts">Inizia a %1$s</string>
+    <string name="native_share_music_lyrics">Stile del testo</string>
+    <string name="native_share_music_style_large">Grande</string>
+    <string name="native_share_music_style_light">Chiaro</string>
+    <string name="native_share_music_style_dark">Scuro</string>
+    <string name="native_share_music_style_floating">Fluttuante</string>
+    <string name="native_share_music_remove">Rimuovi la musica</string>
 </resources>

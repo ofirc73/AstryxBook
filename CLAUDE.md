@@ -450,7 +450,17 @@ user-visible change.
   WebView first, `focus`) and taps Post, and the app goes back once `Posting.starts` counts it; Edit
   in Facebook is the flow below. A story's alternative texts (by the file name the page gets) and AI
   label go into Facebook's editor before Share (`storyExtras`: the Alternative text panel's CUSTOM
-  radio and text box, once the tool is usable; the hidden `input[role=switch]`).
+  radio and text box, once the tool is usable; the hidden `input[role=switch]`). The music picker
+  (♪, a story of one photo; `MusicPicker`, `StoryMusic`, `story_music.js`) is a remote control for
+  Facebook's music panel: the photo goes to the creator first (`ShareOpen.STAGE`: shown but under the
+  screen, as its search needs a focused page, the layer's Back off meanwhile; `keepFiles`; texts
+  fixed until Remove music reloads it); the songs come from the panel's own GraphQL answers
+  (`StoriesCreateMusicSelectorMainPageQuery`, read by a document-start XHR wrap); a search is
+  `insertText` plus Enter; previews play in the page. The clip start is the scroll of Facebook's
+  waveform strip, which only real input moves: finger drags (`dragPage`, held still before lifting,
+  or it flings), then the bar's Pause and Play, from which Facebook plays the start it took (a script's
+  scroll is put back, script-made mouse events are ignored, and a real mouse release, the only other
+  way, needs button events Android apps can't make). Share then only presses (`pressOnly`).
   Feed, group and profile picture: a mobile button's click on its hidden file input is answered with
   the files. A Feed share with Home showing opens the composer from Home's box instead of loading
   `/composer/` (which has the server draw Home's whole feed first: 9 s at 1 Mbps): the app taps the

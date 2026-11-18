@@ -122,14 +122,15 @@ internal class MessagesLayerState(url: String?, returnUrl: String?) {
     /**
      * Opens the layer anew at a share's creator [url] (or shows the one still posting). [open]: a
      * creator loaded under the native share screen (PRELOAD) stays out of sight, its Back not
-     * taken from the screen's, until it's used (REUSE: kept as it is, and shown).
+     * taken from the screen's, until it's used (REUSE, STAGE: kept as it is, and shown; STAGE under
+     * the screen, for its music picker, whose Back stays the screen's).
      */
     fun openCreator(url: String, open: ShareOpen = ShareOpen.NEW) {
         if (storyPosting) {
             hidden = false
             return
         }
-        if (open == ShareOpen.REUSE && this.url == url) {
+        if ((open == ShareOpen.REUSE || open == ShareOpen.STAGE) && this.url == url) {
             hidden = false
             return
         }

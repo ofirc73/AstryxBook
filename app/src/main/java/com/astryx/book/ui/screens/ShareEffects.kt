@@ -30,6 +30,12 @@ enum class ShareOpen {
     PRELOAD,
     /** The creator loaded under the native share screen is kept, shown, and takes the files. */
     REUSE,
+    /**
+     * The creator loaded under the native share screen takes the files and stays under it (shown,
+     * so it can take the focus Facebook's music search needs, but covered): the native music picker
+     * works Facebook's music panel there (StoryMusic).
+     */
+    STAGE,
     /** The share was given up on the native share screen: the creator opened for it closes. */
     CLOSE,
 }
@@ -62,6 +68,8 @@ internal fun shareMediaScript(
         // A story's alternative texts and AI label, put into Facebook's editor (storyExtras).
         (ShareMediaQueue.altTexts.takeIf { it.isNotEmpty() }?.let { "window.__astryxShareAltTexts = ${org.json.JSONObject(it)};\n" } ?: "") +
         (if (ShareMediaQueue.aiLabel) "window.__astryxShareAiLabel = true;\n" else "") +
+        // A story already in the editor (the music picker staged it): only its Share pressed.
+        (ShareMediaQueue.pressOnly?.let { "window.__astryxSharePressOnly = ${org.json.JSONObject.quote(it)};\n" } ?: "") +
         "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
 }
 

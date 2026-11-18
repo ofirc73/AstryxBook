@@ -150,4 +150,19 @@
     <string name="settings_section_sharing">分享</string>
     <string name="native_share_setting_title">分享畫面</string>
     <string name="native_share_setting_desc">分享到限時動態或動態消息的相片會先開啟應用程式的分享畫面（文字、替代文字、AI 標籤）。關閉時：使用 Facebook 自己的編輯器</string>
+    <string name="native_share_music">音樂</string>
+    <string name="native_share_music_preparing">正在為限時動態準備音樂…</string>
+    <string name="native_share_music_unavailable">Facebook 的音樂目前無法使用。請改用「在 Facebook 中編輯」加入。</string>
+    <string name="native_share_music_search">搜尋音樂</string>
+    <string name="native_share_music_for_you">為你推薦</string>
+    <string name="native_share_music_loading">正在載入歌曲…</string>
+    <string name="native_share_music_none">找不到歌曲</string>
+    <string name="native_share_music_play">播放 %1$s</string>
+    <string name="native_share_music_starts">從 %1$s 開始</string>
+    <string name="native_share_music_lyrics">歌詞樣式</string>
+    <string name="native_share_music_style_large">大</string>
+    <string name="native_share_music_style_light">淺色</string>
+    <string name="native_share_music_style_dark">深色</string>
+    <string name="native_share_music_style_floating">浮動</string>
+    <string name="native_share_music_remove">移除音樂</string>
 </resources>

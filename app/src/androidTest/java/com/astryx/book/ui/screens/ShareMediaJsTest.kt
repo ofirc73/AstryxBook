@@ -263,6 +263,17 @@ class ShareMediaJsTest {
         assertTrue({ "Share never pressed once the dialog went (${h.calls()})" }, h.waitFor("window.__shared === 1", 5000))
     }
 
+    // The song sticker's icon-only style menu (a dialog with nothing to read) stays beside the sticker
+    // once a song is added, and Facebook's own Share works with it there: it doesn't hold Share.
+    @Test
+    fun story_anAutoShare_isntHeldByAnIconOnlyDialog() {
+        val h = autoStory()
+        h.eval("window.__iconDialog = true;")
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", AUTO)
+        assertTrue({ "Share wasn't pressed with the icon-only dialog there (${h.calls()})" }, h.waitFor("window.__shared === 1", 8000))
+    }
+
     @Test
     fun story_anAutoShare_whoseShareStaysGreyedOut_fails() {
         val h = autoStory()
@@ -667,7 +678,9 @@ class ShareMediaJsTest {
                 "<div style='display:none'><input type='checkbox' role='switch' aria-label='Add AI label' id='ai'></div>" +
                 "<div data-astryx-story='actions'>" +
                 "<div role='button'>Discard</div><div role='button' id='share'>Share to story</div></div>\"" +
-                "    + (window.__dialog ? \"<div role='dialog' id='dialog'>Audience</div>\" : '');" +
+                "    + (window.__dialog ? \"<div role='dialog' id='dialog'>Audience</div>\" : '')" +
+                "    + (window.__iconDialog ? \"<div role='dialog' aria-label='Music sticker style options' style='width:40px;height:40px'>" +
+                "<div role='button' aria-label='Style'></div></div>\" : '');" +
                 "  var share = document.getElementById('share');" +
                 "  if (window.__shareDisabled) share.setAttribute('aria-disabled', 'true');" +
                 "  document.getElementById('alt-tool').addEventListener('click', __altPanel);" +

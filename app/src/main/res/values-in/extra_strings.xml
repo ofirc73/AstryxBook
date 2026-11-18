@@ -159,4 +159,19 @@
     <string name="settings_section_sharing">Berbagi</string>
     <string name="native_share_setting_title">Layar berbagi</string>
     <string name="native_share_setting_desc">Foto yang dibagikan ke cerita atau feed Anda membuka layar berbagi aplikasi terlebih dahulu (teks, teks alternatif, label AI). Nonaktif: editor Facebook sendiri</string>
+    <string name="native_share_music">Musik</string>
+    <string name="native_share_music_preparing">Menyiapkan cerita Anda untuk musik…</string>
+    <string name="native_share_music_unavailable">Musik Facebook sedang tidak tersedia. Gunakan Edit di Facebook untuk menambahkannya di sana.</string>
+    <string name="native_share_music_search">Cari musik</string>
+    <string name="native_share_music_for_you">Untuk Anda</string>
+    <string name="native_share_music_loading">Memuat lagu…</string>
+    <string name="native_share_music_none">Tidak ada lagu</string>
+    <string name="native_share_music_play">Putar %1$s</string>
+    <string name="native_share_music_starts">Mulai di %1$s</string>
+    <string name="native_share_music_lyrics">Gaya lirik</string>
+    <string name="native_share_music_style_large">Besar</string>
+    <string name="native_share_music_style_light">Terang</string>
+    <string name="native_share_music_style_dark">Gelap</string>
+    <string name="native_share_music_style_floating">Mengambang</string>
+    <string name="native_share_music_remove">Hapus musik</string>
 </resources>
