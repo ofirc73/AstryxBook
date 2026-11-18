@@ -169,10 +169,5 @@
     <string name="native_share_music_none">Aucun titre trouvé</string>
     <string name="native_share_music_play">Écouter %1$s</string>
     <string name="native_share_music_starts">Commence à %1$s</string>
-    <string name="native_share_music_lyrics">Style des paroles</string>
-    <string name="native_share_music_style_large">Grand</string>
-    <string name="native_share_music_style_light">Clair</string>
-    <string name="native_share_music_style_dark">Sombre</string>
-    <string name="native_share_music_style_floating">Flottant</string>
     <string name="native_share_music_remove">Retirer la musique</string>
 </resources>

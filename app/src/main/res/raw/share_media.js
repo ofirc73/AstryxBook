@@ -648,7 +648,9 @@
   // which story_layout.js hides with the sidebar. A part not found is left out; what went in is
   // kept in window.__astryxStoryExtras ({aiLabel, altText}, for the checks); then done(). Read on
   // the emulator, 2026-11-18.
-  var EXTRAS_MS = 15000;
+  // As long as the creator itself may take to load (shareToStory's first file): a slow editor shows
+  // the story late (a daily run, 2026-11-18: past 15 s, the alt text and AI label left out).
+  var EXTRAS_MS = 45000;
   function storyExtras(name, done) {
     var alt = (window.__astryxShareAltTexts || {})[name];
     var aiLabel = !!window.__astryxShareAiLabel;

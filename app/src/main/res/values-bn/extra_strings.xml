@@ -164,10 +164,5 @@
     <string name="native_share_music_none">কোনো গান পাওয়া যায়নি</string>
     <string name="native_share_music_play">%1$s চালান</string>
     <string name="native_share_music_starts">%1$s থেকে শুরু</string>
-    <string name="native_share_music_lyrics">লিরিক্সের স্টাইল</string>
-    <string name="native_share_music_style_large">বড়</string>
-    <string name="native_share_music_style_light">হালকা</string>
-    <string name="native_share_music_style_dark">গাঢ়</string>
-    <string name="native_share_music_style_floating">ভাসমান</string>
     <string name="native_share_music_remove">মিউজিক সরান</string>
 </resources>

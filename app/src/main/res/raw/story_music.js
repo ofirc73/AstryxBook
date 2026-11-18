@@ -6,6 +6,8 @@
 //   Enter); each answer's items are AudioAssets {id, title, display_artist, cover_artwork,
 //   duration_in_ms}. XMLHttpRequest is wrapped to read them, and they go to the app
 //   (AstryxShare {call: "music", target: "story", songs, query}).
+// - The song's sticker on the story is story_layout.js's to hide (so it's off the posted story too);
+//   this script leaves it, and its lyrics styles, alone.
 // - The panel (story_layout.js marks it as a popup): the Add music tool opens it; its search box
 //   (input[aria-label="Search music"]) searches on Enter after typed input (insertText, in a focused
 //   page; a value set by script isn't searched); its rows (a [role=button] holding the
@@ -16,8 +18,8 @@
 //   again from there only on a real mouse button's release: replay() presses the bar's Pause and
 //   Play instead, and position() then reads where the preview plays, the start Facebook took. The
 //   bar's Done keeps the song.
-// The app calls window.__astryxStoryMusic: open(), search(text), play(id), choose(id), style(n),
-// strip(), done(); each returns at once, and its result shows in state(). ES5, like the PiP scripts.
+// The app calls window.__astryxStoryMusic: open(), search(text), play(id), choose(id), strip(),
+// replay(), position(), done(); each returns at once, and its result shows in state(). ES5, like the PiP scripts.
 (function () {
   if (window.__astryxStoryMusic) return;
   var QUERY = /MusicSelector/;
@@ -123,7 +125,7 @@
       return d.children.length > 50 && getComputedStyle(d).overflowX === 'scroll' && d.getBoundingClientRect().width > 0;
     })[0] || null;
   }
-  // The chosen song's card: its lyrics style buttons (in order) and its Done.
+  // The chosen song's card: found by its lyrics style buttons; its Done.
   function styleButtons() { return document.querySelectorAll('[aria-label$="lyrics style" i], [aria-label$="Lyrics style"]'); }
   function barDone() {
     var strip = stripBox();
@@ -179,12 +181,6 @@
       var row = rowOf(id);
       if (!row) return 'noRow';
       row.click();
-      return 'ok';
-    },
-    style: function (n) {
-      var buttons = styleButtons();
-      if (!buttons[n]) return 'noStyle';
-      buttons[n].click();
       return 'ok';
     },
     // Where the clip bar's strip is (CSS px in the viewport) and how far it's scrolled, for the

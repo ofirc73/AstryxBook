@@ -159,10 +159,5 @@
     <string name="native_share_music_none">找不到歌曲</string>
     <string name="native_share_music_play">播放 %1$s</string>
     <string name="native_share_music_starts">從 %1$s 開始</string>
-    <string name="native_share_music_lyrics">歌詞樣式</string>
-    <string name="native_share_music_style_large">大</string>
-    <string name="native_share_music_style_light">淺色</string>
-    <string name="native_share_music_style_dark">深色</string>
-    <string name="native_share_music_style_floating">浮動</string>
     <string name="native_share_music_remove">移除音樂</string>
 </resources>

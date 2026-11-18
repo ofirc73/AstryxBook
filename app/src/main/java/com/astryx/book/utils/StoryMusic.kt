@@ -102,7 +102,6 @@ object StoryMusic {
         }
         return "noRow"
     }
-    suspend fun style(index: Int) = call("style", index)
     suspend fun done() = call("done")
 
     /**

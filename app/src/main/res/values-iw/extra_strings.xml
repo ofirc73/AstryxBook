@@ -181,10 +181,5 @@
     <string name="native_share_music_none">לא נמצאו שירים</string>
     <string name="native_share_music_play">נגן את %1$s</string>
     <string name="native_share_music_starts">מתחיל ב‑%1$s</string>
-    <string name="native_share_music_lyrics">סגנון מילים</string>
-    <string name="native_share_music_style_large">גדול</string>
-    <string name="native_share_music_style_light">בהיר</string>
-    <string name="native_share_music_style_dark">כהה</string>
-    <string name="native_share_music_style_floating">צף</string>
     <string name="native_share_music_remove">הסרת המוזיקה</string>
 </resources>

@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -73,20 +72,14 @@ class MusicActions(
     val play: (Song) -> Unit,
     val choose: (Song) -> Unit,
     val start: (Float) -> Unit,
-    val style: (Int) -> Unit,
     val close: () -> Unit,
     val remove: () -> Unit,
 )
 
-// Facebook's lyrics styles, in its card's order.
-private val LYRICS_STYLES = listOf(
-    R.string.native_share_music_style_large, R.string.native_share_music_style_light,
-    R.string.native_share_music_style_dark, R.string.native_share_music_style_floating,
-)
-
 /**
  * The story's music, over the share screen: Facebook's songs (For you, or a search) to preview and
- * choose from, then the chosen one's start and lyrics style. Facebook's own music panel does the
+ * choose from, then the chosen one's start. No lyrics style: the app keeps the song's sticker off
+ * the story (story_layout.js), and the style is only the sticker's look. Facebook's own music panel does the
  * work out of sight ([actions], StoryMusic): it plays the previews and keeps the song for the story.
  */
 @Composable
@@ -172,7 +165,7 @@ private fun SongRow(song: Song, actions: MusicActions) {
     }
 }
 
-// The chosen song: where its clip starts, its lyrics style, and Remove / Done. Facebook plays it
+// The chosen song: where its clip starts, and Remove / Done. Facebook plays it
 // from the start chosen, so moving the start is heard.
 @Composable
 private fun Chosen(choice: MusicChoice, actions: MusicActions) {
@@ -197,12 +190,6 @@ private fun Chosen(choice: MusicChoice, actions: MusicActions) {
             onValueChangeFinished = { actions.start(start) },
             modifier = Modifier.testTag("musicStart"),
         )
-        Text(stringResource(R.string.native_share_music_lyrics), color = Color.White, modifier = Modifier.padding(top = 12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-            LYRICS_STYLES.forEachIndexed { index, label ->
-                FilterChip(selected = choice.style == index, onClick = { actions.style(index) }, label = { Text(stringResource(label)) })
-            }
-        }
         Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = actions.remove) { Text(stringResource(R.string.native_share_music_remove), color = Color.White) }
             Spacer(Modifier.weight(1f))

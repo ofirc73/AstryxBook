@@ -183,10 +183,5 @@
     <string name="native_share_music_none">Nie znaleziono utworów</string>
     <string name="native_share_music_play">Odtwórz %1$s</string>
     <string name="native_share_music_starts">Zaczyna się od %1$s</string>
-    <string name="native_share_music_lyrics">Styl tekstu</string>
-    <string name="native_share_music_style_large">Duży</string>
-    <string name="native_share_music_style_light">Jasny</string>
-    <string name="native_share_music_style_dark">Ciemny</string>
-    <string name="native_share_music_style_floating">Pływający</string>
     <string name="native_share_music_remove">Usuń muzykę</string>
 </resources>

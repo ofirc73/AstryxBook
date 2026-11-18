@@ -190,12 +190,6 @@ internal class NativeShareController(
         }
     }
 
-    fun onStyle(index: Int) = music { share ->
-        val choice = share.music ?: return@music
-        share.music = choice.copy(style = index)
-        StoryMusic.style(index)
-    }
-
     /** The picker closed: a chosen song kept (Facebook's Done); without one, the photo taken back. */
     fun onMusicClosed() {
         val share = share ?: return
@@ -278,7 +272,7 @@ internal class NativeShareController(
             modifier = modifier,
             onMusic = ::onMusic,
             music = MusicActions(
-                search = ::onSearch, play = ::onPlay, choose = ::onChoose, start = ::onStart, style = ::onStyle,
+                search = ::onSearch, play = ::onPlay, choose = ::onChoose, start = ::onStart,
                 close = ::onMusicClosed, remove = ::onRemoveMusic,
             ),
         )

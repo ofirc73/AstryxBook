@@ -168,10 +168,5 @@
     <string name="native_share_music_none">Tidak ada lagu</string>
     <string name="native_share_music_play">Putar %1$s</string>
     <string name="native_share_music_starts">Mulai di %1$s</string>
-    <string name="native_share_music_lyrics">Gaya lirik</string>
-    <string name="native_share_music_style_large">Besar</string>
-    <string name="native_share_music_style_light">Terang</string>
-    <string name="native_share_music_style_dark">Gelap</string>
-    <string name="native_share_music_style_floating">Mengambang</string>
     <string name="native_share_music_remove">Hapus musik</string>
 </resources>

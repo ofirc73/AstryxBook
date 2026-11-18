@@ -96,7 +96,7 @@ class StoryMusicJsTest {
     }
 
     @Test
-    fun theChosenSong_hasItsStyleItsStripItsReplayAndItsDone() {
+    fun theChosenSong_hasItsStripItsReplayAndItsDone() {
         open()
         answer("", ANSWER)
         assertTrue(waitFor("window.__music.length === 1"))
@@ -104,8 +104,6 @@ class StoryMusicJsTest {
         assertTrue(waitFor("window.__astryxStoryMusic.state().rows === 2"))
         eval("window.__astryxStoryMusic.choose('1'); 1")
         assertTrue(waitFor("window.__astryxStoryMusic.state().chosen"))
-        assertEquals("\"ok\"", eval("window.__astryxStoryMusic.style(2)"))
-        assertEquals("\"Dark lyrics style\"", eval("window.__style"))
         // The strip: where it is and how far it scrolls (its content less its own width).
         assertEquals("\"200 3000 120\"", eval("(function (s) { return Math.round(s.width) + ' ' + Math.round(s.range) + ' ' + Math.round(s.scroll); })" +
             "(window.__astryxStoryMusic.strip())"))

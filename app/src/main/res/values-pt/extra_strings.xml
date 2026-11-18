@@ -169,10 +169,5 @@
     <string name="native_share_music_none">Nenhuma música encontrada</string>
     <string name="native_share_music_play">Tocar %1$s</string>
     <string name="native_share_music_starts">Começa em %1$s</string>
-    <string name="native_share_music_lyrics">Estilo da letra</string>
-    <string name="native_share_music_style_large">Grande</string>
-    <string name="native_share_music_style_light">Claro</string>
-    <string name="native_share_music_style_dark">Escuro</string>
-    <string name="native_share_music_style_floating">Flutuante</string>
     <string name="native_share_music_remove">Remover música</string>
 </resources>

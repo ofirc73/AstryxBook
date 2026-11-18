@@ -2410,8 +2410,9 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 
 - **A story's photo can get music on the app's share screen** (♪, a story of one photo): Facebook's
   For you songs and a search, each with its cover, title and artist, a ▶ preview, then the chosen
-  song's start (a slider; "Starts at m:ss" as Facebook took it), its lyrics style (Large, Light,
-  Dark, Floating), Remove and Done. The song shows above the preview. Facebook's own music panel does
+  song's start (a slider; "Starts at m:ss" as Facebook took it), Remove and Done. The song shows
+  above the preview; its sticker stays off the story, as for a song added in Facebook's editor
+  (`story_layout.js` hides it, so it isn't drawn on the posted story), so there's no lyrics style. Facebook's own music panel does
   the work out of sight (the photo goes to its editor first, so the texts on it can't change until
   the music is removed); previews play there, so the start chosen is heard. Share then presses
   Facebook's Share to story, as for any story from the screen.
@@ -2428,7 +2429,7 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   screen once a song is added: only a dialog with something to read holds it (`storyShareButton`).
 - Testing: `StoryMusicJsTest` (a fake creator: songs from a GraphQL answer reported by their search,
   none outside the creator, Add music pressed only once the editor shows the story, a search typed
-  with Enter, a song previewed and chosen by its row, its lyrics style, the strip's place, the replay
+  with Enter, a song previewed and chosen by its row, the strip's place, the replay
   and the start read, both Done buttons); `StoryMusicTest` (the clip start's drags against a
   simulated strip: to the left for a later start, to the right for an earlier one, none without a
   strip, the preview played again once there); `ShareMediaJsTest` (an icon-only dialog doesn't hold
@@ -2436,6 +2437,6 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   stays the screen's; Share then only presses, with the alt text; Remove music takes the photo back).
   Live: `aStorysMusic_fromTheShareScreen_worksFacebooksMusicPanel` goes through it all on Facebook's
   real creator: the panel opens, For you songs read (with titles, artists, covers, lengths), a
-  search's songs, one chosen, its start moved and taken by Facebook, a lyrics style, Done keeping
-  it (Add music greyed out), and Share to story found, never pressed. A story with music hasn't been
+  search's songs, one chosen, its start moved and taken by Facebook, Done keeping it (Add music
+  greyed out) with its sticker hidden on the story, and Share to story found, never pressed. A story with music hasn't been
   posted by the checks (they never post).

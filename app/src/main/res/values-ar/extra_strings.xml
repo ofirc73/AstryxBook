@@ -182,10 +182,5 @@
     <string name="native_share_music_none">لم يتم العثور على أغانٍ</string>
     <string name="native_share_music_play">تشغيل %1$s</string>
     <string name="native_share_music_starts">تبدأ عند %1$s</string>
-    <string name="native_share_music_lyrics">نمط الكلمات</string>
-    <string name="native_share_music_style_large">كبير</string>
-    <string name="native_share_music_style_light">فاتح</string>
-    <string name="native_share_music_style_dark">داكن</string>
-    <string name="native_share_music_style_floating">عائم</string>
     <string name="native_share_music_remove">إزالة الموسيقى</string>
 </resources>

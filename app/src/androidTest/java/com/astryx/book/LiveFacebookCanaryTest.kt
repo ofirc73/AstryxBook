@@ -1170,8 +1170,9 @@ class LiveFacebookCanaryTest {
     // The share screen's music picker against Facebook's real story creator (nothing posted): the
     // photo goes to the creator, Facebook's For you songs are read from its own answer (story_music.js),
     // a search finds songs, one is chosen, its clip start is moved by real drags and taken by
-    // Facebook (its preview played from there), a lyrics style, Done keeps it (Facebook's Add music
-    // greyed out), and Share finds Share to story (never pressed).
+    // Facebook (its preview played from there), Done keeps it (Facebook's Add music greyed out) with
+    // its sticker hidden on the story (story_layout.js: so it's off the posted story too), and Share
+    // finds Share to story (never pressed).
     @Test
     fun aStorysMusic_fromTheShareScreen_worksFacebooksMusicPanel() {
         shareFromTheShareScreen("ShareToStory", 720, 1280, prepare = { shared ->
@@ -1195,13 +1196,19 @@ class LiveFacebookCanaryTest {
             app.onActivity { it.nativeShare.onStart(0.5f) }
             assertTrue({ "Facebook didn't take the clip's start (StoryMusic.setStart: finger drags on its strip, then its " +
                 "preview played again; ${shared.music})" }, app.waitFor(60_000) { (shared.music?.startMs ?: 0) > 0 })
-            app.onActivity { it.nativeShare.onStyle(2) }
             app.onActivity { it.nativeShare.onMusicClosed() }
             val layer = app.layerWebView()!!
             assertTrue({ "the song wasn't kept (Facebook's Add music still usable after Done; ${app.eval(STORY_MUSIC_STATE_JS, layer)})" },
                 app.waitFor(15_000) {
                     app.eval("[].some.call(document.querySelectorAll('[data-astryx-story=tool]'), function (t) {" +
                         " return /music/i.test(t.innerText) && t.getAttribute('tabindex') === '-1'; })", layer) == "true"
+                })
+            // The song's sticker on the story, hidden (the song kept), as for a song added in Facebook's editor.
+            assertTrue({ "the song's sticker is on the story (story_layout.js musicSticker: a button over the photo with " +
+                "its title and art; ${app.eval(shownJs("[data-astryx-story=main] [role=button]") + ".length", layer)} buttons on it)" },
+                app.waitFor(15_000) {
+                    app.eval("(function (s) { return !!s && getComputedStyle(s).visibility === 'hidden'; })" +
+                        "(document.querySelector('[data-astryx-story-music-hidden]'))", layer) == "true"
                 })
         }) { }
         assertTrue({ "share_media.js never found Share to story ready after the music (pressStory; " +

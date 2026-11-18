@@ -167,10 +167,5 @@
     <string name="native_share_music_none">Nessun brano trovato</string>
     <string name="native_share_music_play">Riproduci %1$s</string>
     <string name="native_share_music_starts">Inizia a %1$s</string>
-    <string name="native_share_music_lyrics">Stile del testo</string>
-    <string name="native_share_music_style_large">Grande</string>
-    <string name="native_share_music_style_light">Chiaro</string>
-    <string name="native_share_music_style_dark">Scuro</string>
-    <string name="native_share_music_style_floating">Fluttuante</string>
     <string name="native_share_music_remove">Rimuovi la musica</string>
 </resources>
