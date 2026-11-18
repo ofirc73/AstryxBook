@@ -168,4 +168,7 @@
     <string name="native_share_failed">Nie udało się udostępnić: strona Facebooka nie odpowiedziała. Dokończ w edytorze Facebooka lub zamknij.</string>
     <string name="native_share_page">%1$d z %2$d</string>
     <string name="native_share_render_failed">Nie udało się przygotować zdjęcia z tekstem.</string>
+    <string name="native_share_alt_text">Tekst alternatywny</string>
+    <string name="native_share_alt_text_hint">Opisz zdjęcie dla osób, które go nie widzą</string>
+    <string name="native_share_ai_label">Etykieta AI: utworzone przez AI</string>
 </resources>

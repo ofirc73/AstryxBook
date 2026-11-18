@@ -149,4 +149,7 @@
     <string name="native_share_failed">Teilen nicht möglich: Facebooks Seite hat nicht reagiert. Schließ es in Facebooks Editor ab oder schließe.</string>
     <string name="native_share_page">%1$d von %2$d</string>
     <string name="native_share_render_failed">Das Foto konnte nicht mit seinem Text vorbereitet werden.</string>
+    <string name="native_share_alt_text">Alternativtext</string>
+    <string name="native_share_alt_text_hint">Beschreibe das Foto für Menschen, die es nicht sehen können</string>
+    <string name="native_share_ai_label">KI-Label: mit KI erstellt</string>
 </resources>

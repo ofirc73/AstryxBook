@@ -1133,11 +1133,33 @@ class LiveFacebookCanaryTest {
 
     @Test
     fun aStoryFromTheShareScreen_withItsText_findsFacebooksShareToStory() {
-        shareFromTheShareScreen("ShareToStory", 720, 1280) { it.texts[0] = listOf(StoryTextLayer("Live check")) }
+        shareFromTheShareScreen("ShareToStory", 720, 1280) {
+            it.texts[0] = listOf(StoryTextLayer("Live check"))
+            it.altTexts[0] = "Astryxbook live check"
+            it.aiLabel = true
+        }
         assertTrue({ "share_media.js never found Share to story ready (storyShareButton: the last of story_layout.js's bottom " +
             "row, the story in its editor, no dialog; ${app.layerWebView()?.let { app.eval(STORY_LAYOUT_JS, it) }})" }, app.waitFor(90_000) {
             app.layerWebView()?.let { wouldPress(it) } == "Share to story"
         })
+        // The share screen's alternative text and AI label went into Facebook's editor first
+        // (share_media.js storyExtras): its switch on, and the text kept as a custom one, as the
+        // Alternative text panel shows it again (closed by its Done after).
+        val layer = app.layerWebView()!!
+        assertEquals("the share screen's AI label and alt text weren't put into Facebook's editor (storyExtras: the " +
+            "switch input[role=switch], the Alternative text tool and its CUSTOM radio)",
+            "\"AI label: true, alt text: true\"",
+            app.eval("(function (e) { return e ? 'AI label: ' + e.aiLabel + ', alt text: ' + e.altText : 'none'; })(window.__astryxStoryExtras)", layer))
+        assertEquals("the AI label switch isn't on in Facebook's editor", "true",
+            app.eval("(document.querySelector('input[type=checkbox][role=switch]') || {}).checked === true", layer))
+        app.eval("(function (t) { var tools = document.querySelectorAll('[data-astryx-story=tool]');" +
+            " for (var i = 0; i < tools.length; i++) if (/alternative text/i.test(tools[i].innerText)) { tools[i].click(); return; } })(); 1", layer)
+        assertTrue({ "Facebook's Alternative text panel didn't keep the custom text (${app.eval(
+            "JSON.stringify([].map.call(document.querySelectorAll('textarea'), function (b) { return b.value; }))", layer)})" },
+            app.waitFor(15_000) {
+                app.eval("(function (c) { var t = document.querySelector('textarea'); return !!c && c.checked && !!t &&" +
+                    " t.value === 'Astryxbook live check'; })(document.querySelector('input[type=radio][name=CUSTOM]'))", layer) == "true"
+            })
     }
 
     @Test

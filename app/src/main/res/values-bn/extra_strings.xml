@@ -149,4 +149,7 @@
     <string name="native_share_failed">শেয়ার করা যায়নি: Facebook-এর পেজ সাড়া দেয়নি। Facebook-এর এডিটরে শেষ করুন, বা বন্ধ করুন।</string>
     <string name="native_share_page">%2$d-এর মধ্যে %1$d</string>
     <string name="native_share_render_failed">লেখাসহ ছবিটি প্রস্তুত করা যায়নি।</string>
+    <string name="native_share_alt_text">বিকল্প টেক্সট</string>
+    <string name="native_share_alt_text_hint">যারা ছবিটি দেখতে পান না তাদের জন্য ছবিটি বর্ণনা করুন</string>
+    <string name="native_share_ai_label">AI লেবেল: AI দিয়ে তৈরি</string>
 </resources>

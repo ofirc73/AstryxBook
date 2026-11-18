@@ -153,4 +153,7 @@
     <string name="native_share_failed">Tidak dapat dibagikan: halaman Facebook tidak merespons. Selesaikan di editor Facebook, atau tutup.</string>
     <string name="native_share_page">%1$d dari %2$d</string>
     <string name="native_share_render_failed">Tidak dapat menyiapkan foto dengan teksnya.</string>
+    <string name="native_share_alt_text">Teks alternatif</string>
+    <string name="native_share_alt_text_hint">Jelaskan foto untuk orang yang tidak dapat melihatnya</string>
+    <string name="native_share_ai_label">Label AI: dibuat dengan AI</string>
 </resources>

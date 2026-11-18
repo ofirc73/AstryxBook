@@ -166,4 +166,7 @@
     <string name="native_share_failed">Couldn\'t share it: Facebook\'s page didn\'t respond. Finish it in Facebook\'s editor, or close.</string>
     <string name="native_share_page">%1$d of %2$d</string>
     <string name="native_share_render_failed">Couldn\'t prepare the photo with its text.</string>
+    <string name="native_share_alt_text">Alternative text</string>
+    <string name="native_share_alt_text_hint">Describe the photo for people who can\'t see it</string>
+    <string name="native_share_ai_label">AI label: made with AI</string>
 </resources>

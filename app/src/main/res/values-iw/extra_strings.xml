@@ -166,4 +166,7 @@
     <string name="native_share_failed">לא ניתן היה לשתף: הדף של פייסבוק לא הגיב. אפשר לסיים בעורך של פייסבוק, או לסגור.</string>
     <string name="native_share_page">%1$d מתוך %2$d</string>
     <string name="native_share_render_failed">לא ניתן היה להכין את התמונה עם הטקסט.</string>
+    <string name="native_share_alt_text">טקסט חלופי</string>
+    <string name="native_share_alt_text_hint">תארו את התמונה עבור מי שלא יכול לראות אותה</string>
+    <string name="native_share_ai_label">תווית AI: נוצר בעזרת AI</string>
 </resources>

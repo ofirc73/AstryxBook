@@ -22,7 +22,8 @@
 //   gets the shared video.
 // An auto share (window.__astryxShareAuto: the user pressed Share on the app's native share
 // screen, which drew any text onto the photos) goes on to post, the user's own press done for
-// them: a story's Share to story once its editor is ready, a feed post's text
+// them: a story's Share to story once its editor is ready (its alternative text and AI label put in
+// first, storyExtras; also before the user's own edits in Facebook's editor), a feed post's text
 // (window.__astryxShareCaption) typed and its Post tapped. Never without that.
 // ES5 on purpose, like the PiP scripts.
 (function () {
@@ -335,6 +336,13 @@
   // the text tried again until it's in (CAPTION_TRIES). Set by hand Lexical puts its own text back;
   // a textarea takes it, with an input event.
   var CAPTION_TRIES = 10;
+  // A text field's value set as the page's framework (React) sees typing: through the element's
+  // own value setter, then an input event.
+  function setFieldValue(field, text) {
+    var setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value');
+    if (setter && setter.set) setter.set.call(field, text); else field.value = text;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   function typeCaption(text, done) {
     if (!text) { done(true); return; }
     send({ call: 'focus' });
@@ -348,9 +356,7 @@
         document.execCommand('insertText', false, text);
         if (boxText(box).indexOf(text) !== -1) { done(true); return; }
         if (box.value !== undefined) {
-          var setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(box), 'value');
-          if (setter && setter.set) setter.set.call(box, text); else box.value = text;
-          box.dispatchEvent(new Event('input', { bubbles: true }));
+          setFieldValue(box, text);
           done(true);
           return;
         }
@@ -599,6 +605,7 @@
         if (!files.length) { send({ call: 'finished' }); return; }
         input.__astryxShared = true;
         giveFiles(input, files.slice(0, 1));
+        var name = files[0].name;
         var next = function () {
           if (header.remaining > 0) shareToStory(false);
           else {
@@ -606,17 +613,77 @@
             closeWhenDone();
           }
         };
-        if (!auto) { next(); return; }
-        // An auto share: Share to story once the editor shows the story, then (posted, the page
-        // back to the creator) the next file.
-        pressWhenReady(storyShareButton, function (button) { button.click(); }, function () {
-          return !!document.querySelector('[data-astryx-story="actions"] [aria-busy="true"]') ||
-            window.location.pathname.indexOf('/stories/create') !== 0;
-        }, function (ok) {
-          if (ok) next(); else send({ call: 'failed', reason: 'notPosted' });
+        storyExtras(name, function () {
+          if (!auto) { next(); return; }
+          // An auto share: Share to story once the editor shows the story, then (posted, the page
+          // back to the creator) the next file.
+          pressWhenReady(storyShareButton, function (button) { button.click(); }, function () {
+            return !!document.querySelector('[data-astryx-story="actions"] [aria-busy="true"]') ||
+              window.location.pathname.indexOf('/stories/create') !== 0;
+          }, function (ok) {
+            if (ok) next(); else send({ call: 'failed', reason: 'notPosted' });
+          });
         });
       });
     });
+  }
+
+  // A story's own settings from the native share screen, put into Facebook's editor once it shows
+  // the story (its tools there), before Share: the photo's alternative text
+  // (window.__astryxShareAltTexts, by the file's name), typed as a custom one in the editor's
+  // Alternative text panel, and the AI label (window.__astryxShareAiLabel), the editor's switch,
+  // which story_layout.js hides with the sidebar. A part not found is left out; what went in is
+  // kept in window.__astryxStoryExtras ({aiLabel, altText}, for the checks); then done(). Read on
+  // the emulator, 2026-11-18.
+  var EXTRAS_MS = 15000;
+  function storyExtras(name, done) {
+    var alt = (window.__astryxShareAltTexts || {})[name];
+    var aiLabel = !!window.__astryxShareAiLabel;
+    if (!alt && !aiLabel) { done(); return; }
+    var result = window.__astryxStoryExtras = { aiLabel: false, altText: false };
+    waitFor(altTextTool, EXTRAS_MS, function (tool) {
+      if (aiLabel) {
+        var label = document.querySelector('input[type="checkbox"][role="switch"]');
+        if (label && !label.checked) label.click();
+        result.aiLabel = !!(label && label.checked);
+      }
+      if (!alt || !tool) { done(); return; }
+      // Clicked again every few seconds until its panel opens.
+      var clicked = 0;
+      waitFor(function () {
+        var radio = document.querySelector('input[type="radio"][name="CUSTOM"]');
+        if (!radio && clicked++ % 15 === 0) tool.click();
+        return radio;
+      }, EXTRAS_MS, function (custom) {
+        // The panel: the radio's nearest ancestor that also holds the text box and a button (Done).
+        var panel = custom;
+        while (panel && !(panel.querySelector('textarea') && panel.querySelector('[role="button"]'))) panel = panel.parentElement;
+        var box = panel && panel.querySelector('textarea');
+        if (!box) { done(); return; }
+        box.focus();
+        setFieldValue(box, alt);
+        if (!custom.checked) custom.click();
+        var buttons = panel.querySelectorAll('[role="button"]');
+        buttons[buttons.length - 1].click();
+        result.altText = true;
+        done();
+      });
+    });
+  }
+
+  // The editor's Alternative text tool (story_layout.js marks the tools): by its English label,
+  // else the last tool (Add text, Add music, Alternative text, in that order). Only once the story
+  // is in the editor and the tool usable: Facebook shows it greyed out while the photo is processed,
+  // and a click then opened nothing (the emulator, 2026-11-18).
+  function altTextTool() {
+    var main = document.querySelector('[data-astryx-story="main"]');
+    if (!main || !main.querySelector('img, video, canvas')) return null;
+    var tools = document.querySelectorAll('[data-astryx-story="tool"]');
+    if (!tools.length) return null;
+    var tool = tools[tools.length - 1];
+    for (var i = 0; i < tools.length; i++) if (/alternative text|alt text/i.test(tools[i].innerText || '')) tool = tools[i];
+    if (tool.getAttribute('aria-disabled') === 'true' || tool.getAttribute('tabindex') === '-1') return null;
+    return tool;
   }
 
   // The story editor's Share to story, ready to press: the last of the bottom row's buttons

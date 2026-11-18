@@ -300,11 +300,16 @@ class ShareIntoFacebookTest {
         app.loadPage(STORY_CREATE_URL, PAGE, layer)
         app.onActivity {
             shared.texts[0] = listOf(StoryTextLayer("Hi"))
+            shared.altTexts[0] = " A test photo "
+            shared.aiLabel = true
             it.nativeShare.onShare()
         }
         assertTrue("Share didn't hand the photo over as an auto share", app.waitFor { ShareMediaQueue.auto && ShareMediaQueue.pending(ShareTarget.STORY) })
         val given = ShareMediaQueue.take(ShareTarget.STORY)
         assertTrue("the photo went without its text drawn on it: ${given?.name}", given?.name?.endsWith("_text.jpg") == true)
+        // Its alternative text under the name the page gets the drawn photo by, and the AI label.
+        assertEquals("A test photo", ShareMediaQueue.altTexts[given?.name])
+        assertTrue("the AI label didn't go with the share", ShareMediaQueue.aiLabel)
         assertTrue("no \"Sharing\" over the share screen", app.waitFor { app.textShown(string(R.string.native_share_sharing_story)) })
         app.onActivity { Posting.started(it, Posting.Kind.STORY) }
         try {
