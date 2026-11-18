@@ -169,4 +169,7 @@
     <string name="native_share_alt_text">Alternative text</string>
     <string name="native_share_alt_text_hint">Describe the photo for people who can\'t see it</string>
     <string name="native_share_ai_label">AI label: made with AI</string>
+    <string name="settings_section_sharing">Sharing</string>
+    <string name="native_share_setting_title">Share screen</string>
+    <string name="native_share_setting_desc">Photos shared to Your story or Feed open the app\'s share screen first (text, alt text, AI label). Off: Facebook\'s own editor and composer</string>
 </resources>

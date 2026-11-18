@@ -249,7 +249,7 @@ class MainActivity : FragmentActivity() {
         // took an old share's photos to the composer once more.
         val request = startRequest(this, intent, restored = savedInstanceState != null)
         val mediaTarget = request.mediaTarget
-        val startUrl = mediaTarget?.takeUnless { NativeShareController.shows(it) }?.let { shareStartPageUrl(it) }
+        val startUrl = mediaTarget?.takeUnless { nativeShareFor(it) }?.let { shareStartPageUrl(it) }
             ?: startPageUrl(request.linkUrl, settingsVM.startOnFeeds.value)
         mediaTarget?.let { receiveSharedMedia(this, intent, it, ::onSharedMediaReady) }
         // Started by a tap on a posting notification: acted on over the start page.
@@ -361,7 +361,7 @@ class MainActivity : FragmentActivity() {
     // The shared items are copied (IncomingIntents.kt): the native share screen (a story, the
     // feed), or the WebView opens Facebook's composer for them.
     private fun onSharedMediaReady(target: ShareTarget, files: List<SharedFile>) {
-        if (nativeShare.offer(target, files)) return
+        if (nativeShareFor(target) && nativeShare.offer(target, files)) return
         ShareMediaQueue.start(target, files)
         requestShare(target)
     }
@@ -369,6 +369,10 @@ class MainActivity : FragmentActivity() {
     private fun requestShare(target: ShareTarget, open: ShareOpen = ShareOpen.NEW) {
         shareMediaRequest = ShareMediaRequest((shareMediaRequest?.seq ?: 0) + 1, target, open)
     }
+
+    // Whether a share to [target] shows the native share screen: one it has (a story, the feed),
+    // with its setting on (off, Facebook's own editor and composer, as before it).
+    private fun nativeShareFor(target: ShareTarget) = settingsVM.nativeShare.value && NativeShareController.shows(target)
 
     /** The native share screen for a story or the feed (NativeShareController). */
     internal val nativeShare = NativeShareController(this, ::requestShare)

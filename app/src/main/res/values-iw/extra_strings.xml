@@ -169,4 +169,7 @@
     <string name="native_share_alt_text">טקסט חלופי</string>
     <string name="native_share_alt_text_hint">תארו את התמונה עבור מי שלא יכול לראות אותה</string>
     <string name="native_share_ai_label">תווית AI: נוצר בעזרת AI</string>
+    <string name="settings_section_sharing">שיתוף</string>
+    <string name="native_share_setting_title">מסך שיתוף</string>
+    <string name="native_share_setting_desc">תמונות ששותפו לסטורי או לפיד נפתחות קודם במסך השיתוף של האפליקציה (טקסט, טקסט חלופי, תווית AI). כבוי: העורך של פייסבוק עצמה</string>
 </resources>

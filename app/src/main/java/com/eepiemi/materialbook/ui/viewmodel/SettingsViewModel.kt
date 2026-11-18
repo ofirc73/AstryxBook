@@ -136,6 +136,11 @@ class SettingsViewModel(
         initialValue = initialPrefs[MESSAGES_DESKTOP] ?: false,
         started = SharingStarted.WhileSubscribed()
     )
+    val nativeShare = dataStore.nativeShare.stateIn(
+        scope = viewModelScope,
+        initialValue = initialPrefs[SettingsDataStore.NATIVE_SHARE] ?: true,
+        started = SharingStarted.Eagerly
+    )
     val hideGroups = dataStore.hideGroups.stateIn(
         scope = viewModelScope,
         initialValue = initialPrefs[HIDE_GROUPS] ?: false,
@@ -308,6 +313,12 @@ class SettingsViewModel(
     fun setMessagesDesktop(messagesDesktop: Boolean) {
         viewModelScope.launch {
             dataStore.setMessagesDesktop(messagesDesktop)
+        }
+    }
+
+    fun setNativeShare(nativeShare: Boolean) {
+        viewModelScope.launch {
+            dataStore.setNativeShare(nativeShare)
         }
     }
 

@@ -35,6 +35,7 @@ class SettingsDataStore(private val context: Context) {
         val HIDE_PEOPLE_YOU_MAY_KNOW = booleanPreferencesKey("hide_people_you_may_know")
         val HIDE_GROUPS = booleanPreferencesKey("hide_groups")
         val MESSAGES_DESKTOP = booleanPreferencesKey("messages_desktop")
+        val NATIVE_SHARE = booleanPreferencesKey("native_share")
         val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
         val PIP_PORTRAIT_RATIO = stringPreferencesKey("pip_portrait_ratio")
         val PIP_LOCKSCREEN_AUDIO = booleanPreferencesKey("pip_lockscreen_audio")
@@ -151,6 +152,12 @@ class SettingsDataStore(private val context: Context) {
     val messagesDesktop = context.dataStore.data.map { it[MESSAGES_DESKTOP] ?: false }
     suspend fun setMessagesDesktop(messagesDesktop: Boolean) {
         context.dataStore.edit { it[MESSAGES_DESKTOP] = messagesDesktop }
+    }
+
+    // The app's own share screen for photos shared to Your story or Feed (on by default).
+    val nativeShare = context.dataStore.data.map { it[NATIVE_SHARE] ?: true }
+    suspend fun setNativeShare(nativeShare: Boolean) {
+        context.dataStore.edit { it[NATIVE_SHARE] = nativeShare }
     }
 
     val hideGroups = context.dataStore.data.map { it[HIDE_GROUPS] ?: false }

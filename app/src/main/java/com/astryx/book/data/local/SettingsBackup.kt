@@ -24,6 +24,7 @@ import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.IMMERSIVE
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.KEEP_SCREEN_ON
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.MATERIAL_YOU
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.MESSAGES_DESKTOP
+import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.NATIVE_SHARE
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.OPEN_LINKS_IN_APP
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PINCH_TO_ZOOM
 import com.eepiemi.materialbook.data.local.SettingsDataStore.Companion.PIP_ENABLED
@@ -52,7 +53,7 @@ val EXPORTED_BOOLEAN_SETTINGS: List<Preferences.Key<Boolean>> = listOf(
     REMOVE_ADS, ENABLE_DOWNLOAD_CONTENT, ENABLE_COPY_TO_CLIPBOARD, DESKTOP_LAYOUT,
     IMMERSIVE_MODE, STICKY_NAVBAR, PINCH_TO_ZOOM, MATERIAL_YOU, AMOLED_BLACK,
     HIDE_SUGGESTED, HIDE_REELS, HIDE_STORIES, HIDE_PEOPLE_YOU_MAY_KNOW, HIDE_GROUPS,
-    MESSAGES_DESKTOP, PIP_ENABLED, PIP_LOCKSCREEN_AUDIO, OPEN_LINKS_IN_APP, TEXT_WRAP_ON_ZOOM,
+    MESSAGES_DESKTOP, NATIVE_SHARE, PIP_ENABLED, PIP_LOCKSCREEN_AUDIO, OPEN_LINKS_IN_APP, TEXT_WRAP_ON_ZOOM,
     START_ON_FEEDS, APP_LOCK_ON_SCREEN_OFF, BLOCK_SCREENSHOTS, CLEAR_CACHE_ON_LEAVE,
     FACEBOOK_NOTIFICATIONS, FACEBOOK_NOTIFICATION_TEXT,
 )

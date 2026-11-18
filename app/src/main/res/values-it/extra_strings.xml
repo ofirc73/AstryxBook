@@ -155,4 +155,7 @@
     <string name="native_share_alt_text">Testo alternativo</string>
     <string name="native_share_alt_text_hint">Descrivi la foto per chi non può vederla</string>
     <string name="native_share_ai_label">Etichetta IA: creato con l\'IA</string>
+    <string name="settings_section_sharing">Condivisione</string>
+    <string name="native_share_setting_title">Schermata di condivisione</string>
+    <string name="native_share_setting_desc">Le foto condivise nella tua storia o nel feed aprono prima la schermata dell\'app (testo, testo alternativo, etichetta IA). Disattivato: l\'editor di Facebook</string>
 </resources>

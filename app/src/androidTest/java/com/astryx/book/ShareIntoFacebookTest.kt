@@ -16,6 +16,8 @@ import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.StoryTextLayer
 import com.eepiemi.materialbook.R
+import kotlinx.coroutines.runBlocking
+import com.eepiemi.materialbook.data.local.SettingsDataStore
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -250,6 +252,21 @@ class ShareIntoFacebookTest {
         assertFalse("the creator was given the photo before Share", ShareMediaQueue.pending(ShareTarget.STORY))
         assertFalse("the creator is on screen (and takes Back) under the share screen", app.layerOpen())
         assertEquals("a background was loaded under the share screen", 204, app.clientAnswer(app.layerWebView()!!, BACKGROUND)?.statusCode)
+    }
+
+    // The share screen turned off (Settings, Sharing): Facebook's own creator straight away, as before
+    // it, for when Facebook's pages change under the screen.
+    @Test
+    fun withTheShareScreenOff_aStoryOpensFacebooksCreator_straightAway() {
+        // On again after: the open DataStore keeps it in memory past the files setUp deletes.
+        runBlocking { SettingsDataStore(app.context).setNativeShare(false) }
+        try {
+            share("ShareToStory", photo("story.png"), edit = false)
+            assertOpens(ShareTarget.STORY, inLayer = true, path = "/stories/create")
+            assertTrue("the share screen showed with its setting off", NativeShareController.current == null)
+        } finally {
+            runBlocking { SettingsDataStore(app.context).setNativeShare(true) }
+        }
     }
 
     @Test

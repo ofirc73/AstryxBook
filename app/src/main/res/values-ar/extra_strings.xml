@@ -170,4 +170,7 @@
     <string name="native_share_alt_text">نص بديل</string>
     <string name="native_share_alt_text_hint">صِف الصورة لمن لا يستطيع رؤيتها</string>
     <string name="native_share_ai_label">تصنيف الذكاء الاصطناعي: تم إنشاؤه بالذكاء الاصطناعي</string>
+    <string name="settings_section_sharing">المشاركة</string>
+    <string name="native_share_setting_title">شاشة المشاركة</string>
+    <string name="native_share_setting_desc">تُفتح الصور المشاركة إلى قصتك أو الموجز في شاشة المشاركة الخاصة بالتطبيق أولاً (نص، نص بديل، تصنيف الذكاء الاصطناعي). عند الإيقاف: محرر فيسبوك نفسه</string>
 </resources>
