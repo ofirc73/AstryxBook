@@ -273,6 +273,33 @@ class ShareMediaJsTest {
         assertEquals("0", h.eval("window.__shared"))
     }
 
+    // The story's own settings from the share screen: its photo's alternative text, typed as a
+    // custom one in the editor's Alternative text panel, and the AI label switch turned on, both
+    // before Share is pressed.
+    @Test
+    fun story_anAutoShare_putsItsAltTextAndAiLabelIn_beforeShare() {
+        val h = autoStory()
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", "$AUTO window.__astryxShareAltTexts = {'0_a.jpg': 'A blue square'}; window.__astryxShareAiLabel = true;")
+        assertTrue({ "Share to story was never pressed (${h.calls()})" }, h.waitFor("window.__shared === 1", 15_000))
+        assertEquals("the alt text wasn't saved as a custom one", "\"A blue square, custom: true\"",
+            h.eval("window.__altSaved && window.__altSaved.text + ', custom: ' + window.__altSaved.custom"))
+        assertEquals("the AI label isn't on", "true", h.eval("document.getElementById('ai').checked"))
+        assertEquals("Share was pressed before the alt text was saved", "\"altDone,share\"", h.eval("window.__order.join()"))
+    }
+
+    // Edit in Facebook (not an auto share) gets them too, for the user to go on from.
+    @Test
+    fun story_aShareNotAuto_stillGetsItsAltTextAndAiLabel_andIsntShared() {
+        val h = autoStory()
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", "window.__astryxShareAltTexts = {'0_a.jpg': 'A blue square'}; window.__astryxShareAiLabel = true;")
+        assertTrue({ "the alt text never went in (${h.calls()})" }, h.waitFor("!!window.__altSaved", 10_000))
+        assertEquals("true", h.eval("document.getElementById('ai').checked"))
+        Thread.sleep(1500)
+        assertEquals("0", h.eval("window.__shared"))
+    }
+
     // The live check's way (window.__astryxShareNoPress): the button found, nothing pressed.
     @Test
     fun story_anAutoShare_withNoPress_findsShareToStory_andPressesNothing() {
@@ -634,13 +661,30 @@ class ShareMediaJsTest {
                 "    window.__got.push(e.target.files[0].name + ':' + e.target.files[0].type + ':' + e.target.files[0].size);" +
                 "    setTimeout(__edit, 300); }); }" +
                 "function __edit() { var c = document.getElementById('creator');" +
-                "  c.innerHTML = \"<div data-astryx-story='main'>$PREVIEW</div><div data-astryx-story='actions'>" +
+                "  c.innerHTML = \"<div data-astryx-story='main'>$PREVIEW</div>" +
+                "<div role='button' data-astryx-story='tool'>Add text</div><div role='button' data-astryx-story='tool'>Add music</div>" +
+                "<div role='button' data-astryx-story='tool' id='alt-tool'>Alternative text</div>" +
+                "<div style='display:none'><input type='checkbox' role='switch' aria-label='Add AI label' id='ai'></div>" +
+                "<div data-astryx-story='actions'>" +
                 "<div role='button'>Discard</div><div role='button' id='share'>Share to story</div></div>\"" +
                 "    + (window.__dialog ? \"<div role='dialog' id='dialog'>Audience</div>\" : '');" +
                 "  var share = document.getElementById('share');" +
                 "  if (window.__shareDisabled) share.setAttribute('aria-disabled', 'true');" +
-                "  share.addEventListener('click', function () { window.__shared++; share.setAttribute('aria-busy', 'true');" +
+                "  document.getElementById('alt-tool').addEventListener('click', __altPanel);" +
+                "  share.addEventListener('click', function () { window.__shared++; window.__order.push('share');" +
+                "    share.setAttribute('aria-busy', 'true');" +
                 "    setTimeout(__choose, 1000); }); }" +
+                // The Alternative text panel as read on the emulator (2026-11-18): the generated text's
+                // radio, a custom one's with its text box, and Done, which closes it.
+                "function __altPanel() { var p = document.createElement('div'); p.id = 'alt-panel';" +
+                "  p.innerHTML = \"<input type='radio' name='GENERATED' checked><input type='radio' name='CUSTOM'>" +
+                "<textarea id='alt'></textarea><div role='button' id='alt-done'>Done</div>\";" +
+                "  document.body.appendChild(p);" +
+                "  document.getElementById('alt-done').addEventListener('click', function () {" +
+                "    window.__altSaved = { text: document.getElementById('alt').value," +
+                "      custom: document.querySelector('input[name=CUSTOM]').checked };" +
+                "    window.__order.push('altDone'); p.remove(); }); }" +
+                "window.__order = [];" +
                 "__choose();</script>"
 
         // The feed composer (COMPOSER_PAGE) with its text box and its top row, back and Post, which

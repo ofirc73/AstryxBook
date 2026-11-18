@@ -2381,3 +2381,19 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   label, by which the script tells an English row; the user's own card can't be checked live without
   posting a story. The waits around `evaluateJavascript` are one helper now (`evaluated`, also used
   by the Messages layer's two).
+
+## Share screen: alternative text and the AI label
+
+- **A story's photos can get an alternative text, and the story Facebook's AI label, on the app's
+  share screen** (the ALT button and the sparkle toggle beside the text tool). Before Share (or Edit
+  in Facebook) the app puts them into Facebook's editor: the text as a custom alternative text in
+  its Alternative text panel, and the AI label through the editor's switch, which the app's layout
+  hides. Facebook shows the Alternative text tool greyed out while the photo is processed, so the app
+  waits for it (`share_media.js` `storyExtras`, read on the emulator 2026-11-18). A native music
+  picker follows in a later release.
+- Testing: `ShareMediaJsTest` (a fake editor with the tools, the Alternative text panel and the
+  switch: both put in before Share, and for a share that isn't auto, with nothing pressed);
+  `ShareIntoFacebookTest` (the share screen's alternative text, trimmed, under the drawn photo's name,
+  and the AI label reach the queue). Live: `aStoryFromTheShareScreen_withItsText_findsFacebooksShareToStory`
+  also sets both on the share screen and checks Facebook's real editor took them: the switch on, and
+  the custom text in the Alternative text panel when it's opened again (nothing posted).

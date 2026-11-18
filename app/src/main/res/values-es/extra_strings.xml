@@ -154,4 +154,7 @@
     <string name="native_share_failed">No se pudo compartir: la página de Facebook no respondió. Termínalo en el editor de Facebook o cierra.</string>
     <string name="native_share_page">%1$d de %2$d</string>
     <string name="native_share_render_failed">No se pudo preparar la foto con su texto.</string>
+    <string name="native_share_alt_text">Texto alternativo</string>
+    <string name="native_share_alt_text_hint">Describe la foto para quienes no pueden verla</string>
+    <string name="native_share_ai_label">Etiqueta de IA: hecho con IA</string>
 </resources>

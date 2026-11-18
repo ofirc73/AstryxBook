@@ -167,4 +167,7 @@
     <string name="native_share_failed">تعذّرت المشاركة: لم تستجب صفحة فيسبوك. أكملها في محرر فيسبوك أو أغلق.</string>
     <string name="native_share_page">%1$d من %2$d</string>
     <string name="native_share_render_failed">تعذّر تجهيز الصورة مع نصها.</string>
+    <string name="native_share_alt_text">نص بديل</string>
+    <string name="native_share_alt_text_hint">صِف الصورة لمن لا يستطيع رؤيتها</string>
+    <string name="native_share_ai_label">تصنيف الذكاء الاصطناعي: تم إنشاؤه بالذكاء الاصطناعي</string>
 </resources>

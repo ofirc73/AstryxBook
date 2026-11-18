@@ -178,6 +178,18 @@ object ShareMediaQueue {
         private set
 
     /**
+     * A story's photos' alternative texts from the native share screen, by the name the page gets
+     * each file under, and whether the story gets Facebook's AI label: share_media.js puts them into
+     * Facebook's editor (storyExtras).
+     */
+    @get:Synchronized
+    var altTexts: Map<String, String> = emptyMap()
+        private set
+    @get:Synchronized
+    var aiLabel = false
+        private set
+
+    /**
      * Counts every start, preparation and failure, for Compose: the story creator, loaded while
      * the share was being prepared, runs share_media.js once the files come.
      */
@@ -195,6 +207,8 @@ object ShareMediaQueue {
         now: Long = System.currentTimeMillis(),
         auto: Boolean = false,
         caption: String? = null,
+        altTexts: Map<String, String> = emptyMap(),
+        aiLabel: Boolean = false,
     ) {
         target = newTarget
         files = newFiles
@@ -203,6 +217,8 @@ object ShareMediaQueue {
         preparing = false
         this.auto = auto
         this.caption = caption?.takeIf { it.isNotBlank() }
+        this.altTexts = altTexts.mapValues { it.value.trim() }.filterValues { it.isNotEmpty() }
+        this.aiLabel = aiLabel
         id++
         version++
     }
@@ -270,6 +286,8 @@ object ShareMediaQueue {
         preparing = false
         auto = false
         caption = null
+        altTexts = emptyMap()
+        aiLabel = false
         version++
     }
 }

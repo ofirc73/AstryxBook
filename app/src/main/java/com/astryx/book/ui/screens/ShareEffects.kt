@@ -59,6 +59,9 @@ internal fun shareMediaScript(
         (if (ShareMediaQueue.auto) "window.__astryxShareAuto = true;\n" else "") +
         (if (ShareMediaQueue.noPress) "window.__astryxShareNoPress = true;\n" else "") +
         (ShareMediaQueue.caption?.let { "window.__astryxShareCaption = ${org.json.JSONObject.quote(it)};\n" } ?: "") +
+        // A story's alternative texts and AI label, put into Facebook's editor (storyExtras).
+        (ShareMediaQueue.altTexts.takeIf { it.isNotEmpty() }?.let { "window.__astryxShareAltTexts = ${org.json.JSONObject(it)};\n" } ?: "") +
+        (if (ShareMediaQueue.aiLabel) "window.__astryxShareAiLabel = true;\n" else "") +
         "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
 }
 

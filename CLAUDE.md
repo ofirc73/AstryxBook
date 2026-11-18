@@ -446,7 +446,9 @@ user-visible change.
   `StoryText`, and Share hands them over as an auto share (`ShareMediaQueue.auto`): `share_media.js`
   presses Share to story, or types the text (the composer's box is Lexical: the app focuses the
   WebView first, `focus`) and taps Post, and the app goes back once `Posting.starts` counts it; Edit
-  in Facebook is the flow below.
+  in Facebook is the flow below. A story's alternative texts (by the file name the page gets) and AI
+  label go into Facebook's editor before Share (`storyExtras`: the Alternative text panel's CUSTOM
+  radio and text box, once the tool is usable; the hidden `input[role=switch]`).
   Feed, group and profile picture: a mobile button's click on its hidden file input is answered with
   the files. A Feed share with Home showing opens the composer from Home's box instead of loading
   `/composer/` (which has the server draw Home's whole feed first: 9 s at 1 Mbps): the app taps the

@@ -31,14 +31,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -69,6 +72,8 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -96,6 +101,10 @@ class NativeShare(val target: ShareTarget, val files: List<SharedFile>) {
 
     /** The texts on each file, in order (a video's stay empty). */
     val texts = mutableStateListOf<List<StoryTextLayer>>().apply { repeat(files.size) { add(emptyList()) } }
+    /** Each file's alternative text (a story's photos; blank: Facebook's generated one). */
+    val altTexts = mutableStateListOf<String>().apply { repeat(files.size) { add("") } }
+    /** Whether the story gets Facebook's AI label ("made with AI"). */
+    var aiLabel by mutableStateOf(false)
     var caption by mutableStateOf("")
     var phase by mutableStateOf(Phase.EDITING)
 
@@ -128,11 +137,14 @@ fun NativeShareScreen(
     // The text being edited: its page and its place in that page's texts (-1: a new one).
     var editing by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var movingText by remember { mutableStateOf(false) }
+    // The page whose alternative text is being written.
+    var altEditing by remember { mutableStateOf<Int?>(null) }
     val busy = share.phase != NativeShare.Phase.EDITING
 
     BackHandler {
         when {
             editing != null -> editing = null
+            altEditing != null -> altEditing = null
             share.phase == NativeShare.Phase.SENDING -> Unit // the page is being handed the share
             else -> onCancel()
         }
@@ -223,12 +235,52 @@ fun NativeShareScreen(
                     ) {
                         Icon(Icons.Filled.TextFields, contentDescription = stringResource(R.string.native_share_add_text), tint = Color.White)
                     }
+                    // The photo's alternative text, and the story's AI label: Facebook's editor
+                    // gets them before Share (share_media.js storyExtras).
+                    val hasAlt = share.altTexts[pager.currentPage].isNotBlank()
+                    val altLabel = stringResource(R.string.native_share_alt_text)
+                    TextButton(
+                        onClick = { altEditing = pager.currentPage },
+                        enabled = !busy,
+                        modifier = Modifier.padding(start = 8.dp)
+                            .background(if (hasAlt) Color.White else Color.White.copy(alpha = 0.15f), CircleShape)
+                            .testTag("nativeShareAlt"),
+                    ) {
+                        Text(
+                            "ALT",
+                            color = if (hasAlt) Color.Black else Color.White,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.semantics { contentDescription = altLabel },
+                        )
+                    }
+                    IconToggleButton(
+                        checked = share.aiLabel,
+                        onCheckedChange = { share.aiLabel = it },
+                        enabled = !busy,
+                        modifier = Modifier.padding(start = 8.dp)
+                            .background(if (share.aiLabel) Color.White else Color.White.copy(alpha = 0.15f), CircleShape)
+                            .testTag("nativeShareAiLabel"),
+                    ) {
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = stringResource(R.string.native_share_ai_label),
+                            tint = if (share.aiLabel) Color.Black else Color.White,
+                        )
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 Button(onClick = onShare, enabled = !busy, modifier = Modifier.testTag("nativeShareShare")) {
                     Text(stringResource(if (share.target == ShareTarget.STORY) R.string.native_share_share_story else R.string.native_share_post))
                 }
             }
+        }
+
+        altEditing?.let { page ->
+            AltTextDialog(
+                initial = share.altTexts[page],
+                onDone = { share.altTexts[page] = it.trim(); altEditing = null },
+                onDismiss = { altEditing = null },
+            )
         }
 
         editing?.let { (page, index) ->
@@ -272,6 +324,27 @@ fun NativeShareScreen(
             NativeShare.Phase.EDITING -> Unit
         }
     }
+}
+
+/** A photo's alternative text: what Facebook reads out for people who can't see it. */
+@Composable
+private fun AltTextDialog(initial: String, onDone: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.native_share_alt_text)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text(stringResource(R.string.native_share_alt_text_hint)) },
+                maxLines = 6,
+                modifier = Modifier.fillMaxWidth().testTag("nativeShareAltText"),
+            )
+        },
+        confirmButton = { TextButton(onClick = { onDone(text) }) { Text(stringResource(R.string.native_share_done)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+    )
 }
 
 @Composable

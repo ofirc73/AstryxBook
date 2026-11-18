@@ -144,4 +144,7 @@
     <string name="native_share_failed">無法分享：Facebook 的頁面沒有回應。請在 Facebook 的編輯器中完成，或關閉。</string>
     <string name="native_share_page">第 %1$d 個，共 %2$d 個</string>
     <string name="native_share_render_failed">無法準備加上文字的相片。</string>
+    <string name="native_share_alt_text">替代文字</string>
+    <string name="native_share_alt_text_hint">為無法看見的人描述這張相片</string>
+    <string name="native_share_ai_label">AI 標籤：使用 AI 製作</string>
 </resources>

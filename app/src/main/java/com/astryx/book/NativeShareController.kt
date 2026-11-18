@@ -159,7 +159,12 @@ internal class NativeShareController(
             }
             Shared.startsAtShare = Posting.starts
             Shared.failuresAtShare = ShareMediaQueue.failures
-            ShareMediaQueue.start(share.target, files, auto = auto, caption = share.caption.trim().takeIf { auto })
+            ShareMediaQueue.start(
+                share.target, files, auto = auto, caption = share.caption.trim().takeIf { auto },
+                // By the name each file goes to the page under (a photo with texts is a new file).
+                altTexts = files.zip(share.altTexts).associate { (file, alt) -> file.name to alt },
+                aiLabel = share.aiLabel,
+            )
             request(share.target, ShareOpen.REUSE)
             if (auto) Shared.sent++ else this@NativeShareController.share = null
         }
