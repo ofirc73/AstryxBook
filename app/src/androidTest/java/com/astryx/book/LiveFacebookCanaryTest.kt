@@ -695,6 +695,10 @@ class LiveFacebookCanaryTest {
         if (!app.waitFor(30_000) { tapCreateStory() }) {
             fail("no Create story card on Home (scripts.js isCreateStoryCard) (${pageShape()})")
         }
+        // STORIES_ROW_JS tells an English row (where the user's own card, "View your story", can be
+        // found after a story is posted) by this label; without it, Home is reloaded blind, fewer times.
+        assertEquals("Home's Create story card lost its English label (STORIES_ROW_JS)", "true",
+            eval("!!document.querySelector('[aria-label=\"Create story\"]')"))
         val creatorOpen = { app.webViews().drop(1).any { app.url(it).contains("/stories/create") } }
         // A tap before the page listens to taps is lost on a slow emulator: tapped once more.
         val opened = app.waitFor(15_000) { creatorOpen() } || (tapCreateStory() && app.waitFor(20_000) { creatorOpen() })

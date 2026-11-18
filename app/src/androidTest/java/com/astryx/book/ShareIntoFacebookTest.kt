@@ -469,26 +469,50 @@ class ShareIntoFacebookTest {
         assertTrue("the creator holding the next file isn't showing", app.waitFor(10_000) { app.layerWebView() === creator })
     }
 
-    // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is
-    // reloaded then (PostedStoryEffects); not before.
-    @Test
-    fun aStoryPosted_reloadsHomeAtItsTop_aboutHalfAMinuteLater() {
+    // The app at a test Home, a story just posted: whether Home has been reloaded since. Read from
+    // the WebView (its title), not from the page: a page reloaded at the same address can leave
+    // evaluateJavascript unanswered, and the test then failed with Home reloaded on time (one run in
+    // three on the emulator, 2026-11-13); and on the main thread, not the activity's (the app may be away).
+    private fun storyPostedOnHome(): () -> Boolean {
         app.start()
         val testHome = "Test Home"
         app.loadPage("https://m.facebook.com/", PLAIN_PAGE.replace("<body>", "<head><title>$testHome</title></head><body>"), asHistory = true)
-        // Read from the WebView (its title), not from the page: a page reloaded at the same address
-        // can leave evaluateJavascript unanswered, and the test then failed with Home reloaded on
-        // time (one run in three on the emulator, 2026-11-13).
         val main = app.mainWebView()
-        fun reloaded() = app.onActivity { main.title } != testHome
+        val reloaded = {
+            var title: String? = null
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { title = main.title }
+            title != testHome
+        }
         assertFalse("the test page isn't showing", reloaded())
         app.onActivity {
             Posting.started(it, Posting.Kind.STORY)
             Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
         }
+        return reloaded
+    }
+
+    // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is
+    // reloaded then (PostedStoryEffects); not before.
+    @Test
+    fun aStoryPosted_reloadsHomeAtItsTop_aboutHalfAMinuteLater() {
+        val reloaded = storyPostedOnHome()
         Thread.sleep(20_000)
         assertFalse("Home reloaded before the stories row could have the story", reloaded())
         assertTrue("Home wasn't reloaded for the stories row", app.waitFor(20_000) { reloaded() })
+    }
+
+    // Posted with the app away (the native share screen's Share sends it back to the app the share
+    // came from): Home is reloaded for the stories row once the user is back, not while it's away.
+    // Until 2026-11-17 it never was (the reload needed the app on screen at 30 s).
+    @Test
+    fun aStoryPostedWithTheAppAway_reloadsHomeOnceTheUserIsBack() {
+        val reloaded = storyPostedOnHome()
+        app.pressHome()
+        assertTrue("the app didn't go to the background", app.waitFor { app.isInBackground() })
+        Thread.sleep(35_000)
+        assertFalse("Home reloaded with the app away", reloaded())
+        app.start()
+        assertTrue("Home wasn't reloaded once the app was back", app.waitFor(15_000) { reloaded() })
     }
 
     // "Your story is posted" shows once: not again when Android creates the activity again (font
