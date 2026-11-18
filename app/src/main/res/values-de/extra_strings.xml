@@ -155,4 +155,14 @@
     <string name="settings_section_sharing">Teilen</string>
     <string name="native_share_setting_title">Teilen-Bildschirm</string>
     <string name="native_share_setting_desc">In deine Story oder deinen Feed geteilte Fotos öffnen zuerst den Teilen-Bildschirm der App (Text, Alternativtext, KI-Label). Aus: Facebooks eigener Editor</string>
+    <string name="native_share_music">Musik</string>
+    <string name="native_share_music_preparing">Deine Story wird für Musik vorbereitet…</string>
+    <string name="native_share_music_unavailable">Facebooks Musik ist gerade nicht verfügbar. Füge sie über „In Facebook bearbeiten“ hinzu.</string>
+    <string name="native_share_music_search">Musik suchen</string>
+    <string name="native_share_music_for_you">Für dich</string>
+    <string name="native_share_music_loading">Songs werden geladen…</string>
+    <string name="native_share_music_none">Keine Songs gefunden</string>
+    <string name="native_share_music_play">%1$s abspielen</string>
+    <string name="native_share_music_starts">Beginnt bei %1$s</string>
+    <string name="native_share_music_remove">Musik entfernen</string>
 </resources>

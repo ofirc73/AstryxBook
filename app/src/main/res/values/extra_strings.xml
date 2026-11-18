@@ -172,4 +172,14 @@
     <string name="settings_section_sharing">Sharing</string>
     <string name="native_share_setting_title">Share screen</string>
     <string name="native_share_setting_desc">Photos shared to Your story or Feed open the app\'s share screen first (text, alt text, AI label). Off: Facebook\'s own editor and composer</string>
+    <string name="native_share_music">Music</string>
+    <string name="native_share_music_preparing">Getting your story ready for music…</string>
+    <string name="native_share_music_unavailable">Facebook\'s music isn\'t available now. Edit in Facebook to add it there.</string>
+    <string name="native_share_music_search">Search music</string>
+    <string name="native_share_music_for_you">For you</string>
+    <string name="native_share_music_loading">Loading songs…</string>
+    <string name="native_share_music_none">No songs found</string>
+    <string name="native_share_music_play">Play %1$s</string>
+    <string name="native_share_music_starts">Starts at %1$s</string>
+    <string name="native_share_music_remove">Remove music</string>
 </resources>

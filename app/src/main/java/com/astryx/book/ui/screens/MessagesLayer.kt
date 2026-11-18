@@ -46,6 +46,10 @@ import com.eepiemi.materialbook.utils.DESKTOP_USER_AGENT
 import com.astryx.book.utils.FullscreenController
 import com.astryx.book.utils.MessagesLayerRoute
 import com.astryx.book.utils.ShareMediaQueue
+import com.astryx.book.utils.MusicCommand
+import com.astryx.book.NativeShareController
+import com.astryx.book.utils.StoryMusic
+import com.astryx.book.utils.dragPage
 import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.StoryBackgrounds
 import com.eepiemi.materialbook.utils.PageStarts
@@ -217,9 +221,10 @@ fun MessagesLayer(
     )
 
     // Composed after the main view's handlers, so it gets Back first; disabled while a
-    // video is fullscreen, so Back leaves fullscreen through the main view's handler.
+    // video is fullscreen, so Back leaves fullscreen through the main view's handler, and under the
+    // native share screen (a story staged for its music picker), whose Back is the screen's.
     val backScope = rememberCoroutineScope()
-    BackHandler(enabled = !isFullscreen && !hidden) {
+    BackHandler(enabled = !isFullscreen && !hidden && NativeShareController.current == null) {
         // Shown again while it posts (its notification, Create story): out of sight again.
         if (storyPosting) {
             onHide()
@@ -296,11 +301,32 @@ fun MessagesLayer(
             navigator.evaluateJavaScript("window.__astryxStoryDone = $done;\n$scripts") {}
         }
         val target = when {
-            isStoryCreatePage(page) && ShareMediaQueue.pending(ShareTarget.STORY) -> ShareTarget.STORY
+            isStoryCreatePage(page) && (ShareMediaQueue.pending(ShareTarget.STORY) || ShareMediaQueue.pressOnly != null) -> ShareTarget.STORY
             reelShare && isReelCreatePage(page) && ShareMediaQueue.pending(ShareTarget.REEL) -> ShareTarget.REEL
             else -> null
         }
         target?.let { navigator.evaluateJavaScript(shareMediaScript(resources, it)) {} }
+    }
+
+    // The native share screen's music picker (StoryMusic): its calls run on the story creator's page,
+    // and the clip start's drags are real finger drags on this WebView.
+    LaunchedEffect(Unit) {
+        StoryMusic.commands.collect { command ->
+            when (command) {
+                // The page focused first: Facebook's search box takes typed text only in a focused page.
+                is MusicCommand.Eval -> command.result.complete(
+                    if (isStoryCreatePage(state.lastLoadedUrl)) {
+                        runCatching { state.nativeWebView.requestFocus() }
+                        navigator.evaluated(command.script)
+                    } else null
+                )
+                is MusicCommand.Drag -> {
+                    val webView = runCatching { state.nativeWebView }.getOrNull()
+                    if (webView == null) command.done.complete(Unit)
+                    else dragPage(webView, command.fromX, command.toX, command.y, command.viewport) { command.done.complete(Unit) }
+                }
+            }
+        }
     }
 
     // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), each
@@ -483,6 +509,7 @@ fun MessagesLayer(
                         )
                     )
                     installPipVisibilityScript(this)
+                    installStoryMusicScript(this)
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     overScrollMode = View.OVER_SCROLL_NEVER
                     isVerticalScrollBarEnabled = false

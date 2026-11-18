@@ -174,4 +174,14 @@
     <string name="settings_section_sharing">Udostępnianie</string>
     <string name="native_share_setting_title">Ekran udostępniania</string>
     <string name="native_share_setting_desc">Zdjęcia udostępnione do relacji lub kanału otwierają najpierw ekran udostępniania aplikacji (tekst, tekst alternatywny, etykieta AI). Wyłączone: edytor Facebooka</string>
+    <string name="native_share_music">Muzyka</string>
+    <string name="native_share_music_preparing">Przygotowujemy relację do dodania muzyki…</string>
+    <string name="native_share_music_unavailable">Muzyka Facebooka jest teraz niedostępna. Dodaj ją przez Edytuj na Facebooku.</string>
+    <string name="native_share_music_search">Szukaj muzyki</string>
+    <string name="native_share_music_for_you">Dla Ciebie</string>
+    <string name="native_share_music_loading">Wczytywanie utworów…</string>
+    <string name="native_share_music_none">Nie znaleziono utworów</string>
+    <string name="native_share_music_play">Odtwórz %1$s</string>
+    <string name="native_share_music_starts">Zaczyna się od %1$s</string>
+    <string name="native_share_music_remove">Usuń muzykę</string>
 </resources>

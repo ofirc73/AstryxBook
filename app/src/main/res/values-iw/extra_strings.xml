@@ -172,4 +172,14 @@
     <string name="settings_section_sharing">שיתוף</string>
     <string name="native_share_setting_title">מסך שיתוף</string>
     <string name="native_share_setting_desc">תמונות ששותפו לסטורי או לפיד נפתחות קודם במסך השיתוף של האפליקציה (טקסט, טקסט חלופי, תווית AI). כבוי: העורך של פייסבוק עצמה</string>
+    <string name="native_share_music">מוזיקה</string>
+    <string name="native_share_music_preparing">מכינים את הסטורי למוזיקה…</string>
+    <string name="native_share_music_unavailable">המוזיקה של פייסבוק לא זמינה כרגע. אפשר להוסיף אותה ב‑\"עריכה בפייסבוק\".</string>
+    <string name="native_share_music_search">חיפוש מוזיקה</string>
+    <string name="native_share_music_for_you">בשבילך</string>
+    <string name="native_share_music_loading">טוען שירים…</string>
+    <string name="native_share_music_none">לא נמצאו שירים</string>
+    <string name="native_share_music_play">נגן את %1$s</string>
+    <string name="native_share_music_starts">מתחיל ב‑%1$s</string>
+    <string name="native_share_music_remove">הסרת המוזיקה</string>
 </resources>

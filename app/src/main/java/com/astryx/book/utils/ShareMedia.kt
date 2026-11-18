@@ -190,6 +190,22 @@ object ShareMediaQueue {
         private set
 
     /**
+     * A story already in Facebook's editor (the native music picker gave it, by this name): the auto
+     * share only presses Share to story (share_media.js, window.__astryxSharePressOnly).
+     */
+    @get:Synchronized
+    var pressOnly: String? = null
+        private set
+
+    /**
+     * The share's files are kept when the page has taken them (the native music picker gave the
+     * photo to Facebook's editor and may give it again): finished, only the queue is cleared.
+     */
+    @get:Synchronized
+    var keepFiles = false
+        private set
+
+    /**
      * Counts every start, preparation and failure, for Compose: the story creator, loaded while
      * the share was being prepared, runs share_media.js once the files come.
      */
@@ -209,6 +225,8 @@ object ShareMediaQueue {
         caption: String? = null,
         altTexts: Map<String, String> = emptyMap(),
         aiLabel: Boolean = false,
+        pressOnly: String? = null,
+        keepFiles: Boolean = false,
     ) {
         target = newTarget
         files = newFiles
@@ -219,6 +237,8 @@ object ShareMediaQueue {
         this.caption = caption?.takeIf { it.isNotBlank() }
         this.altTexts = altTexts.mapValues { it.value.trim() }.filterValues { it.isNotEmpty() }
         this.aiLabel = aiLabel
+        this.pressOnly = pressOnly
+        this.keepFiles = keepFiles
         id++
         version++
     }
@@ -288,6 +308,8 @@ object ShareMediaQueue {
         caption = null
         altTexts = emptyMap()
         aiLabel = false
+        pressOnly = null
+        keepFiles = false
         version++
     }
 }

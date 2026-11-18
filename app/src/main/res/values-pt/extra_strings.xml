@@ -160,4 +160,14 @@
     <string name="settings_section_sharing">Compartilhamento</string>
     <string name="native_share_setting_title">Tela de compartilhamento</string>
     <string name="native_share_setting_desc">Fotos compartilhadas no seu story ou feed abrem primeiro a tela do app (texto, texto alternativo, rótulo de IA). Desativado: o editor do Facebook</string>
+    <string name="native_share_music">Música</string>
+    <string name="native_share_music_preparing">Preparando seu story para a música…</string>
+    <string name="native_share_music_unavailable">A música do Facebook não está disponível agora. Use Editar no Facebook para adicioná-la lá.</string>
+    <string name="native_share_music_search">Pesquisar música</string>
+    <string name="native_share_music_for_you">Para você</string>
+    <string name="native_share_music_loading">Carregando músicas…</string>
+    <string name="native_share_music_none">Nenhuma música encontrada</string>
+    <string name="native_share_music_play">Tocar %1$s</string>
+    <string name="native_share_music_starts">Começa em %1$s</string>
+    <string name="native_share_music_remove">Remover música</string>
 </resources>

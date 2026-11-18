@@ -155,4 +155,14 @@
     <string name="settings_section_sharing">শেয়ার করা</string>
     <string name="native_share_setting_title">শেয়ার স্ক্রিন</string>
     <string name="native_share_setting_desc">আপনার স্টোরি বা ফিডে শেয়ার করা ছবি প্রথমে অ্যাপের শেয়ার স্ক্রিনে খোলে (টেক্সট, বিকল্প টেক্সট, AI লেবেল)। বন্ধ: Facebook-এর নিজস্ব এডিটর</string>
+    <string name="native_share_music">মিউজিক</string>
+    <string name="native_share_music_preparing">আপনার স্টোরি মিউজিকের জন্য প্রস্তুত হচ্ছে…</string>
+    <string name="native_share_music_unavailable">Facebook-এর মিউজিক এখন পাওয়া যাচ্ছে না। সেখানে যোগ করতে Facebook-এ এডিট করুন।</string>
+    <string name="native_share_music_search">মিউজিক খুঁজুন</string>
+    <string name="native_share_music_for_you">আপনার জন্য</string>
+    <string name="native_share_music_loading">গান লোড হচ্ছে…</string>
+    <string name="native_share_music_none">কোনো গান পাওয়া যায়নি</string>
+    <string name="native_share_music_play">%1$s চালান</string>
+    <string name="native_share_music_starts">%1$s থেকে শুরু</string>
+    <string name="native_share_music_remove">মিউজিক সরান</string>
 </resources>

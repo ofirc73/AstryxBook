@@ -2406,3 +2406,37 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - Testing: `ShareIntoFacebookTest` (with it off, a story share opens Facebook's creator at once,
   with no share screen). No live check of its own: it changes only which of the app's flows a share
   takes; both flows have their live checks.
+## Share screen: music for a story
+
+- **A story's photo can get music on the app's share screen** (♪, a story of one photo): Facebook's
+  For you songs and a search, each with its cover, title and artist, a ▶ preview, then the chosen
+  song's start (a slider; "Starts at m:ss" as Facebook took it), Remove and Done. The song shows
+  above the preview; its sticker stays off the story, as for a song added in Facebook's editor
+  (`story_layout.js` hides it, so it isn't drawn on the posted story), so there's no lyrics style. Facebook's own music panel does
+  the work out of sight (the photo goes to its editor first, so the texts on it can't change until
+  the music is removed); previews play there, so the start chosen is heard. Share then presses
+  Facebook's Share to story, as for any story from the screen.
+- How (`story_music.js`, `StoryMusic`, `MusicPicker`; read on the emulator 2026-11-18): the songs
+  come from the panel's own answers (its GraphQL `StoriesCreateMusicSelectorMainPageQuery`, read by
+  a wrap of the page's XMLHttpRequest at document start, as the For you list loads with the
+  creator); a search is typed into its box (in a focused page: the creator stays under the share
+  screen, shown, for it) and Enter; a song is chosen by its row. The clip start is the scroll of
+  Facebook's waveform strip, which only real input moves (a script's scroll is put back, script-made
+  mouse events are ignored): the app moves it with real finger drags (held still before lifting, or
+  the strip flings on), then presses the bar's Pause and Play, after which Facebook plays from the
+  start it took, and the app reads it there.
+- Share to story isn't held by the song sticker's icon-only style menu, which Facebook leaves on
+  screen once a song is added: only a dialog with something to read holds it (`storyShareButton`).
+- Testing: `StoryMusicJsTest` (a fake creator: songs from a GraphQL answer reported by their search,
+  none outside the creator, Add music pressed only once the editor shows the story, a search typed
+  with Enter, a song previewed and chosen by its row, the strip's place, the replay
+  and the start read, both Done buttons); `StoryMusicTest` (the clip start's drags against a
+  simulated strip: to the left for a later start, to the right for an earlier one, none without a
+  strip, the preview played again once there); `ShareMediaJsTest` (an icon-only dialog doesn't hold
+  Share); `ShareIntoFacebookTest` (♪ gives the photo to the creator, under the screen, whose Back
+  stays the screen's; Share then only presses, with the alt text; Remove music takes the photo back).
+  Live: `aStorysMusic_fromTheShareScreen_worksFacebooksMusicPanel` goes through it all on Facebook's
+  real creator: the panel opens, For you songs read (with titles, artists, covers, lengths), a
+  search's songs, one chosen, its start moved and taken by Facebook, Done keeping it (Add music
+  greyed out) with its sticker hidden on the story, and Share to story found, never pressed. A story with music hasn't been
+  posted by the checks (they never post).

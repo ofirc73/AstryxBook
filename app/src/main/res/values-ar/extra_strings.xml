@@ -173,4 +173,14 @@
     <string name="settings_section_sharing">المشاركة</string>
     <string name="native_share_setting_title">شاشة المشاركة</string>
     <string name="native_share_setting_desc">تُفتح الصور المشاركة إلى قصتك أو الموجز في شاشة المشاركة الخاصة بالتطبيق أولاً (نص، نص بديل، تصنيف الذكاء الاصطناعي). عند الإيقاف: محرر فيسبوك نفسه</string>
+    <string name="native_share_music">موسيقى</string>
+    <string name="native_share_music_preparing">جارٍ تجهيز قصتك للموسيقى…</string>
+    <string name="native_share_music_unavailable">موسيقى فيسبوك غير متاحة الآن. استخدم التعديل في فيسبوك لإضافتها هناك.</string>
+    <string name="native_share_music_search">البحث عن موسيقى</string>
+    <string name="native_share_music_for_you">لك</string>
+    <string name="native_share_music_loading">جارٍ تحميل الأغاني…</string>
+    <string name="native_share_music_none">لم يتم العثور على أغانٍ</string>
+    <string name="native_share_music_play">تشغيل %1$s</string>
+    <string name="native_share_music_starts">تبدأ عند %1$s</string>
+    <string name="native_share_music_remove">إزالة الموسيقى</string>
 </resources>
