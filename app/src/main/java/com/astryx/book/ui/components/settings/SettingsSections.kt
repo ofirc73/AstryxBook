@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Pinch
 import androidx.compose.material.icons.outlined.ScreenLockPortrait
 import androidx.compose.material.icons.outlined.Screenshot
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.runtime.Composable
@@ -313,6 +314,26 @@ internal fun MessagesLinksSettings(
                 )
             )
         }
+    )
+}
+
+// Sharing: the app's own share screen for photos shared to Your story or Feed (NativeShareScreen),
+// or, turned off, Facebook's own editor and composer straight away (should Facebook's pages change
+// under the screen).
+@Composable
+internal fun SharingSettings(viewModel: SettingsViewModel) {
+    val nativeShare = viewModel.nativeShare.collectAsState()
+    SettingsHeading(stringResource(R.string.settings_section_sharing))
+    SettingsGroup(
+        items = listOf(
+            SettingsItem(
+                icon = Icons.Outlined.Share,
+                title = stringResource(R.string.native_share_setting_title),
+                supportingText = stringResource(R.string.native_share_setting_desc),
+                isActive = nativeShare.value,
+                onClick = { viewModel.setNativeShare(!nativeShare.value) },
+            )
+        )
     )
 }
 

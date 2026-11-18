@@ -440,7 +440,9 @@ user-visible change.
   order); files are copied to the cache and handed to the page through the `AstryxShare` listener:
   a header, then each file in 4 MB pieces (the next read only once the last is posted) and its end
   (`{"end":true}`, `"failed"` when unreadable); one message per file ran out of memory on a big video.
-  Story and Feed show the native share screen first (`NativeShareScreen`, `NativeShareController`,
+  Story and Feed show the native share screen first, unless its setting is off (Settings, Sharing,
+  `NATIVE_SHARE`: Facebook's editor and composer straight away, for when its pages change under the
+  screen) (`NativeShareScreen`, `NativeShareController`,
   zIndex 5; its share kept for the process): a story's creator preloads hidden under it
   (`ShareOpen.PRELOAD`, so its Back doesn't outrank the screen's), photos with texts are drawn with
   `StoryText`, and Share hands them over as an auto share (`ShareMediaQueue.auto`): `share_media.js`

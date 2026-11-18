@@ -156,4 +156,7 @@
     <string name="native_share_alt_text">Teks alternatif</string>
     <string name="native_share_alt_text_hint">Jelaskan foto untuk orang yang tidak dapat melihatnya</string>
     <string name="native_share_ai_label">Label AI: dibuat dengan AI</string>
+    <string name="settings_section_sharing">Berbagi</string>
+    <string name="native_share_setting_title">Layar berbagi</string>
+    <string name="native_share_setting_desc">Foto yang dibagikan ke cerita atau feed Anda membuka layar berbagi aplikasi terlebih dahulu (teks, teks alternatif, label AI). Nonaktif: editor Facebook sendiri</string>
 </resources>

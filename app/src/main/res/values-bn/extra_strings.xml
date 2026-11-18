@@ -152,4 +152,7 @@
     <string name="native_share_alt_text">বিকল্প টেক্সট</string>
     <string name="native_share_alt_text_hint">যারা ছবিটি দেখতে পান না তাদের জন্য ছবিটি বর্ণনা করুন</string>
     <string name="native_share_ai_label">AI লেবেল: AI দিয়ে তৈরি</string>
+    <string name="settings_section_sharing">শেয়ার করা</string>
+    <string name="native_share_setting_title">শেয়ার স্ক্রিন</string>
+    <string name="native_share_setting_desc">আপনার স্টোরি বা ফিডে শেয়ার করা ছবি প্রথমে অ্যাপের শেয়ার স্ক্রিনে খোলে (টেক্সট, বিকল্প টেক্সট, AI লেবেল)। বন্ধ: Facebook-এর নিজস্ব এডিটর</string>
 </resources>

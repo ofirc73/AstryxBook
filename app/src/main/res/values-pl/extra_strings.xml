@@ -171,4 +171,7 @@
     <string name="native_share_alt_text">Tekst alternatywny</string>
     <string name="native_share_alt_text_hint">Opisz zdjęcie dla osób, które go nie widzą</string>
     <string name="native_share_ai_label">Etykieta AI: utworzone przez AI</string>
+    <string name="settings_section_sharing">Udostępnianie</string>
+    <string name="native_share_setting_title">Ekran udostępniania</string>
+    <string name="native_share_setting_desc">Zdjęcia udostępnione do relacji lub kanału otwierają najpierw ekran udostępniania aplikacji (tekst, tekst alternatywny, etykieta AI). Wyłączone: edytor Facebooka</string>
 </resources>

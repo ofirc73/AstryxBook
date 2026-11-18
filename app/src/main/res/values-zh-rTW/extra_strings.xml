@@ -147,4 +147,7 @@
     <string name="native_share_alt_text">替代文字</string>
     <string name="native_share_alt_text_hint">為無法看見的人描述這張相片</string>
     <string name="native_share_ai_label">AI 標籤：使用 AI 製作</string>
+    <string name="settings_section_sharing">分享</string>
+    <string name="native_share_setting_title">分享畫面</string>
+    <string name="native_share_setting_desc">分享到限時動態或動態消息的相片會先開啟應用程式的分享畫面（文字、替代文字、AI 標籤）。關閉時：使用 Facebook 自己的編輯器</string>
 </resources>

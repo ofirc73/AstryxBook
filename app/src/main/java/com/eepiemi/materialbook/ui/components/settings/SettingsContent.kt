@@ -34,6 +34,7 @@ import com.astryx.book.ui.components.settings.DeveloperSettings
 import com.astryx.book.ui.components.settings.FeedSettings
 import com.astryx.book.ui.components.settings.HideOptionsDialog
 import com.astryx.book.ui.components.settings.MessagesLinksSettings
+import com.astryx.book.ui.components.settings.SharingSettings
 import com.astryx.book.ui.components.settings.NotificationsSettings
 import com.astryx.book.ui.components.settings.PIP_RATIO_PRESETS
 import com.astryx.book.ui.components.settings.PrivacySettings
@@ -95,6 +96,7 @@ fun SettingsContent(
             onKeepScreenOn = { isKeepScreenOnDialog = true }
         )
         MessagesLinksSettings(viewModel, onOpenLinksHint = { isOpenLinksHint = true })
+        SharingSettings(viewModel)
         NotificationsSettings(viewModel)
         PrivacySettings(
             viewModel,

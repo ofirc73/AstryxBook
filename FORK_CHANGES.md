@@ -2397,3 +2397,12 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   and the AI label reach the queue). Live: `aStoryFromTheShareScreen_withItsText_findsFacebooksShareToStory`
   also sets both on the share screen and checks Facebook's real editor took them: the switch on, and
   the custom text in the Alternative text panel when it's opened again (nothing posted).
+
+## Settings: the share screen can be turned off
+
+- **Settings, Sharing, Share screen** (on by default): turned off, photos shared to Your story or
+  Feed go straight to Facebook's own story editor and composer, as before v1.47.0, for when a change
+  on Facebook's side breaks the app's share screen. The setting is backed up with the others.
+- Testing: `ShareIntoFacebookTest` (with it off, a story share opens Facebook's creator at once,
+  with no share screen). No live check of its own: it changes only which of the app's flows a share
+  takes; both flows have their live checks.
