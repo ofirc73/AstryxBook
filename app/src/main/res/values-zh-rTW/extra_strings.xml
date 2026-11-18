@@ -160,4 +160,10 @@
     <string name="native_share_music_play">播放 %1$s</string>
     <string name="native_share_music_starts">從 %1$s 開始</string>
     <string name="native_share_music_remove">移除音樂</string>
+    <string name="native_share_music_pause">暫停 %1$s</string>
+    <string name="native_share_music_playing">正在播放 %1$s</string>
+    <string name="native_share_music_paused">已暫停</string>
+    <string name="native_share_music_moving">正在將開頭移至 %1$s…</string>
+    <string name="native_share_music_clip_hint">你的限時動態會播放標示的 %1$d 秒。拖曳它們，或點一下歌曲來選擇。</string>
+    <string name="native_share_music_start_failed">無法移動開頭，請再試一次。</string>
 </resources>

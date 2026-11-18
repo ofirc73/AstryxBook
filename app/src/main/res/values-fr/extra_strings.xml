@@ -170,4 +170,10 @@
     <string name="native_share_music_play">Écouter %1$s</string>
     <string name="native_share_music_starts">Commence à %1$s</string>
     <string name="native_share_music_remove">Retirer la musique</string>
+    <string name="native_share_music_pause">Mettre %1$s en pause</string>
+    <string name="native_share_music_playing">Lecture %1$s</string>
+    <string name="native_share_music_paused">En pause</string>
+    <string name="native_share_music_moving">Déplacement du début à %1$s…</string>
+    <string name="native_share_music_clip_hint">Votre story joue les %1$d secondes en surbrillance. Faites-les glisser, ou touchez la chanson, pour choisir.</string>
+    <string name="native_share_music_start_failed">Impossible de déplacer le début. Réessayez.</string>
 </resources>

@@ -1190,10 +1190,22 @@ class LiveFacebookCanaryTest {
                 "${app.layerWebView()?.let { app.eval(STORY_MUSIC_STATE_JS, it) }})" },
                 app.waitFor(30_000) { (StoryMusic.songs("love")?.size ?: 0) > 0 })
             val song = StoryMusic.songs("love")!!.first()
+            // Its preview plays, as the picker shows it (story_music.js playback: its row's button
+            // Pause, the Audio Facebook plays it in).
+            app.onActivity { it.nativeShare.onPlay(song) }
+            assertTrue({ "the song's preview isn't read as playing (story_music.js playback; ${runBlocking { StoryMusic.playback() }})" },
+                app.waitFor(15_000) { runBlocking { StoryMusic.playback() }?.let { it.songId == song.id && !it.paused && it.ms >= 0 } == true })
             app.onActivity { it.nativeShare.onChoose(song) }
             assertTrue({ "the song wasn't chosen in Facebook's panel (story_music.js choose: its row by title and artist; ${song.title})" },
                 app.waitFor(30_000) { shared.music?.song == song })
-            app.onActivity { it.nativeShare.onStart(0.5f) }
+            // Its clip plays, as the picker shows it (story_music.js playback: the page's <audio>), and
+            // the picker's Pause pauses it (toggle: the clip bar's Pause).
+            assertTrue({ "the chosen song's clip isn't read as playing (story_music.js playback; ${runBlocking { StoryMusic.playback() }})" },
+                app.waitFor(15_000) { runBlocking { StoryMusic.playback() }?.let { !it.paused && it.ms >= 0 } == true })
+            runBlocking { StoryMusic.toggle() }
+            assertTrue({ "the picker's Pause didn't pause the clip (story_music.js toggle: the clip bar's Pause; " +
+                "${runBlocking { StoryMusic.playback() }})" }, app.waitFor(10_000) { runBlocking { StoryMusic.playback() }?.paused == true })
+            app.onActivity { it.nativeShare.onStart(song.durationMs / 2) }
             assertTrue({ "Facebook didn't take the clip's start (StoryMusic.setStart: finger drags on its strip, then its " +
                 "preview played again; ${shared.music})" }, app.waitFor(60_000) { (shared.music?.startMs ?: 0) > 0 })
             app.onActivity { it.nativeShare.onMusicClosed() }

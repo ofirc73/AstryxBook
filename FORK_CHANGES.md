@@ -2410,12 +2410,20 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 
 - **A story's photo can get music on the app's share screen** (♪, a story of one photo): Facebook's
   For you songs and a search, each with its cover, title and artist, a ▶ preview, then the chosen
-  song's start (a slider; "Starts at m:ss" as Facebook took it), Remove and Done. The song shows
+  song's clip, Remove and Done. The song shows
   above the preview; its sticker stays off the story, as for a song added in Facebook's editor
   (`story_layout.js` hides it, so it isn't drawn on the posted story), so there's no lyrics style. Facebook's own music panel does
   the work out of sight (the photo goes to its editor first, so the texts on it can't change until
   the music is removed); previews play there, so the start chosen is heard. Share then presses
   Facebook's Share to story, as for any story from the screen.
+- **What plays is shown** (v1.50.0 had nothing on screen for it, and its start slider read as a progress
+  bar that didn't move): the previewing song's row is marked, its button turns Pause, and a bar
+  under it moves with the preview; the chosen song has a Pause / Play button with the time playing,
+  and the whole song as a bar with its 15-second clip highlighted and a line where it plays. The clip
+  is dragged (or the song tapped) to where it should start; while Facebook moves it the picker says
+  "Moving the start to m:ss…", then "Starts at m:ss" as Facebook took it, or that it couldn't move.
+  A chosen song shows where Facebook started it (not always at 0:00). Each move is logged
+  (`Music start:` under `Astryxbook`), for a phone where it doesn't move.
 - How (`story_music.js`, `StoryMusic`, `MusicPicker`; read on the emulator 2026-11-18): the songs
   come from the panel's own answers (its GraphQL `StoriesCreateMusicSelectorMainPageQuery`, read by
   a wrap of the page's XMLHttpRequest at document start, as the For you list loads with the
@@ -2424,19 +2432,25 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   Facebook's waveform strip, which only real input moves (a script's scroll is put back, script-made
   mouse events are ignored): the app moves it with real finger drags (held still before lifting, or
   the strip flings on), then presses the bar's Pause and Play, after which Facebook plays from the
-  start it took, and the app reads it there.
+  start it took, and the app reads it there. The strip is the whole song (its scroll over its width
+  is the start's share of the song). What plays is read every 0.4 s (`playback()`, without focusing
+  the page, which would take the focus from the picker's search box): a preview plays in an Audio
+  outside the page, found by a wrap of `HTMLMediaElement.play`, the chosen song's clip in the page's
+  `<audio>`, looping over 15 s.
 - Share to story isn't held by the song sticker's icon-only style menu, which Facebook leaves on
   screen once a song is added: only a dialog with something to read holds it (`storyShareButton`).
 - Testing: `StoryMusicJsTest` (a fake creator: songs from a GraphQL answer reported by their search,
   none outside the creator, Add music pressed only once the editor shows the story, a search typed
-  with Enter, a song previewed and chosen by its row, the strip's place, the replay
-  and the start read, both Done buttons); `StoryMusicTest` (the clip start's drags against a
-  simulated strip: to the left for a later start, to the right for an earlier one, none without a
-  strip, the preview played again once there); `ShareMediaJsTest` (an icon-only dialog doesn't hold
+  with Enter, a song previewed and chosen by its row, the previewing song and its Audio read, the
+  strip's place and width, the replay and the start read, what plays, the bar's Pause / Play, both
+  Done buttons); `StoryMusicTest` (the clip start's drags against a simulated strip: to the left for
+  a later start, to the right for an earlier one, to the strip's end for one past the last clip, none
+  without a strip, the preview played again once there; a chosen song's start read from the strip); `ShareMediaJsTest` (an icon-only dialog doesn't hold
   Share); `ShareIntoFacebookTest` (♪ gives the photo to the creator, under the screen, whose Back
   stays the screen's; Share then only presses, with the alt text; Remove music takes the photo back).
   Live: `aStorysMusic_fromTheShareScreen_worksFacebooksMusicPanel` goes through it all on Facebook's
   real creator: the panel opens, For you songs read (with titles, artists, covers, lengths), a
-  search's songs, one chosen, its start moved and taken by Facebook, Done keeping it (Add music
+  search's songs, one previewed (read as playing), one chosen, its clip read as playing and paused
+  by the picker's Pause, its start moved and taken by Facebook, Done keeping it (Add music
   greyed out) with its sticker hidden on the story, and Share to story found, never pressed. A story with music hasn't been
   posted by the checks (they never post).

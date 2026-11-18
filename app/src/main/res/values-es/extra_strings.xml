@@ -170,4 +170,10 @@
     <string name="native_share_music_play">Reproducir %1$s</string>
     <string name="native_share_music_starts">Empieza en %1$s</string>
     <string name="native_share_music_remove">Quitar música</string>
+    <string name="native_share_music_pause">Pausar %1$s</string>
+    <string name="native_share_music_playing">Reproduciendo %1$s</string>
+    <string name="native_share_music_paused">En pausa</string>
+    <string name="native_share_music_moving">Moviendo el inicio a %1$s…</string>
+    <string name="native_share_music_clip_hint">Tu historia reproduce los %1$d segundos resaltados. Arrástralos o toca la canción para elegirlos.</string>
+    <string name="native_share_music_start_failed">No se pudo mover el inicio. Inténtalo de nuevo.</string>
 </resources>

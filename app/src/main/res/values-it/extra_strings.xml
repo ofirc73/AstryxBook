@@ -168,4 +168,10 @@
     <string name="native_share_music_play">Riproduci %1$s</string>
     <string name="native_share_music_starts">Inizia a %1$s</string>
     <string name="native_share_music_remove">Rimuovi la musica</string>
+    <string name="native_share_music_pause">Metti in pausa %1$s</string>
+    <string name="native_share_music_playing">In riproduzione %1$s</string>
+    <string name="native_share_music_paused">In pausa</string>
+    <string name="native_share_music_moving">Spostamento dell\'inizio a %1$s…</string>
+    <string name="native_share_music_clip_hint">La tua storia riproduce i %1$d secondi evidenziati. Trascinali, o tocca il brano, per scegliere.</string>
+    <string name="native_share_music_start_failed">Impossibile spostare l\'inizio. Riprova.</string>
 </resources>

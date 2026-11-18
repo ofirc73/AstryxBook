@@ -316,7 +316,7 @@ fun MessagesLayer(
                 // The page focused first: Facebook's search box takes typed text only in a focused page.
                 is MusicCommand.Eval -> command.result.complete(
                     if (isStoryCreatePage(state.lastLoadedUrl)) {
-                        runCatching { state.nativeWebView.requestFocus() }
+                        if (command.focus) runCatching { state.nativeWebView.requestFocus() }
                         navigator.evaluated(command.script)
                     } else null
                 )

@@ -127,10 +127,11 @@ class NativeShare(val target: ShareTarget, val files: List<SharedFile>) {
 }
 
 /**
- * The song for a story: where its clip starts, as a share of the way along that the user chose
- * ([startFraction]) and the time Facebook took for it ([startMs]; null while it's being moved).
+ * The song for a story: where its clip starts, as the user chose it ([targetMs]) and as Facebook took
+ * it ([startMs]; null while it's being read or moved), and whether the last move failed ([failed]:
+ * the start stayed where it was).
  */
-data class MusicChoice(val song: Song, val startFraction: Float = 0f, val startMs: Long? = 0)
+data class MusicChoice(val song: Song, val targetMs: Long = 0, val startMs: Long? = 0, val failed: Boolean = false)
 
 /** Whether [file] is a photo (texts can go on it). */
 internal fun SharedFile.isPhoto(): Boolean = mimeType.lowercase().startsWith("image/")
@@ -323,7 +324,7 @@ fun NativeShareScreen(
             MusicPicker(
                 share,
                 MusicActions(
-                    search = music.search, play = music.play, choose = music.choose, start = music.start,
+                    search = music.search, play = music.play, choose = music.choose, start = music.start, toggle = music.toggle,
                     close = { music.close(); picker = false },
                     remove = { music.remove(); picker = false },
                 ),

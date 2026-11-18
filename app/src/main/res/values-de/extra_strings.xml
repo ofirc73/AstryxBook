@@ -165,4 +165,10 @@
     <string name="native_share_music_play">%1$s abspielen</string>
     <string name="native_share_music_starts">Beginnt bei %1$s</string>
     <string name="native_share_music_remove">Musik entfernen</string>
+    <string name="native_share_music_pause">%1$s pausieren</string>
+    <string name="native_share_music_playing">Läuft: %1$s</string>
+    <string name="native_share_music_paused">Pausiert</string>
+    <string name="native_share_music_moving">Anfang wird auf %1$s verschoben…</string>
+    <string name="native_share_music_clip_hint">Deine Story spielt die markierten %1$d Sekunden. Zieh sie oder tippe auf den Song, um sie zu wählen.</string>
+    <string name="native_share_music_start_failed">Der Anfang konnte nicht verschoben werden. Versuch es noch einmal.</string>
 </resources>

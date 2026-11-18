@@ -182,4 +182,10 @@
     <string name="native_share_music_play">Play %1$s</string>
     <string name="native_share_music_starts">Starts at %1$s</string>
     <string name="native_share_music_remove">Remove music</string>
+    <string name="native_share_music_pause">Pause %1$s</string>
+    <string name="native_share_music_playing">Playing %1$s</string>
+    <string name="native_share_music_paused">Paused</string>
+    <string name="native_share_music_moving">Moving the start to %1$s…</string>
+    <string name="native_share_music_clip_hint">Your story plays the highlighted %1$d seconds. Drag them, or tap the song, to choose.</string>
+    <string name="native_share_music_start_failed">Couldn\'t move the start. Try again.</string>
 </resources>
