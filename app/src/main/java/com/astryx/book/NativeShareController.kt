@@ -172,21 +172,31 @@ internal class NativeShareController(
     fun onSearch(text: String) = music { StoryMusic.search(text.trim()) }
     fun onPlay(song: Song) = music { StoryMusic.play(song.id) }
 
+    // Chosen, the song's clip starts where Facebook put it (not always its beginning), read once its clip bar shows.
     fun onChoose(song: Song) = music { share ->
-        if (StoryMusic.choose(song.id)) share.music = MusicChoice(song)
+        if (!StoryMusic.choose(song.id)) return@music
+        share.music = MusicChoice(song, startMs = null)
+        val startMs = StoryMusic.start(song.durationMs) ?: 0
+        share.music?.takeIf { it.song == song && it.startMs == null }?.let { share.music = it.copy(targetMs = startMs, startMs = startMs) }
     }
+
+    fun onToggle() = music { StoryMusic.toggle() }
 
     // The clip start being moved there (one at a time: a new start cancels the last one's drags).
     private var startMove: Job? = null
 
-    fun onStart(fraction: Float) {
+    fun onStart(startMs: Long) {
         val share = share ?: return
         val choice = share.music ?: return
-        share.music = choice.copy(startFraction = fraction, startMs = null)
+        val before = choice.startMs ?: choice.targetMs
+        share.music = choice.copy(targetMs = startMs, startMs = null, failed = false)
         startMove?.cancel()
         startMove = activity.lifecycleScope.launch {
-            val startMs = StoryMusic.setStart(fraction)
-            share.music?.takeIf { it.song == choice.song }?.let { share.music = it.copy(startMs = startMs ?: it.startMs) }
+            val taken = StoryMusic.setStart(startMs, choice.song.durationMs)
+            // Not moved: the start shown back where it was, and the failure said.
+            share.music?.takeIf { it.song == choice.song }?.let {
+                share.music = it.copy(targetMs = taken ?: before, startMs = taken ?: before, failed = taken == null)
+            }
         }
     }
 
@@ -273,7 +283,7 @@ internal class NativeShareController(
             onMusic = ::onMusic,
             music = MusicActions(
                 search = ::onSearch, play = ::onPlay, choose = ::onChoose, start = ::onStart,
-                close = ::onMusicClosed, remove = ::onRemoveMusic,
+                toggle = ::onToggle, close = ::onMusicClosed, remove = ::onRemoveMusic,
             ),
         )
         // Sent: waits for Facebook's page to post each file (a story is one file; the feed's post

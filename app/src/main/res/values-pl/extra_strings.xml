@@ -184,4 +184,10 @@
     <string name="native_share_music_play">Odtwórz %1$s</string>
     <string name="native_share_music_starts">Zaczyna się od %1$s</string>
     <string name="native_share_music_remove">Usuń muzykę</string>
+    <string name="native_share_music_pause">Wstrzymaj %1$s</string>
+    <string name="native_share_music_playing">Odtwarzanie %1$s</string>
+    <string name="native_share_music_paused">Wstrzymano</string>
+    <string name="native_share_music_moving">Przesuwanie początku na %1$s…</string>
+    <string name="native_share_music_clip_hint">Twoja relacja odtwarza zaznaczone %1$d sekund. Przeciągnij je lub dotknij utworu, aby wybrać.</string>
+    <string name="native_share_music_start_failed">Nie udało się przesunąć początku. Spróbuj ponownie.</string>
 </resources>

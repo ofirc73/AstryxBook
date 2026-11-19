@@ -182,4 +182,10 @@
     <string name="native_share_music_play">נגן את %1$s</string>
     <string name="native_share_music_starts">מתחיל ב‑%1$s</string>
     <string name="native_share_music_remove">הסרת המוזיקה</string>
+    <string name="native_share_music_pause">השהה את %1$s</string>
+    <string name="native_share_music_playing">מתנגן %1$s</string>
+    <string name="native_share_music_paused">מושהה</string>
+    <string name="native_share_music_moving">מזיז את ההתחלה ל‑%1$s…</string>
+    <string name="native_share_music_clip_hint">הסטורי שלך מנגן את %1$d השניות המסומנות. גררו אותן, או הקישו על השיר, כדי לבחור.</string>
+    <string name="native_share_music_start_failed">לא ניתן היה להזיז את ההתחלה. נסו שוב.</string>
 </resources>

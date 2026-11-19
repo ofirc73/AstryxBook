@@ -183,4 +183,10 @@
     <string name="native_share_music_play">تشغيل %1$s</string>
     <string name="native_share_music_starts">تبدأ عند %1$s</string>
     <string name="native_share_music_remove">إزالة الموسيقى</string>
+    <string name="native_share_music_pause">إيقاف %1$s مؤقتًا</string>
+    <string name="native_share_music_playing">قيد التشغيل %1$s</string>
+    <string name="native_share_music_paused">متوقف مؤقتًا</string>
+    <string name="native_share_music_moving">جارٍ نقل البداية إلى %1$s…</string>
+    <string name="native_share_music_clip_hint">تُشغّل قصتك الثواني الـ %1$d المميزة. اسحبها، أو انقر على الأغنية، للاختيار.</string>
+    <string name="native_share_music_start_failed">تعذّر نقل البداية. حاول مرة أخرى.</string>
 </resources>

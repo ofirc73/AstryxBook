@@ -165,4 +165,10 @@
     <string name="native_share_music_play">%1$s চালান</string>
     <string name="native_share_music_starts">%1$s থেকে শুরু</string>
     <string name="native_share_music_remove">মিউজিক সরান</string>
+    <string name="native_share_music_pause">%1$s বিরতি দিন</string>
+    <string name="native_share_music_playing">চলছে %1$s</string>
+    <string name="native_share_music_paused">বিরতিতে</string>
+    <string name="native_share_music_moving">শুরু %1$s-এ সরানো হচ্ছে…</string>
+    <string name="native_share_music_clip_hint">আপনার স্টোরিতে চিহ্নিত %1$d সেকেন্ড বাজবে। বেছে নিতে সেগুলো টেনে আনুন, বা গানে ট্যাপ করুন।</string>
+    <string name="native_share_music_start_failed">শুরু সরানো যায়নি। আবার চেষ্টা করুন।</string>
 </resources>

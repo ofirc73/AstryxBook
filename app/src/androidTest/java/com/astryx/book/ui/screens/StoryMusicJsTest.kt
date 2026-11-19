@@ -88,8 +88,12 @@ class StoryMusicJsTest {
         assertTrue(waitFor("window.__music.length === 1"))
         eval("window.__astryxStoryMusic.open(); 1")
         assertTrue(waitFor("window.__astryxStoryMusic.state().rows === 2"))
+        assertEquals("a song previewing before any played", "\"\"", eval("window.__astryxStoryMusic.playback().id"))
         assertEquals("\"ok\"", eval("window.__astryxStoryMusic.play('2')"))
         assertEquals("\"Sunflower\"", eval("window.__played"))
+        // Its row's button turned Pause: the song shown as the one previewing, where its Audio plays.
+        assertEquals("\"2 12000 false\"",
+            eval("(function (p) { return p.id + ' ' + p.ms + ' ' + p.paused; })(window.__astryxStoryMusic.playback())"))
         assertEquals("\"noRow\"", eval("window.__astryxStoryMusic.choose('9')"))
         assertEquals("\"ok\"", eval("window.__astryxStoryMusic.choose('1')"))
         assertTrue("no clip bar once chosen", waitFor("window.__astryxStoryMusic.state().chosen"))
@@ -104,8 +108,8 @@ class StoryMusicJsTest {
         assertTrue(waitFor("window.__astryxStoryMusic.state().rows === 2"))
         eval("window.__astryxStoryMusic.choose('1'); 1")
         assertTrue(waitFor("window.__astryxStoryMusic.state().chosen"))
-        // The strip: where it is and how far it scrolls (its content less its own width).
-        assertEquals("\"200 3000 120\"", eval("(function (s) { return Math.round(s.width) + ' ' + Math.round(s.range) + ' ' + Math.round(s.scroll); })" +
+        // The strip: where it is, how far it scrolls (its content less its own width), and its content's width.
+        assertEquals("\"200 3000 120 3200\"", eval("(function (s) { return Math.round(s.width) + ' ' + Math.round(s.range) + ' ' + Math.round(s.scroll) + ' ' + s.total; })" +
             "(window.__astryxStoryMusic.strip())"))
         // Replay: the bar's Pause, then (once shown) its Play; the start is where it plays from.
         // The preview playing at 40 s (an <audio> without a source can't play: its state stubbed).
@@ -115,6 +119,12 @@ class StoryMusicJsTest {
         assertTrue("Play wasn't pressed after Pause", waitFor("window.__replayed === 'pause,play'"))
         val start = eval("window.__astryxStoryMusic.position()").toLong()
         assertTrue("the start read was $start", start in 39_000..40_000)
+        assertEquals("what plays", "\"40000 false\"",
+            eval("(function (p) { return p.id + p.ms + ' ' + p.paused; })(window.__astryxStoryMusic.playback())"))
+        // Pause / Play: the bar's button (Play by now).
+        eval("window.__replayed = []; 1")
+        assertEquals("\"ok\"", eval("window.__astryxStoryMusic.toggle()"))
+        assertEquals("the bar's Play wasn't pressed", "\"play\"", eval("window.__replayed"))
         assertEquals("\"ok\"", eval("window.__astryxStoryMusic.done()"))
         assertEquals("the card's Done and the bar's weren't both pressed", "\"card,bar\"", eval("window.__done.join()"))
     }
@@ -149,7 +159,11 @@ class StoryMusicJsTest {
                 "    \"<div role='button' id='r2' style='height:48px'><div>Sunflower</div><div>Post Malone, Swae Lee</div><div role='button' aria-label='Play'>&gt;</div></div>\";" +
                 "  document.getElementById('box').addEventListener('keydown', function (e) { if (e.key === 'Enter') window.__searched = e.target.value; });" +
                 "  ['r1', 'r2'].forEach(function (id) { var row = document.getElementById(id);" +
-                "    row.querySelector('[aria-label=Play]').addEventListener('click', function (e) { e.stopPropagation(); window.__played = row.innerText.split('\\n')[0]; });" +
+                "    row.querySelector('[aria-label=Play]').addEventListener('click', function (e) { e.stopPropagation(); window.__played = row.innerText.split('\\n')[0];" +
+                "      this.setAttribute('aria-label', 'Pause');" +
+                // The preview: an Audio outside the page, playing at 12 s (no source: its state stubbed).
+                "      var a = new Audio(); Object.defineProperty(a, 'paused', { get: function () { return false; } });" +
+                "      Object.defineProperty(a, 'currentTime', { get: function () { return 12; } }); a.play().catch(function () {}); });" +
                 "    row.addEventListener('click', __choose); }); });" +
                 "function __choose() { document.getElementById('popup').innerHTML = '';" +
                 "  var c = document.getElementById('card');" +

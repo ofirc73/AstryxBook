@@ -456,8 +456,10 @@ user-visible change.
   screen, as its search needs a focused page, the layer's Back off meanwhile; `keepFiles`; texts
   fixed until Remove music reloads it); the songs come from the panel's own GraphQL answers
   (`StoriesCreateMusicSelectorMainPageQuery`, read by a document-start XHR wrap); a search is
-  `insertText` plus Enter; previews play in the page. The clip start is the scroll of Facebook's
-  waveform strip, which only real input moves: finger drags (`dragPage`, held still before lifting,
+  `insertText` plus Enter; previews play in the page (a row's in an Audio outside the page, found by a
+  `play` wrap; the picker polls `playback()` without focusing the page, which would take its search
+  box's focus). The clip start is the scroll of Facebook's waveform strip (the whole song: scroll over
+  width is the start's share), which only real input moves: finger drags (`dragPage`, held still before lifting,
   or it flings), then the bar's Pause and Play, from which Facebook plays the start it took (a script's
   scroll is put back, script-made mouse events are ignored, and a real mouse release, the only other
   way, needs button events Android apps can't make). Share then only presses (`pressOnly`).

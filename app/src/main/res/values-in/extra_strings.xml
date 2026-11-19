@@ -169,4 +169,10 @@
     <string name="native_share_music_play">Putar %1$s</string>
     <string name="native_share_music_starts">Mulai di %1$s</string>
     <string name="native_share_music_remove">Hapus musik</string>
+    <string name="native_share_music_pause">Jeda %1$s</string>
+    <string name="native_share_music_playing">Memutar %1$s</string>
+    <string name="native_share_music_paused">Dijeda</string>
+    <string name="native_share_music_moving">Memindahkan awal ke %1$s…</string>
+    <string name="native_share_music_clip_hint">Cerita Anda memutar %1$d detik yang disorot. Seret, atau ketuk lagunya, untuk memilih.</string>
+    <string name="native_share_music_start_failed">Tidak dapat memindahkan awal. Coba lagi.</string>
 </resources>

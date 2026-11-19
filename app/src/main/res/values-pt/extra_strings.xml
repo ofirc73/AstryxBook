@@ -170,4 +170,10 @@
     <string name="native_share_music_play">Tocar %1$s</string>
     <string name="native_share_music_starts">Começa em %1$s</string>
     <string name="native_share_music_remove">Remover música</string>
+    <string name="native_share_music_pause">Pausar %1$s</string>
+    <string name="native_share_music_playing">Reproduzindo %1$s</string>
+    <string name="native_share_music_paused">Pausado</string>
+    <string name="native_share_music_moving">Movendo o início para %1$s…</string>
+    <string name="native_share_music_clip_hint">Seu story toca os %1$d segundos destacados. Arraste-os, ou toque na música, para escolher.</string>
+    <string name="native_share_music_start_failed">Não foi possível mover o início. Tente novamente.</string>
 </resources>

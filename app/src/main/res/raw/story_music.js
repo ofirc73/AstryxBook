@@ -14,12 +14,16 @@
 //   title and the artist, a Play button) preview (Play) and choose (the row). Chosen, Facebook
 //   shows the song's card (lyrics styles, Done) and a clip bar under the story: the start is the
 //   scroll of its waveform strip (a horizontally scrolling box), which only real drags move, so the
-//   app drags it (strip() says where it is). Facebook keeps the start from the scroll, but plays it
-//   again from there only on a real mouse button's release: replay() presses the bar's Pause and
-//   Play instead, and position() then reads where the preview plays, the start Facebook took. The
-//   bar's Done keeps the song.
+//   app drags it (strip() says where it is). The strip is the whole song (its scroll over its
+//   scrollWidth is the start's share of the song's length). Facebook keeps the start from the
+//   scroll, but plays it again from there only on a real mouse button's release: replay() presses
+//   the bar's Pause and Play instead, and position() then reads where the preview plays, the start
+//   Facebook took. The preview plays the clip (15 s) over and over. The bar's Done keeps the song.
+// - What plays (playback(), read by the picker to show it): a row's preview (an Audio outside the page)
+//   or the chosen song's clip (the page's <audio>); toggle() is the bar's Pause or Play.
 // The app calls window.__astryxStoryMusic: open(), search(text), play(id), choose(id), strip(),
-// replay(), position(), done(); each returns at once, and its result shows in state(). ES5, like the PiP scripts.
+// replay(), position(), playback(), toggle(), done(); each returns at once, and its result shows in
+// state(). ES5, like the PiP scripts.
 (function () {
   if (window.__astryxStoryMusic) return;
   var QUERY = /MusicSelector/;
@@ -80,6 +84,20 @@
     return send.apply(this, arguments);
   };
 
+  // The audio last played in the creator: a row's preview plays in an Audio that isn't in the page
+  // (read 2026-11-18), the chosen song's clip in the page's <audio>.
+  var played = null;
+  var mediaPlay = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function () {
+    if (this.tagName === 'AUDIO' && inCreator()) played = this;
+    return mediaPlay.apply(this, arguments);
+  };
+  // What plays: the audio last played while it plays, else the page's.
+  function audio() {
+    if (played && !played.paused) return played;
+    return document.querySelector('audio') || played;
+  }
+
   // --- The panel ---
 
   function popup() { return document.querySelector('[data-astryx-story-popup]'); }
@@ -98,16 +116,23 @@
       return b.getBoundingClientRect().height > 30 && !!b.querySelector('[aria-label="Play"], [aria-label="Pause"]');
     });
   }
-  // The panel's row for [id]: its title and artist as the song's.
+  // Whether [row] is [song]'s: its title and artist.
+  function isRowOf(row, song) {
+    var lines = (row.innerText || '').split('\n').map(function (s) { return s.trim(); });
+    return lines[0] === song.title && (!song.artist || lines.indexOf(song.artist) > 0);
+  }
+  // The panel's row for [id].
   function rowOf(id) {
     var song = songs[id];
     if (!song) return null;
-    var list = rows();
-    for (var i = 0; i < list.length; i++) {
-      var lines = (list[i].innerText || '').split('\n').map(function (s) { return s.trim(); });
-      if (lines[0] === song.title && (!song.artist || lines.indexOf(song.artist) > 0)) return list[i];
-    }
-    return null;
+    return rows().filter(function (row) { return isRowOf(row, song); })[0] || null;
+  }
+  // The id of the song whose row's preview plays ('' for none).
+  function previewing() {
+    var row = rows().filter(function (r) { return !!r.querySelector('[aria-label="Pause"]'); })[0];
+    if (!row) return '';
+    for (var id in songs) if (Object.prototype.hasOwnProperty.call(songs, id) && isRowOf(row, songs[id])) return id;
+    return '';
   }
   function setValue(field, text) {
     var setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value');
@@ -127,13 +152,13 @@
   }
   // The chosen song's card: found by its lyrics style buttons; its Done.
   function styleButtons() { return document.querySelectorAll('[aria-label$="lyrics style" i], [aria-label$="Lyrics style"]'); }
-  function barDone() {
+  // The clip bar's button [label] (Pause, Play, Done): in line with the strip.
+  function barButton(label) {
     var strip = stripBox();
     if (!strip) return null;
-    var dones = [].filter.call(document.querySelectorAll('[aria-label="Done"]'), function (b) {
+    return [].filter.call(document.querySelectorAll('[aria-label="' + label + '"]'), function (b) {
       return Math.abs(b.getBoundingClientRect().top - strip.getBoundingClientRect().top) < 60;
-    });
-    return dones[0] || null;
+    })[0] || null;
   }
   function cardDone() {
     var style = styleButtons()[0];
@@ -190,17 +215,17 @@
       if (!s) return null;
       var r = s.getBoundingClientRect();
       return { left: r.left, top: r.top, width: r.width, height: r.height, scroll: s.scrollLeft,
-        range: s.scrollWidth - s.clientWidth, viewport: (window.visualViewport || window).width || window.innerWidth };
+        range: s.scrollWidth - s.clientWidth, total: s.scrollWidth, viewport: (window.visualViewport || window).width || window.innerWidth };
     },
     // The chosen song played again from its clip's start: the clip bar's Pause, then (once Facebook
     // shows it) its Play.
     replay: function () {
-      var pause = document.querySelector('[aria-label="Pause"]');
+      var pause = barButton('Pause');
       if (pause) pause.click();
       playedAt = 0;
       var tries = 0;
       (function play() {
-        var button = document.querySelector('[aria-label="Play"]');
+        var button = barButton('Play');
         if (button) { button.click(); playedAt = Date.now(); return; }
         if (++tries < 20) setTimeout(play, 100);
       })();
@@ -209,15 +234,28 @@
     // Where the chosen song's clip starts, in ms: where its preview plays, less the time since
     // replay() played it (-1 before it has).
     position: function () {
-      var audio = document.querySelector('audio');
-      if (!audio || !playedAt || audio.paused) return -1;
-      return Math.max(0, Math.round(audio.currentTime * 1000 - (Date.now() - playedAt)));
+      var sound = audio();
+      if (!sound || !playedAt || sound.paused) return -1;
+      return Math.max(0, Math.round(sound.currentTime * 1000 - (Date.now() - playedAt)));
+    },
+    // What plays: the song whose row previews ('' for none, as while one is chosen), where its
+    // audio is (ms, -1 without one) and whether it's paused.
+    playback: function () {
+      var sound = audio();
+      return { id: previewing(), ms: sound ? Math.round(sound.currentTime * 1000) : -1, paused: !sound || sound.paused };
+    },
+    // The chosen song's clip paused, or played again: the clip bar's Pause or Play.
+    toggle: function () {
+      var button = barButton('Pause') || barButton('Play');
+      if (!button) return 'none';
+      button.click();
+      return 'ok';
     },
     // The chosen song kept: the card's Done, then the clip bar's.
     done: function () {
       var card = cardDone();
       if (card) card.click();
-      var bar = barDone();
+      var bar = barButton('Done');
       if (bar) bar.click();
       return card || bar ? 'ok' : 'none';
     },
