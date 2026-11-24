@@ -147,11 +147,12 @@
 
   // Back in the app (MessagesLayer), as the desktop site does it at phone width:
   // - a photo open in the viewer closes (layer_photo_viewer.js);
+  // - an open popup (an emoji picker, the reactions bar) closes (layer_popups.js, 'popup');
   // - in a chat, the chat's own Back button (its header's top-left arrow) shows the chat list;
   //   stepping back a page left "No chats selected" instead (seen on a Galaxy A56);
   // - on the chat list, the layer closes ('list');
   // - anywhere else (a profile opened from a chat) the layer steps back a page ('page').
-  // Answers what it did: 'photo', 'chat', 'list' or 'page'.
+  // Answers what it did: 'photo', 'popup', 'chat', 'list' or 'page'.
   // The chat header's Back button: an icon button below Facebook's own header bar (56 px), at the
   // left, with the chat's name (a link) right next to it on the same row. The name tells it from
   // the chat list's search icon, which sits there too (Back on the list pressed it, and the list
@@ -190,6 +191,7 @@
 
   window.__astryxLayerBack = function () {
     if (window.__astryxClosePhotoViewer && window.__astryxClosePhotoViewer()) return 'photo';
+    if (window.__astryxClosePopup && window.__astryxClosePopup()) return 'popup';
     if (location.pathname.indexOf('/messages') !== 0) return 'page';
     var back = chatBackButton();
     if (!back) return 'list';

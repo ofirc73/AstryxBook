@@ -904,6 +904,30 @@ class LiveFacebookCanaryTest {
         assertTrue("Back left the chat (${layerShape(layer)})", app.eval("location.pathname", layer).contains("/t/"))
     }
 
+    // The message box's emoji picker, opened by a real tap, stays open and on the screen (layer_popups.js:
+    // the search box it focuses let go, as the keyboard closed it; placed below the screen, moved onto
+    // it), and Back closes it first, the chat staying. A reaction's "+" opens the same kind of picker
+    // (the user's report): not checked here, as its bar needs a message hovered. Nothing is sent.
+    @Test
+    fun aChatsEmojiPicker_staysOpenOnTheScreen_andBackClosesIt() {
+        val layer = openChatInTheLayer(testChat())
+        if (!app.waitFor(30_000) { app.tapOn(layer, CHAT_EMOJI_BUTTON_JS) }) {
+            fail("no emoji button in the test chat's message box (aria-label \"Choose an emoji\") (${layerShape(layer)})")
+        }
+        assertTrue({ "the emoji picker never showed (${app.eval(EMOJI_PICKER_JS, layer)})" },
+            app.waitFor(10_000) { app.eval(EMOJI_PICKER_JS, layer) == "\"shown\"" })
+        Thread.sleep(2000)
+        assertEquals("the emoji picker closed by itself or left the screen (layer_popups.js: its search box let go, its place fitted)",
+            "\"shown\"", app.eval(EMOJI_PICKER_JS, layer))
+
+        app.pressBack()
+        assertTrue("Back didn't close the emoji picker (layer_popups.js __astryxClosePopup)",
+            app.waitFor(10_000) { app.eval(EMOJI_PICKER_JS, layer) == "\"none\"" })
+        Thread.sleep(1500)
+        assertTrue("Back closed the Messages layer too", app.layerOpen())
+        assertTrue({ "Back left the chat for the chat list (${layerShape(layer)})" }, app.eval("!!$MESSAGE_BOX_FIND_JS", layer) == "true")
+    }
+
     @Test
     fun aReelSharedInAChat_opensInTheMainView_andBackGoesBackToTheChat() {
         val chat = testChat()
@@ -2275,6 +2299,12 @@ class LiveFacebookCanaryTest {
         // The open chat's message box (Messenger's Lexical editor), for tapOn and the checks that read
         // it; undefined on the chat list, which keeps a box with no size.
         private val MESSAGE_BOX_FIND_JS = shownJs("[role=textbox][contenteditable=true]") + "[0]"
+        // The message box's emoji button, and whether its picker (a dialog with a search box) is
+        // "shown" wholly on the screen, "none", or off it.
+        private val CHAT_EMOJI_BUTTON_JS = shownJs("[role=button][aria-label=\"Choose an emoji\"]") + ".pop()"
+        private const val EMOJI_PICKER_JS = "(function () { var i = document.querySelector('[role=dialog] input');" +
+            " if (!i) return 'none'; var r = i.closest('[role=dialog]').getBoundingClientRect();" +
+            " return r.top >= 0 && r.bottom <= innerHeight ? 'shown' : 'off the screen: ' + Math.round(r.top) + ' to ' + Math.round(r.bottom); })()"
         // What aChatsUnsentMessage_isKeptOverBackAndReturn types (one word: input text).
         private const val DRAFT = "astryxdraftcheck"
         private val MESSAGE_BOX_TEXT_JS = "(function () { var e = $MESSAGE_BOX_FIND_JS; return e ? e.innerText : ''; })()"

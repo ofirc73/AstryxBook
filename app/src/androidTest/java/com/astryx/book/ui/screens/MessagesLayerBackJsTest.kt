@@ -48,6 +48,15 @@ class MessagesLayerBackJsTest {
     }
 
     @Test
+    fun anOpenPopup_isClosedFirst_theChatStays() {
+        // layer_popups.js closed one (an emoji picker): Back did that alone.
+        load(page(NAME_LINK, BOX_SHOWN))
+        eval("window.__astryxClosePopup = function () { return true; }; 1")
+        assertEquals("\"popup\"", back())
+        assertEquals("\"\"", pressed())
+    }
+
+    @Test
     fun anEncryptedChat_namedByAHeading_goesBackToTheChatList() {
         load(page(NAME_HEADING, BOX_SHOWN))
         assertEquals("\"chat\"", back())
