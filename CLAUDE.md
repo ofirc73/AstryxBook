@@ -464,7 +464,12 @@ user-visible change.
   width is the start's share), which only real input moves: finger drags (`dragPage`, held still before lifting,
   or it flings), then the bar's Pause and Play, from which Facebook plays the start it took (a script's
   scroll is put back, script-made mouse events are ignored, and a real mouse release, the only other
-  way, needs button events Android apps can't make). Share then only presses (`pressOnly`).
+  way, needs button events Android apps can't make); its start is read from the strip, never from
+  where the replayed preview plays (early by the audio's load time). A story of one photo: Share then
+  only presses (`pressOnly`). A story of several (each photo its own story): a song per photo
+  (`NativeShare.musics`), the editor loaded again for the photo on screen; on Share `share_media.js`
+  asks for each story's song (`storySong`, AstryxShare `song`) and `StoryMusic.apply` puts it in
+  (For you, else a search by title; chosen; its start; Done) before that story's Share.
   Feed, group and profile picture: a mobile button's click on its hidden file input is answered with
   the files. A Feed share with Home showing opens the composer from Home's box instead of loading
   `/composer/` (which has the server draw Home's whole feed first: 9 s at 1 Mbps): the app taps the

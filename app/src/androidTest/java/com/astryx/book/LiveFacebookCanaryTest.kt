@@ -26,6 +26,7 @@ import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.StoryBackgrounds
 import com.astryx.book.utils.StoryTextLayer
 import com.astryx.book.utils.StoryMusic
+import com.astryx.book.ui.screens.MusicChoice
 import com.astryx.book.ui.screens.NativeShare
 import com.astryx.book.ui.screens.shareMediaScript
 import com.astryx.book.utils.jsBridge.HomeComposer
@@ -44,6 +45,7 @@ import org.junit.Before
 import org.junit.Test
 import org.json.JSONObject
 import org.junit.runner.RunWith
+import kotlin.math.abs
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
@@ -554,10 +556,10 @@ class LiveFacebookCanaryTest {
     // (ShareMediaQueue.noPress, made sure of in the page's script before Share: the checks never post).
     // [prepare] runs on the test thread first (steps that wait on the page, the music picker's).
     private fun shareFromTheShareScreen(
-        alias: String, width: Int = 64, height: Int = 64, prepare: (NativeShare) -> Unit = {}, change: (NativeShare) -> Unit,
+        alias: String, width: Int = 64, height: Int = 64, count: Int = 1, prepare: (NativeShare) -> Unit = {}, change: (NativeShare) -> Unit,
     ) {
         ShareMediaQueue.noPress = true
-        sharePictures(alias, 1, width, height, edit = false)
+        sharePictures(alias, count, width, height, edit = false)
         val shared = app.nativeShare()
         prepare(shared)
         assertTrue("the share's script would press Facebook's Share (ShareMediaQueue.noPress)",
@@ -1200,7 +1202,7 @@ class LiveFacebookCanaryTest {
     @Test
     fun aStorysMusic_fromTheShareScreen_worksFacebooksMusicPanel() {
         shareFromTheShareScreen("ShareToStory", 720, 1280, prepare = { shared ->
-            app.onActivity { it.nativeShare.onMusic() }
+            app.onActivity { it.nativeShare.onMusic(0) }
             assertTrue({ "Facebook's music panel never opened for the photo (story_music.js open: the Add music tool, " +
                 "usable once the editor shows the story; ${app.layerWebView()?.let { app.eval(STORY_MUSIC_STATE_JS, it) }})" },
                 app.waitFor(90_000) { shared.musicReady == true })
@@ -1233,20 +1235,66 @@ class LiveFacebookCanaryTest {
             assertTrue({ "Facebook didn't take the clip's start (StoryMusic.setStart: finger drags on its strip, then its " +
                 "preview played again; ${shared.music})" }, app.waitFor(60_000) { (shared.music?.startMs ?: 0) > 0 })
             app.onActivity { it.nativeShare.onMusicClosed() }
-            val layer = app.layerWebView()!!
-            assertTrue({ "the song wasn't kept (Facebook's Add music still usable after Done; ${app.eval(STORY_MUSIC_STATE_JS, layer)})" },
-                app.waitFor(15_000) {
-                    app.eval("[].some.call(document.querySelectorAll('[data-astryx-story=tool]'), function (t) {" +
-                        " return /music/i.test(t.innerText) && t.getAttribute('tabindex') === '-1'; })", layer) == "true"
-                })
-            // The song's sticker on the story, hidden (the song kept), as for a song added in Facebook's editor.
-            assertTrue({ "the song's sticker is on the story (story_layout.js musicSticker: a button over the photo with " +
-                "its title and art; ${app.eval(shownJs("[data-astryx-story=main] [role=button]") + ".length", layer)} buttons on it)" },
-                app.waitFor(15_000) {
-                    app.eval("(function (s) { return !!s && getComputedStyle(s).visibility === 'hidden'; })" +
-                        "(document.querySelector('[data-astryx-story-music-hidden]'))", layer) == "true"
-                })
+            assertSongKept()
         }) { }
+        assertShareToStoryFound()
+    }
+
+    // A story of two photos, the first with a song (♪: a search's first, its start moved): on Share
+    // (nothing pressed), Facebook's editor loaded anew for the first story asks for its song
+    // (share_media.js storySong) and the app puts it in there (StoryMusic.apply: the song found by its
+    // title, chosen, its start, Done), then Share to story is found. Each photo of several is its own
+    // story, so each one's song goes in as its turn comes; the second one's turn needs the first posted.
+    @Test
+    fun aStoryOfSeveralPhotos_getsAPhotosSong_inItsOwnStory() {
+        var applied = 0
+        var chosen: MusicChoice? = null
+        shareFromTheShareScreen("ShareToStory", 720, 1280, count = 2, prepare = { shared ->
+            app.onActivity { it.nativeShare.onMusic(0) }
+            assertTrue({ "Facebook's music panel never opened for the first photo (${app.layerWebView()?.let { app.eval(STORY_MUSIC_STATE_JS, it) }})" },
+                app.waitFor(90_000) { shared.musicReady == true })
+            app.onActivity { it.nativeShare.onSearch("love") }
+            assertTrue("a search found no songs", app.waitFor(30_000) { (StoryMusic.songs("love")?.size ?: 0) > 0 })
+            val song = StoryMusic.songs("love")!!.first()
+            app.onActivity { it.nativeShare.onChoose(song) }
+            assertTrue("the song wasn't chosen in Facebook's panel", app.waitFor(30_000) { shared.music?.song == song && shared.music?.startMs != null })
+            app.onActivity { it.nativeShare.onStart(song.durationMs / 3) }
+            assertTrue({ "Facebook didn't take the clip's start (${shared.music})" }, app.waitFor(60_000) { (shared.music?.startMs ?: 0) > 0 })
+            app.onActivity { it.nativeShare.onMusicClosed() }
+            assertTrue("the song isn't the first photo's alone (${shared.musics.toList()})", shared.musics[0]?.song == song && shared.musics[1] == null)
+            applied = StoryMusic.applied
+            chosen = shared.musics[0]
+        }) { }
+        assertTrue({ "the first story's song was never put into its editor (share_media.js storySong, StoryMusic.apply; " +
+            "${app.layerWebView()?.let { app.eval(STORY_MUSIC_STATE_JS, it) }})" }, app.waitFor(120_000) { StoryMusic.applied > applied })
+        // At the start chosen (in a fresh editor the first drag on its clip strip was once ignored, and
+        // the song went in at 0:00).
+        val put = StoryMusic.lastApplied
+        assertTrue("the song went in at ${put?.startMs} ms, not the ${chosen?.startMs} ms chosen (StoryMusic.setStart)",
+            put?.song == chosen?.song && abs((put?.startMs ?: -1) - (chosen?.startMs ?: 0)) <= 2_000)
+        assertSongKept()
+        assertShareToStoryFound()
+    }
+
+    // The song chosen kept in Facebook's editor (its Add music greyed out after Done), its sticker
+    // hidden on the story (story_layout.js: so it's off the posted story too), as for a song added there.
+    private fun assertSongKept() {
+        val layer = app.layerWebView()!!
+        assertTrue({ "the song wasn't kept (Facebook's Add music still usable after Done; ${app.eval(STORY_MUSIC_STATE_JS, layer)})" },
+            app.waitFor(15_000) {
+                app.eval("[].some.call(document.querySelectorAll('[data-astryx-story=tool]'), function (t) {" +
+                    " return /music/i.test(t.innerText) && t.getAttribute('tabindex') === '-1'; })", layer) == "true"
+            })
+        assertTrue({ "the song's sticker is on the story (story_layout.js musicSticker: a button over the photo with " +
+            "its title and art; ${app.eval(shownJs("[data-astryx-story=main] [role=button]") + ".length", layer)} buttons on it)" },
+            app.waitFor(15_000) {
+                app.eval("(function (s) { return !!s && getComputedStyle(s).visibility === 'hidden'; })" +
+                    "(document.querySelector('[data-astryx-story-music-hidden]'))", layer) == "true"
+            })
+    }
+
+    // share_media.js found Facebook's Share to story ready (and, the check's way, pressed nothing).
+    private fun assertShareToStoryFound() {
         assertTrue({ "share_media.js never found Share to story ready after the music (pressStory; " +
             "${app.layerWebView()?.let { app.eval(STORY_LAYOUT_JS, it) + " share run " + app.eval("window.__astryxShareRunning", it) +
                 " dialogs " + app.eval("JSON.stringify(${shownJs("[role=dialog]")}.map(function (d) {" +

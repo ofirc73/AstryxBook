@@ -18,6 +18,10 @@ import com.astryx.book.utils.ShareTarget
 import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.endShare
 import com.astryx.book.utils.isFacebookWebUrl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
@@ -29,6 +33,10 @@ import com.eepiemi.materialbook.utils.jsBridge.FACEBOOK_PAGE_ORIGINS
 const val SHARE_LISTENER_NAME = "AstryxShare"
 
 private val reader = Executors.newSingleThreadExecutor()
+
+// A story's song being put into Facebook's editor (StoryMusic.apply), on the main thread, as long as
+// it takes: not tied to an activity (one created again goes on with the share).
+private val songs = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
 /**
  * Feed shares from Home since the app started: taps on Home's composer box, and the composer's loads
@@ -50,7 +58,9 @@ internal object HomeComposer {
  * a feed share's files wait, {call: "tap", x, y, width} (a real tap on Home's composer box, at a
  * point of the visual viewport, [width] CSS px wide; on an auto share, on the composer's Post too),
  * {call: "openComposer", reason} (loads the composer, where Home's box couldn't open it) and, on
- * an auto share, {call: "focus"} (the WebView focused, for the post's text to be typed in).
+ * an auto share, {call: "focus"} (the WebView focused, for the post's text to be typed in). A story
+ * of an auto share asks {call: "song", name} for its photo's song: put into Facebook's editor, then
+ * answered {song: "ok"} or {song: "failed"}.
  */
 fun installShareMediaBridge(webView: WebView, context: Context) {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
@@ -73,6 +83,15 @@ fun installShareMediaBridge(webView: WebView, context: Context) {
             "finished" -> finishIfDone(context, target)
             // The songs Facebook's music panel got (story_music.js), for the native music picker.
             "music" -> msg.optJSONArray("songs")?.let { StoryMusic.onSongs(msg.optString("query"), it) }
+            "song" -> {
+                val name = msg.optString("name")
+                val song = ShareMediaQueue.songs[name]
+                songs.launch {
+                    val ok = target == ShareTarget.STORY && ShareMediaQueue.auto && song != null && StoryMusic.apply(song)
+                    Log.i("Astryxbook", "Share: ${name}'s song ${if (ok) "put in" else "not put in"}")
+                    reply.postMessage(if (ok) "{\"song\":\"ok\"}" else "{\"song\":\"failed\"}")
+                }
+            }
             // Home's composer box while the files wait, or the composer's Post once they're in
             // (an auto share: the user pressed Share on the native share screen).
             "tap" -> if (target == ShareTarget.FEED && (ShareMediaQueue.pending(target) || ShareMediaQueue.auto)) {

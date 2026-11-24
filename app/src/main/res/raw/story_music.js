@@ -17,12 +17,12 @@
 //   app drags it (strip() says where it is). The strip is the whole song (its scroll over its
 //   scrollWidth is the start's share of the song's length). Facebook keeps the start from the
 //   scroll, but plays it again from there only on a real mouse button's release: replay() presses
-//   the bar's Pause and Play instead, and position() then reads where the preview plays, the start
-//   Facebook took. The preview plays the clip (15 s) over and over. The bar's Done keeps the song.
+//   the bar's Pause and Play instead. The preview plays the clip (15 s) over and over. The bar's
+//   Done keeps the song.
 // - What plays (playback(), read by the picker to show it): a row's preview (an Audio outside the page)
 //   or the chosen song's clip (the page's <audio>); toggle() is the bar's Pause or Play.
 // The app calls window.__astryxStoryMusic: open(), search(text), play(id), choose(id), strip(),
-// replay(), position(), playback(), toggle(), done(); each returns at once, and its result shows in
+// replay(), playback(), toggle(), done(); each returns at once, and its result shows in
 // state(). ES5, like the PiP scripts.
 (function () {
   if (window.__astryxStoryMusic) return;
@@ -30,7 +30,6 @@
   var songs = {}; // by id
   var lists = {}; // the ids each query gave, in order ('' : For you)
   var lastQuery = '';
-  var playedAt = 0; // when replay() pressed Play
 
   function inCreator() { return location.pathname.indexOf('/stories/create') === 0; }
 
@@ -222,21 +221,13 @@
     replay: function () {
       var pause = barButton('Pause');
       if (pause) pause.click();
-      playedAt = 0;
       var tries = 0;
       (function play() {
         var button = barButton('Play');
-        if (button) { button.click(); playedAt = Date.now(); return; }
+        if (button) { button.click(); return; }
         if (++tries < 20) setTimeout(play, 100);
       })();
       return 'ok';
-    },
-    // Where the chosen song's clip starts, in ms: where its preview plays, less the time since
-    // replay() played it (-1 before it has).
-    position: function () {
-      var sound = audio();
-      if (!sound || !playedAt || sound.paused) return -1;
-      return Math.max(0, Math.round(sound.currentTime * 1000 - (Date.now() - playedAt)));
     },
     // What plays: the song whose row previews ('' for none, as while one is chosen), where its
     // audio is (ms, -1 without one) and whether it's paused.

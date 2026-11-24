@@ -2481,3 +2481,37 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   by a real tap, checks it stays wholly on the screen, and that Back closes it and keeps the chat.
   The reaction's "+" has no live check of its own: its bar needs a message hovered (checked by hand
   on the emulator, 2026-11-24).
+
+## Share screen: a song for each photo of a story
+
+- **Every photo of a story shared from another app can have its own song** (the user's choice,
+  2026-11-24; v1.50.1 offered ♪ only for a story of one photo). Each photo is its own story, so ♪ and
+  the song's chip work on the photo on screen; the picker is the same (Facebook's songs, previews,
+  the clip's start). On Share, as each photo's story comes up in Facebook's editor, the app puts its
+  song in there (found in Facebook's For you list, else searched for by its title, chosen, its clip
+  moved to the start chosen, Done), then presses Share to story as before. A song that can't be put
+  in stops the share before that story posts: the screen says it failed, and Edit in Facebook shows
+  the editor to finish it there. A story of one photo works as before (its editor holds the song
+  from the picker on, and Share only presses). Texts on a story of several photos stay editable
+  after a song is chosen: each story's photo is drawn again on Share.
+- How (`StoryMusic.apply`, `share_media.js` `storySong`, `ShareMediaQueue.songs`): the picker loads
+  the photo on screen into Facebook's editor under the share screen (loaded again for another photo,
+  whose song, if it has one, is put in again); on Share the editor is loaded anew for the first story,
+  and `share_media.js` asks the app for each photo's song (AstryxShare `song`, answered `ok` or
+  `failed`) before its alternative text and Share. The app stays on screen meanwhile, as it already
+  did until every story was posting, so the editor can take the focus and the clip's finger drags.
+- The clip's start is now read from Facebook's clip strip itself (its scroll's share of the song),
+  not from where its preview played after a replay: that came out early by as long as the audio took
+  to load (seconds on the emulator), and a song put in again by it moved. Drags on the strip that
+  move nothing end the move only three in a row: in an editor where the song was just chosen, the
+  first drag was once ignored and the song went in at 0:00.
+- Testing: `StoryMusicTest` (a song in For you chosen there at its start and kept, one not there
+  searched for by its title, a first drag the strip ignores made again); `ShareMediaJsTest` (each
+  photo's song asked for before its own Share, only for photos with one; one that doesn't go in fails
+  the share unshared); `StoryMusicJsTest` (the strip's width); `ShareIntoFacebookTest` (♪ on the
+  second photo, then the first: the editor loaded again for it; Share hands the second photo's song
+  along by its name, not pressing only). Live: `aStoryOfSeveralPhotos_getsAPhotosSong_inItsOwnStory`
+  (two photos, a song chosen for the first on Facebook's real editor; on Share, nothing pressed, the
+  editor loaded anew for the first story gets it, at the start chosen, kept with its sticker hidden,
+  and Share to story is found). The second story's song needs the first posted, which the checks
+  never do.

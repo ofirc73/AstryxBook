@@ -16,6 +16,9 @@ import kotlin.math.abs
 /** A song Facebook's music panel offers (story_music.js reads it from the panel's own answers). */
 data class Song(val id: String, val title: String, val artist: String, val cover: String, val durationMs: Long)
 
+/** A photo's song for its story, and where its clip starts (ms), as chosen on the share screen. */
+data class SongStart(val song: Song, val startMs: Long)
+
 /**
  * What Facebook's music panel plays: the song whose preview plays in its list ([songId]; null for
  * none, as while a song is chosen), and where the page's audio is ([ms]; -1 without one).
@@ -157,21 +160,26 @@ object StoryMusic {
      * bar starts the clip at the scroll of its waveform strip, which only real input moves (scrolled
      * by a script it's put back), so it's dragged by finger until it's there (to the left for a later
      * start). Facebook keeps the start from the scroll and plays it from there once its preview is
-     * played again (replay); where that plays is the start it took, returned in ms. Null when the
-     * strip couldn't be found or never got there. Logged (`Music start:`) for a phone where it doesn't move.
+     * played again (replay); the start it took is the scroll's share of the song, returned in ms (read
+     * from where the preview then played, it came out early by as long as the audio took to load,
+     * seconds on the emulator, and a song put in again by it moved). Drags that move nothing end it
+     * only [START_STILL] in a row: one shorter than a finger's slop never moves it, but in an editor
+     * where the song was just chosen the first drag didn't either (the emulator, 2026-11-24). Null when
+     * the strip couldn't be found or never got there. Logged (`Music start:`) for a phone where it doesn't move.
      */
     suspend fun setStart(startMs: Long, durationMs: Long): Long? {
         var last = Double.NaN
+        var still = 0
         repeat(START_DRAGS) { drags ->
             val strip = strip() ?: return null.also { Log.d(TAG, "Music start: no clip strip") }
             val target = (startMs.toDouble() / durationMs.coerceAtLeast(1) * strip.total).coerceIn(0.0, strip.range)
             val off = target - strip.scroll
-            // Close enough, or the last drag moved nothing (one shorter than a finger's slop).
-            if (abs(off) < START_CLOSE_PX || strip.scroll == last) {
+            // Close enough, or the last drags moved nothing.
+            still = if (strip.scroll == last) still + 1 else 0
+            if (abs(off) < START_CLOSE_PX || still >= START_STILL) {
                 Log.d(TAG, "Music start: ${strip.scroll.toInt()} of ${strip.range.toInt()} px for ${target.toInt()}, after $drags drags")
                 call("replay")
-                delay(REPLAY_MS)
-                return callJson("position")?.toLongOrNull()?.takeIf { it >= 0 } ?: strip.startMs(durationMs)
+                return strip.startMs(durationMs)
             }
             // From one end of the strip as far as the page goes the other way (a finger dragging the
             // strip may leave it): to the left for a later start, to the right for an earlier one.
@@ -188,6 +196,51 @@ object StoryMusic {
         return null
     }
 
+    /**
+     * Puts [choice] into the story in Facebook's editor now (a story of several photos: each photo's
+     * song as its turn comes, share_media.js asking for it; or the picker opened again for a photo
+     * that has one): the music panel opened, the song found (in its For you list, else searched for
+     * by its title, then title and artist), chosen, its clip moved to the start chosen when Facebook
+     * put it elsewhere, and kept (Done). False when the panel or the song couldn't be found; a start
+     * that couldn't be moved leaves Facebook's (logged).
+     */
+    suspend fun apply(choice: SongStart): Boolean {
+        val song = choice.song
+        if (!open()) return false.also { Log.d(TAG, "Music: the panel didn't open for ${song.id}") }
+        if (!pageHas("", song.id)) {
+            val found = listOf(song.title, "${song.title} ${song.artist}").any { query ->
+                search(query)
+                withTimeoutOrNull(SEARCH_MS) {
+                    while (!pageHas(query, song.id)) delay(ROW_RETRY_MS)
+                    true
+                } == true
+            }
+            if (!found) return false.also { Log.d(TAG, "Music: ${song.id} not found by its title") }
+        }
+        if (!choose(song.id)) return false.also { Log.d(TAG, "Music: ${song.id} couldn't be chosen") }
+        val at = start(song.durationMs)
+        val taken = if (at != null && abs(at - choice.startMs) > START_SLACK_MS) setStart(choice.startMs, song.durationMs) ?: at else at
+        if (taken == null || abs(taken - choice.startMs) > START_SLACK_MS) Log.d(TAG, "Music: ${song.id} starts at $taken ms, not ${choice.startMs}")
+        done()
+        lastApplied = SongStart(song, taken ?: -1)
+        applied++
+        return true
+    }
+
+    /** How many songs [apply] put in, for the process, and the last one with its start (the live checks read them). */
+    @Volatile
+    var applied = 0
+        private set
+    @Volatile
+    var lastApplied: SongStart? = null
+        private set
+
+    // Whether the page has [id] among the songs Facebook's panel gave for [query] (its own list: a
+    // page loaded anew starts without the app's).
+    private suspend fun pageHas(query: String, id: String): Boolean =
+        callJson("songs", query)?.let { json -> runCatching { JSONArray(json) }.getOrNull() }
+            ?.let { songs -> (0 until songs.length()).any { songs.optJSONObject(it)?.optString("id") == id } } == true
+
     /** How long a story's clip of a song plays (Facebook's preview plays it over and over; read 2026-11-18). */
     const val CLIP_MS = 15_000L
 
@@ -202,8 +255,11 @@ object StoryMusic {
     private const val START_DRAGS = 30
     private const val EDGE_PX = 4.0
     private const val START_CLOSE_PX = 12.0
+    private const val START_STILL = 3
     private const val START_SETTLE_MS = 500L
-    // How long after the replay its start is read (story_music.js position()).
-    private const val REPLAY_MS = 1_200L
+    // How long a search's songs are waited for (apply), and how far Facebook's start may be from the
+    // one chosen before the clip is moved.
+    private const val SEARCH_MS = 20_000L
+    private const val START_SLACK_MS = 1_500L
     private const val TAG = "Astryxbook"
 }
