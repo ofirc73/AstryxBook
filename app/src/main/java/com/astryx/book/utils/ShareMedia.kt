@@ -190,6 +190,15 @@ object ShareMediaQueue {
         private set
 
     /**
+     * A story's photos' songs from the native share screen, by the name the page gets each file
+     * under: share_media.js asks for each as its story comes (storySong), and the app puts it into
+     * Facebook's editor (StoryMusic.apply).
+     */
+    @get:Synchronized
+    var songs: Map<String, SongStart> = emptyMap()
+        private set
+
+    /**
      * A story already in Facebook's editor (the native music picker gave it, by this name): the auto
      * share only presses Share to story (share_media.js, window.__astryxSharePressOnly).
      */
@@ -227,6 +236,7 @@ object ShareMediaQueue {
         aiLabel: Boolean = false,
         pressOnly: String? = null,
         keepFiles: Boolean = false,
+        songs: Map<String, SongStart> = emptyMap(),
     ) {
         target = newTarget
         files = newFiles
@@ -239,6 +249,7 @@ object ShareMediaQueue {
         this.aiLabel = aiLabel
         this.pressOnly = pressOnly
         this.keepFiles = keepFiles
+        this.songs = songs
         id++
         version++
     }
@@ -310,6 +321,7 @@ object ShareMediaQueue {
         aiLabel = false
         pressOnly = null
         keepFiles = false
+        songs = emptyMap()
         version++
     }
 }

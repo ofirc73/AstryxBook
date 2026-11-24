@@ -311,6 +311,30 @@ class ShareMediaJsTest {
         assertEquals("0", h.eval("window.__shared"))
     }
 
+    // A story of several photos with a song on some (the native share screen's ♪): each one's song is
+    // asked of the app as its story comes, before its Share, and only for the photos with one.
+    @Test
+    fun story_anAutoShare_hasEachPhotosSongPutIn_beforeItsShare() {
+        val h = autoStory()
+        h.files(Triple("0_a.jpg", "image/jpeg", 4), Triple("1_b.jpg", "image/jpeg", 6))
+        h.run("story", "$AUTO window.__astryxShareSongs = {'1_b.jpg': '7'};")
+        assertTrue({ "Share to story was never pressed twice (${h.calls()})" }, h.waitFor("window.__shared === 2", 15_000))
+        assertEquals("the second photo's song wasn't asked for once, before its own Share", "\"1_b.jpg@1\"",
+            h.eval("(window.__songsAsked || []).join()"))
+    }
+
+    // A song the app couldn't put in: the share fails rather than posting the story without it.
+    @Test
+    fun story_anAutoShare_whoseSongDoesntGoIn_failsWithoutSharing() {
+        val h = autoStory()
+        h.eval("window.__songAnswer = 'failed'; 1")
+        h.files(Triple("0_a.jpg", "image/jpeg", 4))
+        h.run("story", "$AUTO window.__astryxShareSongs = {'0_a.jpg': '7'};")
+        assertTrue({ "the share didn't fail (${h.calls()})" }, h.waitFor("window.__calls.indexOf('failed:story:noSong') >= 0", 8000))
+        Thread.sleep(1000)
+        assertEquals("0", h.eval("window.__shared"))
+    }
+
     // The live check's way (window.__astryxShareNoPress): the button found, nothing pressed.
     @Test
     fun story_anAutoShare_withNoPress_findsShareToStory_andPressesNothing() {
@@ -544,6 +568,13 @@ class ShareMediaJsTest {
               // The app's tap lands on what's at that point of the screen (no zoom here).
               if (m.call === 'tap') { var hit = document.elementFromPoint(m.x, m.y); if (hit) hit.click(); }
               setTimeout(function () {
+                // A photo's song: the app's answer (window.__songAnswer, else ok); which story's it was
+                // (the stories shared before it) kept.
+                if (m.call === 'song') {
+                  window.__songsAsked = (window.__songsAsked || []).concat([m.name + '@' + window.__shared]);
+                  self.onmessage({ data: JSON.stringify({ song: window.__songAnswer || 'ok' }) });
+                  return;
+                }
                 if (m.call !== 'all' && m.call !== 'next') return;
                 var files = m.call === 'all' ? window.__files.splice(0) : window.__files.splice(0, 1);
                 if (!files.length) { self.onmessage({ data: '{"done":true}' }); return; }

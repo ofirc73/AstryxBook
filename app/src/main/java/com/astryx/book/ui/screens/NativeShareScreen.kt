@@ -50,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -109,16 +110,27 @@ class NativeShare(val target: ShareTarget, val files: List<SharedFile>) {
     var aiLabel by mutableStateOf(false)
 
     /**
-     * The music picker's side: the photo given to Facebook's editor for it (its name there; its
-     * texts can't change after, short of removing the music), whether Facebook's music panel is open
-     * for it ([musicReady]; false while it opens, or when it couldn't), and the song chosen.
+     * The music picker's side: the photo given to Facebook's editor for it (its name there, [staged],
+     * and its page, [stagedPage]), whether Facebook's music panel is open for it ([musicReady]; false
+     * while it opens, or when it couldn't), and each photo's song ([musics], by page; the picker's,
+     * [music], is [musicPage]'s). A story of one photo is that editor's story: its texts can't change
+     * after, short of removing the music, and Share only presses there. With several photos the editor
+     * is only the picker's: each photo's song goes into its own story as its turn comes (StoryMusic.apply).
      */
     var staged by mutableStateOf<String?>(null)
+    var stagedPage by mutableStateOf<Int?>(null)
     var musicReady by mutableStateOf<Boolean?>(null)
-    var music by mutableStateOf<MusicChoice?>(null)
+    val musics = mutableStateListOf<MusicChoice?>().apply { repeat(files.size) { add(null) } }
+    var musicPage by mutableIntStateOf(0)
+    var music: MusicChoice?
+        get() = musics.getOrNull(musicPage)
+        set(value) { if (musicPage in musics.indices) musics[musicPage] = value }
 
-    /** Whether the music picker is offered: a story of one photo. */
-    val musicTool: Boolean get() = target == ShareTarget.STORY && files.size == 1 && files[0].isPhoto()
+    /** Whether the music picker is offered: a story (on its photos). */
+    val musicTool: Boolean get() = target == ShareTarget.STORY
+
+    /** A story of one photo: the music picker's editor holds the story itself ([staged]). */
+    val single: Boolean get() = files.size == 1
     var caption by mutableStateOf("")
     var phase by mutableStateOf(Phase.EDITING)
 
@@ -153,7 +165,7 @@ fun NativeShareScreen(
     onEditInFacebook: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
-    onMusic: () -> Unit = {},
+    onMusic: (page: Int) -> Unit = {},
     music: MusicActions? = null,
 ) {
     val pager = rememberPagerState { share.files.size }
@@ -164,8 +176,8 @@ fun NativeShareScreen(
     var altEditing by remember { mutableStateOf<Int?>(null) }
     // The music picker on screen.
     var picker by remember { mutableStateOf(false) }
-    // The photo is in Facebook's editor (the music picker gave it): its texts can't change now.
-    val textsFixed = share.staged != null
+    // A story of one photo in Facebook's editor (the music picker gave it): its texts can't change now.
+    val textsFixed = share.single && share.staged != null
     val busy = share.phase != NativeShare.Phase.EDITING
 
     BackHandler {
@@ -207,8 +219,12 @@ fun NativeShareScreen(
                     Text(stringResource(R.string.native_share_edit_in_facebook), color = Color.White)
                 }
             }
-            share.music?.let { choice ->
-                MusicChip(choice, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 6.dp).clickable(enabled = !busy) { picker = true })
+            // The photo on screen's song (its chip opens the picker on it).
+            share.musics.getOrNull(pager.currentPage)?.let { choice ->
+                MusicChip(choice, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 6.dp).clickable(enabled = !busy) {
+                    onMusic(pager.currentPage)
+                    picker = true
+                })
             }
             HorizontalPager(
                 state = pager,
@@ -284,17 +300,18 @@ fun NativeShareScreen(
                         )
                     }
                     if (share.musicTool && music != null) {
+                        val hasSong = share.musics.getOrNull(pager.currentPage) != null
                         IconButton(
-                            onClick = { onMusic(); picker = true },
+                            onClick = { onMusic(pager.currentPage); picker = true },
                             enabled = !busy,
                             modifier = Modifier.padding(start = 8.dp)
-                                .background(if (share.music != null) Color.White else Color.White.copy(alpha = 0.15f), CircleShape)
+                                .background(if (hasSong) Color.White else Color.White.copy(alpha = 0.15f), CircleShape)
                                 .testTag("nativeShareMusic"),
                         ) {
                             Icon(
                                 Icons.Filled.MusicNote,
                                 contentDescription = stringResource(R.string.native_share_music),
-                                tint = if (share.music != null) Color.Black else Color.White,
+                                tint = if (hasSong) Color.Black else Color.White,
                             )
                         }
                     }
@@ -597,11 +614,16 @@ private fun TextEditor(initial: StoryTextLayer, onDone: (StoryTextLayer) -> Unit
  * the copy, which goes), the others as they are; null when a photo couldn't be drawn. Off the main
  * thread.
  */
-internal fun renderedFiles(share: NativeShare): List<SharedFile>? = share.files.mapIndexed { index, file ->
+internal fun renderedFiles(share: NativeShare): List<SharedFile>? =
+    share.files.indices.map { index -> renderedFile(share, index) ?: return null }
+
+/** [renderedFiles]' file for page [index] alone (the music picker's photo). */
+internal fun renderedFile(share: NativeShare, index: Int): SharedFile? {
+    val file = share.files[index]
     val texts = share.texts.getOrNull(index).orEmpty().filter { it.text.isNotBlank() }
-    if (texts.isEmpty() || !file.isPhoto()) return@mapIndexed file
+    if (texts.isEmpty() || !file.isPhoto()) return file
     val name = file.name.substringBeforeLast('.') + "_text.jpg"
     val out = File(file.file.parentFile, name)
     if (!StoryText.render(file.file, texts, out)) return null
-    SharedFile(out, name, "image/jpeg")
+    return SharedFile(out, name, "image/jpeg")
 }

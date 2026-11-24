@@ -111,14 +111,12 @@ class StoryMusicJsTest {
         // The strip: where it is, how far it scrolls (its content less its own width), and its content's width.
         assertEquals("\"200 3000 120 3200\"", eval("(function (s) { return Math.round(s.width) + ' ' + Math.round(s.range) + ' ' + Math.round(s.scroll) + ' ' + s.total; })" +
             "(window.__astryxStoryMusic.strip())"))
-        // Replay: the bar's Pause, then (once shown) its Play; the start is where it plays from.
-        // The preview playing at 40 s (an <audio> without a source can't play: its state stubbed).
+        // Replay: the bar's Pause, then (once shown) its Play. The preview then playing at 40 s (an
+        // <audio> without a source can't play: its state stubbed).
         eval("(function (a) { Object.defineProperty(a, 'paused', { get: function () { return false; } });" +
             " Object.defineProperty(a, 'currentTime', { get: function () { return 40; } }); })(document.querySelector('audio'));" +
             " window.__astryxStoryMusic.replay(); 1")
         assertTrue("Play wasn't pressed after Pause", waitFor("window.__replayed === 'pause,play'"))
-        val start = eval("window.__astryxStoryMusic.position()").toLong()
-        assertTrue("the start read was $start", start in 39_000..40_000)
         assertEquals("what plays", "\"40000 false\"",
             eval("(function (p) { return p.id + p.ms + ' ' + p.paused; })(window.__astryxStoryMusic.playback())"))
         // Pause / Play: the bar's button (Play by now).

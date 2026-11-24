@@ -22,8 +22,9 @@
 //   gets the shared video.
 // An auto share (window.__astryxShareAuto: the user pressed Share on the app's native share
 // screen, which drew any text onto the photos) goes on to post, the user's own press done for
-// them: a story's Share to story once its editor is ready (its alternative text and AI label put in
-// first, storyExtras; also before the user's own edits in Facebook's editor), a feed post's text
+// them: a story's Share to story once its editor is ready (its song, storySong, then its alternative
+// text and AI label put in first, storyExtras; also before the user's own edits in Facebook's
+// editor), a feed post's text
 // (window.__astryxShareCaption) typed and its Post tapped. Never without that.
 // ES5 on purpose, like the PiP scripts.
 (function () {
@@ -632,12 +633,30 @@
             closeWhenDone();
           }
         };
-        storyExtras(name, function () {
-          if (!auto) { next(); return; }
-          // An auto share: Share to story, then (posted, the page back to the creator) the next file.
-          pressStoryShare(next);
+        storySong(name, function () {
+          storyExtras(name, function () {
+            if (!auto) { next(); return; }
+            // An auto share: Share to story, then (posted, the page back to the creator) the next file.
+            pressStoryShare(next);
+          });
         });
       });
+    });
+  }
+
+  // A photo's song from the native share screen (window.__astryxShareSongs, by the file's name; an
+  // auto share of several photos, each its own story): the app puts it into Facebook's editor
+  // (StoryMusic.apply: the music panel, the song found and chosen, its clip start, Done) and answers
+  // {song: "ok"} or {song: "failed"}. One that couldn't go in fails the share rather than posting
+  // the story without it: the user then finishes it in Facebook's editor.
+  function storySong(name, done) {
+    if (!auto || !(window.__astryxShareSongs || {})[name]) { done(); return; }
+    send({ call: 'song', name: name });
+    receive(function (text) {
+      var answer = {};
+      try { answer = JSON.parse(text); } catch (e) { /* not an answer */ }
+      if (answer.song === 'ok') done();
+      else send({ call: 'failed', reason: 'noSong' });
     });
   }
 

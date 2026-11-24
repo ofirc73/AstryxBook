@@ -68,6 +68,10 @@ internal fun shareMediaScript(
         // A story's alternative texts and AI label, put into Facebook's editor (storyExtras).
         (ShareMediaQueue.altTexts.takeIf { it.isNotEmpty() }?.let { "window.__astryxShareAltTexts = ${org.json.JSONObject(it)};\n" } ?: "") +
         (if (ShareMediaQueue.aiLabel) "window.__astryxShareAiLabel = true;\n" else "") +
+        // The photos with a song, by name (the app puts each in as its story comes: storySong).
+        (ShareMediaQueue.songs.takeIf { it.isNotEmpty() }?.let { songs ->
+            "window.__astryxShareSongs = ${org.json.JSONObject(songs.mapValues { it.value.song.id })};\n"
+        } ?: "") +
         // A story already in the editor (the music picker staged it): only its Share pressed.
         (ShareMediaQueue.pressOnly?.let { "window.__astryxSharePressOnly = ${org.json.JSONObject.quote(it)};\n" } ?: "") +
         "window.__astryxShareAdding = ${org.json.JSONObject.quote(adding)};\n$script"
