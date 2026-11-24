@@ -51,7 +51,7 @@ fun PostingBar(modifier: Modifier = Modifier) {
 // 2026-10-27), at times longer (still missing at 30 s on the phone, 2026-11-17). The stories page
 // has it at once.
 private const val STORIES_ROW_MS = 30_000L
-// While the row doesn't show it yet, Home is reloaded again this long after, up to STORIES_ROW_RELOADS
+// While the row doesn't show it yet (or Home isn't at its top), Home is looked at again this long after, up to STORIES_ROW_RELOADS
 // reloads in all (about two minutes); where the row's label for the user's story isn't known
 // (Facebook in a language other than English), up to STORIES_ROW_RELOADS_BLIND.
 private const val STORIES_ROW_RETRY_MS = 20_000L
@@ -81,7 +81,8 @@ private var refreshed: Posting.Posted? = null
  * later, so then Home, if it's at its top, is reloaded ([STORIES_ROW_JS], run by [onHome]: the main
  * view's page when it's Home, else null), and again while its row doesn't show the story. With the
  * app away then (the native share screen's Share sends it back to the app the share came from),
- * that waits until it's on screen again. Each once a story.
+ * that waits until it's on screen again; with Home not showing, or scrolled down, until it's at
+ * Home's top (looked at every [STORIES_ROW_RETRY_MS], within [STORIES_ROW_WINDOW_MS]). Each once a story.
  */
 @Composable
 fun PostedStoryEffects(snackbarHostState: SnackbarHostState, onView: () -> Unit, onHome: suspend (script: String) -> String?) {
@@ -109,7 +110,15 @@ fun PostedStoryEffects(snackbarHostState: SnackbarHostState, onView: () -> Unit,
         while (true) {
             lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
             if (System.currentTimeMillis() - posted.at > STORIES_ROW_WINDOW_MS) return@LaunchedEffect
-            val row = currentOnHome(STORIES_ROW_JS) ?: return@LaunchedEffect
+            // Not on Home, or Home scrolled down: looked at again a little later (the user may go to
+            // Home's top meanwhile). Ending there left the row without the story when the app came
+            // back elsewhere (v1.50.1, the user's report).
+            val row = currentOnHome(STORIES_ROW_JS)
+            Log.d("Astryxbook", "Posting: stories row ${row ?: "not on Home"}")
+            if (row == null || row.contains("away")) {
+                delay(STORIES_ROW_RETRY_MS)
+                continue
+            }
             if (!row.contains("reloaded") && !row.contains("blind")) return@LaunchedEffect
             reloads++
             Log.d("Astryxbook", "Posting: Home reloaded for the stories row ($reloads)")
