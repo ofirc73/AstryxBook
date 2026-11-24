@@ -2454,3 +2454,24 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   by the picker's Pause, its start moved and taken by Facebook, Done keeping it (Add music
   greyed out) with its sticker hidden on the story, and Share to story found, never pressed. A story with music hasn't been
   posted by the checks (they never post).
+
+## Messages layer: emoji pickers stay open
+
+- **A reaction's "+" shows the emoji picker again**, and so does the message box's emoji button (the
+  user's report, v1.50.1: "+" showed nothing). Facebook's desktop pickers focus their search box as
+  they open; on a phone that brings up the keyboard, and Facebook closed the picker at once (drawn,
+  then removed 0.3 s later, read on the emulator). The box a picker focuses by itself is now let go,
+  so the picker stays; a tap on the box still focuses it, and the keyboard then still closes the
+  picker (Facebook's; holding the page's resize events didn't keep it), so its search isn't usable:
+  pick from the grid. The message box's picker was also placed below the screen's bottom (Facebook
+  places it by an inline top for its desktop layout): a popup that runs off the screen is moved onto
+  it. Back closes an open popup first (Escape, as on the desktop site), then goes back as before;
+  one that stays after Escape is passed over, so Back never stops on it (`layer_popups.js`,
+  `messages_layer_nav.js`).
+- Testing: `LayerPopupsJsTest` (a box the popup focused let go, one tapped kept, a box outside a
+  popup kept, a popup below the screen moved onto it, Back's Escape and a popup that ignores it
+  passed over); `MessagesLayerBackJsTest` (Back reports "popup" and presses nothing else). Live:
+  `aChatsEmojiPicker_staysOpenOnTheScreen_andBackClosesIt` opens the test chat's message box picker
+  by a real tap, checks it stays wholly on the screen, and that Back closes it and keeps the chat.
+  The reaction's "+" has no live check of its own: its bar needs a message hovered (checked by hand
+  on the emulator, 2026-11-24).

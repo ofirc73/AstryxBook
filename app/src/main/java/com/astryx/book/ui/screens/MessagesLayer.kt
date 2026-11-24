@@ -235,14 +235,14 @@ fun MessagesLayer(
             return@BackHandler
         }
         // As the desktop site does at phone width (messages_layer_nav.js __astryxLayerBack): a
-        // photo closes, a chat goes back to the chat list (its own Back button), the chat list
+        // photo or an open popup closes, a chat goes back to the chat list (its own Back button), the chat list
         // closes the layer. Stepping back a page instead left the chat for "No chats selected"
         // (seen on a Galaxy A56). Anything else steps back a page.
         // Without an answer in time (askPageForBack) it steps back a page, as for "page": Back did
         // nothing while the layer's page was busy or its scripts hadn't run yet.
         askPageForBack(backScope, state, navigator, LAYER_BACK_JS) { done ->
             when (done) {
-                "photo", "chat" -> Unit
+                "photo", "popup", "chat" -> Unit
                 "list" -> currentOnClose()
                 else -> {
                     // Asked of the WebView itself: opening a conversation is an in-page
@@ -330,11 +330,13 @@ fun MessagesLayer(
     }
 
     // The desktop site's in-page navigation, for leaving to a section (see messagesLayerExit), each
-    // chat's unsent message kept (chat_box.js), and
+    // chat's unsent message kept (chat_box.js), its popups kept open past their search box's focus
+    // (layer_popups.js), and
     // its photo and stories viewers laid out for a phone (layer_photo_viewer.js, layer_story_viewer.js).
     LaunchedEffect(loadingState, pageStarts) {
         if (loadingState is LoadingState.Finished) {
-            val script = listOf(R.raw.messages_layer_nav, R.raw.chat_box, R.raw.layer_photo_viewer, R.raw.layer_story_viewer).joinToString("\n") { id ->
+            val script = listOf(R.raw.messages_layer_nav, R.raw.chat_box, R.raw.layer_popups, R.raw.layer_photo_viewer,
+                R.raw.layer_story_viewer).joinToString("\n") { id ->
                 resources.pageScript(id)
             }
             navigator.evaluateJavaScript(script) {}

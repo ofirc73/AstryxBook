@@ -202,7 +202,9 @@ user-visible change.
   in-page, so `messages_layer_nav.js` reports URL changes too). Each WebView is a separate
   DevTools target. The layer pinch-zooms (not in the creators) and runs the page scripts with
   `window.__astryxMessagesLayer` set (`pinch_to_zoom.js` leaves it zoomable); `layer_photo_viewer.js`
-  widens the desktop photo viewer's photo over its arrow columns, `layer_story_viewer.js` hides the
+  widens the desktop photo viewer's photo over its arrow columns, `layer_popups.js` keeps Facebook's
+  popups (emoji pickers) open: their own focus of a search box is let go (the keyboard's resize
+  closes them), one placed off the screen is moved onto it, and Back closes an open one by Escape, `layer_story_viewer.js` hides the
   stories viewer's Stories column and top bar at phone width. After Share to story the creator
   moves in-page to `www.facebook.com/stories`, which already has the new story (the feed's tray
   gets it ~30 s later): `open_own_story.js` opens the user's own card there (found by its Add to
