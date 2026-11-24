@@ -542,6 +542,13 @@ class ShareIntoFacebookTest {
     // three on the emulator, 2026-11-13); and on the main thread, not the activity's (the app may be away).
     private fun storyPostedOnHome(): () -> Boolean {
         app.start()
+        val reloaded = testHome()
+        storyPosted()
+        return reloaded
+    }
+
+    // Home as a test page (its own title); whether it has been reloaded since.
+    private fun testHome(): () -> Boolean {
         val testHome = "Test Home"
         app.loadPage("https://m.facebook.com/", PLAIN_PAGE.replace("<body>", "<head><title>$testHome</title></head><body>"), asHistory = true)
         val main = app.mainWebView()
@@ -551,11 +558,12 @@ class ShareIntoFacebookTest {
             title != testHome
         }
         assertFalse("the test page isn't showing", reloaded())
-        app.onActivity {
-            Posting.started(it, Posting.Kind.STORY)
-            Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
-        }
         return reloaded
+    }
+
+    private fun storyPosted() = app.onActivity {
+        Posting.started(it, Posting.Kind.STORY)
+        Posting.ended(it, Posting.Kind.STORY, Posting.Outcome.POSTED, notify = false)
     }
 
     // A story posted: the feed's stories row gets it some 30 s later, so Home, at its top, is
@@ -580,6 +588,19 @@ class ShareIntoFacebookTest {
         assertFalse("Home reloaded with the app away", reloaded())
         app.start()
         assertTrue("Home wasn't reloaded once the app was back", app.waitFor(15_000) { reloaded() })
+    }
+
+    // Posted with the main view elsewhere (the app came back on another page): Home is reloaded for
+    // the stories row once the user is there, at its top. Until v1.50.1 it never was: not on Home at
+    // the first look, it gave up (the user's report).
+    @Test
+    fun aStoryPostedWithTheMainViewElsewhere_reloadsHomeOnceTheUserIsThere() {
+        app.start()
+        app.loadPage("https://m.facebook.com/notifications/", PLAIN_PAGE, asHistory = true)
+        storyPosted()
+        Thread.sleep(35_000)
+        val reloaded = testHome()
+        assertTrue("Home wasn't reloaded once the user was there", app.waitFor(30_000) { reloaded() })
     }
 
     // "Your story is posted" shows once: not again when Android creates the activity again (font

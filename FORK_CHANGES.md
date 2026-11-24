@@ -2368,6 +2368,12 @@ From a hands-on pass through the app in light and dark mode on an emulator.
   (labelled "View your story", read on the emulator 2026-11-17 with a test story seen by nobody,
   deleted right after). With Facebook in another language that label is unknown: two reloads.
   Home scrolled down is never reloaded.
+- **Still missing on the phone with v1.50.1** (2026-11-24): the first look at Home, 30 s after the
+  story, ended everything when the app wasn't on Home then, or Home was scrolled down (as when the
+  app comes back on another page after the share). Now it looks again every 20 s, within the same
+  15 minutes, until Home is at its top, and logs each look (`Posting: stories row …` under
+  `Astryxbook`: `shown`, `reloaded`, `blind`, `away` or `not on Home`), for a phone where the row
+  still lacks the story.
 - Also found then: tapping that card in the row, or the app's View on "Your story is posted", opened
   National Geographic's story, the next one in the row; only Facebook's desktop Stories list opened
   the test story. The app doesn't touch a tap on a story card, so it looks like Facebook's viewer
@@ -2377,7 +2383,7 @@ From a hands-on pass through the app in light and dark mode on an emulator.
 - Testing: `StoriesRowJsTest` (the row with your story left as it is, without it Home reloaded, a
   row in another language reloaded blind, Home scrolled down left where it is);
   `ShareIntoFacebookTest` (a story posted with the app away: Home reloaded once it's back, not
-  before). Live: `createStoryOnHome_opensTheStoryCreator` also checks the Create story card's English
+  before; posted with the main view elsewhere: Home reloaded once the user is there). Live: `createStoryOnHome_opensTheStoryCreator` also checks the Create story card's English
   label, by which the script tells an English row; the user's own card can't be checked live without
   posting a story. The waits around `evaluateJavascript` are one helper now (`evaluated`, also used
   by the Messages layer's two).
