@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.astryx.book.notifications.Posting
 import com.astryx.book.notifications.PostingService
+import com.astryx.book.ui.screens.MusicChoice
 import com.astryx.book.ui.screens.NativeShare
 import com.astryx.book.ui.screens.ShareMediaJsTest
 import com.astryx.book.ui.screens.shareMediaScript
@@ -14,6 +15,8 @@ import com.astryx.book.ui.screens.StoryLayoutJsTest
 import com.astryx.book.utils.ShareMediaQueue
 import com.astryx.book.utils.SharedFile
 import com.astryx.book.utils.ShareTarget
+import com.astryx.book.utils.Song
+import com.astryx.book.utils.SongStart
 import com.astryx.book.utils.StoryTextLayer
 import com.eepiemi.materialbook.R
 import kotlinx.coroutines.runBlocking
@@ -298,7 +301,7 @@ class ShareIntoFacebookTest {
         share("ShareToStory", photo("story.png"), edit = false)
         val shared = app.nativeShare()
         assertTrue("the creator never loaded under the share screen", app.waitFor(20_000) { app.layerWebView() != null })
-        app.onActivity { it.nativeShare.onMusic() }
+        app.onActivity { it.nativeShare.onMusic(0) }
         assertTrue("the photo never went to the creator for its music", app.waitFor { shared.staged != null })
         assertTrue("the share's files weren't kept for the music picker", ShareMediaQueue.keepFiles)
         assertTrue("the creator isn't under the share screen", app.waitFor { app.layerOpen() })
@@ -315,7 +318,7 @@ class ShareIntoFacebookTest {
         share("ShareToStory", photo("story.png"), edit = false)
         val shared = app.nativeShare()
         assertTrue(app.waitFor(20_000) { app.layerWebView() != null })
-        app.onActivity { it.nativeShare.onMusic() }
+        app.onActivity { it.nativeShare.onMusic(0) }
         assertTrue(app.waitFor { shared.staged != null })
         val name = shared.staged
         app.onActivity { it.nativeShare.onRemoveMusic() }
@@ -323,7 +326,7 @@ class ShareIntoFacebookTest {
         assertTrue("the creator wasn't loaded again for the share", app.waitFor { ShareMediaQueue.preparing(ShareTarget.STORY) })
         assertTrue("the creator stayed on screen after the music was removed", app.waitFor { !app.layerOpen() })
 
-        app.onActivity { it.nativeShare.onMusic() }
+        app.onActivity { it.nativeShare.onMusic(0) }
         assertTrue(app.waitFor { shared.staged != null })
         app.onActivity {
             shared.altTexts[0] = "A test photo"
@@ -333,6 +336,27 @@ class ShareIntoFacebookTest {
             app.waitFor { ShareMediaQueue.auto && ShareMediaQueue.pressOnly == shared.staged })
         assertEquals("A test photo", ShareMediaQueue.altTexts[shared.staged])
         assertTrue("the staged photo's name changed: $name, ${shared.staged}", name == shared.staged)
+    }
+
+    // A story of several photos (♪ on each): the picker works on the photo on screen, the creator
+    // loaded again for another one; Share hands each photo's song along by its name (put in as its
+    // story comes), not only pressing the creator the picker used, and the texts stay free.
+    @Test
+    fun aStoryOfSeveralPhotos_hasASongPerPhoto_handedAlongOnShare() {
+        share("ShareToStory", photo("one.png"), photo("two.png"), edit = false)
+        val shared = app.nativeShare()
+        assertTrue(app.waitFor(20_000) { app.layerWebView() != null })
+        app.onActivity { it.nativeShare.onMusic(1) }
+        assertTrue("the second photo never went to the creator for its music", app.waitFor { shared.stagedPage == 1 })
+        val song = Song("7", "Sunshine", "Lesley Gore", "", 94_000)
+        app.onActivity { shared.musics[1] = MusicChoice(song, targetMs = 12_000, startMs = 12_000) }
+        app.onActivity { it.nativeShare.onMusic(0) }
+        assertTrue("the first photo didn't take the second's place in the creator", app.waitFor { shared.stagedPage == 0 })
+        assertEquals("the picker isn't on the first photo", null, shared.music)
+        app.onActivity { it.nativeShare.onShare() }
+        assertTrue({ "Share didn't hand the second photo's song along (${ShareMediaQueue.songs}, pressOnly ${ShareMediaQueue.pressOnly})" },
+            app.waitFor { ShareMediaQueue.auto && ShareMediaQueue.pressOnly == null && ShareMediaQueue.songs.isNotEmpty() })
+        assertEquals(mapOf(shared.files[1].name to SongStart(song, 12_000)), ShareMediaQueue.songs)
     }
 
     // An activity created again (font size, language) shows the same share, its text kept.
