@@ -1225,9 +1225,9 @@ class LiveFacebookCanaryTest {
         }) { }
         assertTrue({ "share_media.js never found Share to story ready after the music (pressStory; " +
             "${app.layerWebView()?.let { app.eval(STORY_LAYOUT_JS, it) + " share run " + app.eval("window.__astryxShareRunning", it) +
-                " dialogs " + app.eval("${shownJs("[role=dialog]")}.length", it) }})" }, app.waitFor(90_000) {
-            app.layerWebView()?.let { wouldPress(it) } == "Share to story"
-        })
+                " dialogs " + app.eval("JSON.stringify(${shownJs("[role=dialog]")}.map(function (d) {" +
+                    " return d.getAttribute('aria-label') || (d.innerText || '').replace(/\\s+/g, ' ').slice(0, 80); }))", it) }})" },
+            app.waitFor(90_000) { app.layerWebView()?.let { wouldPress(it) } == "Share to story" })
     }
 
     @Test
