@@ -192,8 +192,16 @@ class MessagesDesktopTest {
         assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/video.php?v=1921157935521831"))
         assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/NASA/videos/1921157935521831/"))
         assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/NASA/videos/some-title/1921157935521831"))
-        // Facebook's share link for it opens in the layer first, then redirects to one of those.
-        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute("https://www.facebook.com/share/v/1AbCdEf/", true))
+        // Facebook's share link for it opens in the layer first, then redirects to one of those
+        // (the phone's chat's, read over DevTools).
+        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute("https://www.facebook.com/share/v/1CeoTRrmv5/", true))
+        assertEquals(
+            MessagesLayerRoute.Leave("https://m.facebook.com/reel/1464498869141210/"),
+            messagesLayerRoute(
+                "https://www.facebook.com/watch/?share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1CeoTRrmv5%2F" +
+                    "&v=1464498869141210&rdid=SNzjAyeEJjkvqQhF", true
+            )
+        )
         // Not a video's own page: a Page's videos tab, and a Watch address naming none.
         assertNull(messagesLayerExit("https://www.facebook.com/NASA/videos/"))
         assertNull(messagesLayerExit("https://www.facebook.com/watch/?v=abc"))
