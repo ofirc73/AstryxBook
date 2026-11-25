@@ -70,24 +70,37 @@ private val SECTION_PATHS = setOf(
 )
 
 // A reel's own page (www.facebook.com/reel/<id>), as a reel shared in a chat opens.
-private val REEL_PAGE_PATH = Regex("^/reel/\\d+$")
+private val REEL_PAGE_PATH = Regex("^/reel/(\\d+)$")
+
+// A video's page on a Page or profile: /<page>/videos/<id>, or /<page>/videos/<title>/<id>.
+private val VIDEO_PAGE_PATH = Regex("^/[^/]+/videos/(?:[^/]+/)?(\\d+)$")
 
 // A reel's share link (/share/r/<id>).
 private val SHARE_REEL_URL = Regex("^https?://(?:[a-z0-9-]+\\.)*facebook\\.com/share/r/", RegexOption.IGNORE_CASE)
 
 /**
- * The reel behind a story's address: a reel's share link can come back as one
- * (story.php?story_fbid=<the reel's id>&id=<its owner>&share_url=<the /share/r/ link>, the web
- * fallback of an app link Facebook answered it with, for a reel posted as a video in a post; seen
- * on a Galaxy A56, 2026-10-25), which the mobile site shows as Home with the reel as a post. Its
- * own reel page instead, as a reel's share link that goes to /reel/<id> opens.
+ * The reel (or video) a page of the desktop site shows, for the mobile site's reel player
+ * (m.facebook.com/reel/<id>): a reel's own page; a video's (Watch's /watch/?v=<id>, /video.php?v=<id>,
+ * a Page's /<page>/videos/<id>), which the mobile site opens at /reel/<id> itself, a wide video too
+ * (tried 2026-11-26), where the desktop Watch page in the layer's phone-wide layout stood its "Video"
+ * heading a letter a line and pushed the video half off the screen (a video shared in a chat, a
+ * Galaxy A56, 2026-11-26); or the reel behind a story's address: a reel's share link can come back
+ * as one (story.php?story_fbid=<the reel's id>&id=<its owner>&share_url=<the /share/r/ link>, the
+ * web fallback of an app link Facebook answered it with, for a reel posted as a video in a post;
+ * seen on a Galaxy A56, 2026-10-25), which the mobile site shows as Home with the reel as a post.
  */
-private fun reelOfStory(path: String, query: String?): String? {
-    if (path != "/story.php" && path != "/permalink.php") return null
+private fun reelOf(path: String, query: String?): String? {
+    fun id(s: String?) = s?.takeIf { id -> id.isNotEmpty() && id.all { it.isDigit() } }
+    (REEL_PAGE_PATH.matchEntire(path) ?: VIDEO_PAGE_PATH.matchEntire(path))?.let { return it.groupValues[1] }
     val params = query?.split('&')?.associate { it.substringBefore('=') to it.substringAfter('=', "") } ?: return null
-    val shareUrl = params["share_url"]?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() } ?: return null
-    if (!SHARE_REEL_URL.containsMatchIn(shareUrl)) return null
-    return params["story_fbid"]?.takeIf { id -> id.isNotEmpty() && id.all { it.isDigit() } }
+    return when (path) {
+        "/watch", "/video.php" -> id(params["v"])
+        "/story.php", "/permalink.php" -> {
+            val shareUrl = params["share_url"]?.let { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() }
+            if (shareUrl != null && SHARE_REEL_URL.containsMatchIn(shareUrl)) id(params["story_fbid"]) else null
+        }
+        else -> null
+    }
 }
 
 // A post shared in a chat: its share link (/share/p/<id>, as the chat links it) or its own page.
@@ -97,7 +110,7 @@ private val POST_PAGE_PATH = Regex("^/(?:share/p/[^/]+|[^/]+/posts/[^/]+|permali
  * Leaving Messages for one of Facebook's sections (Home, Friends, Watch, the Reels tab, ...)
  * from inside the layer: that belongs in the main view, on the mobile site. Kept in the layer,
  * the desktop feed looked just like the main one, and reels opened from it played in the
- * desktop layout. A reel opened from a chat leaves too: the desktop reel page drew it small in
+ * desktop layout. A reel (or a video, [reelOf]) opened from a chat leaves too: the desktop reel page drew it small in
  * the layer's phone-wide layout, with no way to enlarge it, and it played without sound (seen on
  * a Galaxy A56); the mobile site's reel player shows it full size, with sound and PiP. A post
  * shared in a chat leaves the same way, so the chat is kept behind it like a reel's: opened in the
@@ -116,11 +129,11 @@ fun messagesLayerExit(url: String): MessagesLayerRoute.Leave? {
     if ((scheme != "http" && scheme != "https") || !isFacebookHost(host)) return null
     val path = (uri.rawPath ?: "").trimEnd('/')
     val query = uri.rawQuery
+    val reel = reelOf(path, query)
     return when {
         path.isEmpty() || path == "/home.php" || path == "/stories" -> MessagesLayerRoute.Leave(null)
+        reel != null -> MessagesLayerRoute.Leave("https://m.facebook.com/reel/$reel/")
         path == "/watch" && query?.contains("v=") == true -> null
-        REEL_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave("https://m.facebook.com$path/")
-        reelOfStory(path, query) != null -> MessagesLayerRoute.Leave("https://m.facebook.com/reel/${reelOfStory(path, query)}/")
         POST_PAGE_PATH.matches(path) -> MessagesLayerRoute.Leave(
             "https://m.facebook.com$path" + (if (path.endsWith(".php")) "" else "/") + (query?.let { "?$it" } ?: "")
         )
