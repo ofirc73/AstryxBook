@@ -21,7 +21,12 @@ kotlin {
 
 extensions.configure<ApplicationExtension> {
     namespace = "com.eepiemi.materialbook"
-    compileSdk = 37
+    // 37.1: Compose 1.13 (BOM 2026.11.01) builds only against it or later.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         applicationId = "com.astryx.book"
