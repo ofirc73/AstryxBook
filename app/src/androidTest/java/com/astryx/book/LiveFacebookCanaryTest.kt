@@ -741,7 +741,10 @@ class LiveFacebookCanaryTest {
                 "normal posts too")
         }
         assertCounted("feed ads", ads.hidden, AdsHidden.feed - counted)
-        if (ads.hidden == 0) gap("feed-ads", "no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
+        // The test account is shown no ads (none in any run since 2026-11-02, nor in 170 rows scrolled by
+        // hand): checked whenever one comes, else said, not warned of (issue 159 warned of it for weeks
+        // with nothing anyone could do). The phone's Ads removed count is the real-world check.
+        if (ads.hidden == 0) untestable("no ad on the feed in $FEED_SCREENS screens (${ads.posts} posts): Remove ads wasn't checked there")
     }
 
     // The ads adblock.js hid reached the app's count (AdsHidden: developer options and the log),
@@ -775,7 +778,8 @@ class LiveFacebookCanaryTest {
             fail("adblock.js emptied ${ads.hidden} of ${ads.posts} reels as ads")
         }
         assertCounted("reel ads", ads.hidden, AdsHidden.reels - counted)
-        if (ads.hidden == 0) gap("reel-ads", "no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
+        // As on the feed: the test account gets no reel ads.
+        if (ads.hidden == 0) untestable("no ad in ${ads.posts} reels: Remove ads wasn't checked on reels")
     }
 
     @Test

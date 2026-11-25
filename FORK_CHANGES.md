@@ -817,7 +817,9 @@ lost it as the page it asked for came (the copy-text check's "evaluateJavascript
   bar and Home's reload don't depend on Facebook's page (`PostingTest`, `ShareIntoFacebookTest`).
 - `removeAds_hidesTheFeedsAds`, `removeAds_emptiesTheReelsAds`: `adblock.js` (`ReelAdsJsTest`,
   `FeedPostJsTest`). An ad label it missed, found by its text, fails the check; a run that saw no
-  ad reports a gap (`feed-ads`, `reel-ads`); ads it did hide must have reached the app's count
+  ad says so as untestable (it reported a gap, `feed-ads`, `reel-ads`, until 2026-11-25: the test
+  account is never shown ads, and issue 159 warned of it for weeks with nothing to do; the phone's
+  Ads removed count is the real-world check); ads it did hide must have reached the app's count
   (`AdsHidden`). The feed check counts posts through `scripts.js` `feedPostRows` and fails
   when it finds none: it used to only note that (the test account has no friends, but its feed has
   group and suggested posts), which hid Home dropping the cards `adblock.js` looked for.
