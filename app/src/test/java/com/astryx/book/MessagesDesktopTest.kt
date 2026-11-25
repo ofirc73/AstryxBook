@@ -97,9 +97,8 @@ class MessagesDesktopTest {
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/groups/feed/"), messagesLayerExit("https://www.facebook.com/groups/feed/"))
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/reel/?s=tab"), messagesLayerExit("https://www.facebook.com/reel/?s=tab"))
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/watch/"), messagesLayerExit("https://www.facebook.com/watch/"))
-        // What a chat links to stays in the layer: a video, a group, a profile (a post leaves,
-        // aPostSharedInAChat_opensInTheMainView).
-        assertNull(messagesLayerExit("https://www.facebook.com/watch/?v=123"))
+        // What a chat links to stays in the layer: a group, a profile (a post, a reel and a video
+        // leave: aPostSharedInAChat_opensInTheMainView, aVideoSharedInAChat_opensInTheMainViewsReelPlayer).
         assertNull(messagesLayerExit("https://www.facebook.com/groups/somegroup/"))
         assertNull(messagesLayerExit("https://www.facebook.com/marketplace/item/1/"))
         assertNull(messagesLayerExit("https://www.facebook.com/profile.php?id=1"))
@@ -180,6 +179,25 @@ class MessagesDesktopTest {
         assertEquals(MessagesLayerRoute.Leave("https://m.facebook.com/reel/"), messagesLayerExit("https://www.facebook.com/reel/"))
         assertNull(messagesLayerExit("https://www.facebook.com/reel/abc"))
         assertNull(messagesLayerExit("https://www.facebook.com/reel/123/comments"))
+    }
+
+    @Test
+    fun aVideoSharedInAChat_opensInTheMainViewsReelPlayer() {
+        // The desktop Watch page, laid out phone-wide in the layer, stood its "Video" heading a
+        // letter a line and pushed the video half off the screen (a Galaxy A56, 2026-11-26). The
+        // mobile site opens any video's address at /reel/<id>, a wide video's too.
+        val mobileReel = MessagesLayerRoute.Leave("https://m.facebook.com/reel/1921157935521831/")
+        assertEquals(mobileReel, messagesLayerRoute("https://www.facebook.com/watch/?v=1921157935521831", true))
+        assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/watch?v=1921157935521831&rdid=x"))
+        assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/video.php?v=1921157935521831"))
+        assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/NASA/videos/1921157935521831/"))
+        assertEquals(mobileReel, messagesLayerExit("https://www.facebook.com/NASA/videos/some-title/1921157935521831"))
+        // Facebook's share link for it opens in the layer first, then redirects to one of those.
+        assertEquals(MessagesLayerRoute.Allow, messagesLayerRoute("https://www.facebook.com/share/v/1AbCdEf/", true))
+        // Not a video's own page: a Page's videos tab, and a Watch address naming none.
+        assertNull(messagesLayerExit("https://www.facebook.com/NASA/videos/"))
+        assertNull(messagesLayerExit("https://www.facebook.com/watch/?v=abc"))
+        assertNull(messagesLayerExit("https://www.facebook.com/video.php"))
     }
 
     @Test

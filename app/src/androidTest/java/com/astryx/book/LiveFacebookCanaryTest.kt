@@ -1026,8 +1026,22 @@ class LiveFacebookCanaryTest {
         // Some reels' share links (a reel posted as a video in a post) come back as the story's
         // address, which shows the reel as a post on Home (seen on a Galaxy A56, 2026-10-25; the
         // test account's links go to /reel/<id> directly). Followed inside Messages, such a story
-        // opens the reel's own page in the main view (MessagesDesktop reelOfStory); this checks
-        // Facebook still shows the reel at /reel/<story_fbid>. No chat needed: Messages' inbox.
+        // opens the reel's own page in the main view (MessagesDesktop reelOf); this checks
+        // Facebook still shows the reel at /reel/<story_fbid>.
+        followedInMessages_opensTheReelPage(STORY_OF_A_REEL, STORY_REEL_ID, "a reel's story")
+    }
+
+    @Test
+    fun aVideoFollowedInMessages_opensItsReelPage() {
+        // A video shared in a chat opened the desktop Watch page in the layer, laid out phone-wide
+        // with its video half off the screen (a Galaxy A56, 2026-11-26). Its Watch address now opens
+        // the mobile reel player (MessagesDesktop reelOf); this checks Facebook still shows a video,
+        // a wide one (NASA's) included, at /reel/<id>.
+        followedInMessages_opensTheReelPage("https://www.facebook.com/watch/?v=$WIDE_VIDEO_ID", WIDE_VIDEO_ID, "a video's Watch page")
+    }
+
+    /** [url], followed inside Messages (its inbox: no chat needed), opens reel [reelId]'s page in the main view. */
+    private fun followedInMessages_opensTheReelPage(url: String, reelId: String, what: String) {
         runBlocking { SettingsDataStore(app.context).setMessagesDesktop(true) }
         open("https://m.facebook.com/messages/")
         assertTrue({ "Messages never opened in the layer (${appState()})" }, app.waitFor(30_000) {
@@ -1039,12 +1053,12 @@ class LiveFacebookCanaryTest {
             app.onActivity { layer.progress } == 100 && app.eval("!!window.__astryxLayerNavInstalled", layer) == "true"
         })
         Thread.sleep(2000)
-        app.eval("location.href = '$STORY_OF_A_REEL'; 1", layer)
-        assertTrue({ "a reel's story didn't open the reel's page in the main view (MessagesDesktop reelOfStory) (${appState()})" },
-            app.waitFor(30_000) { app.url(app.mainWebView()).startsWith("https://m.facebook.com/reel/$STORY_REEL_ID") })
+        app.eval("location.href = '$url'; 1", layer)
+        assertTrue({ "$what didn't open the reel's page in the main view (MessagesDesktop reelOf) (${appState()})" },
+            app.waitFor(30_000) { app.url(app.mainWebView()).startsWith("https://m.facebook.com/reel/$reelId") })
         // Once (2026-11-10's daily run) the reel's address showed Home instead: the main view's
         // history says whether Facebook redirected it or the page moved there itself.
-        assertTrue({ "Facebook no longer shows the reel at /reel/<story_fbid> (${pageShape()}; main view: ${mainHistory()})" }, app.waitFor(30_000) {
+        assertTrue({ "Facebook no longer shows $what's reel at /reel/<id> (${pageShape()}; main view: ${mainHistory()})" }, app.waitFor(30_000) {
             eval("document.querySelectorAll('video').length > 0") == "true"
         })
     }
@@ -2314,6 +2328,8 @@ class LiveFacebookCanaryTest {
         // share link came back as: story_fbid is the reel's id, share_url a reel share link (a
         // made-up one: a real one names whoever shared it; only its shape counts).
         private const val STORY_REEL_ID = "1427052772729171"
+        // A wide (16:9) public video of NASA's, which the mobile site plays at /reel/<id> too.
+        private const val WIDE_VIDEO_ID = "1921157935521831"
         private const val STORY_OF_A_REEL = "https://m.facebook.com/story.php?story_fbid=$STORY_REEL_ID&id=61594936681030" +
             "&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fr%2FAstryxCanary%2F"
         // Fetches Facebook's stories page as the creator would move to it: "<status> <path>" once

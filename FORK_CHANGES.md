@@ -1110,10 +1110,19 @@ separate layer was added on top.
   the story's address (`story.php?story_fbid=<the reel's id>&share_url=<the /share/r/ link>`), so
   it opened as a post on Home while another reel in the same chat opened its reel page (seen on a
   Galaxy A56 with v1.35.17, recorded over DevTools). `messagesLayerExit` sends such a story, one
-  whose `share_url` is a reel's share link, to `m.facebook.com/reel/<story_fbid>/` (`MessagesDesktopTest`,
+  whose `share_url` is a reel's share link, to `m.facebook.com/reel/<story_fbid>/` (`reelOf`; `MessagesDesktopTest`,
   with the address the phone got). The test account's reel links go to `/reel/<id>` directly, so
   the live check `aReelThatComesBackAsAStory_opensItsReelPage` follows such a story address inside
   Messages (its inbox, no chat needed) and checks the reel's page opens and plays.
+- **A video shared in a chat opens in the reel player too.** Its "Click to see post" opened the
+  desktop Watch page in the layer, laid out phone-wide: the "Video" heading stood a letter a line
+  and the video was pushed half off the screen (seen on a Galaxy A56, 2026-11-26). A video's
+  address (`/watch/?v=<id>`, `/video.php?v=<id>`, `/<page>/videos/[<title>/]<id>`) now leaves like a
+  reel's, for `m.facebook.com/reel/<id>/`, with the chat kept behind it: the mobile site opens any
+  video's address there itself, a wide 16:9 one too (tried on the emulator). Facebook's `/share/v/`
+  link still opens in the layer first and leaves once it reaches one of those (`MessagesDesktopTest`;
+  live check `aVideoFollowedInMessages_opensItsReelPage`, a wide NASA video's Watch address followed
+  inside Messages).
 - **Back no longer replays a reel once Messages closes**: when the reel had taken the earlier
   page's place in the main view's history (a reel loaded before that page was kept), the main view
   loads that page again under the chat, and the reel used to stay behind it, so Back after
